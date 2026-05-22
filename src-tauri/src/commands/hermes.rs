@@ -2152,7 +2152,7 @@ fn merge_env_file(existing: &str, managed_keys: &[&str], new_pairs: &[(String, S
 // 并同步 Hermes 运行时仍会读取的 .env 变量。
 // ---------------------------------------------------------------------------
 
-const HERMES_CHANNEL_PLATFORMS: [&str; 4] = ["telegram", "discord", "slack", "feishu"];
+const HERMES_CHANNEL_PLATFORMS: [&str; 5] = ["telegram", "discord", "slack", "feishu", "dingtalk"];
 
 fn normalize_hermes_channel_platform(platform: &str) -> Option<&'static str> {
     let platform = platform.trim().to_ascii_lowercase();
@@ -2372,14 +2372,30 @@ fn build_hermes_channel_config_values(
                     "resolveSenderNames",
                 );
             }
+            "dingtalk" => {
+                insert_json_string_if_present(&mut form, &extra, "client_id", "clientId");
+                insert_json_string_if_present(&mut form, &extra, "client_secret", "clientSecret");
+                put_json_string_from_env(&mut form, env_values, "DINGTALK_CLIENT_ID", "clientId");
+                put_json_string_from_env(
+                    &mut form,
+                    env_values,
+                    "DINGTALK_CLIENT_SECRET",
+                    "clientSecret",
+                );
+            }
             _ => {}
         }
 
         insert_json_string_if_present(&mut form, &extra, "dm_policy", "dmPolicy");
         insert_json_string_if_present(&mut form, &extra, "group_policy", "groupPolicy");
         insert_json_bool_if_present(&mut form, &extra, "require_mention", "requireMention");
-        insert_json_csv_if_present(&mut form, &extra, "allow_from", "allowFrom");
-        insert_json_csv_if_present(&mut form, &extra, "group_allow_from", "groupAllowFrom");
+        if platform == "dingtalk" {
+            insert_json_csv_if_present(&mut form, &extra, "allowed_users", "allowFrom");
+            insert_json_csv_if_present(&mut form, &extra, "allowed_chats", "groupAllowFrom");
+        } else {
+            insert_json_csv_if_present(&mut form, &extra, "allow_from", "allowFrom");
+            insert_json_csv_if_present(&mut form, &extra, "group_allow_from", "groupAllowFrom");
+        }
         values.insert(platform.to_string(), Value::Object(form));
     }
 
@@ -2601,6 +2617,12 @@ fn merge_hermes_channel_config(
                 form_bool(form, "resolveSenderNames").unwrap_or(true),
             );
         }
+        "dingtalk" => {
+            delete_extra_key(entry, "client_id");
+            delete_extra_key(entry, "client_secret");
+            delete_extra_key(entry, "allow_from");
+            delete_extra_key(entry, "group_allow_from");
+        }
         _ => {}
     }
 
@@ -2622,10 +2644,20 @@ fn merge_hermes_channel_config(
         set_extra_bool(entry, "require_mention", value);
     }
     if let Some(values) = form_string_array(form, "allowFrom") {
-        set_extra_string_array(entry, "allow_from", values);
+        let key = if platform == "dingtalk" {
+            "allowed_users"
+        } else {
+            "allow_from"
+        };
+        set_extra_string_array(entry, key, values);
     }
     if let Some(values) = form_string_array(form, "groupAllowFrom") {
-        set_extra_string_array(entry, "group_allow_from", values);
+        let key = if platform == "dingtalk" {
+            "allowed_chats"
+        } else {
+            "group_allow_from"
+        };
+        set_extra_string_array(entry, key, values);
     }
 
     Ok(())
@@ -2764,6 +2796,24 @@ fn build_hermes_channel_env_updates(platform: &str, form: &Value) -> Vec<(String
                 .to_string(),
             );
         }
+        "dingtalk" => {
+            push(
+                "DINGTALK_CLIENT_ID",
+                form_string(form, "clientId").unwrap_or_default(),
+            );
+            push(
+                "DINGTALK_CLIENT_SECRET",
+                form_string(form, "clientSecret").unwrap_or_default(),
+            );
+            push("DINGTALK_ALLOWED_USERS", csv_env_value(form, "allowFrom"));
+            push(
+                "DINGTALK_ALLOWED_CHATS",
+                csv_env_value(form, "groupAllowFrom"),
+            );
+            if let Some(value) = form_bool(form, "requireMention") {
+                push("DINGTALK_REQUIRE_MENTION", bool_env_value(value));
+            }
+        }
         _ => {}
     }
 
@@ -2804,6 +2854,13 @@ fn write_hermes_channel_env(platform: &str, form: &Value) -> Result<(), String> 
             "FEISHU_GROUP_POLICY",
             "FEISHU_REQUIRE_MENTION",
             "FEISHU_REACTIONS",
+        ],
+        "dingtalk" => vec![
+            "DINGTALK_CLIENT_ID",
+            "DINGTALK_CLIENT_SECRET",
+            "DINGTALK_ALLOWED_USERS",
+            "DINGTALK_ALLOWED_CHATS",
+            "DINGTALK_REQUIRE_MENTION",
         ],
         _ => Vec::new(),
     };
@@ -7781,6 +7838,13 @@ platforms:
       app_secret: yaml-secret
       domain: lark
       connection_mode: webhook
+  dingtalk:
+    enabled: true
+    extra:
+      client_id: yaml-client-id
+      client_secret: yaml-client-secret
+      allowed_users: ["staff-1"]
+      allowed_chats: ["cid-1"]
 "#,
         )
         .unwrap();
@@ -7793,6 +7857,14 @@ platforms:
             "FEISHU_CONNECTION_MODE".to_string(),
             "websocket".to_string(),
         );
+        env.insert(
+            "DINGTALK_CLIENT_ID".to_string(),
+            "env-client-id".to_string(),
+        );
+        env.insert(
+            "DINGTALK_CLIENT_SECRET".to_string(),
+            "env-client-secret".to_string(),
+        );
 
         let values = build_hermes_channel_config_values(&config, &env);
 
@@ -7802,6 +7874,10 @@ platforms:
         assert_eq!(values["feishu"]["appSecret"], "env-secret");
         assert_eq!(values["feishu"]["domain"], "feishu");
         assert_eq!(values["feishu"]["connectionMode"], "websocket");
+        assert_eq!(values["dingtalk"]["clientId"], "env-client-id");
+        assert_eq!(values["dingtalk"]["clientSecret"], "env-client-secret");
+        assert_eq!(values["dingtalk"]["allowFrom"], "staff-1");
+        assert_eq!(values["dingtalk"]["groupAllowFrom"], "cid-1");
     }
 
     #[test]
@@ -7870,6 +7946,103 @@ platforms:
             "FEISHU_WEBHOOK_PATH".to_string(),
             "/feishu/webhook".to_string()
         )));
+    }
+
+    #[test]
+    fn merge_dingtalk_channel_uses_runtime_fields() {
+        let mut config: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+platforms:
+  dingtalk:
+    enabled: true
+    extra:
+      client_id: old-client-id
+      client_secret: old-client-secret
+      group_allow_from: ["legacy-chat"]
+      unknown_option: keep-me
+"#,
+        )
+        .unwrap();
+
+        merge_hermes_channel_config(
+            &mut config,
+            "dingtalk",
+            &json!({
+                "enabled": true,
+                "clientId": "ding-app-key",
+                "clientSecret": "ding-secret",
+                "allowFrom": "staff-1, staff-2",
+                "groupAllowFrom": "cid-1\ncid-2",
+                "requireMention": true,
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(config["platforms"]["dingtalk"]["enabled"], true);
+        assert_eq!(
+            config["platforms"]["dingtalk"]["extra"]["client_id"],
+            serde_yaml::Value::Null
+        );
+        assert_eq!(
+            config["platforms"]["dingtalk"]["extra"]["client_secret"],
+            serde_yaml::Value::Null
+        );
+        assert_eq!(
+            config["platforms"]["dingtalk"]["extra"]["group_allow_from"],
+            serde_yaml::Value::Null
+        );
+        assert_eq!(
+            config["platforms"]["dingtalk"]["extra"]["allowed_users"]
+                .as_sequence()
+                .unwrap()
+                .iter()
+                .filter_map(|item| item.as_str())
+                .collect::<Vec<_>>(),
+            vec!["staff-1", "staff-2"]
+        );
+        assert_eq!(
+            config["platforms"]["dingtalk"]["extra"]["allowed_chats"]
+                .as_sequence()
+                .unwrap()
+                .iter()
+                .filter_map(|item| item.as_str())
+                .collect::<Vec<_>>(),
+            vec!["cid-1", "cid-2"]
+        );
+        assert_eq!(
+            config["platforms"]["dingtalk"]["extra"]["require_mention"].as_bool(),
+            Some(true)
+        );
+        assert_eq!(
+            config["platforms"]["dingtalk"]["extra"]["unknown_option"].as_str(),
+            Some("keep-me")
+        );
+
+        let env = build_hermes_channel_env_updates(
+            "dingtalk",
+            &json!({
+                "clientId": "ding-app-key",
+                "clientSecret": "ding-secret",
+                "allowFrom": "staff-1, staff-2",
+                "groupAllowFrom": "cid-1\ncid-2",
+                "requireMention": true,
+            }),
+        );
+
+        assert!(env.contains(&("DINGTALK_CLIENT_ID".to_string(), "ding-app-key".to_string())));
+        assert!(env.contains(&(
+            "DINGTALK_CLIENT_SECRET".to_string(),
+            "ding-secret".to_string()
+        )));
+        assert!(env.contains(&(
+            "DINGTALK_ALLOWED_USERS".to_string(),
+            "staff-1,staff-2".to_string()
+        )));
+        assert!(env.contains(&(
+            "DINGTALK_ALLOWED_CHATS".to_string(),
+            "cid-1,cid-2".to_string()
+        )));
+        assert!(env.contains(&("DINGTALK_REQUIRE_MENTION".to_string(), "true".to_string())));
     }
 
     #[test]

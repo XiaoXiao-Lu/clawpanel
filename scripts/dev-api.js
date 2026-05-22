@@ -2694,7 +2694,7 @@ export function buildMessagingPlatformFormValues(platform, saved = {}, options =
   return form
 }
 
-const HERMES_CHANNEL_PLATFORMS = ['telegram', 'discord', 'slack', 'feishu']
+const HERMES_CHANNEL_PLATFORMS = ['telegram', 'discord', 'slack', 'feishu', 'dingtalk']
 
 function normalizeHermesPlatform(platform) {
   const p = String(platform || '').trim().toLowerCase()
@@ -2788,12 +2788,26 @@ export function buildHermesChannelConfigValues(config = {}, envValues = {}) {
       for (const key of ['typing_indicator', 'resolve_sender_names']) {
         putHermesBool(form, extra, key)
       }
+    } else if (platform === 'dingtalk') {
+      putHermesString(form, extra, 'client_id')
+      putHermesString(form, extra, 'client_secret')
+      form.clientId = hermesEnvValue(envValues, 'DINGTALK_CLIENT_ID') || form.clientId || ''
+      form.clientSecret = hermesEnvValue(envValues, 'DINGTALK_CLIENT_SECRET') || form.clientSecret || ''
     }
     putHermesString(form, extra, 'dm_policy')
     putHermesString(form, extra, 'group_policy')
     putHermesBool(form, extra, 'require_mention')
-    putHermesCsv(form, extra, 'allow_from')
-    putHermesCsv(form, extra, 'group_allow_from')
+    if (platform === 'dingtalk') {
+      putHermesCsv(form, extra, 'allowed_users')
+      if (form.allowedUsers && !form.allowFrom) form.allowFrom = form.allowedUsers
+      delete form.allowedUsers
+      putHermesCsv(form, extra, 'allowed_chats')
+      if (form.allowedChats && !form.groupAllowFrom) form.groupAllowFrom = form.allowedChats
+      delete form.allowedChats
+    } else {
+      putHermesCsv(form, extra, 'allow_from')
+      putHermesCsv(form, extra, 'group_allow_from')
+    }
     values[platform] = form
   }
   return values
@@ -2866,6 +2880,11 @@ export function mergeHermesChannelConfig(config = {}, platform, form = {}) {
     setHermesExtra(entry, 'reaction_notifications', normalized.reactionNotifications)
     setHermesExtra(entry, 'typing_indicator', !!normalized.typingIndicator)
     setHermesExtra(entry, 'resolve_sender_names', !!normalized.resolveSenderNames)
+  } else if (normalizedPlatform === 'dingtalk') {
+    deleteHermesExtraKey(entry, 'client_id')
+    deleteHermesExtraKey(entry, 'client_secret')
+    deleteHermesExtraKey(entry, 'allow_from')
+    deleteHermesExtraKey(entry, 'group_allow_from')
   }
   if (Object.hasOwn(normalized, 'dmPolicy')) setHermesExtra(entry, 'dm_policy', normalized.dmPolicy)
   if (Object.hasOwn(normalized, 'groupPolicy')) {
@@ -2873,8 +2892,12 @@ export function mergeHermesChannelConfig(config = {}, platform, form = {}) {
     if (normalizedPlatform === 'feishu') setHermesExtra(entry, 'default_group_policy', normalized.groupPolicy)
   }
   if (Object.hasOwn(normalized, 'requireMention')) setHermesExtra(entry, 'require_mention', !!normalized.requireMention)
-  if (Array.isArray(normalized.allowFrom)) setHermesExtra(entry, 'allow_from', normalized.allowFrom)
-  if (Array.isArray(normalized.groupAllowFrom)) setHermesExtra(entry, 'group_allow_from', normalized.groupAllowFrom)
+  if (Array.isArray(normalized.allowFrom)) {
+    setHermesExtra(entry, normalizedPlatform === 'dingtalk' ? 'allowed_users' : 'allow_from', normalized.allowFrom)
+  }
+  if (Array.isArray(normalized.groupAllowFrom)) {
+    setHermesExtra(entry, normalizedPlatform === 'dingtalk' ? 'allowed_chats' : 'group_allow_from', normalized.groupAllowFrom)
+  }
   next.platforms[normalizedPlatform] = entry
   return next
 }
@@ -2966,6 +2989,12 @@ export function buildHermesChannelEnvUpdates(platform, form = {}) {
     updates.FEISHU_GROUP_POLICY = String(form.groupPolicy || 'allowlist').trim()
     updates.FEISHU_REQUIRE_MENTION = Object.hasOwn(form, 'requireMention') ? boolEnvValue(form.requireMention) : 'true'
     updates.FEISHU_REACTIONS = String(form.reactionNotifications || '').trim() === 'off' ? 'false' : 'true'
+  } else if (platform === 'dingtalk') {
+    updates.DINGTALK_CLIENT_ID = String(form.clientId || '').trim()
+    updates.DINGTALK_CLIENT_SECRET = String(form.clientSecret || '').trim()
+    updates.DINGTALK_ALLOWED_USERS = csvEnvValue(form.allowFrom)
+    updates.DINGTALK_ALLOWED_CHATS = csvEnvValue(form.groupAllowFrom)
+    if (Object.hasOwn(form, 'requireMention')) updates.DINGTALK_REQUIRE_MENTION = boolEnvValue(form.requireMention)
   }
   return updates
 }

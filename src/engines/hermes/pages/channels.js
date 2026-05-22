@@ -60,6 +60,17 @@ const CHANNELS = [
       { key: 'resolveSenderNames', labelKey: 'engine.hermesChannelResolveSenderNames' },
     ],
   },
+  {
+    id: 'dingtalk',
+    icon: 'message-circle',
+    titleKey: 'engine.hermesChannelDingTalk',
+    descKey: 'engine.hermesChannelDingTalkDesc',
+    secretFields: ['clientSecret'],
+    fields: [
+      { key: 'clientId', labelKey: 'engine.hermesChannelDingTalkClientId', type: 'text', placeholder: 'dingxxxxxx' },
+      { key: 'clientSecret', labelKey: 'engine.hermesChannelDingTalkClientSecret', type: 'password', placeholder: 'client secret' },
+    ],
+  },
 ]
 
 const COMMON_FIELDS = [

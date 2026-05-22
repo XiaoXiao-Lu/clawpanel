@@ -50,6 +50,15 @@ test('Hermes 渠道读取会按运行时优先级合并 .env 凭证', () => {
           connection_mode: 'webhook',
         },
       },
+      dingtalk: {
+        enabled: true,
+        extra: {
+          client_id: 'yaml-client-id',
+          client_secret: 'yaml-client-secret',
+          allowed_users: ['staff-1'],
+          allowed_chats: ['cid-1'],
+        },
+      },
     },
   }, {
     TELEGRAM_BOT_TOKEN: 'env-token',
@@ -57,6 +66,8 @@ test('Hermes 渠道读取会按运行时优先级合并 .env 凭证', () => {
     FEISHU_APP_SECRET: 'env-secret',
     FEISHU_DOMAIN: 'feishu',
     FEISHU_CONNECTION_MODE: 'websocket',
+    DINGTALK_CLIENT_ID: 'env-client-id',
+    DINGTALK_CLIENT_SECRET: 'env-client-secret',
   })
 
   assert.equal(values.telegram.botToken, 'env-token')
@@ -65,6 +76,10 @@ test('Hermes 渠道读取会按运行时优先级合并 .env 凭证', () => {
   assert.equal(values.feishu.appSecret, 'env-secret')
   assert.equal(values.feishu.domain, 'feishu')
   assert.equal(values.feishu.connectionMode, 'websocket')
+  assert.equal(values.dingtalk.clientId, 'env-client-id')
+  assert.equal(values.dingtalk.clientSecret, 'env-client-secret')
+  assert.equal(values.dingtalk.allowFrom, 'staff-1')
+  assert.equal(values.dingtalk.groupAllowFrom, 'cid-1')
 })
 
 test('Hermes 渠道保存会写入 Hermes 最新 platforms 配置并保留无关配置', () => {
@@ -152,6 +167,20 @@ test('Hermes 渠道保存会生成运行时仍会读取的环境变量', () => {
   assert.equal(feishuEnv.FEISHU_WEBHOOK_PATH, '/feishu/webhook')
   assert.equal(feishuEnv.FEISHU_GROUP_POLICY, 'allowlist')
   assert.equal(feishuEnv.FEISHU_REACTIONS, 'false')
+
+  const dingTalkEnv = buildHermesChannelEnvUpdates('dingtalk', {
+    clientId: 'ding-app-key',
+    clientSecret: 'ding-secret',
+    allowFrom: 'staff-1, staff-2',
+    groupAllowFrom: 'cid-1\ncid-2',
+    requireMention: true,
+  })
+
+  assert.equal(dingTalkEnv.DINGTALK_CLIENT_ID, 'ding-app-key')
+  assert.equal(dingTalkEnv.DINGTALK_CLIENT_SECRET, 'ding-secret')
+  assert.equal(dingTalkEnv.DINGTALK_ALLOWED_USERS, 'staff-1,staff-2')
+  assert.equal(dingTalkEnv.DINGTALK_ALLOWED_CHATS, 'cid-1,cid-2')
+  assert.equal(dingTalkEnv.DINGTALK_REQUIRE_MENTION, 'true')
 })
 
 test('Hermes 渠道保存会从 YAML 清理旧凭证，避免覆盖 .env 运行时值', () => {
@@ -181,4 +210,36 @@ test('Hermes 渠道保存会从 YAML 清理旧凭证，避免覆盖 .env 运行�
   assert.equal(next.platforms.slack.extra.signing_secret, undefined)
   assert.equal(next.platforms.slack.extra.webhook_path, '/slack/events')
   assert.equal(next.platforms.slack.extra.unknown_option, 'keep-me')
+})
+
+test('Hermes 钉钉保存会使用运行时实际读取的字段', () => {
+  const next = mergeHermesChannelConfig({
+    platforms: {
+      dingtalk: {
+        enabled: true,
+        extra: {
+          client_id: 'old-client-id',
+          client_secret: 'old-client-secret',
+          group_allow_from: ['legacy-chat'],
+          unknown_option: 'keep-me',
+        },
+      },
+    },
+  }, 'dingtalk', {
+    enabled: true,
+    clientId: 'ding-app-key',
+    clientSecret: 'ding-secret',
+    allowFrom: 'staff-1, staff-2',
+    groupAllowFrom: 'cid-1\ncid-2',
+    requireMention: true,
+  })
+
+  assert.equal(next.platforms.dingtalk.enabled, true)
+  assert.equal(next.platforms.dingtalk.extra.client_id, undefined)
+  assert.equal(next.platforms.dingtalk.extra.client_secret, undefined)
+  assert.equal(next.platforms.dingtalk.extra.group_allow_from, undefined)
+  assert.deepEqual(next.platforms.dingtalk.extra.allowed_users, ['staff-1', 'staff-2'])
+  assert.deepEqual(next.platforms.dingtalk.extra.allowed_chats, ['cid-1', 'cid-2'])
+  assert.equal(next.platforms.dingtalk.extra.require_mention, true)
+  assert.equal(next.platforms.dingtalk.extra.unknown_option, 'keep-me')
 })
