@@ -11,6 +11,12 @@ import { CHANNEL_LABELS } from '../lib/channel-labels.js'
 import { t } from '../lib/i18n.js'
 import { termHelpHtml, attachTermTooltips } from '../lib/term-tooltip.js'
 import { wsClient } from '../lib/ws-client.js'
+import {
+  formatRuntimeAge,
+  getChannelRuntimeSummary,
+  getRuntimeStateMeta,
+  normalizeChannelRuntimeStatus,
+} from '../lib/channel-runtime.js'
 
 // ── 渠道注册表：面板内置向导，覆盖 OpenClaw 官方渠道 + 国内扩展渠道 ──
 
@@ -301,6 +307,8 @@ export async function render() {
     configured: [],
     bindings: [],
     agents: [],
+    runtimeStatus: normalizeChannelRuntimeStatus(null),
+    runtimeStatusError: '',
     routeIntent: parseChannelsRouteIntent(),
     routeIntentConsumed: false,
     routeIntentHintShown: false,
@@ -346,6 +354,26 @@ async function loadPlatforms(page, state) {
   renderAvailable(page, state)
   renderAgentBindings(page, state)
   applyRouteIntent(page, state)
+  refreshChannelRuntimeStatus(page, state, { probe: true, timeoutMs: 5000 })
+}
+
+async function loadChannelRuntimeStatus(state, options = {}) {
+  state.runtimeStatusError = ''
+  try {
+    const raw = await wsClient.requestCompat('channels.status', {
+      probe: options.probe !== false,
+      timeoutMs: options.timeoutMs || 5000,
+    }, null)
+    state.runtimeStatus = normalizeChannelRuntimeStatus(raw)
+  } catch (e) {
+    state.runtimeStatus = normalizeChannelRuntimeStatus(null)
+    state.runtimeStatusError = e?.message || String(e)
+  }
+}
+
+async function refreshChannelRuntimeStatus(page, state, options = {}) {
+  await loadChannelRuntimeStatus(state, options)
+  renderConfigured(page, state)
 }
 
 function applyRouteIntent(page, state) {
@@ -390,6 +418,129 @@ function platformLabel(pid) {
   return PLATFORM_REGISTRY[pid]?.label || CHANNEL_LABELS[pid] || pid
 }
 
+function renderRuntimeNotice(state) {
+  if (state.runtimeStatusError) {
+    return `
+      <div class="channel-runtime-notice error">
+        ${icon('alert-triangle', 14)}
+        <span>无法读取 Gateway 渠道运行态：${escapeAttr(state.runtimeStatusError)}</span>
+      </div>
+    `
+  }
+  if (!state.runtimeStatus?.supported) {
+    return `
+      <div class="channel-runtime-notice warning">
+        ${icon('alert-triangle', 14)}
+        <span>当前 OpenClaw 内核不支持通用渠道运行态，请升级到新版内核；配置编辑仍可继续使用。</span>
+      </div>
+    `
+  }
+  const warnings = Array.isArray(state.runtimeStatus.warnings) ? state.runtimeStatus.warnings : []
+  if (state.runtimeStatus.partial || warnings.length) {
+    return `
+      <div class="channel-runtime-notice warning">
+        ${icon('alert-triangle', 14)}
+        <span>${state.runtimeStatus.partial ? '运行态结果不完整' : '运行态探测有提示'}${warnings.length ? `：${escapeAttr(warnings.join('；'))}` : ''}</span>
+      </div>
+    `
+  }
+  return ''
+}
+
+function renderRuntimeBadge(summary) {
+  if (!summary.supported) return ''
+  const meta = getRuntimeStateMeta(summary.state)
+  return `<span class="runtime-badge ${meta.tone}" title="Gateway 运行态">${icon(meta.icon, 12)} ${meta.label}</span>`
+}
+
+function renderRuntimeSummary(summary) {
+  if (!summary.supported) {
+    return `<div class="channel-runtime-summary muted">通用运行态不可用</div>`
+  }
+  const parts = []
+  if (summary.counts.total) parts.push(`${summary.counts.total} 个账号`)
+  if (summary.counts.connected) parts.push(`${summary.counts.connected} 已连接`)
+  if (summary.counts.running) parts.push(`${summary.counts.running} 运行中`)
+  if (summary.counts.error) parts.push(`${summary.counts.error} 异常`)
+  if (summary.lastInboundAt) parts.push(`最近接收 ${formatRuntimeAge(summary.lastInboundAt)}`)
+  if (summary.lastOutboundAt) parts.push(`最近发送 ${formatRuntimeAge(summary.lastOutboundAt)}`)
+  if (summary.lastError) parts.push(`错误：${summary.lastError}`)
+  return `<div class="channel-runtime-summary ${summary.state}">${escapeAttr(parts.join(' · ') || 'Gateway 暂未返回账号状态')}</div>`
+}
+
+function renderRuntimeAccountInfo(summary, accountId) {
+  if (!summary.supported) return ''
+  const normalizedAccountId = accountId || 'default'
+  const account = summary.accounts.find(a => (a.accountId || 'default') === normalizedAccountId)
+    || (!accountId ? summary.accounts.find(a => a.accountId === summary.defaultAccountId) : null)
+  if (!account) return ''
+  const meta = getRuntimeStateMeta(account.state)
+  const details = []
+  if (account.lastError) details.push(account.lastError)
+  if (account.healthState) details.push(`health=${account.healthState}`)
+  if (account.lastInboundAt) details.push(`收 ${formatRuntimeAge(account.lastInboundAt)}`)
+  if (account.lastOutboundAt) details.push(`发 ${formatRuntimeAge(account.lastOutboundAt)}`)
+  if (account.probe && typeof account.probe === 'object' && account.probe.ok === false) details.push('探测失败')
+  return `
+    <span class="runtime-account ${meta.tone}" title="${escapeAttr(details.join(' · ') || meta.label)}">
+      ${icon(meta.icon, 12)} ${meta.label}
+    </span>
+  `
+}
+
+function renderRuntimeActions(summary, accountId = '') {
+  if (!summary.supported) {
+    return `<button class="btn btn-sm btn-secondary" data-runtime-action="refresh">${icon('refresh-cw', 14)} 刷新状态</button>`
+  }
+  const accountAttr = escapeAttr(accountId || '')
+  const stopDisabled = summary.state === 'missing' || summary.state === 'configured'
+  const logoutDisabled = summary.state === 'missing'
+  return `
+    <button class="btn btn-sm btn-secondary" data-runtime-action="refresh" data-account-id="${accountAttr}" title="刷新 Gateway 渠道状态">${icon('refresh-cw', 14)} 刷新</button>
+    <button class="btn btn-sm btn-secondary" data-runtime-action="start" data-account-id="${accountAttr}" title="启动该渠道运行时">${icon('play', 14)} 启动</button>
+    <button class="btn btn-sm btn-secondary" data-runtime-action="stop" data-account-id="${accountAttr}" ${stopDisabled ? 'disabled' : ''} title="停止该渠道运行时">${icon('stop', 14)} 停止</button>
+    <button class="btn btn-sm btn-secondary" data-runtime-action="logout" data-account-id="${accountAttr}" ${logoutDisabled ? 'disabled' : ''} title="注销该渠道账号登录态">${icon('x-circle', 14)} 注销</button>
+  `
+}
+
+async function handleRuntimeAction(pid, action, accountId, btn, page, state) {
+  const channel = getChannelBindingKey(pid)
+  const prevHtml = btn?.innerHTML
+  if (btn) {
+    btn.disabled = true
+    btn.textContent = action === 'refresh' ? '刷新中' : '处理中'
+  }
+  try {
+    if (action === 'refresh') {
+      await loadChannelRuntimeStatus(state, { probe: true, timeoutMs: 7000 })
+      renderConfigured(page, state)
+      toast('渠道运行态已刷新', 'success')
+      return
+    }
+
+    if (!wsClient.connected || !wsClient.gatewayReady) {
+      throw new Error('Gateway WebSocket 未连接，请先启动 OpenClaw Gateway')
+    }
+
+    const params = { channel }
+    if (accountId) params.accountId = accountId
+    await wsClient.request(`channels.${action}`, params)
+    await loadChannelRuntimeStatus(state, { probe: true, timeoutMs: 7000 })
+    renderConfigured(page, state)
+    const actionText = action === 'start' ? '启动' : action === 'stop' ? '停止' : '注销'
+    toast(`${platformLabel(pid)} ${actionText}完成`, 'success')
+  } catch (e) {
+    state.runtimeStatusError = e?.message || String(e)
+    renderConfigured(page, state)
+    toast(humanizeError(e, '渠道运行时操作失败'), 'error')
+  } finally {
+    if (btn) {
+      btn.disabled = false
+      if (prevHtml != null) btn.innerHTML = prevHtml
+    }
+  }
+}
+
 function renderConfigured(page, state) {
   const el = page.querySelector('#platforms-configured')
   if (!state.configured.length) {
@@ -400,12 +551,14 @@ function renderConfigured(page, state) {
   el.innerHTML = `
     <div class="config-section">
       <div class="config-section-title">${t('channels.configured')}</div>
+      ${renderRuntimeNotice(state)}
       <div class="platforms-grid">
         ${state.configured.map(p => {
           const reg = PLATFORM_REGISTRY[p.id]
           const label = platformLabel(p.id)
           const ic = icon(reg?.iconName || 'radio', 22)
           const channelKey = getChannelBindingKey(p.id)
+          const runtimeSummary = getChannelRuntimeSummary(state.runtimeStatus, channelKey, label)
           const accounts = Array.isArray(p.accounts) ? p.accounts : []
           const hasAccounts = accounts.length > 0
           const supportsMulti = MULTI_INSTANCE_PLATFORMS.includes(p.id)
@@ -426,6 +579,7 @@ function renderConfigured(page, state) {
                   <span class="account-id">${escapeAttr(accId)}</span>
                   ${acc.appId ? `<span class="account-appid">${escapeAttr(acc.appId)}</span>` : ''}
                   ${badgesHtml}
+                  ${renderRuntimeAccountInfo(runtimeSummary, acc.accountId || '')}
                   <span class="account-actions">
                     <button class="btn btn-xs btn-secondary" data-action="edit-account" data-account-id="${escapeAttr(acc.accountId || '')}">${icon('edit', 12)} ${t('channels.editAccount')}</button>
                     <button class="btn btn-xs btn-danger" data-action="remove-account" data-account-id="${escapeAttr(acc.accountId || '')}">${icon('trash', 12)}</button>
@@ -440,10 +594,13 @@ function renderConfigured(page, state) {
                   <span class="platform-emoji">${ic}</span>
                   <span class="platform-name">${label}</span>
                   <span class="account-count">${t('channels.accountCount', { count: accounts.length })}</span>
+                  ${renderRuntimeBadge(runtimeSummary)}
                   <span class="platform-status-dot ${p.enabled ? 'on' : 'off'}"></span>
                 </div>
+                ${renderRuntimeSummary(runtimeSummary)}
                 <div class="platform-accounts">${accountsHtml}</div>
                 <div class="platform-card-actions">
+                  ${renderRuntimeActions(runtimeSummary)}
                   ${supportsMulti ? `<button class="btn btn-sm btn-secondary" data-action="add-account">${icon('plus', 14)} ${t('channels.addAccount')}</button>` : ''}
                   ${reg ? `<button class="btn btn-sm btn-secondary" data-action="edit">${icon('edit', 14)} ${t('channels.editDefault')}</button>` : `<span class="form-hint" style="align-self:center">${t('channels.noGuide')}</span>`}
                   <button class="btn btn-sm btn-secondary" data-action="toggle">${p.enabled ? icon('pause', 14) + ' ' + t('channels.disable') : icon('play', 14) + ' ' + t('channels.enable')}</button>
@@ -465,9 +622,12 @@ function renderConfigured(page, state) {
                 <span class="platform-emoji">${ic}</span>
                 <span class="platform-name">${label}</span>
                 ${agentBadges}
+                ${renderRuntimeBadge(runtimeSummary)}
                 <span class="platform-status-dot ${p.enabled ? 'on' : 'off'}"></span>
               </div>
+              ${renderRuntimeSummary(runtimeSummary)}
               <div class="platform-card-actions">
+                ${renderRuntimeActions(runtimeSummary)}
                 ${supportsMulti ? `<button class="btn btn-sm btn-secondary" data-action="add-account">${icon('plus', 14)} ${t('channels.addAccount')}</button>` : ''}
                 ${reg ? `<button class="btn btn-sm btn-secondary" data-action="edit">${icon('edit', 14)} ${t('channels.editAccount')}</button>` : `<span class="form-hint" style="align-self:center">${t('channels.noGuide')}</span>`}
                 <button class="btn btn-sm btn-secondary" data-action="toggle">${p.enabled ? icon('pause', 14) + ' ' + t('channels.disable') : icon('play', 14) + ' ' + t('channels.enable')}</button>
@@ -691,6 +851,11 @@ function renderConfigured(page, state) {
 
     card.querySelector('[data-action="add-account"]')?.addEventListener('click', () => openConfigDialog(pid, page, state, ''))
     card.querySelector('[data-action="edit"]')?.addEventListener('click', () => openConfigDialog(pid, page, state))
+    card.querySelectorAll('[data-runtime-action]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        handleRuntimeAction(pid, btn.dataset.runtimeAction, btn.dataset.accountId || '', btn, page, state)
+      })
+    })
 
     card.querySelectorAll('[data-action="edit-account"]').forEach(btn => {
       btn.addEventListener('click', () => {
