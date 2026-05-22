@@ -441,6 +441,49 @@ fn merge_channel_entry(
     channels_map.insert(key.to_string(), Value::Object(merged));
 }
 
+/// 合并账号级渠道配置：保留渠道根节点和账号已有自定义字段，只覆盖本次表单字段。
+fn merge_account_channel_entry(
+    channels_map: &mut Map<String, Value>,
+    key: &str,
+    account_id: &str,
+    new_entry: Map<String, Value>,
+) -> Result<(), String> {
+    let channel = channels_map
+        .entry(key.to_string())
+        .or_insert_with(|| json!({ "enabled": true }));
+    let channel_obj = channel
+        .as_object_mut()
+        .ok_or(format!("{} 节点格式错误", key))?;
+    channel_obj.insert("enabled".into(), Value::Bool(true));
+    let accounts = channel_obj.entry("accounts").or_insert_with(|| json!({}));
+    let accounts_obj = accounts.as_object_mut().ok_or("accounts 格式错误")?;
+    let merged = if let Some(Value::Object(existing)) = accounts_obj.get(account_id) {
+        let mut m = existing.clone();
+        for (k, v) in new_entry {
+            m.insert(k, v);
+        }
+        m
+    } else {
+        new_entry
+    };
+    accounts_obj.insert(account_id.to_string(), Value::Object(merged));
+    Ok(())
+}
+
+fn merge_channel_entry_for_account(
+    channels_map: &mut Map<String, Value>,
+    key: &str,
+    account_id: Option<&str>,
+    new_entry: Map<String, Value>,
+) -> Result<(), String> {
+    if let Some(acct) = account_id.map(str::trim).filter(|s| !s.is_empty()) {
+        merge_account_channel_entry(channels_map, key, acct, new_entry)
+    } else {
+        merge_channel_entry(channels_map, key, new_entry);
+        Ok(())
+    }
+}
+
 fn normalize_binding_match_value(value: &Value) -> Option<Value> {
     match value {
         Value::Null => None,
@@ -1034,7 +1077,7 @@ pub async fn save_messaging_platform(
 
             // 合并到现有配置，保留用户通过 CLI 设置的 streaming / retry / dmPolicy 等
             preserve_messaging_credential_refs(&mut entry, form_obj, &current_saved);
-            merge_channel_entry(channels_map, "discord", entry);
+            merge_channel_entry_for_account(channels_map, "discord", account_id.as_deref(), entry)?;
             // 仅在首次创建时设置默认值，不覆盖用户已有的设置
             if let Some(Value::Object(d)) = channels_map.get_mut("discord") {
                 d.entry("groupPolicy")
@@ -1064,7 +1107,12 @@ pub async fn save_messaging_platform(
             put_array_from_form_value(&mut entry, "allowFrom", form_obj.get("allowFrom"));
 
             preserve_messaging_credential_refs(&mut entry, form_obj, &current_saved);
-            merge_channel_entry(channels_map, "telegram", entry);
+            merge_channel_entry_for_account(
+                channels_map,
+                "telegram",
+                account_id.as_deref(),
+                entry,
+            )?;
         }
         "qqbot" => {
             let app_id = form_obj
@@ -1180,23 +1228,12 @@ pub async fn save_messaging_platform(
             put_bool_value_if_present(&mut entry, "requireMention", form_obj.get("requireMention"));
             preserve_messaging_credential_refs(&mut entry, form_obj, &current_saved);
 
-            // 多账号模式：写入 channels.<storage_key>.accounts.<account_id>
-            if let Some(ref acct) = account_id {
-                if !acct.is_empty() {
-                    let feishu = channels_map
-                        .entry(storage_key.as_str())
-                        .or_insert_with(|| json!({ "enabled": true }));
-                    let feishu_obj = feishu.as_object_mut().ok_or("飞书节点格式错误")?;
-                    feishu_obj.entry("enabled").or_insert(Value::Bool(true));
-                    let accounts = feishu_obj.entry("accounts").or_insert_with(|| json!({}));
-                    let accounts_obj = accounts.as_object_mut().ok_or("accounts 格式错误")?;
-                    accounts_obj.insert(acct.clone(), Value::Object(entry));
-                } else {
-                    merge_channel_entry(channels_map, &storage_key, entry);
-                }
-            } else {
-                merge_channel_entry(channels_map, &storage_key, entry);
-            }
+            merge_channel_entry_for_account(
+                channels_map,
+                &storage_key,
+                account_id.as_deref(),
+                entry,
+            )?;
             ensure_plugin_allowed(&mut cfg, "openclaw-lark")?;
             // 禁用旧版 feishu 插件，防止新旧插件同时运行冲突
             disable_legacy_plugin(&mut cfg, "feishu");
@@ -1248,7 +1285,12 @@ pub async fn save_messaging_platform(
             }
 
             preserve_messaging_credential_refs(&mut entry, form_obj, &current_saved);
-            merge_channel_entry(channels_map, &storage_key, entry);
+            merge_channel_entry_for_account(
+                channels_map,
+                &storage_key,
+                account_id.as_deref(),
+                entry,
+            )?;
             ensure_plugin_allowed(&mut cfg, "dingtalk-connector")?;
             ensure_chat_completions_enabled(&mut cfg)?;
             let _ = cleanup_legacy_plugin_backup_dir("dingtalk-connector");
@@ -1304,7 +1346,12 @@ pub async fn save_messaging_platform(
             );
             put_array_from_form_value(&mut entry, "allowFrom", form_obj.get("allowFrom"));
             preserve_messaging_credential_refs(&mut entry, form_obj, &current_saved);
-            merge_channel_entry(channels_map, &storage_key, entry);
+            merge_channel_entry_for_account(
+                channels_map,
+                &storage_key,
+                account_id.as_deref(),
+                entry,
+            )?;
         }
         "whatsapp" => {
             let mut entry = Map::new();
@@ -1317,7 +1364,12 @@ pub async fn save_messaging_platform(
             );
             put_array_from_form_value(&mut entry, "allowFrom", form_obj.get("allowFrom"));
             put_bool_from_form(&mut entry, "enabled", &form_string(form_obj, "enabled"));
-            merge_channel_entry(channels_map, &storage_key, entry);
+            merge_channel_entry_for_account(
+                channels_map,
+                &storage_key,
+                account_id.as_deref(),
+                entry,
+            )?;
         }
         "signal" => {
             let account = form_string(form_obj, "account");
@@ -1340,7 +1392,12 @@ pub async fn save_messaging_platform(
             );
             put_array_from_form_value(&mut entry, "allowFrom", form_obj.get("allowFrom"));
             preserve_messaging_credential_refs(&mut entry, form_obj, &current_saved);
-            merge_channel_entry(channels_map, &storage_key, entry);
+            merge_channel_entry_for_account(
+                channels_map,
+                &storage_key,
+                account_id.as_deref(),
+                entry,
+            )?;
         }
         "matrix" => {
             let homeserver = form_string(form_obj, "homeserver");
@@ -1371,7 +1428,12 @@ pub async fn save_messaging_platform(
             put_bool_from_form(&mut entry, "e2ee", &form_string(form_obj, "e2ee"));
             put_array_from_form_value(&mut entry, "allowFrom", form_obj.get("allowFrom"));
             preserve_messaging_credential_refs(&mut entry, form_obj, &current_saved);
-            merge_channel_entry(channels_map, &storage_key, entry);
+            merge_channel_entry_for_account(
+                channels_map,
+                &storage_key,
+                account_id.as_deref(),
+                entry,
+            )?;
             ensure_plugin_allowed(&mut cfg, "matrix")?;
         }
         "msteams" => {
@@ -1405,7 +1467,12 @@ pub async fn save_messaging_platform(
             put_bool_value_if_present(&mut entry, "requireMention", form_obj.get("requireMention"));
             put_array_from_form_value(&mut entry, "allowFrom", form_obj.get("allowFrom"));
             preserve_messaging_credential_refs(&mut entry, form_obj, &current_saved);
-            merge_channel_entry(channels_map, &storage_key, entry);
+            merge_channel_entry_for_account(
+                channels_map,
+                &storage_key,
+                account_id.as_deref(),
+                entry,
+            )?;
             ensure_plugin_allowed(&mut cfg, "msteams")?;
         }
         _ => {
@@ -1416,7 +1483,12 @@ pub async fn save_messaging_platform(
             }
             entry.insert("enabled".into(), Value::Bool(true));
             preserve_messaging_credential_refs(&mut entry, form_obj, &current_saved);
-            merge_channel_entry(channels_map, &storage_key, entry);
+            merge_channel_entry_for_account(
+                channels_map,
+                &storage_key,
+                account_id.as_deref(),
+                entry,
+            )?;
         }
     }
 

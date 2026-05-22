@@ -3069,6 +3069,86 @@ function bindingIdentityMatches(binding, agentId, targetMatch) {
   )
 }
 
+function mergeMessagingRootEntry(cfg, storageKey, entry) {
+  if (!cfg.channels || typeof cfg.channels !== 'object' || Array.isArray(cfg.channels)) cfg.channels = {}
+  const existing = cfg.channels[storageKey]
+  cfg.channels[storageKey] = existing && typeof existing === 'object' && !Array.isArray(existing)
+    ? { ...existing, ...entry }
+    : entry
+}
+
+function mergeMessagingAccountEntry(cfg, storageKey, accountId, entry) {
+  if (!cfg.channels || typeof cfg.channels !== 'object' || Array.isArray(cfg.channels)) cfg.channels = {}
+  const existingRoot = cfg.channels[storageKey]
+  const root = existingRoot && typeof existingRoot === 'object' && !Array.isArray(existingRoot)
+    ? existingRoot
+    : { enabled: true }
+  root.enabled = true
+  if (!root.accounts || typeof root.accounts !== 'object' || Array.isArray(root.accounts)) root.accounts = {}
+  const existingAccount = root.accounts[accountId]
+  root.accounts[accountId] = existingAccount && typeof existingAccount === 'object' && !Array.isArray(existingAccount)
+    ? { ...existingAccount, ...entry }
+    : entry
+  cfg.channels[storageKey] = root
+}
+
+function applyMessagingPlatformEntry(cfg, storageKey, accountId, entry) {
+  const normalizedAccountId = typeof accountId === 'string' ? accountId.trim() : ''
+  if (normalizedAccountId) {
+    mergeMessagingAccountEntry(cfg, storageKey, normalizedAccountId, entry)
+  } else {
+    mergeMessagingRootEntry(cfg, storageKey, entry)
+  }
+}
+
+function buildOpenClawMessagingPlatformEntry(platform, form, currentSaved = {}) {
+  const entry = { enabled: true }
+  const storageKey = platformStorageKey(platform)
+  if (storageKey === 'telegram') {
+    entry.botToken = form.botToken
+    entry.dmPolicy = form.dmPolicy
+    entry.groupPolicy = form.groupPolicy
+    if (Array.isArray(form.allowFrom) && form.allowFrom.length) entry.allowFrom = form.allowFrom
+  } else if (storageKey === 'discord') {
+    entry.token = form.token
+    entry.dmPolicy = form.dmPolicy
+    entry.groupPolicy = form.groupPolicy
+    if (Array.isArray(form.allowFrom) && form.allowFrom.length) entry.allowFrom = form.allowFrom
+    if (form.guildId) {
+      const ck = form.channelId || '*'
+      entry.guilds = { [form.guildId]: { users: ['*'], requireMention: true, channels: { [ck]: { allow: true, requireMention: true } } } }
+    }
+  } else if (storageKey === 'feishu') {
+    entry.appId = form.appId
+    entry.appSecret = form.appSecret
+    entry.connectionMode = 'websocket'
+    entry.domain = form.domain
+    entry.webhookPath = form.webhookPath
+    entry.dmPolicy = form.dmPolicy
+    entry.groupPolicy = form.groupPolicy
+    if (Array.isArray(form.allowFrom) && form.allowFrom.length) entry.allowFrom = form.allowFrom
+    if (Object.hasOwn(form, 'requireMention')) entry.requireMention = !!form.requireMention
+    entry.reactionNotifications = form.reactionNotifications
+    entry.typingIndicator = form.typingIndicator
+    entry.resolveSenderNames = form.resolveSenderNames
+  } else {
+    Object.assign(entry, form)
+  }
+  preserveMessagingCredentialRefs(entry, form, currentSaved)
+  return entry
+}
+
+export function mergeOpenClawMessagingPlatformConfig(cfg, { platform, form, accountId } = {}) {
+  if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) throw new Error('openclaw.json 顶层必须是对象')
+  const storageKey = platformStorageKey(platform)
+  const normalizedForm = normalizeMessagingPlatformForm(platform, form || {})
+  const normalizedAccountId = typeof accountId === 'string' ? accountId.trim() : ''
+  const currentSaved = resolvePlatformConfigEntry(cfg.channels?.[storageKey], platform, normalizedAccountId) || {}
+  const entry = buildOpenClawMessagingPlatformEntry(platform, normalizedForm, currentSaved)
+  applyMessagingPlatformEntry(cfg, storageKey, normalizedAccountId, entry)
+  return { entry, accountId: normalizedAccountId, storageKey }
+}
+
 function triggerGatewayReloadNonBlocking(reason) {
   setTimeout(() => {
     try {
@@ -4467,22 +4547,10 @@ const handlers = {
     const normalizedAccountId = typeof accountId === 'string' ? accountId.trim() : ''
     const currentSaved = resolvePlatformConfigEntry(cfg.channels?.[storageKey], platform, normalizedAccountId) || {}
     const setRootChannelEntry = (entry) => {
-      const current = cfg.channels?.[storageKey]
-      // 合并模式：保留用户通过 CLI 或手动编辑的自定义字段（streaming, retry, dmPolicy 等）
-      if (current && typeof current === 'object') {
-        cfg.channels[storageKey] = { ...current, ...entry }
-      } else {
-        cfg.channels[storageKey] = entry
-      }
+      mergeMessagingRootEntry(cfg, storageKey, entry)
     }
     const setAccountChannelEntry = (entry) => {
-      const current = cfg.channels?.[storageKey] && typeof cfg.channels[storageKey] === 'object'
-        ? cfg.channels[storageKey]
-        : { enabled: true }
-      current.enabled = true
-      if (!current.accounts || typeof current.accounts !== 'object') current.accounts = {}
-      current.accounts[normalizedAccountId] = entry
-      cfg.channels[storageKey] = current
+      mergeMessagingAccountEntry(cfg, storageKey, normalizedAccountId, entry)
     }
     const entry = { enabled: true }
     if (platform === 'qqbot') {
@@ -4547,16 +4615,12 @@ const handlers = {
     } else {
       Object.assign(entry, form)
       preserveMessagingCredentialRefs(entry, form, currentSaved)
-      setRootChannelEntry(entry)
     }
 
     if (platform !== 'qqbot' && platform !== 'feishu' && platform !== 'dingtalk' && platform !== 'dingtalk-connector') {
       preserveMessagingCredentialRefs(entry, form, currentSaved)
       // 合并模式：保留用户通过 CLI 或手动编辑的自定义字段
-      const existing = cfg.channels[storageKey]
-      cfg.channels[storageKey] = (existing && typeof existing === 'object')
-        ? { ...existing, ...entry }
-        : entry
+      applyMessagingPlatformEntry(cfg, storageKey, normalizedAccountId, entry)
       // Discord: 仅在首次创建时设置默认值，不覆盖用户已有的设置
       if (platform === 'discord') {
         const d = cfg.channels[storageKey]

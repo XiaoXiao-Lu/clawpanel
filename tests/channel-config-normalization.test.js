@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import {
   buildMessagingPlatformFormValues,
   listPlatformAccounts,
+  mergeOpenClawMessagingPlatformConfig,
   resolveMessagingCredentialValueForSave,
   normalizeMessagingPlatformForm,
 } from '../scripts/dev-api.js'
@@ -223,4 +224,54 @@ test('渠道保存时 clientId 未改动 SecretRef 占位会保留原始引用',
   })
 
   assert.deepEqual(value, secretRef)
+})
+
+test('OpenClaw 渠道保存带账号标识时会写入 accounts 而不是覆盖根配置', () => {
+  const cfg = {
+    channels: {
+      telegram: {
+        enabled: true,
+        botToken: 'root-token',
+        dmPolicy: 'pairing',
+        groupPolicy: 'allowlist',
+      },
+      discord: {
+        enabled: true,
+        token: 'root-discord',
+        groupPolicy: 'allowlist',
+      },
+      slack: {
+        enabled: true,
+        mode: 'socket',
+        botToken: 'root-slack',
+        appToken: 'root-app',
+      },
+    },
+  }
+
+  mergeOpenClawMessagingPlatformConfig(cfg, {
+    platform: 'telegram',
+    accountId: 'alerts',
+    form: { botToken: 'alerts-token', dmPolicy: 'allowlist', groupPolicy: 'disabled' },
+  })
+  mergeOpenClawMessagingPlatformConfig(cfg, {
+    platform: 'discord',
+    accountId: 'ops',
+    form: { token: 'ops-discord', guildId: 'guild-1', channelId: 'channel-1' },
+  })
+  mergeOpenClawMessagingPlatformConfig(cfg, {
+    platform: 'slack',
+    accountId: 'team-a',
+    form: { mode: 'socket', botToken: 'team-slack', appToken: 'team-app' },
+  })
+
+  assert.equal(cfg.channels.telegram.botToken, 'root-token')
+  assert.equal(cfg.channels.telegram.accounts.alerts.botToken, 'alerts-token')
+  assert.equal(cfg.channels.telegram.accounts.alerts.dmPolicy, 'allowlist')
+  assert.equal(cfg.channels.discord.token, 'root-discord')
+  assert.equal(cfg.channels.discord.accounts.ops.token, 'ops-discord')
+  assert.equal(cfg.channels.discord.accounts.ops.guilds['guild-1'].channels['channel-1'].allow, true)
+  assert.equal(cfg.channels.slack.botToken, 'root-slack')
+  assert.equal(cfg.channels.slack.accounts['team-a'].botToken, 'team-slack')
+  assert.equal(cfg.channels.slack.accounts['team-a'].appToken, 'team-app')
 })

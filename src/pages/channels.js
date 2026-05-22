@@ -436,8 +436,12 @@ function applyRouteIntent(page, state) {
 
 // ── 已配置平台渲染 ──
 
-// ── 多账号支持的平台（历史配置中飞书/钉钉等多实例仍展示子账号行） ──
-const MULTI_INSTANCE_PLATFORMS = ['feishu', 'dingtalk', 'qqbot']
+// ── 多账号支持的平台：与 OpenClaw 的 accounts/defaultAccount 配置模型保持一致 ──
+const MULTI_INSTANCE_PLATFORMS = ['telegram', 'discord', 'slack', 'feishu', 'dingtalk', 'dingtalk-connector', 'qqbot']
+
+function supportsMessagingMultiAccount(pid) {
+  return MULTI_INSTANCE_PLATFORMS.includes(pid)
+}
 
 function platformLabel(pid) {
   return PLATFORM_REGISTRY[pid]?.label || CHANNEL_LABELS[pid] || pid
@@ -586,7 +590,7 @@ function renderConfigured(page, state) {
           const runtimeSummary = getChannelRuntimeSummary(state.runtimeStatus, channelKey, label)
           const accounts = Array.isArray(p.accounts) ? p.accounts : []
           const hasAccounts = accounts.length > 0
-          const supportsMulti = MULTI_INSTANCE_PLATFORMS.includes(p.id)
+          const supportsMulti = supportsMessagingMultiAccount(p.id)
 
           if (hasAccounts) {
             const accountsHtml = accounts.map(acc => {
@@ -672,7 +676,7 @@ function renderConfigured(page, state) {
 
     const accounts = Array.isArray(configured.accounts) ? configured.accounts : []
     const hasAccounts = accounts.length > 0
-    const supportsMulti = MULTI_INSTANCE_PLATFORMS.includes(pid)
+    const supportsMulti = supportsMessagingMultiAccount(pid)
 
     // 统计当前 channel+accountId 组合已有的 agent 绑定
     const channelKey = getChannelBindingKey(pid)
@@ -1921,7 +1925,7 @@ async function openConfigDialog(pid, page, state, accountId) {
 
   const formId = 'platform-form-' + Date.now()
 
-  const supportsMultiAccount = ['feishu', 'dingtalk', 'dingtalk-connector', 'qqbot'].includes(pid)
+  const supportsMultiAccount = supportsMessagingMultiAccount(pid)
 
   // 账号标识（多账号）；编辑时 accountId 非空会在 input value 中显示
   const accountIdHtml = supportsMultiAccount ? `
