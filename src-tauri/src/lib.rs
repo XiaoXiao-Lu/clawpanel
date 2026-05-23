@@ -259,6 +259,8 @@ pub fn run() {
             hermes::hermes_channel_config_save,
             hermes::hermes_session_runtime_config_read,
             hermes::hermes_session_runtime_config_save,
+            hermes::hermes_compression_config_read,
+            hermes::hermes_compression_config_save,
             hermes::hermes_lazy_deps_features,
             hermes::hermes_lazy_deps_status,
             hermes::hermes_lazy_deps_ensure,

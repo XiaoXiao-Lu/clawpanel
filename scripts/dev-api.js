@@ -3340,6 +3340,24 @@ function parseHermesInteger(value, key, fallback, min, max, strict = false) {
   return parsed
 }
 
+function parseHermesFloat(value, key, fallback, min, max, strict = false) {
+  const raw = String(value ?? '').trim()
+  if (!raw) {
+    if (strict) throw new Error(`${key} 不能为空`)
+    return fallback
+  }
+  const parsed = Number.parseFloat(raw)
+  if (!Number.isFinite(parsed)) {
+    if (strict) throw new Error(`${key} 必须是数字`)
+    return fallback
+  }
+  if (parsed < min || parsed > max) {
+    if (strict) throw new Error(`${key} 必须在 ${min}-${max} 范围内`)
+    return fallback
+  }
+  return Number(parsed.toFixed(4))
+}
+
 function readHermesBool(value, fallback) {
   if (typeof value === 'boolean') return value
   if (typeof value === 'string') {
@@ -3352,6 +3370,37 @@ function readHermesBool(value, fallback) {
 
 function formHermesBool(form, key, fallback) {
   return readHermesBool(form?.[key], fallback)
+}
+
+export function buildHermesCompressionConfigValues(config = {}) {
+  const root = config && typeof config === 'object' && !Array.isArray(config) ? config : {}
+  const compression = root.compression && typeof root.compression === 'object' && !Array.isArray(root.compression)
+    ? root.compression
+    : {}
+  return {
+    enabled: readHermesBool(compression.enabled, true),
+    threshold: parseHermesFloat(compression.threshold, 'compression.threshold', 0.5, 0.1, 0.95, false),
+    targetRatio: parseHermesFloat(compression.target_ratio, 'compression.target_ratio', 0.2, 0.1, 0.8, false),
+    protectLastN: parseHermesInteger(compression.protect_last_n, 'compression.protect_last_n', 20, 1, 500, false),
+    protectFirstN: parseHermesInteger(compression.protect_first_n, 'compression.protect_first_n', 3, 0, 100, false),
+    abortOnSummaryFailure: readHermesBool(compression.abort_on_summary_failure, false),
+  }
+}
+
+export function mergeHermesCompressionConfig(config = {}, form = {}) {
+  const next = mergeConfigsPreservingFields({}, config && typeof config === 'object' && !Array.isArray(config) ? config : {})
+  const currentValues = buildHermesCompressionConfigValues(next)
+  const compression = next.compression && typeof next.compression === 'object' && !Array.isArray(next.compression)
+    ? mergeConfigsPreservingFields(next.compression, {})
+    : {}
+  compression.enabled = formHermesBool(form, 'enabled', currentValues.enabled)
+  compression.threshold = parseHermesFloat(Object.hasOwn(form, 'threshold') ? form.threshold : currentValues.threshold, 'compression.threshold', 0.5, 0.1, 0.95, true)
+  compression.target_ratio = parseHermesFloat(Object.hasOwn(form, 'targetRatio') ? form.targetRatio : currentValues.targetRatio, 'compression.target_ratio', 0.2, 0.1, 0.8, true)
+  compression.protect_last_n = parseHermesInteger(Object.hasOwn(form, 'protectLastN') ? form.protectLastN : currentValues.protectLastN, 'compression.protect_last_n', 20, 1, 500, true)
+  compression.protect_first_n = parseHermesInteger(Object.hasOwn(form, 'protectFirstN') ? form.protectFirstN : currentValues.protectFirstN, 'compression.protect_first_n', 3, 0, 100, true)
+  compression.abort_on_summary_failure = formHermesBool(form, 'abortOnSummaryFailure', currentValues.abortOnSummaryFailure)
+  next.compression = compression
+  return next
 }
 
 export function buildHermesSessionRuntimeConfigValues(config = {}) {
@@ -9573,6 +9622,27 @@ const handlers = {
       configPath,
       backup,
       values: buildHermesSessionRuntimeConfigValues(next),
+    }
+  },
+
+  hermes_compression_config_read() {
+    const { configPath, exists, config } = readHermesConfigYamlObject()
+    return {
+      exists,
+      configPath,
+      values: buildHermesCompressionConfigValues(config),
+    }
+  },
+
+  hermes_compression_config_save({ form } = {}) {
+    const { configPath, config } = readHermesConfigYamlObject()
+    const next = mergeHermesCompressionConfig(config, form || {})
+    const backup = writeHermesConfigYamlObject(configPath, next)
+    return {
+      ok: true,
+      configPath,
+      backup,
+      values: buildHermesCompressionConfigValues(next),
     }
   },
 

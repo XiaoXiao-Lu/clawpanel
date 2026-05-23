@@ -2879,6 +2879,18 @@ fn form_i64(form: &Value, key: &str) -> Option<i64> {
     }
 }
 
+fn form_f64(form: &Value, key: &str) -> Option<f64> {
+    let value = form.get(key)?;
+    if let Some(value) = value.as_f64() {
+        value.is_finite().then_some(value)
+    } else {
+        value
+            .as_str()
+            .and_then(|value| value.trim().parse::<f64>().ok())
+            .filter(|value| value.is_finite())
+    }
+}
+
 fn form_string_or_default(form: &Value, key: &str, default_value: &str) -> String {
     form_string(form, key)
         .map(|value| value.trim().to_string())
@@ -2987,9 +2999,27 @@ fn yaml_i64_field(map: &serde_yaml::Mapping, key: &str) -> Option<i64> {
     }
 }
 
+fn yaml_f64_field(map: &serde_yaml::Mapping, key: &str) -> Option<f64> {
+    let value = yaml_get(map, key)?;
+    if let Some(value) = value.as_f64() {
+        value.is_finite().then_some(value)
+    } else {
+        value
+            .as_str()
+            .and_then(|value| value.trim().parse::<f64>().ok())
+            .filter(|value| value.is_finite())
+    }
+}
+
 fn bounded_hermes_i64(value: Option<i64>, fallback: i64, min: i64, max: i64) -> i64 {
     value
         .filter(|value| *value >= min && *value <= max)
+        .unwrap_or(fallback)
+}
+
+fn bounded_hermes_f64(value: Option<f64>, fallback: f64, min: f64, max: f64) -> f64 {
+    value
+        .filter(|value| value.is_finite() && *value >= min && *value <= max)
         .unwrap_or(fallback)
 }
 
@@ -3005,6 +3035,132 @@ fn validate_hermes_i64(
         return Err(format!("{key} 必须在 {min}-{max} 范围内"));
     }
     Ok(value)
+}
+
+fn validate_hermes_f64(
+    value: Option<f64>,
+    key: &str,
+    fallback: f64,
+    min: f64,
+    max: f64,
+) -> Result<f64, String> {
+    let value = value.unwrap_or(fallback);
+    if !value.is_finite() || value < min || value > max {
+        return Err(format!("{key} 必须在 {min}-{max} 范围内"));
+    }
+    Ok((value * 10_000.0).round() / 10_000.0)
+}
+
+fn build_hermes_compression_config_values(config: &serde_yaml::Value) -> Value {
+    let root = config.as_mapping();
+    let compression = root.and_then(|map| yaml_get_mapping(map, "compression"));
+    let enabled = compression
+        .and_then(|map| yaml_bool_field(map, "enabled"))
+        .unwrap_or(true);
+    let threshold = compression
+        .map(|map| bounded_hermes_f64(yaml_f64_field(map, "threshold"), 0.5, 0.1, 0.95))
+        .unwrap_or(0.5);
+    let target_ratio = compression
+        .map(|map| bounded_hermes_f64(yaml_f64_field(map, "target_ratio"), 0.2, 0.1, 0.8))
+        .unwrap_or(0.2);
+    let protect_last_n = compression
+        .map(|map| bounded_hermes_i64(yaml_i64_field(map, "protect_last_n"), 20, 1, 500))
+        .unwrap_or(20);
+    let protect_first_n = compression
+        .map(|map| bounded_hermes_i64(yaml_i64_field(map, "protect_first_n"), 3, 0, 100))
+        .unwrap_or(3);
+    let abort_on_summary_failure = compression
+        .and_then(|map| yaml_bool_field(map, "abort_on_summary_failure"))
+        .unwrap_or(false);
+
+    serde_json::json!({
+        "enabled": enabled,
+        "threshold": threshold,
+        "targetRatio": target_ratio,
+        "protectLastN": protect_last_n,
+        "protectFirstN": protect_first_n,
+        "abortOnSummaryFailure": abort_on_summary_failure,
+    })
+}
+
+fn merge_hermes_compression_config(
+    config: &mut serde_yaml::Value,
+    form: &Value,
+) -> Result<(), String> {
+    let current = build_hermes_compression_config_values(config);
+    let enabled =
+        form_bool(form, "enabled").unwrap_or_else(|| current["enabled"].as_bool().unwrap_or(true));
+    let threshold = validate_hermes_f64(
+        if form.get("threshold").is_some() {
+            form_f64(form, "threshold")
+        } else {
+            Some(current["threshold"].as_f64().unwrap_or(0.5))
+        },
+        "compression.threshold",
+        0.5,
+        0.1,
+        0.95,
+    )?;
+    let target_ratio = validate_hermes_f64(
+        if form.get("targetRatio").is_some() {
+            form_f64(form, "targetRatio")
+        } else {
+            Some(current["targetRatio"].as_f64().unwrap_or(0.2))
+        },
+        "compression.target_ratio",
+        0.2,
+        0.1,
+        0.8,
+    )?;
+    let protect_last_n = validate_hermes_i64(
+        if form.get("protectLastN").is_some() {
+            form_i64(form, "protectLastN")
+        } else {
+            Some(current["protectLastN"].as_i64().unwrap_or(20))
+        },
+        "compression.protect_last_n",
+        20,
+        1,
+        500,
+    )?;
+    let protect_first_n = validate_hermes_i64(
+        if form.get("protectFirstN").is_some() {
+            form_i64(form, "protectFirstN")
+        } else {
+            Some(current["protectFirstN"].as_i64().unwrap_or(3))
+        },
+        "compression.protect_first_n",
+        3,
+        0,
+        100,
+    )?;
+    let abort_on_summary_failure = form_bool(form, "abortOnSummaryFailure")
+        .unwrap_or_else(|| current["abortOnSummaryFailure"].as_bool().unwrap_or(false));
+
+    let root = ensure_yaml_object(config)?;
+    let compression = yaml_child_object(root, "compression")?;
+    compression.insert(yaml_key("enabled"), serde_yaml::Value::Bool(enabled));
+    compression.insert(
+        yaml_key("threshold"),
+        serde_yaml::Value::Number(threshold.into()),
+    );
+    compression.insert(
+        yaml_key("target_ratio"),
+        serde_yaml::Value::Number(target_ratio.into()),
+    );
+    compression.insert(
+        yaml_key("protect_last_n"),
+        serde_yaml::Value::Number(protect_last_n.into()),
+    );
+    compression.insert(
+        yaml_key("protect_first_n"),
+        serde_yaml::Value::Number(protect_first_n.into()),
+    );
+    compression.insert(
+        yaml_key("abort_on_summary_failure"),
+        serde_yaml::Value::Bool(abort_on_summary_failure),
+    );
+    Ok(())
 }
 
 fn build_hermes_session_runtime_config_values(config: &serde_yaml::Value) -> Value {
@@ -3814,6 +3970,30 @@ pub fn hermes_session_runtime_config_save(form: Value) -> Result<Value, String> 
         "configPath": config_path.to_string_lossy(),
         "backup": backup,
         "values": build_hermes_session_runtime_config_values(&config),
+    }))
+}
+
+#[tauri::command]
+pub fn hermes_compression_config_read() -> Result<Value, String> {
+    let (config_path, exists, config) = read_hermes_channel_yaml_config()?;
+    ensure_yaml_object(&mut config.clone())?;
+    Ok(serde_json::json!({
+        "exists": exists,
+        "configPath": config_path.to_string_lossy(),
+        "values": build_hermes_compression_config_values(&config),
+    }))
+}
+
+#[tauri::command]
+pub fn hermes_compression_config_save(form: Value) -> Result<Value, String> {
+    let (config_path, _exists, mut config) = read_hermes_channel_yaml_config()?;
+    merge_hermes_compression_config(&mut config, &form)?;
+    let backup = write_hermes_yaml_config(&config_path, &config)?;
+    Ok(serde_json::json!({
+        "ok": true,
+        "configPath": config_path.to_string_lossy(),
+        "backup": backup,
+        "values": build_hermes_compression_config_values(&config),
     }))
 }
 
@@ -8791,6 +8971,87 @@ streaming:
         let err =
             merge_hermes_session_runtime_config(&mut config, &json!({ "atHour": 24 })).unwrap_err();
         assert!(err.contains("at_hour"));
+    }
+}
+
+#[cfg(test)]
+mod hermes_compression_config_tests {
+    use super::{build_hermes_compression_config_values, merge_hermes_compression_config};
+    use serde_json::json;
+
+    #[test]
+    fn compression_values_have_upstream_defaults() {
+        let config: serde_yaml::Value = serde_yaml::from_str("{}").unwrap();
+        let values = build_hermes_compression_config_values(&config);
+        assert_eq!(values["enabled"], true);
+        assert_eq!(values["threshold"], 0.5);
+        assert_eq!(values["targetRatio"], 0.2);
+        assert_eq!(values["protectLastN"], 20);
+        assert_eq!(values["protectFirstN"], 3);
+        assert_eq!(values["abortOnSummaryFailure"], false);
+    }
+
+    #[test]
+    fn merge_compression_config_preserves_unrelated_yaml() {
+        let mut config: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+model:
+  provider: anthropic
+compression:
+  enabled: true
+  threshold: 0.5
+  custom_flag: keep-me
+streaming:
+  enabled: true
+"#,
+        )
+        .unwrap();
+
+        merge_hermes_compression_config(
+            &mut config,
+            &json!({
+                "enabled": false,
+                "threshold": "0.7",
+                "targetRatio": "0.4",
+                "protectLastN": "28",
+                "protectFirstN": "0",
+                "abortOnSummaryFailure": true,
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(config["model"]["provider"].as_str(), Some("anthropic"));
+        assert_eq!(config["streaming"]["enabled"].as_bool(), Some(true));
+        assert_eq!(config["compression"]["enabled"].as_bool(), Some(false));
+        assert_eq!(config["compression"]["threshold"].as_f64(), Some(0.7));
+        assert_eq!(config["compression"]["target_ratio"].as_f64(), Some(0.4));
+        assert_eq!(config["compression"]["protect_last_n"].as_i64(), Some(28));
+        assert_eq!(config["compression"]["protect_first_n"].as_i64(), Some(0));
+        assert_eq!(
+            config["compression"]["abort_on_summary_failure"].as_bool(),
+            Some(true)
+        );
+        assert_eq!(
+            config["compression"]["custom_flag"].as_str(),
+            Some("keep-me")
+        );
+    }
+
+    #[test]
+    fn merge_compression_config_rejects_invalid_values() {
+        let mut config: serde_yaml::Value = serde_yaml::from_str("{}").unwrap();
+        let err =
+            merge_hermes_compression_config(&mut config, &json!({ "threshold": 0 })).unwrap_err();
+        assert!(err.contains("compression.threshold"));
+        let err = merge_hermes_compression_config(&mut config, &json!({ "targetRatio": 0.05 }))
+            .unwrap_err();
+        assert!(err.contains("compression.target_ratio"));
+        let err = merge_hermes_compression_config(&mut config, &json!({ "protectLastN": 0 }))
+            .unwrap_err();
+        assert!(err.contains("compression.protect_last_n"));
+        let err = merge_hermes_compression_config(&mut config, &json!({ "protectFirstN": -1 }))
+            .unwrap_err();
+        assert!(err.contains("compression.protect_first_n"));
     }
 }
 

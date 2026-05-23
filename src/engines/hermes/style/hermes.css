@@ -6753,6 +6753,10 @@ body[data-active-engine="hermes"][data-theme="dark"] {
   gap: 16px;
   align-items: end;
 }
+[data-engine="hermes"] .hm-config-compression-grid {
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  margin-top: 18px;
+}
 [data-engine="hermes"] .hm-config-check-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6876,6 +6880,7 @@ body[data-active-engine="hermes"][data-theme="dark"] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   [data-engine="hermes"] .hm-config-runtime-grid,
+  [data-engine="hermes"] .hm-config-compression-grid,
   [data-engine="hermes"] .hm-config-check-grid {
     grid-template-columns: 1fr;
   }
@@ -6940,6 +6945,9 @@ body[data-active-engine="hermes"][data-theme="dark"] {
   [data-engine="hermes"] .hm-config-runtime-panel .hm-panel-actions {
     width: 100%;
     flex-wrap: wrap;
+  }
+  [data-engine="hermes"] .hm-config-runtime-panel .hm-panel-actions .hm-muted {
+    width: 100%;
   }
   [data-engine="hermes"] .hm-config-runtime-panel .hm-panel-actions .hm-btn {
     width: 100%;

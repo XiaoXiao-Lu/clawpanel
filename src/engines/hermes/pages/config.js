@@ -14,6 +14,15 @@ const SESSION_RUNTIME_DEFAULTS = {
   threadSessionsPerUser: false,
 }
 
+const COMPRESSION_DEFAULTS = {
+  enabled: true,
+  threshold: 0.5,
+  targetRatio: 0.2,
+  protectLastN: 20,
+  protectFirstN: 3,
+  abortOnSummaryFailure: false,
+}
+
 const SESSION_RESET_MODES = ['both', 'idle', 'daily', 'none']
 
 export function render() {
@@ -22,12 +31,16 @@ export function render() {
   el.dataset.engine = 'hermes'
   let yaml = ''
   let runtimeValues = { ...SESSION_RUNTIME_DEFAULTS }
+  let compressionValues = { ...COMPRESSION_DEFAULTS }
   let loading = true
   let runtimeLoading = true
+  let compressionLoading = true
   let saving = false
   let runtimeSaving = false
+  let compressionSaving = false
   let error = null
   let runtimeError = null
+  let compressionError = null
 
   function esc(value) {
     return String(value || '')
@@ -38,7 +51,7 @@ export function render() {
   }
 
   function isBusy() {
-    return loading || runtimeLoading || saving || runtimeSaving
+    return loading || runtimeLoading || compressionLoading || saving || runtimeSaving || compressionSaving
   }
 
   function option(labelKey, value, selected) {
@@ -55,7 +68,7 @@ export function render() {
   }
 
   function renderRuntimePanel() {
-    const disabled = loading || saving || runtimeLoading || runtimeSaving
+    const disabled = loading || saving || runtimeLoading || runtimeSaving || compressionSaving
     return `
       <div class="hm-panel hm-config-runtime-panel">
         <div class="hm-panel-header">
@@ -102,6 +115,56 @@ export function render() {
     `
   }
 
+  function renderCompressionPanel() {
+    const disabled = loading || saving || compressionLoading || compressionSaving || runtimeSaving
+    return `
+      <div class="hm-panel hm-config-runtime-panel hm-config-compression-panel">
+        <div class="hm-panel-header">
+          <div>
+            <div class="hm-panel-title">${t('engine.hermesCompressionTitle')}</div>
+            <div class="hm-channel-panel-desc">${t('engine.hermesCompressionDesc')}</div>
+          </div>
+          <div class="hm-panel-actions">
+            <span class="hm-muted">${compressionSaving ? t('engine.hermesConfigStatusSaving') : compressionLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesCompressionStatusReady')}</span>
+            <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-compression-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesCompressionSave')}</button>
+          </div>
+        </div>
+        <div class="hm-panel-body">
+          ${renderError(compressionError)}
+          <div class="hm-config-check-grid">
+            <label class="hm-channel-check">
+              <input id="hm-compression-enabled" type="checkbox" ${compressionValues.enabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+              <span>${t('engine.hermesCompressionEnabled')}</span>
+            </label>
+            <label class="hm-channel-check">
+              <input id="hm-compression-abort-on-summary-failure" type="checkbox" ${compressionValues.abortOnSummaryFailure ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+              <span>${t('engine.hermesCompressionAbortOnSummaryFailure')}</span>
+            </label>
+          </div>
+          <div class="hm-config-runtime-grid hm-config-compression-grid">
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesCompressionThreshold')}</span>
+              <input id="hm-compression-threshold" class="hm-input" type="number" inputmode="decimal" min="0.1" max="0.95" step="0.05" value="${esc(compressionValues.threshold)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesCompressionTargetRatio')}</span>
+              <input id="hm-compression-target-ratio" class="hm-input" type="number" inputmode="decimal" min="0.1" max="0.8" step="0.05" value="${esc(compressionValues.targetRatio)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesCompressionProtectLastN')}</span>
+              <input id="hm-compression-protect-last-n" class="hm-input" type="number" inputmode="numeric" min="1" max="500" step="1" value="${esc(compressionValues.protectLastN)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesCompressionProtectFirstN')}</span>
+              <input id="hm-compression-protect-first-n" class="hm-input" type="number" inputmode="numeric" min="0" max="100" step="1" value="${esc(compressionValues.protectFirstN)}" ${disabled ? 'disabled' : ''}>
+            </label>
+          </div>
+          <div class="hm-channel-footnote">${t('engine.hermesCompressionFootnote')}</div>
+        </div>
+      </div>
+    `
+  }
+
   function draw() {
     el.innerHTML = `
       <div class="hm-hero">
@@ -117,6 +180,7 @@ export function render() {
       </div>
 
       ${renderRuntimePanel()}
+      ${renderCompressionPanel()}
 
       <div class="hm-panel">
         <div class="hm-panel-header">
@@ -137,6 +201,7 @@ export function render() {
     el.querySelector('#hm-config-reload')?.addEventListener('click', load)
     el.querySelector('#hm-config-save')?.addEventListener('click', save)
     el.querySelector('#hm-runtime-save')?.addEventListener('click', saveRuntime)
+    el.querySelector('#hm-compression-save')?.addEventListener('click', saveCompression)
   }
 
   async function loadRaw() {
@@ -149,11 +214,18 @@ export function render() {
     runtimeValues = { ...SESSION_RUNTIME_DEFAULTS, ...(data?.values || {}) }
   }
 
+  async function loadCompression() {
+    const data = await api.hermesCompressionConfigRead()
+    compressionValues = { ...COMPRESSION_DEFAULTS, ...(data?.values || {}) }
+  }
+
   async function load() {
     loading = true
     runtimeLoading = true
+    compressionLoading = true
     error = null
     runtimeError = null
+    compressionError = null
     draw()
     try {
       await loadRaw()
@@ -168,6 +240,14 @@ export function render() {
       runtimeError = humanizeError(err, t('engine.hermesSessionRuntimeLoadFailed') || 'Load runtime config failed')
     } finally {
       runtimeLoading = false
+      draw()
+    }
+    try {
+      await loadCompression()
+    } catch (err) {
+      compressionError = humanizeError(err, t('engine.hermesCompressionLoadFailed') || 'Load compression config failed')
+    } finally {
+      compressionLoading = false
       draw()
     }
   }
@@ -193,6 +273,9 @@ export function render() {
       }, 'success')
       try {
         await loadRuntime()
+      } catch {}
+      try {
+        await loadCompression()
       } catch {}
     } catch (err) {
       error = humanizeError(err, t('engine.hermesConfigSaveFailed') || 'Save failed')
@@ -228,6 +311,36 @@ export function render() {
       toast(runtimeError, 'error')
     } finally {
       runtimeSaving = false
+      draw()
+    }
+  }
+
+  async function saveCompression() {
+    const form = {
+      enabled: !!el.querySelector('#hm-compression-enabled')?.checked,
+      threshold: el.querySelector('#hm-compression-threshold')?.value || '0.5',
+      targetRatio: el.querySelector('#hm-compression-target-ratio')?.value || '0.2',
+      protectLastN: el.querySelector('#hm-compression-protect-last-n')?.value || '20',
+      protectFirstN: el.querySelector('#hm-compression-protect-first-n')?.value || '3',
+      abortOnSummaryFailure: !!el.querySelector('#hm-compression-abort-on-summary-failure')?.checked,
+    }
+    compressionSaving = true
+    compressionError = null
+    draw()
+    try {
+      const result = await api.hermesCompressionConfigSave(form)
+      compressionValues = { ...COMPRESSION_DEFAULTS, ...(result?.values || form) }
+      await refreshRawAfterStructuredSave()
+      const backup = result?.backup || ''
+      toast({
+        message: t('engine.hermesCompressionSaveSuccess'),
+        hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
+      }, 'success')
+    } catch (err) {
+      compressionError = humanizeError(err, t('engine.hermesCompressionSaveFailed') || 'Save compression config failed')
+      toast(compressionError, 'error')
+    } finally {
+      compressionSaving = false
       draw()
     }
   }
