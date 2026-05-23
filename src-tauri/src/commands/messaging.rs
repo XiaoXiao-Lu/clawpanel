@@ -148,6 +148,7 @@ fn preserve_messaging_credential_refs(
         "channelSecret",
         "clientId",
         "clientSecret",
+        "refreshToken",
         "gatewayPassword",
         "gatewayToken",
         "password",
@@ -234,6 +235,7 @@ fn channel_root_has_messaging_credential(root: &Map<String, Value>) -> bool {
         "channelSecret",
         "clientId",
         "clientSecret",
+        "refreshToken",
         "gatewayPassword",
         "gatewayToken",
         "password",
@@ -274,6 +276,12 @@ fn required_channel_credential_fields(
             ("workspace", "Workspace"),
         ],
         "nextcloud-talk" => vec![("baseUrl", "Base URL")],
+        "twitch" => vec![
+            ("username", "Username"),
+            ("accessToken", "Access Token"),
+            ("clientId", "Client ID"),
+            ("channel", "Channel"),
+        ],
         "signal" => vec![("account", "Signal 账号")],
         "slack" => {
             let mode = form_string(form, "mode");
@@ -841,7 +849,7 @@ fn normalize_group_policy_value(raw: Option<&Value>, fallback: &str) -> String {
 fn platform_supports_top_level_require_mention(platform: &str) -> bool {
     matches!(
         platform_storage_key(platform),
-        "feishu" | "slack" | "msteams" | "mattermost" | "googlechat" | "nextcloud-talk"
+        "feishu" | "slack" | "msteams" | "mattermost" | "googlechat" | "nextcloud-talk" | "twitch"
     )
 }
 
@@ -946,6 +954,8 @@ fn normalize_messaging_platform_form(
     normalize_numeric_form_value(&mut normalized, "feedbackReflectionCooldownMs");
     normalize_numeric_form_value(&mut normalized, "timeoutSeconds");
     normalize_numeric_form_value(&mut normalized, "reconnectMs");
+    normalize_numeric_form_value(&mut normalized, "expiresIn");
+    normalize_numeric_form_value(&mut normalized, "obtainmentTimestamp");
 
     for key in [
         "promptStarters",
@@ -953,6 +963,7 @@ fn normalize_messaging_platform_form(
         "attachmentRoots",
         "remoteAttachmentRoots",
         "toolsAllow",
+        "allowedRoles",
     ] {
         if normalized.contains_key(key) {
             let items = json_array_from_csv_value(normalized.get(key));
@@ -983,6 +994,7 @@ fn normalize_messaging_platform_form(
         "selfChatMode",
         "ackDirect",
         "senderIsOwner",
+        "requireMention",
     ] {
         if normalized.contains_key(key) {
             let value = match normalized.get(key) {
@@ -1854,6 +1866,25 @@ pub async fn read_platform_config(
             ] {
                 insert_number_as_string(&mut form, &saved, key);
             }
+        }
+        "twitch" => {
+            for key in [
+                "username",
+                "accessToken",
+                "clientId",
+                "channel",
+                "responsePrefix",
+                "clientSecret",
+                "refreshToken",
+            ] {
+                insert_secret_aware_form_value(&mut form, &saved, key);
+            }
+            insert_bool_as_string(&mut form, &saved, "enabled");
+            insert_array_as_csv(&mut form, &saved, "allowFrom");
+            insert_array_as_csv(&mut form, &saved, "allowedRoles");
+            insert_bool_as_string(&mut form, &saved, "requireMention");
+            insert_number_as_string(&mut form, &saved, "expiresIn");
+            insert_number_as_string(&mut form, &saved, "obtainmentTimestamp");
         }
         "synology-chat" => {
             for key in ["token", "incomingUrl", "nasHost", "webhookPath", "botName"] {
@@ -3000,6 +3031,58 @@ pub async fn save_messaging_platform(
             )?;
             ensure_plugin_allowed(&mut cfg, "nextcloud-talk")?;
         }
+        "twitch" => {
+            let username = form_string(form_obj, "username");
+            let access_token = form_string(form_obj, "accessToken");
+            let client_id = form_string(form_obj, "clientId");
+            let channel = form_string(form_obj, "channel");
+            if username.is_empty() {
+                return Err("Twitch Username 不能为空".into());
+            }
+            if access_token.is_empty()
+                && !has_configured_messaging_value(form_obj.get("accessToken"))
+            {
+                return Err("Twitch Access Token 不能为空".into());
+            }
+            if client_id.is_empty() {
+                return Err("Twitch Client ID 不能为空".into());
+            }
+            if channel.is_empty() {
+                return Err("Twitch Channel 不能为空".into());
+            }
+
+            let mut entry = Map::new();
+            entry.insert("enabled".into(), Value::Bool(true));
+            put_bool_value_if_present(&mut entry, "enabled", form_obj.get("enabled"));
+            for key in [
+                "username",
+                "accessToken",
+                "clientId",
+                "channel",
+                "responsePrefix",
+                "clientSecret",
+                "refreshToken",
+            ] {
+                put_string(&mut entry, key, form_string(form_obj, key));
+            }
+            put_array_from_form_value(&mut entry, "allowFrom", form_obj.get("allowFrom"));
+            put_array_from_form_value(&mut entry, "allowedRoles", form_obj.get("allowedRoles"));
+            put_bool_value_if_present(&mut entry, "requireMention", form_obj.get("requireMention"));
+            put_number_value_if_present(&mut entry, "expiresIn", form_obj.get("expiresIn"));
+            put_number_value_if_present(
+                &mut entry,
+                "obtainmentTimestamp",
+                form_obj.get("obtainmentTimestamp"),
+            );
+            preserve_messaging_credential_refs(&mut entry, form_obj, &current_saved);
+            merge_channel_entry_for_account(
+                channels_map,
+                &storage_key,
+                account_id.as_deref(),
+                entry,
+            )?;
+            ensure_plugin_allowed(&mut cfg, "twitch")?;
+        }
         "synology-chat" => {
             let token = form_string(form_obj, "token");
             let incoming_url = form_string(form_obj, "incomingUrl");
@@ -3304,6 +3387,10 @@ pub async fn verify_bot_token(platform: String, form: Value) -> Result<Value, St
         "nextcloud-talk" => Ok(json!({
             "valid": true,
             "warnings": ["Nextcloud Talk 面板已完成基础字段校验；实际连通性请通过 Gateway 启动日志或 openclaw channels status --probe 验证"]
+        })),
+        "twitch" => Ok(json!({
+            "valid": true,
+            "warnings": ["Twitch 面板已完成基础字段校验；实际连通性请通过 Gateway 启动日志或 openclaw channels status --probe 验证"]
         })),
         _ => Ok(json!({
             "valid": true,
@@ -6559,6 +6646,85 @@ mod tests {
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .contains("Bot Secret 或 Secret File"));
+    }
+
+    #[test]
+    fn normalize_twitch_form_preserves_chat_runtime_fields() {
+        let form = json!({
+            "enabled": "true",
+            "username": "openclaw",
+            "accessToken": "oauth:abc123",
+            "clientId": "client-123",
+            "channel": "openclaw",
+            "allowFrom": "123456, 789012",
+            "allowedRoles": "moderator, vip",
+            "requireMention": "true",
+            "responsePrefix": "[AI]",
+            "clientSecret": "client-secret",
+            "refreshToken": "refresh-token",
+            "expiresIn": "3600",
+            "obtainmentTimestamp": "1779490000"
+        });
+        let normalized =
+            normalize_messaging_platform_form("twitch", form.as_object().expect("object"));
+
+        assert_eq!(
+            normalized.get("enabled").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            normalized
+                .get("allowFrom")
+                .and_then(|v| v.as_array())
+                .map(|items| items.len()),
+            Some(2)
+        );
+        assert_eq!(
+            normalized
+                .get("allowedRoles")
+                .and_then(|v| v.as_array())
+                .map(|items| items.len()),
+            Some(2)
+        );
+        assert_eq!(
+            normalized.get("requireMention").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            normalized.get("expiresIn").and_then(|v| v.as_f64()),
+            Some(3600.0)
+        );
+        assert_eq!(
+            normalized
+                .get("obtainmentTimestamp")
+                .and_then(|v| v.as_f64()),
+            Some(1779490000.0)
+        );
+        assert!(channel_diagnosis_credentials_ready("twitch", &normalized));
+
+        let missing = normalize_messaging_platform_form(
+            "twitch",
+            json!({
+                "username": "openclaw",
+                "clientId": "client-123",
+                "channel": "openclaw"
+            })
+            .as_object()
+            .expect("object"),
+        );
+        assert!(!channel_diagnosis_credentials_ready("twitch", &missing));
+        let diagnosis =
+            build_openclaw_channel_diagnosis("twitch", None, true, true, &missing, None, None);
+        assert!(diagnosis
+            .get("checks")
+            .and_then(|v| v.as_array())
+            .and_then(|items| items
+                .iter()
+                .find(|item| { item.get("id").and_then(|v| v.as_str()) == Some("credentials") }))
+            .and_then(|item| item.get("detail"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .contains("Access Token"));
     }
 
     #[test]

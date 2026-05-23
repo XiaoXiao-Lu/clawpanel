@@ -116,3 +116,26 @@ test('Nextcloud Talk 渠道 UI 会暴露自托管 Talk 配置字段', () => {
   }
   assert.match(talkBlock, /pluginId:\s*'nextcloud-talk'/)
 })
+
+test('Twitch 渠道 UI 会暴露聊天账号和访问控制配置字段', () => {
+  const twitchBlock = getRegistryBlock('twitch')
+
+  for (const field of [
+    'username',
+    'accessToken',
+    'clientId',
+    'channel',
+    'allowFrom',
+    'allowedRoles',
+    'requireMention',
+    'responsePrefix',
+    'clientSecret',
+    'refreshToken',
+    'expiresIn',
+    'obtainmentTimestamp',
+  ]) {
+    assert.match(twitchBlock, new RegExp(`key:\\s*'${field}'`))
+  }
+  assert.match(twitchBlock, /pluginRequired:\s*'@openclaw\/twitch@latest'/)
+  assert.match(twitchBlock, /pluginId:\s*'twitch'/)
+})

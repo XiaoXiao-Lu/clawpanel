@@ -21,6 +21,7 @@ export const CHANNEL_LABELS = {
   mattermost: 'Mattermost',
   clickclack: 'ClickClack',
   'nextcloud-talk': 'Nextcloud Talk',
+  twitch: 'Twitch',
   'openclaw-weixin': '微信',
   weixin: '微信',
 }

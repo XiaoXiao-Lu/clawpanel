@@ -352,6 +352,93 @@ test('Nextcloud Talk 读取和诊断支持 Bot Secret 或 Secret File 二选一'
   assert.equal(ready.checks.find(item => item.id === 'credentials')?.ok, true)
 })
 
+test('Twitch 渠道保存会写入聊天账号字段并启用插件', () => {
+  const cfg = { channels: {} }
+
+  mergeOpenClawMessagingPlatformConfig(cfg, {
+    platform: 'twitch',
+    accountId: 'stream',
+    form: {
+      enabled: 'true',
+      username: 'openclawbot',
+      accessToken: 'oauth:access-token',
+      clientId: 'client-id',
+      channel: '#openclaw',
+      allowFrom: '123456789, 987654321',
+      allowedRoles: 'moderator, vip',
+      requireMention: 'true',
+      responsePrefix: '[Twitch]',
+      clientSecret: 'client-secret',
+      refreshToken: 'refresh-token',
+      expiresIn: '3600',
+      obtainmentTimestamp: '1779490000',
+    },
+  })
+
+  const root = cfg.channels.twitch
+  const account = root.accounts.stream
+  assert.equal(root.defaultAccount, 'stream')
+  assert.equal(account.enabled, true)
+  assert.equal(account.username, 'openclawbot')
+  assert.equal(account.accessToken, 'oauth:access-token')
+  assert.equal(account.clientId, 'client-id')
+  assert.equal(account.channel, '#openclaw')
+  assert.deepEqual(account.allowFrom, ['123456789', '987654321'])
+  assert.deepEqual(account.allowedRoles, ['moderator', 'vip'])
+  assert.equal(account.requireMention, true)
+  assert.equal(account.responsePrefix, '[Twitch]')
+  assert.equal(account.clientSecret, 'client-secret')
+  assert.equal(account.refreshToken, 'refresh-token')
+  assert.equal(account.expiresIn, 3600)
+  assert.equal(account.obtainmentTimestamp, 1779490000)
+  assert.equal(cfg.plugins.entries.twitch.enabled, true)
+})
+
+test('Twitch 读取和诊断会回显访问控制与刷新 Token 字段', () => {
+  const values = buildMessagingPlatformFormValues('twitch', {
+    enabled: true,
+    username: 'openclawbot',
+    accessToken: 'oauth:access-token',
+    clientId: 'client-id',
+    channel: '#openclaw',
+    allowFrom: ['123456789'],
+    allowedRoles: ['moderator', 'subscriber'],
+    requireMention: true,
+    responsePrefix: '[Twitch]',
+    clientSecret: 'client-secret',
+    refreshToken: 'refresh-token',
+    expiresIn: 3600,
+    obtainmentTimestamp: 1779490000,
+  })
+  const missingToken = buildOpenClawChannelDiagnosis({
+    platform: 'twitch',
+    configExists: true,
+    channelEnabled: true,
+    form: { username: 'openclawbot', clientId: 'client-id', channel: '#openclaw' },
+  })
+  const ready = buildOpenClawChannelDiagnosis({
+    platform: 'twitch',
+    configExists: true,
+    channelEnabled: true,
+    form: values,
+  })
+
+  assert.equal(values.enabled, 'true')
+  assert.equal(values.username, 'openclawbot')
+  assert.equal(values.accessToken, 'oauth:access-token')
+  assert.equal(values.clientId, 'client-id')
+  assert.equal(values.channel, '#openclaw')
+  assert.equal(values.allowFrom, '123456789')
+  assert.equal(values.allowedRoles, 'moderator, subscriber')
+  assert.equal(values.requireMention, 'true')
+  assert.equal(values.refreshToken, 'refresh-token')
+  assert.equal(values.expiresIn, '3600')
+  assert.equal(values.obtainmentTimestamp, '1779490000')
+  assert.equal(missingToken.checks.find(item => item.id === 'credentials')?.ok, false)
+  assert.match(missingToken.checks.find(item => item.id === 'credentials')?.detail || '', /Access Token/)
+  assert.equal(ready.checks.find(item => item.id === 'credentials')?.ok, true)
+})
+
 test('Signal 渠道保存会保留多账号和上游运行字段', () => {
   const cfg = { channels: {} }
 

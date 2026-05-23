@@ -2429,7 +2429,7 @@ function putWildcardAllowFromWhenOpen(entry, previousAllowFrom) {
 }
 
 function platformSupportsTopLevelRequireMention(platform) {
-  return ['feishu', 'slack', 'msteams', 'mattermost', 'googlechat', 'nextcloud-talk'].includes(platformStorageKey(platform))
+  return ['feishu', 'slack', 'msteams', 'mattermost', 'googlechat', 'nextcloud-talk', 'twitch'].includes(platformStorageKey(platform))
 }
 
 export function normalizeMessagingPlatformForm(platform, form = {}) {
@@ -2472,11 +2472,11 @@ export function normalizeMessagingPlatformForm(platform, form = {}) {
     normalized.allowedUserIds = csvToStringArray(normalized.allowedUserIds)
   }
 
-  for (const key of ['promptStarters', 'delegatedAuthScopes', 'attachmentRoots', 'remoteAttachmentRoots', 'toolsAllow']) {
+  for (const key of ['promptStarters', 'delegatedAuthScopes', 'attachmentRoots', 'remoteAttachmentRoots', 'toolsAllow', 'allowedRoles']) {
     if (Object.hasOwn(normalized, key)) normalized[key] = csvToStringArray(normalized[key])
   }
 
-  for (const key of ['mediaMaxMb', 'historyLimit', 'dmHistoryLimit', 'textChunkLimit', 'probeTimeoutMs', 'debounceMs', 'rateLimitPerMinute', 'httpPort', 'webhookPort', 'feedbackReflectionCooldownMs', 'timeoutSeconds', 'reconnectMs']) {
+  for (const key of ['mediaMaxMb', 'historyLimit', 'dmHistoryLimit', 'textChunkLimit', 'probeTimeoutMs', 'debounceMs', 'rateLimitPerMinute', 'httpPort', 'webhookPort', 'feedbackReflectionCooldownMs', 'timeoutSeconds', 'reconnectMs', 'expiresIn', 'obtainmentTimestamp']) {
     if (!Object.hasOwn(normalized, key)) continue
     const value = String(normalized[key] || '').trim()
     if (!value) {
@@ -2489,9 +2489,11 @@ export function normalizeMessagingPlatformForm(platform, form = {}) {
     }
   }
 
-  for (const key of ['dangerouslyAllowNameMatching', 'dangerouslyAllowPrivateNetwork', 'dangerouslyAllowInheritedWebhookPath', 'allowInsecureSsl', 'enabled', 'allowBots', 'blockStreaming', 'useManagedIdentity', 'typingIndicator', 'welcomeCard', 'groupWelcomeCard', 'feedbackEnabled', 'feedbackReflection', 'delegatedAuthEnabled', 'ssoEnabled', 'configWrites', 'includeAttachments', 'sendReadReceipts', 'coalesceSameSenderDms', 'selfChatMode', 'ackDirect', 'senderIsOwner']) {
+  for (const key of ['dangerouslyAllowNameMatching', 'dangerouslyAllowPrivateNetwork', 'dangerouslyAllowInheritedWebhookPath', 'allowInsecureSsl', 'enabled', 'allowBots', 'blockStreaming', 'useManagedIdentity', 'typingIndicator', 'welcomeCard', 'groupWelcomeCard', 'feedbackEnabled', 'feedbackReflection', 'delegatedAuthEnabled', 'ssoEnabled', 'configWrites', 'includeAttachments', 'sendReadReceipts', 'coalesceSameSenderDms', 'selfChatMode', 'ackDirect', 'senderIsOwner', 'requireMention']) {
     if (Object.hasOwn(normalized, key)) {
-      const value = String(normalized[key] || '').trim()
+      const value = typeof normalized[key] === 'boolean'
+        ? String(normalized[key])
+        : String(normalized[key] || '').trim()
       if (!value) {
         delete normalized[key]
       } else {
@@ -2601,6 +2603,7 @@ const MESSAGING_CREDENTIAL_FIELDS = [
   'channelSecret',
   'clientId',
   'clientSecret',
+  'refreshToken',
   'gatewayPassword',
   'gatewayToken',
   'password',
@@ -2693,6 +2696,7 @@ const CHANNEL_DIAG_REQUIRED_FIELDS = {
   'synology-chat': [['token', 'Token'], ['incomingUrl', 'Incoming URL']],
   clickclack: [['baseUrl', 'Base URL'], ['token', 'Token'], ['workspace', 'Workspace']],
   'nextcloud-talk': [['baseUrl', 'Base URL']],
+  twitch: [['username', 'Username'], ['accessToken', 'Access Token'], ['clientId', 'Client ID'], ['channel', 'Channel']],
   signal: [['account', 'Signal 账号']],
 }
 
@@ -3083,6 +3087,20 @@ export function buildMessagingPlatformFormValues(platform, saved = {}, options =
     putBoolFormValue(form, saved, 'blockStreaming')
     putBoolFormValue(form, saved?.network, 'dangerouslyAllowPrivateNetwork')
     for (const key of ['webhookPort', 'historyLimit', 'dmHistoryLimit', 'mediaMaxMb', 'textChunkLimit']) {
+      if (typeof saved[key] === 'number') form[key] = String(saved[key])
+    }
+    return form
+  }
+
+  if (storageKey === 'twitch') {
+    for (const key of ['username', 'accessToken', 'clientId', 'channel', 'responsePrefix', 'clientSecret', 'refreshToken']) {
+      putSecretAwareFormValue(form, saved, key)
+    }
+    putBoolFormValue(form, saved, 'enabled')
+    putCsvFormValue(form, saved, 'allowFrom')
+    putCsvFormValue(form, saved, 'allowedRoles')
+    putBoolFormValue(form, saved, 'requireMention')
+    for (const key of ['expiresIn', 'obtainmentTimestamp']) {
       if (typeof saved[key] === 'number') form[key] = String(saved[key])
     }
     return form
@@ -3869,6 +3887,17 @@ function buildOpenClawMessagingPlatformEntry(platform, form, currentSaved = {}) 
     for (const key of ['webhookPort', 'historyLimit', 'dmHistoryLimit', 'mediaMaxMb', 'textChunkLimit']) {
       if (typeof form[key] === 'number') entry[key] = form[key]
     }
+  } else if (storageKey === 'twitch') {
+    entry.enabled = typeof form.enabled === 'boolean' ? form.enabled : true
+    for (const key of ['username', 'accessToken', 'clientId', 'channel', 'responsePrefix', 'clientSecret', 'refreshToken']) {
+      if (form[key]) entry[key] = form[key]
+    }
+    if (Array.isArray(form.allowFrom) && form.allowFrom.length) entry.allowFrom = form.allowFrom
+    if (Array.isArray(form.allowedRoles) && form.allowedRoles.length) entry.allowedRoles = form.allowedRoles
+    if (typeof form.requireMention === 'boolean') entry.requireMention = form.requireMention
+    for (const key of ['expiresIn', 'obtainmentTimestamp']) {
+      if (typeof form[key] === 'number') entry[key] = form[key]
+    }
   } else if (storageKey === 'synology-chat') {
     for (const key of ['token', 'incomingUrl', 'nasHost', 'webhookPath', 'botName']) {
       if (form[key]) entry[key] = form[key]
@@ -3910,7 +3939,7 @@ export function mergeOpenClawMessagingPlatformConfig(cfg, { platform, form, acco
   const currentSaved = resolvePlatformConfigEntry(cfg.channels?.[storageKey], platform, normalizedAccountId) || {}
   const entry = buildOpenClawMessagingPlatformEntry(platform, normalizedForm, currentSaved)
   applyMessagingPlatformEntry(cfg, storageKey, normalizedAccountId, entry)
-  if (['zalo', 'zalouser', 'line', 'mattermost', 'clickclack', 'nextcloud-talk', 'synology-chat', 'googlechat', 'msteams', 'imessage', 'whatsapp'].includes(storageKey)) {
+  if (['zalo', 'zalouser', 'line', 'mattermost', 'clickclack', 'nextcloud-talk', 'twitch', 'synology-chat', 'googlechat', 'msteams', 'imessage', 'whatsapp'].includes(storageKey)) {
     ensureMessagingPluginAllowed(cfg, storageKey)
   }
   return { entry, accountId: normalizedAccountId, storageKey }
@@ -5380,7 +5409,7 @@ const handlers = {
       } else {
         setRootChannelEntry(entry)
       }
-    } else if (['line', 'mattermost', 'clickclack', 'nextcloud-talk', 'synology-chat', 'googlechat', 'msteams', 'whatsapp'].includes(storageKey)) {
+    } else if (['line', 'mattermost', 'clickclack', 'nextcloud-talk', 'twitch', 'synology-chat', 'googlechat', 'msteams', 'whatsapp'].includes(storageKey)) {
       const built = buildOpenClawMessagingPlatformEntry(platform, form, currentSaved)
       applyMessagingPlatformEntry(cfg, storageKey, normalizedAccountId, built)
       ensureMessagingPluginAllowed(cfg, storageKey)
@@ -5389,7 +5418,7 @@ const handlers = {
       preserveMessagingCredentialRefs(entry, form, currentSaved)
     }
 
-    if (platform !== 'qqbot' && platform !== 'feishu' && platform !== 'dingtalk' && platform !== 'dingtalk-connector' && !['line', 'mattermost', 'clickclack', 'nextcloud-talk', 'synology-chat', 'googlechat', 'msteams', 'whatsapp'].includes(storageKey)) {
+    if (platform !== 'qqbot' && platform !== 'feishu' && platform !== 'dingtalk' && platform !== 'dingtalk-connector' && !['line', 'mattermost', 'clickclack', 'nextcloud-talk', 'twitch', 'synology-chat', 'googlechat', 'msteams', 'whatsapp'].includes(storageKey)) {
       preserveMessagingCredentialRefs(entry, form, currentSaved)
       // 合并模式：保留用户通过 CLI 或手动编辑的自定义字段
       applyMessagingPlatformEntry(cfg, storageKey, normalizedAccountId, entry)
@@ -5519,6 +5548,9 @@ const handlers = {
     }
     if (platform === 'nextcloud-talk') {
       return { valid: true, warnings: ['Nextcloud Talk 面板已完成基础字段校验；实际连通性请通过 Gateway 启动日志或 openclaw channels status --probe 验证。'] }
+    }
+    if (platform === 'twitch') {
+      return { valid: true, warnings: ['Twitch 面板已完成基础字段校验；实际连通性请通过 Gateway 启动日志或 openclaw channels status --probe 验证。'] }
     }
     if (platform === 'discord') {
       try {

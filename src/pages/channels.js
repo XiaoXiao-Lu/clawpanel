@@ -356,6 +356,36 @@ const PLATFORM_REGISTRY = {
     pluginRequired: '@openclaw/nextcloud-talk@latest',
     pluginId: 'nextcloud-talk',
   },
+  twitch: {
+    label: 'Twitch',
+    iconName: 'message-square',
+    desc: t('channels.twitchDesc'),
+    guide: [
+      t('channels.twitchGuide1'),
+      t('channels.twitchGuide2'),
+      t('channels.twitchGuide3'),
+      t('channels.twitchGuide4'),
+    ],
+    guideFooter: t('channels.twitchGuideFooter'),
+    fields: [
+      { key: 'username', label: 'Username', placeholder: t('channels.optionalEg', { example: 'openclaw' }), required: true, hint: t('channels.twitchUsernameHint') },
+      { key: 'accessToken', label: 'Access Token', placeholder: 'oauth:abc123...', secret: true, required: true, hint: t('channels.twitchAccessTokenHint') },
+      { key: 'clientId', label: 'Client ID', placeholder: 'abc123clientid', required: true, hint: t('channels.twitchClientIdHint') },
+      { key: 'channel', label: 'Channel', placeholder: 'openclaw', required: true, hint: t('channels.twitchChannelHint') },
+      { key: 'allowFrom', label: 'Allow From', placeholder: '123456789, 987654321', required: false, hint: t('channels.twitchAllowFromHint') },
+      { key: 'allowedRoles', label: 'Allowed Roles', placeholder: 'moderator, vip, subscriber', required: false, hint: t('channels.twitchAllowedRolesHint') },
+      { key: 'requireMention', label: t('channels.twitchRequireMention'), type: 'select', options: BOOLEAN_OPTIONS, required: false },
+      { key: 'responsePrefix', label: 'Response Prefix', placeholder: t('channels.optionalEg', { example: '[AI]' }), required: false },
+      { key: 'clientSecret', label: 'Client Secret', placeholder: t('channels.optionalEg', { example: 'client-secret' }), secret: true, required: false, hint: t('channels.twitchClientSecretHint') },
+      { key: 'refreshToken', label: 'Refresh Token', placeholder: t('channels.optionalEg', { example: 'refresh-token' }), secret: true, required: false, hint: t('channels.twitchRefreshTokenHint') },
+      { key: 'expiresIn', label: 'Expires In', placeholder: '3600', required: false, hint: t('channels.twitchExpiresInHint') },
+      { key: 'obtainmentTimestamp', label: 'Obtainment Timestamp', placeholder: '1779490000', required: false, hint: t('channels.twitchObtainmentTimestampHint') },
+    ],
+    configKey: 'twitch',
+    pairingChannel: 'twitch',
+    pluginRequired: '@openclaw/twitch@latest',
+    pluginId: 'twitch',
+  },
   'synology-chat': {
     label: 'Synology Chat',
     iconName: 'message-square',
@@ -878,7 +908,7 @@ function applyRouteIntent(page, state) {
 // ── 已配置平台渲染 ──
 
 // ── 多账号支持的平台：与 OpenClaw 的 accounts/defaultAccount 配置模型保持一致 ──
-const MULTI_INSTANCE_PLATFORMS = ['telegram', 'discord', 'slack', 'feishu', 'dingtalk', 'dingtalk-connector', 'qqbot', 'zalo', 'zalouser', 'line', 'mattermost', 'clickclack', 'nextcloud-talk', 'synology-chat', 'googlechat', 'signal']
+const MULTI_INSTANCE_PLATFORMS = ['telegram', 'discord', 'slack', 'feishu', 'dingtalk', 'dingtalk-connector', 'qqbot', 'zalo', 'zalouser', 'line', 'mattermost', 'clickclack', 'nextcloud-talk', 'twitch', 'synology-chat', 'googlechat', 'signal']
 
 function supportsMessagingMultiAccount(pid) {
   return MULTI_INSTANCE_PLATFORMS.includes(pid)
