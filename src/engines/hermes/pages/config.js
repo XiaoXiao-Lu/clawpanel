@@ -56,6 +56,13 @@ const UNAUTHORIZED_DM_DEFAULTS = {
   unauthorizedDmBehavior: 'pair',
 }
 
+const SECURITY_DEFAULTS = {
+  tirithEnabled: true,
+  tirithPath: 'tirith',
+  tirithTimeout: 5,
+  tirithFailOpen: true,
+}
+
 const STREAMING_DEFAULTS = {
   enabled: false,
   transport: 'edit',
@@ -109,6 +116,7 @@ export function render() {
   let skillsValues = { ...SKILLS_DEFAULTS }
   let quickCommandsValues = { ...QUICK_COMMANDS_DEFAULTS }
   let unauthorizedDmValues = { ...UNAUTHORIZED_DM_DEFAULTS }
+  let securityValues = { ...SECURITY_DEFAULTS }
   let streamingValues = { ...STREAMING_DEFAULTS }
   let executionLimitsValues = { ...EXECUTION_LIMITS_DEFAULTS }
   let terminalValues = { ...TERMINAL_DEFAULTS }
@@ -120,6 +128,7 @@ export function render() {
   let skillsLoading = true
   let quickCommandsLoading = true
   let unauthorizedDmLoading = true
+  let securityLoading = true
   let streamingLoading = true
   let executionLimitsLoading = true
   let terminalLoading = true
@@ -131,6 +140,7 @@ export function render() {
   let skillsSaving = false
   let quickCommandsSaving = false
   let unauthorizedDmSaving = false
+  let securitySaving = false
   let streamingSaving = false
   let executionLimitsSaving = false
   let terminalSaving = false
@@ -142,6 +152,7 @@ export function render() {
   let skillsError = null
   let quickCommandsError = null
   let unauthorizedDmError = null
+  let securityError = null
   let streamingError = null
   let executionLimitsError = null
   let terminalError = null
@@ -155,7 +166,7 @@ export function render() {
   }
 
   function isBusy() {
-    return loading || runtimeLoading || compressionLoading || toolGuardrailsLoading || memoryLoading || skillsLoading || quickCommandsLoading || unauthorizedDmLoading || streamingLoading || executionLimitsLoading || terminalLoading || saving || runtimeSaving || compressionSaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || terminalSaving
+    return loading || runtimeLoading || compressionLoading || toolGuardrailsLoading || memoryLoading || skillsLoading || quickCommandsLoading || unauthorizedDmLoading || securityLoading || streamingLoading || executionLimitsLoading || terminalLoading || saving || runtimeSaving || compressionSaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || unauthorizedDmSaving || securitySaving || streamingSaving || executionLimitsSaving || terminalSaving
   }
 
   function option(labelKey, value, selected) {
@@ -440,7 +451,7 @@ export function render() {
   }
 
   function renderUnauthorizedDmConfigPanel() {
-    const disabled = loading || saving || unauthorizedDmLoading || unauthorizedDmSaving || runtimeSaving || compressionSaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || streamingSaving || executionLimitsSaving || terminalSaving
+    const disabled = loading || saving || unauthorizedDmLoading || unauthorizedDmSaving || runtimeSaving || compressionSaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || securitySaving || streamingSaving || executionLimitsSaving || terminalSaving
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-unauthorized-dm-panel">
         <div class="hm-panel-header">
@@ -469,8 +480,50 @@ export function render() {
     `
   }
 
+  function renderSecurityConfigPanel() {
+    const disabled = loading || saving || securityLoading || securitySaving || runtimeSaving || compressionSaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || terminalSaving
+    return `
+      <div class="hm-panel hm-config-runtime-panel hm-config-security-panel">
+        <div class="hm-panel-header">
+          <div>
+            <div class="hm-panel-title">${t('engine.hermesSecurityConfigTitle')}</div>
+            <div class="hm-channel-panel-desc">${t('engine.hermesSecurityConfigDesc')}</div>
+          </div>
+          <div class="hm-panel-actions">
+            <span class="hm-muted">${securitySaving ? t('engine.hermesConfigStatusSaving') : securityLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesSecurityConfigStatusReady')}</span>
+            <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-security-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesSecurityConfigSave')}</button>
+          </div>
+        </div>
+        <div class="hm-panel-body">
+          ${renderError(securityError)}
+          <div class="hm-config-check-grid">
+            <label class="hm-channel-check">
+              <input id="hm-security-tirith-enabled" type="checkbox" ${securityValues.tirithEnabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+              <span>${t('engine.hermesSecurityConfigTirithEnabled')}</span>
+            </label>
+            <label class="hm-channel-check hm-channel-check--danger">
+              <input id="hm-security-tirith-fail-open" type="checkbox" ${securityValues.tirithFailOpen ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+              <span>${t('engine.hermesSecurityConfigTirithFailOpen')}</span>
+            </label>
+          </div>
+          <div class="hm-config-runtime-grid hm-config-security-grid">
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesSecurityConfigTirithPath')}</span>
+              <input id="hm-security-tirith-path" class="hm-input" value="${esc(securityValues.tirithPath)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesSecurityConfigTirithTimeout')}</span>
+              <input id="hm-security-tirith-timeout" class="hm-input" type="number" inputmode="numeric" min="1" max="300" step="1" value="${esc(securityValues.tirithTimeout)}" ${disabled ? 'disabled' : ''}>
+            </label>
+          </div>
+          <div class="hm-channel-footnote">${t('engine.hermesSecurityConfigFootnote')}</div>
+        </div>
+      </div>
+    `
+  }
+
   function renderStreamingPanel() {
-    const disabled = loading || saving || streamingLoading || streamingSaving || runtimeSaving || compressionSaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || executionLimitsSaving || terminalSaving
+    const disabled = loading || saving || streamingLoading || streamingSaving || runtimeSaving || compressionSaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || unauthorizedDmSaving || securitySaving || executionLimitsSaving || terminalSaving
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-streaming-panel">
         <div class="hm-panel-header">
@@ -688,6 +741,7 @@ export function render() {
       ${renderSkillsConfigPanel()}
       ${renderQuickCommandsConfigPanel()}
       ${renderUnauthorizedDmConfigPanel()}
+      ${renderSecurityConfigPanel()}
 
       <div class="hm-panel">
         <div class="hm-panel-header">
@@ -714,6 +768,7 @@ export function render() {
     el.querySelector('#hm-skills-config-save')?.addEventListener('click', saveSkillsConfig)
     el.querySelector('#hm-quick-commands-save')?.addEventListener('click', saveQuickCommandsConfig)
     el.querySelector('#hm-unauthorized-dm-save')?.addEventListener('click', saveUnauthorizedDmConfig)
+    el.querySelector('#hm-security-save')?.addEventListener('click', saveSecurityConfig)
     el.querySelector('#hm-streaming-save')?.addEventListener('click', saveStreaming)
     el.querySelector('#hm-execution-limits-save')?.addEventListener('click', saveExecutionLimits)
     el.querySelector('#hm-terminal-save')?.addEventListener('click', saveTerminal)
@@ -759,6 +814,11 @@ export function render() {
     unauthorizedDmValues = { ...UNAUTHORIZED_DM_DEFAULTS, ...(data?.values || {}) }
   }
 
+  async function loadSecurityConfig() {
+    const data = await api.hermesSecurityConfigRead()
+    securityValues = { ...SECURITY_DEFAULTS, ...(data?.values || {}) }
+  }
+
   async function loadStreaming() {
     const data = await api.hermesStreamingConfigRead()
     streamingValues = { ...STREAMING_DEFAULTS, ...(data?.values || {}) }
@@ -783,6 +843,7 @@ export function render() {
     skillsLoading = true
     quickCommandsLoading = true
     unauthorizedDmLoading = true
+    securityLoading = true
     streamingLoading = true
     executionLimitsLoading = true
     terminalLoading = true
@@ -794,6 +855,7 @@ export function render() {
     skillsError = null
     quickCommandsError = null
     unauthorizedDmError = null
+    securityError = null
     streamingError = null
     executionLimitsError = null
     terminalError = null
@@ -885,6 +947,14 @@ export function render() {
       unauthorizedDmLoading = false
       draw()
     }
+    try {
+      await loadSecurityConfig()
+    } catch (err) {
+      securityError = humanizeError(err, t('engine.hermesSecurityConfigLoadFailed') || 'Load security config failed')
+    } finally {
+      securityLoading = false
+      draw()
+    }
   }
 
   async function refreshRawAfterStructuredSave() {
@@ -926,6 +996,9 @@ export function render() {
       } catch {}
       try {
         await loadUnauthorizedDmConfig()
+      } catch {}
+      try {
+        await loadSecurityConfig()
       } catch {}
       try {
         await loadStreaming()
@@ -1138,6 +1211,34 @@ export function render() {
       toast(unauthorizedDmError, 'error')
     } finally {
       unauthorizedDmSaving = false
+      draw()
+    }
+  }
+
+  async function saveSecurityConfig() {
+    const form = {
+      tirithEnabled: !!el.querySelector('#hm-security-tirith-enabled')?.checked,
+      tirithPath: el.querySelector('#hm-security-tirith-path')?.value || 'tirith',
+      tirithTimeout: el.querySelector('#hm-security-tirith-timeout')?.value || '5',
+      tirithFailOpen: !!el.querySelector('#hm-security-tirith-fail-open')?.checked,
+    }
+    securitySaving = true
+    securityError = null
+    draw()
+    try {
+      const result = await api.hermesSecurityConfigSave(form)
+      securityValues = { ...SECURITY_DEFAULTS, ...(result?.values || form) }
+      await refreshRawAfterStructuredSave()
+      const backup = result?.backup || ''
+      toast({
+        message: t('engine.hermesSecurityConfigSaveSuccess'),
+        hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
+      }, 'success')
+    } catch (err) {
+      securityError = humanizeError(err, t('engine.hermesSecurityConfigSaveFailed') || 'Save security config failed')
+      toast(securityError, 'error')
+    } finally {
+      securitySaving = false
       draw()
     }
   }

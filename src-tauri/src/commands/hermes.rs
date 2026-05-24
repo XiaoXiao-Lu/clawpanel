@@ -3905,6 +3905,85 @@ fn merge_hermes_unauthorized_dm_config(
     Ok(())
 }
 
+fn build_hermes_security_config_values(config: &serde_yaml::Value) -> Value {
+    let root = config.as_mapping();
+    let security = root.and_then(|map| yaml_get_mapping(map, "security"));
+
+    let tirith_enabled = security
+        .and_then(|map| yaml_bool_field(map, "tirith_enabled"))
+        .unwrap_or(true);
+    let tirith_path = security
+        .and_then(|map| yaml_string_field(map, "tirith_path"))
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "tirith".to_string());
+    let tirith_timeout = security
+        .map(|map| bounded_hermes_i64(yaml_i64_field(map, "tirith_timeout"), 5, 1, 300))
+        .unwrap_or(5);
+    let tirith_fail_open = security
+        .and_then(|map| yaml_bool_field(map, "tirith_fail_open"))
+        .unwrap_or(true);
+
+    serde_json::json!({
+        "tirithEnabled": tirith_enabled,
+        "tirithPath": tirith_path,
+        "tirithTimeout": tirith_timeout,
+        "tirithFailOpen": tirith_fail_open,
+    })
+}
+
+fn merge_hermes_security_config(
+    config: &mut serde_yaml::Value,
+    form: &Value,
+) -> Result<(), String> {
+    let current = build_hermes_security_config_values(config);
+    let tirith_path = form_string(form, "tirithPath")
+        .or_else(|| current["tirithPath"].as_str().map(ToString::to_string))
+        .unwrap_or_else(|| "tirith".to_string())
+        .trim()
+        .to_string();
+    if tirith_path.is_empty() {
+        return Err("security.tirith_path 不能为空".to_string());
+    }
+
+    let root = ensure_yaml_object(config)?;
+    let tirith_timeout = validate_hermes_i64(
+        if form.get("tirithTimeout").is_some() {
+            form_i64(form, "tirithTimeout")
+        } else {
+            Some(current["tirithTimeout"].as_i64().unwrap_or(5))
+        },
+        "security.tirith_timeout",
+        5,
+        1,
+        300,
+    )?;
+    let security = yaml_child_object(root, "security")?;
+    security.insert(
+        yaml_key("tirith_enabled"),
+        serde_yaml::Value::Bool(
+            form_bool(form, "tirithEnabled")
+                .unwrap_or_else(|| current["tirithEnabled"].as_bool().unwrap_or(true)),
+        ),
+    );
+    security.insert(
+        yaml_key("tirith_path"),
+        serde_yaml::Value::String(tirith_path),
+    );
+    security.insert(
+        yaml_key("tirith_timeout"),
+        serde_yaml::Value::Number(tirith_timeout.into()),
+    );
+    security.insert(
+        yaml_key("tirith_fail_open"),
+        serde_yaml::Value::Bool(
+            form_bool(form, "tirithFailOpen")
+                .unwrap_or_else(|| current["tirithFailOpen"].as_bool().unwrap_or(true)),
+        ),
+    );
+    Ok(())
+}
+
 fn normalize_hermes_streaming_transport(
     value: Option<String>,
     strict: bool,
@@ -5444,6 +5523,30 @@ pub fn hermes_unauthorized_dm_config_save(form: Value) -> Result<Value, String> 
         "configPath": config_path.to_string_lossy(),
         "backup": backup,
         "values": build_hermes_unauthorized_dm_config_values(&config),
+    }))
+}
+
+#[tauri::command]
+pub fn hermes_security_config_read() -> Result<Value, String> {
+    let (config_path, exists, config) = read_hermes_channel_yaml_config()?;
+    ensure_yaml_object(&mut config.clone())?;
+    Ok(serde_json::json!({
+        "exists": exists,
+        "configPath": config_path.to_string_lossy(),
+        "values": build_hermes_security_config_values(&config),
+    }))
+}
+
+#[tauri::command]
+pub fn hermes_security_config_save(form: Value) -> Result<Value, String> {
+    let (config_path, _exists, mut config) = read_hermes_channel_yaml_config()?;
+    merge_hermes_security_config(&mut config, &form)?;
+    let backup = write_hermes_yaml_config(&config_path, &config)?;
+    Ok(serde_json::json!({
+        "ok": true,
+        "configPath": config_path.to_string_lossy(),
+        "backup": backup,
+        "values": build_hermes_security_config_values(&config),
     }))
 }
 
@@ -11537,6 +11640,101 @@ memory:
         )
         .unwrap_err();
         assert!(err.contains("unauthorized_dm_behavior"));
+    }
+}
+
+#[cfg(test)]
+mod hermes_security_config_tests {
+    use super::{build_hermes_security_config_values, merge_hermes_security_config};
+    use serde_json::json;
+
+    #[test]
+    fn security_values_have_tirith_defaults() {
+        let config: serde_yaml::Value = serde_yaml::from_str("{}").unwrap();
+        let values = build_hermes_security_config_values(&config);
+        assert_eq!(values["tirithEnabled"], true);
+        assert_eq!(values["tirithPath"], "tirith");
+        assert_eq!(values["tirithTimeout"], 5);
+        assert_eq!(values["tirithFailOpen"], true);
+    }
+
+    #[test]
+    fn security_values_read_yaml_fields() {
+        let config: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+security:
+  tirith_enabled: false
+  tirith_path: C:/tools/tirith.exe
+  tirith_timeout: 12
+  tirith_fail_open: false
+"#,
+        )
+        .unwrap();
+        let values = build_hermes_security_config_values(&config);
+        assert_eq!(values["tirithEnabled"], false);
+        assert_eq!(values["tirithPath"], "C:/tools/tirith.exe");
+        assert_eq!(values["tirithTimeout"], 12);
+        assert_eq!(values["tirithFailOpen"], false);
+    }
+
+    #[test]
+    fn merge_security_config_preserves_unknown_fields() {
+        let mut config: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+model:
+  provider: anthropic
+security:
+  allow_private_urls: false
+  website_blocklist:
+    enabled: true
+    domains:
+      - example.com
+  custom_flag: keep-security
+terminal:
+  backend: docker
+"#,
+        )
+        .unwrap();
+
+        merge_hermes_security_config(
+            &mut config,
+            &json!({
+                "tirithEnabled": false,
+                "tirithPath": "~/bin/tirith",
+                "tirithTimeout": 9,
+                "tirithFailOpen": false,
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(config["model"]["provider"].as_str(), Some("anthropic"));
+        assert_eq!(config["terminal"]["backend"].as_str(), Some("docker"));
+        assert_eq!(
+            config["security"]["custom_flag"].as_str(),
+            Some("keep-security")
+        );
+        assert_eq!(config["security"]["tirith_enabled"].as_bool(), Some(false));
+        assert_eq!(
+            config["security"]["tirith_path"].as_str(),
+            Some("~/bin/tirith")
+        );
+        assert_eq!(config["security"]["tirith_timeout"].as_i64(), Some(9));
+        assert_eq!(
+            config["security"]["tirith_fail_open"].as_bool(),
+            Some(false)
+        );
+    }
+
+    #[test]
+    fn merge_security_config_rejects_invalid_values() {
+        let mut config = serde_yaml::Value::Mapping(serde_yaml::Mapping::new());
+        let err =
+            merge_hermes_security_config(&mut config, &json!({ "tirithTimeout": 0 })).unwrap_err();
+        assert!(err.contains("security.tirith_timeout"));
+
+        let err =
+            merge_hermes_security_config(&mut config, &json!({ "tirithPath": "" })).unwrap_err();
+        assert!(err.contains("security.tirith_path"));
     }
 }
 

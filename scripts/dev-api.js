@@ -3699,6 +3699,38 @@ export function mergeHermesUnauthorizedDmConfig(config = {}, form = {}) {
   return next
 }
 
+export function buildHermesSecurityConfigValues(config = {}) {
+  const root = config && typeof config === 'object' && !Array.isArray(config) ? config : {}
+  const security = root.security && typeof root.security === 'object' && !Array.isArray(root.security)
+    ? root.security
+    : {}
+  const tirithPath = typeof security.tirith_path === 'string' && security.tirith_path.trim()
+    ? security.tirith_path.trim()
+    : 'tirith'
+  return {
+    tirithEnabled: readHermesBool(security.tirith_enabled, true),
+    tirithPath,
+    tirithTimeout: parseHermesInteger(security.tirith_timeout, 'security.tirith_timeout', 5, 1, 300, false),
+    tirithFailOpen: readHermesBool(security.tirith_fail_open, true),
+  }
+}
+
+export function mergeHermesSecurityConfig(config = {}, form = {}) {
+  const next = mergeConfigsPreservingFields({}, config && typeof config === 'object' && !Array.isArray(config) ? config : {})
+  const currentValues = buildHermesSecurityConfigValues(next)
+  const security = next.security && typeof next.security === 'object' && !Array.isArray(next.security)
+    ? mergeConfigsPreservingFields(next.security, {})
+    : {}
+  const tirithPath = String(Object.hasOwn(form, 'tirithPath') ? form.tirithPath : currentValues.tirithPath).trim()
+  if (!tirithPath) throw new Error('security.tirith_path 不能为空')
+  security.tirith_enabled = formHermesBool(form, 'tirithEnabled', currentValues.tirithEnabled)
+  security.tirith_path = tirithPath
+  security.tirith_timeout = parseHermesInteger(Object.hasOwn(form, 'tirithTimeout') ? form.tirithTimeout : currentValues.tirithTimeout, 'security.tirith_timeout', 5, 1, 300, true)
+  security.tirith_fail_open = formHermesBool(form, 'tirithFailOpen', currentValues.tirithFailOpen)
+  next.security = security
+  return next
+}
+
 export function buildHermesStreamingConfigValues(config = {}) {
   const root = config && typeof config === 'object' && !Array.isArray(config) ? config : {}
   const streaming = hermesStreamingConfigSource(root)
@@ -10223,6 +10255,27 @@ const handlers = {
       configPath,
       backup,
       values: buildHermesUnauthorizedDmConfigValues(next),
+    }
+  },
+
+  hermes_security_config_read() {
+    const { configPath, exists, config } = readHermesConfigYamlObject()
+    return {
+      exists,
+      configPath,
+      values: buildHermesSecurityConfigValues(config),
+    }
+  },
+
+  hermes_security_config_save({ form } = {}) {
+    const { configPath, config } = readHermesConfigYamlObject()
+    const next = mergeHermesSecurityConfig(config, form || {})
+    const backup = writeHermesConfigYamlObject(configPath, next)
+    return {
+      ok: true,
+      configPath,
+      backup,
+      values: buildHermesSecurityConfigValues(next),
     }
   },
 

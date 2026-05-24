@@ -67,6 +67,18 @@ test('Hermes 配置页会暴露未授权 DM 全局策略字段', () => {
   }
 })
 
+test('Hermes 配置页会暴露 Tirith 安全扫描结构化配置字段', () => {
+  for (const id of [
+    'hm-security-save',
+    'hm-security-tirith-enabled',
+    'hm-security-tirith-path',
+    'hm-security-tirith-timeout',
+    'hm-security-tirith-fail-open',
+  ]) {
+    assert.match(source, new RegExp(`id="${id}"`), `缺少 ${id}`)
+  }
+})
+
 test('Hermes 配置页会暴露网关流式结构化配置字段', () => {
   for (const id of [
     'hm-streaming-save',
@@ -128,6 +140,7 @@ test('Hermes 配置页新增结构化配置不会暴露翻译 key', () => {
     key.includes('SkillsConfig') ||
     key.includes('QuickCommandsConfig') ||
     key.includes('UnauthorizedDmConfig') ||
+    key.includes('SecurityConfig') ||
     key.includes('StreamingConfig') ||
     key.includes('ExecutionLimits') ||
     key.includes('TerminalConfig')

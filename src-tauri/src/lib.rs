@@ -271,6 +271,8 @@ pub fn run() {
             hermes::hermes_quick_commands_config_save,
             hermes::hermes_unauthorized_dm_config_read,
             hermes::hermes_unauthorized_dm_config_save,
+            hermes::hermes_security_config_read,
+            hermes::hermes_security_config_save,
             hermes::hermes_streaming_config_read,
             hermes::hermes_streaming_config_save,
             hermes::hermes_execution_limits_config_read,
