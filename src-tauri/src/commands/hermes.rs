@@ -4565,6 +4565,108 @@ fn build_hermes_execution_limits_config_values(config: &serde_yaml::Value) -> Va
     })
 }
 
+fn build_hermes_io_safety_config_values(config: &serde_yaml::Value) -> Value {
+    let root = config.as_mapping();
+    let tool_output = root.and_then(|map| yaml_get_mapping(map, "tool_output"));
+    let file_read_max_chars = root
+        .map(|map| {
+            bounded_hermes_i64(
+                yaml_i64_field(map, "file_read_max_chars"),
+                100000,
+                1000,
+                1000000,
+            )
+        })
+        .unwrap_or(100000);
+    let tool_output_max_bytes = tool_output
+        .map(|map| bounded_hermes_i64(yaml_i64_field(map, "max_bytes"), 50000, 1000, 1000000))
+        .unwrap_or(50000);
+    let tool_output_max_lines = tool_output
+        .map(|map| bounded_hermes_i64(yaml_i64_field(map, "max_lines"), 2000, 1, 100000))
+        .unwrap_or(2000);
+    let tool_output_max_line_length = tool_output
+        .map(|map| bounded_hermes_i64(yaml_i64_field(map, "max_line_length"), 2000, 1, 100000))
+        .unwrap_or(2000);
+
+    serde_json::json!({
+        "fileReadMaxChars": file_read_max_chars,
+        "toolOutputMaxBytes": tool_output_max_bytes,
+        "toolOutputMaxLines": tool_output_max_lines,
+        "toolOutputMaxLineLength": tool_output_max_line_length,
+    })
+}
+
+fn merge_hermes_io_safety_config(
+    config: &mut serde_yaml::Value,
+    form: &Value,
+) -> Result<(), String> {
+    let current = build_hermes_io_safety_config_values(config);
+    let file_read_max_chars = validate_hermes_i64(
+        if form.get("fileReadMaxChars").is_some() {
+            form_i64(form, "fileReadMaxChars")
+        } else {
+            Some(current["fileReadMaxChars"].as_i64().unwrap_or(100000))
+        },
+        "file_read_max_chars",
+        100000,
+        1000,
+        1000000,
+    )?;
+    let tool_output_max_bytes = validate_hermes_i64(
+        if form.get("toolOutputMaxBytes").is_some() {
+            form_i64(form, "toolOutputMaxBytes")
+        } else {
+            Some(current["toolOutputMaxBytes"].as_i64().unwrap_or(50000))
+        },
+        "tool_output.max_bytes",
+        50000,
+        1000,
+        1000000,
+    )?;
+    let tool_output_max_lines = validate_hermes_i64(
+        if form.get("toolOutputMaxLines").is_some() {
+            form_i64(form, "toolOutputMaxLines")
+        } else {
+            Some(current["toolOutputMaxLines"].as_i64().unwrap_or(2000))
+        },
+        "tool_output.max_lines",
+        2000,
+        1,
+        100000,
+    )?;
+    let tool_output_max_line_length = validate_hermes_i64(
+        if form.get("toolOutputMaxLineLength").is_some() {
+            form_i64(form, "toolOutputMaxLineLength")
+        } else {
+            Some(current["toolOutputMaxLineLength"].as_i64().unwrap_or(2000))
+        },
+        "tool_output.max_line_length",
+        2000,
+        1,
+        100000,
+    )?;
+
+    let root = ensure_yaml_object(config)?;
+    root.insert(
+        yaml_key("file_read_max_chars"),
+        serde_yaml::Value::Number(file_read_max_chars.into()),
+    );
+    let tool_output = yaml_child_object(root, "tool_output")?;
+    tool_output.insert(
+        yaml_key("max_bytes"),
+        serde_yaml::Value::Number(tool_output_max_bytes.into()),
+    );
+    tool_output.insert(
+        yaml_key("max_lines"),
+        serde_yaml::Value::Number(tool_output_max_lines.into()),
+    );
+    tool_output.insert(
+        yaml_key("max_line_length"),
+        serde_yaml::Value::Number(tool_output_max_line_length.into()),
+    );
+    Ok(())
+}
+
 fn merge_hermes_execution_limits_config(
     config: &mut serde_yaml::Value,
     form: &Value,
@@ -5985,6 +6087,30 @@ pub fn hermes_execution_limits_config_save(form: Value) -> Result<Value, String>
         "configPath": config_path.to_string_lossy(),
         "backup": backup,
         "values": build_hermes_execution_limits_config_values(&config),
+    }))
+}
+
+#[tauri::command]
+pub fn hermes_io_safety_config_read() -> Result<Value, String> {
+    let (config_path, exists, config) = read_hermes_channel_yaml_config()?;
+    ensure_yaml_object(&mut config.clone())?;
+    Ok(serde_json::json!({
+        "exists": exists,
+        "configPath": config_path.to_string_lossy(),
+        "values": build_hermes_io_safety_config_values(&config),
+    }))
+}
+
+#[tauri::command]
+pub fn hermes_io_safety_config_save(form: Value) -> Result<Value, String> {
+    let (config_path, _exists, mut config) = read_hermes_channel_yaml_config()?;
+    merge_hermes_io_safety_config(&mut config, &form)?;
+    let backup = write_hermes_yaml_config(&config_path, &config)?;
+    Ok(serde_json::json!({
+        "ok": true,
+        "configPath": config_path.to_string_lossy(),
+        "backup": backup,
+        "values": build_hermes_io_safety_config_values(&config),
     }))
 }
 
@@ -11501,6 +11627,101 @@ streaming:
         )
         .unwrap_err();
         assert!(err.contains("delegation.child_timeout_seconds"));
+    }
+}
+
+#[cfg(test)]
+mod hermes_io_safety_config_tests {
+    use super::{build_hermes_io_safety_config_values, merge_hermes_io_safety_config};
+    use serde_json::json;
+
+    #[test]
+    fn io_safety_values_have_upstream_defaults() {
+        let config: serde_yaml::Value = serde_yaml::from_str("{}").unwrap();
+        let values = build_hermes_io_safety_config_values(&config);
+        assert_eq!(values["fileReadMaxChars"], 100000);
+        assert_eq!(values["toolOutputMaxBytes"], 50000);
+        assert_eq!(values["toolOutputMaxLines"], 2000);
+        assert_eq!(values["toolOutputMaxLineLength"], 2000);
+    }
+
+    #[test]
+    fn io_safety_values_read_yaml_fields() {
+        let config: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+file_read_max_chars: 200000
+tool_output:
+  max_bytes: 150000
+  max_lines: 5000
+  max_line_length: 4000
+"#,
+        )
+        .unwrap();
+        let values = build_hermes_io_safety_config_values(&config);
+        assert_eq!(values["fileReadMaxChars"], 200000);
+        assert_eq!(values["toolOutputMaxBytes"], 150000);
+        assert_eq!(values["toolOutputMaxLines"], 5000);
+        assert_eq!(values["toolOutputMaxLineLength"], 4000);
+    }
+
+    #[test]
+    fn merge_io_safety_config_preserves_unknown_fields() {
+        let mut config: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+model:
+  provider: anthropic
+file_read_max_chars: 100000
+tool_output:
+  max_bytes: 50000
+  custom_flag: keep-output
+streaming:
+  enabled: true
+"#,
+        )
+        .unwrap();
+
+        merge_hermes_io_safety_config(
+            &mut config,
+            &json!({
+                "fileReadMaxChars": "120000",
+                "toolOutputMaxBytes": "80000",
+                "toolOutputMaxLines": "3000",
+                "toolOutputMaxLineLength": "2500",
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(config["model"]["provider"].as_str(), Some("anthropic"));
+        assert_eq!(config["streaming"]["enabled"].as_bool(), Some(true));
+        assert_eq!(config["file_read_max_chars"].as_i64(), Some(120000));
+        assert_eq!(config["tool_output"]["max_bytes"].as_i64(), Some(80000));
+        assert_eq!(config["tool_output"]["max_lines"].as_i64(), Some(3000));
+        assert_eq!(
+            config["tool_output"]["max_line_length"].as_i64(),
+            Some(2500)
+        );
+        assert_eq!(
+            config["tool_output"]["custom_flag"].as_str(),
+            Some("keep-output")
+        );
+    }
+
+    #[test]
+    fn merge_io_safety_config_rejects_invalid_values() {
+        let mut config = serde_yaml::Value::Mapping(serde_yaml::Mapping::new());
+        let err = merge_hermes_io_safety_config(&mut config, &json!({ "fileReadMaxChars": 999 }))
+            .unwrap_err();
+        assert!(err.contains("file_read_max_chars"));
+        let err = merge_hermes_io_safety_config(&mut config, &json!({ "toolOutputMaxBytes": 999 }))
+            .unwrap_err();
+        assert!(err.contains("tool_output.max_bytes"));
+        let err = merge_hermes_io_safety_config(&mut config, &json!({ "toolOutputMaxLines": 0 }))
+            .unwrap_err();
+        assert!(err.contains("tool_output.max_lines"));
+        let err =
+            merge_hermes_io_safety_config(&mut config, &json!({ "toolOutputMaxLineLength": 0 }))
+                .unwrap_err();
+        assert!(err.contains("tool_output.max_line_length"));
     }
 }
 

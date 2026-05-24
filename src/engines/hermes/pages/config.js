@@ -102,6 +102,13 @@ const EXECUTION_LIMITS_DEFAULTS = {
   delegationInheritMcpToolsets: true,
 }
 
+const IO_SAFETY_DEFAULTS = {
+  fileReadMaxChars: 100000,
+  toolOutputMaxBytes: 50000,
+  toolOutputMaxLines: 2000,
+  toolOutputMaxLineLength: 2000,
+}
+
 const TERMINAL_DEFAULTS = {
   terminalBackend: 'local',
   terminalCwd: '.',
@@ -142,6 +149,7 @@ export function render() {
   let humanDelayValues = { ...HUMAN_DELAY_DEFAULTS }
   let streamingValues = { ...STREAMING_DEFAULTS }
   let executionLimitsValues = { ...EXECUTION_LIMITS_DEFAULTS }
+  let ioSafetyValues = { ...IO_SAFETY_DEFAULTS }
   let terminalValues = { ...TERMINAL_DEFAULTS }
   let loading = true
   let runtimeLoading = true
@@ -156,6 +164,7 @@ export function render() {
   let humanDelayLoading = true
   let streamingLoading = true
   let executionLimitsLoading = true
+  let ioSafetyLoading = true
   let terminalLoading = true
   let saving = false
   let runtimeSaving = false
@@ -170,6 +179,7 @@ export function render() {
   let humanDelaySaving = false
   let streamingSaving = false
   let executionLimitsSaving = false
+  let ioSafetySaving = false
   let terminalSaving = false
   let error = null
   let runtimeError = null
@@ -184,6 +194,7 @@ export function render() {
   let humanDelayError = null
   let streamingError = null
   let executionLimitsError = null
+  let ioSafetyError = null
   let terminalError = null
 
   function esc(value) {
@@ -195,7 +206,7 @@ export function render() {
   }
 
   function isBusy() {
-    return loading || runtimeLoading || compressionLoading || toolGuardrailsLoading || memoryLoading || skillsLoading || quickCommandsLoading || unauthorizedDmLoading || securityLoading || displayLoading || humanDelayLoading || streamingLoading || executionLimitsLoading || terminalLoading || saving || runtimeSaving || compressionSaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || unauthorizedDmSaving || securitySaving || displaySaving || humanDelaySaving || streamingSaving || executionLimitsSaving || terminalSaving
+    return loading || runtimeLoading || compressionLoading || toolGuardrailsLoading || memoryLoading || skillsLoading || quickCommandsLoading || unauthorizedDmLoading || securityLoading || displayLoading || humanDelayLoading || streamingLoading || executionLimitsLoading || ioSafetyLoading || terminalLoading || saving || runtimeSaving || compressionSaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || unauthorizedDmSaving || securitySaving || displaySaving || humanDelaySaving || streamingSaving || executionLimitsSaving || ioSafetySaving || terminalSaving
   }
 
   function option(labelKey, value, selected) {
@@ -777,6 +788,46 @@ export function render() {
     `
   }
 
+  function renderIoSafetyPanel() {
+    const disabled = loading || saving || ioSafetyLoading || ioSafetySaving || terminalSaving || runtimeSaving || compressionSaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving
+    return `
+      <div class="hm-panel hm-config-runtime-panel hm-config-io-safety-panel">
+        <div class="hm-panel-header">
+          <div>
+            <div class="hm-panel-title">${t('engine.hermesIoSafetyTitle')}</div>
+            <div class="hm-channel-panel-desc">${t('engine.hermesIoSafetyDesc')}</div>
+          </div>
+          <div class="hm-panel-actions">
+            <span class="hm-muted">${ioSafetySaving ? t('engine.hermesConfigStatusSaving') : ioSafetyLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesIoSafetyStatusReady')}</span>
+            <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-io-safety-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesIoSafetySave')}</button>
+          </div>
+        </div>
+        <div class="hm-panel-body">
+          ${renderError(ioSafetyError)}
+          <div class="hm-config-runtime-grid hm-config-io-safety-grid">
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesIoSafetyFileReadMaxChars')}</span>
+              <input id="hm-file-read-max-chars" class="hm-input" type="number" inputmode="numeric" min="1000" max="1000000" step="1000" value="${esc(ioSafetyValues.fileReadMaxChars)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesIoSafetyToolOutputMaxBytes')}</span>
+              <input id="hm-tool-output-max-bytes" class="hm-input" type="number" inputmode="numeric" min="1000" max="1000000" step="1000" value="${esc(ioSafetyValues.toolOutputMaxBytes)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesIoSafetyToolOutputMaxLines')}</span>
+              <input id="hm-tool-output-max-lines" class="hm-input" type="number" inputmode="numeric" min="1" max="100000" step="1" value="${esc(ioSafetyValues.toolOutputMaxLines)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesIoSafetyToolOutputMaxLineLength')}</span>
+              <input id="hm-tool-output-max-line-length" class="hm-input" type="number" inputmode="numeric" min="1" max="100000" step="1" value="${esc(ioSafetyValues.toolOutputMaxLineLength)}" ${disabled ? 'disabled' : ''}>
+            </label>
+          </div>
+          <div class="hm-channel-footnote">${t('engine.hermesIoSafetyFootnote')}</div>
+        </div>
+      </div>
+    `
+  }
+
   function renderTerminalPanel() {
     const disabled = loading || saving || terminalLoading || terminalSaving || runtimeSaving || compressionSaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving
     return `
@@ -866,6 +917,7 @@ export function render() {
       ${renderTerminalPanel()}
       ${renderStreamingPanel()}
       ${renderExecutionLimitsPanel()}
+      ${renderIoSafetyPanel()}
       ${renderCompressionPanel()}
       ${renderToolGuardrailsPanel()}
       ${renderMemoryPanel()}
@@ -906,6 +958,7 @@ export function render() {
     el.querySelector('#hm-human-delay-save')?.addEventListener('click', saveHumanDelayConfig)
     el.querySelector('#hm-streaming-save')?.addEventListener('click', saveStreaming)
     el.querySelector('#hm-execution-limits-save')?.addEventListener('click', saveExecutionLimits)
+    el.querySelector('#hm-io-safety-save')?.addEventListener('click', saveIoSafety)
     el.querySelector('#hm-terminal-save')?.addEventListener('click', saveTerminal)
   }
 
@@ -974,6 +1027,11 @@ export function render() {
     executionLimitsValues = { ...EXECUTION_LIMITS_DEFAULTS, ...(data?.values || {}) }
   }
 
+  async function loadIoSafety() {
+    const data = await api.hermesIoSafetyConfigRead()
+    ioSafetyValues = { ...IO_SAFETY_DEFAULTS, ...(data?.values || {}) }
+  }
+
   async function loadTerminal() {
     const data = await api.hermesTerminalConfigRead()
     terminalValues = { ...TERMINAL_DEFAULTS, ...(data?.values || {}) }
@@ -993,6 +1051,7 @@ export function render() {
     humanDelayLoading = true
     streamingLoading = true
     executionLimitsLoading = true
+    ioSafetyLoading = true
     terminalLoading = true
     error = null
     runtimeError = null
@@ -1007,6 +1066,7 @@ export function render() {
     humanDelayError = null
     streamingError = null
     executionLimitsError = null
+    ioSafetyError = null
     terminalError = null
     draw()
     try {
@@ -1054,6 +1114,14 @@ export function render() {
       executionLimitsError = humanizeError(err, t('engine.hermesExecutionLimitsLoadFailed') || 'Load execution limit config failed')
     } finally {
       executionLimitsLoading = false
+      draw()
+    }
+    try {
+      await loadIoSafety()
+    } catch (err) {
+      ioSafetyError = humanizeError(err, t('engine.hermesIoSafetyLoadFailed') || 'Load input/output safety config failed')
+    } finally {
+      ioSafetyLoading = false
       draw()
     }
     try {
@@ -1176,6 +1244,9 @@ export function render() {
       } catch {}
       try {
         await loadExecutionLimits()
+      } catch {}
+      try {
+        await loadIoSafety()
       } catch {}
       try {
         await loadTerminal()
@@ -1533,6 +1604,34 @@ export function render() {
       toast(executionLimitsError, 'error')
     } finally {
       executionLimitsSaving = false
+      draw()
+    }
+  }
+
+  async function saveIoSafety() {
+    const form = {
+      fileReadMaxChars: el.querySelector('#hm-file-read-max-chars')?.value || '100000',
+      toolOutputMaxBytes: el.querySelector('#hm-tool-output-max-bytes')?.value || '50000',
+      toolOutputMaxLines: el.querySelector('#hm-tool-output-max-lines')?.value || '2000',
+      toolOutputMaxLineLength: el.querySelector('#hm-tool-output-max-line-length')?.value || '2000',
+    }
+    ioSafetySaving = true
+    ioSafetyError = null
+    draw()
+    try {
+      const result = await api.hermesIoSafetyConfigSave(form)
+      ioSafetyValues = { ...IO_SAFETY_DEFAULTS, ...(result?.values || form) }
+      await refreshRawAfterStructuredSave()
+      const backup = result?.backup || ''
+      toast({
+        message: t('engine.hermesIoSafetySaveSuccess'),
+        hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
+      }, 'success')
+    } catch (err) {
+      ioSafetyError = humanizeError(err, t('engine.hermesIoSafetySaveFailed') || 'Save input/output safety config failed')
+      toast(ioSafetyError, 'error')
+    } finally {
+      ioSafetySaving = false
       draw()
     }
   }

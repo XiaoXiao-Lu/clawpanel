@@ -138,6 +138,18 @@ test('Hermes 配置页会暴露执行与委派限制结构化配置字段', () =
   }
 })
 
+test('Hermes 配置页会暴露输入输出保护结构化配置字段', () => {
+  for (const id of [
+    'hm-io-safety-save',
+    'hm-file-read-max-chars',
+    'hm-tool-output-max-bytes',
+    'hm-tool-output-max-lines',
+    'hm-tool-output-max-line-length',
+  ]) {
+    assert.match(source, new RegExp(`id="${id}"`), `缺少 ${id}`)
+  }
+})
+
 test('Hermes 配置页会暴露终端执行结构化配置字段', () => {
   for (const id of [
     'hm-terminal-save',

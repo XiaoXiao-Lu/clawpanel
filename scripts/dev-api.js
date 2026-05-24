@@ -3894,6 +3894,34 @@ export function buildHermesExecutionLimitsConfigValues(config = {}) {
   }
 }
 
+export function buildHermesIoSafetyConfigValues(config = {}) {
+  const root = config && typeof config === 'object' && !Array.isArray(config) ? config : {}
+  const toolOutput = root.tool_output && typeof root.tool_output === 'object' && !Array.isArray(root.tool_output)
+    ? root.tool_output
+    : {}
+  return {
+    fileReadMaxChars: parseHermesInteger(root.file_read_max_chars, 'file_read_max_chars', 100000, 1000, 1000000, false),
+    toolOutputMaxBytes: parseHermesInteger(toolOutput.max_bytes, 'tool_output.max_bytes', 50000, 1000, 1000000, false),
+    toolOutputMaxLines: parseHermesInteger(toolOutput.max_lines, 'tool_output.max_lines', 2000, 1, 100000, false),
+    toolOutputMaxLineLength: parseHermesInteger(toolOutput.max_line_length, 'tool_output.max_line_length', 2000, 1, 100000, false),
+  }
+}
+
+export function mergeHermesIoSafetyConfig(config = {}, form = {}) {
+  const next = mergeConfigsPreservingFields({}, config && typeof config === 'object' && !Array.isArray(config) ? config : {})
+  const currentValues = buildHermesIoSafetyConfigValues(next)
+  const toolOutput = next.tool_output && typeof next.tool_output === 'object' && !Array.isArray(next.tool_output)
+    ? mergeConfigsPreservingFields(next.tool_output, {})
+    : {}
+
+  next.file_read_max_chars = parseHermesInteger(Object.hasOwn(form, 'fileReadMaxChars') ? form.fileReadMaxChars : currentValues.fileReadMaxChars, 'file_read_max_chars', 100000, 1000, 1000000, true)
+  toolOutput.max_bytes = parseHermesInteger(Object.hasOwn(form, 'toolOutputMaxBytes') ? form.toolOutputMaxBytes : currentValues.toolOutputMaxBytes, 'tool_output.max_bytes', 50000, 1000, 1000000, true)
+  toolOutput.max_lines = parseHermesInteger(Object.hasOwn(form, 'toolOutputMaxLines') ? form.toolOutputMaxLines : currentValues.toolOutputMaxLines, 'tool_output.max_lines', 2000, 1, 100000, true)
+  toolOutput.max_line_length = parseHermesInteger(Object.hasOwn(form, 'toolOutputMaxLineLength') ? form.toolOutputMaxLineLength : currentValues.toolOutputMaxLineLength, 'tool_output.max_line_length', 2000, 1, 100000, true)
+  next.tool_output = toolOutput
+  return next
+}
+
 export function buildHermesTerminalConfigValues(config = {}) {
   const root = config && typeof config === 'object' && !Array.isArray(config) ? config : {}
   const terminal = root.terminal && typeof root.terminal === 'object' && !Array.isArray(root.terminal)
@@ -10472,6 +10500,27 @@ const handlers = {
       configPath,
       backup,
       values: buildHermesExecutionLimitsConfigValues(next),
+    }
+  },
+
+  hermes_io_safety_config_read() {
+    const { configPath, exists, config } = readHermesConfigYamlObject()
+    return {
+      exists,
+      configPath,
+      values: buildHermesIoSafetyConfigValues(config),
+    }
+  },
+
+  hermes_io_safety_config_save({ form } = {}) {
+    const { configPath, config } = readHermesConfigYamlObject()
+    const next = mergeHermesIoSafetyConfig(config, form || {})
+    const backup = writeHermesConfigYamlObject(configPath, next)
+    return {
+      ok: true,
+      configPath,
+      backup,
+      values: buildHermesIoSafetyConfigValues(next),
     }
   },
 
