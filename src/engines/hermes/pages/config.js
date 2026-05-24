@@ -42,7 +42,17 @@ const MEMORY_DEFAULTS = {
   nudgeInterval: 10,
 }
 
+const STREAMING_DEFAULTS = {
+  enabled: false,
+  transport: 'edit',
+  editInterval: 0.8,
+  bufferThreshold: 24,
+  cursor: ' ▉',
+  freshFinalAfterSeconds: 60,
+}
+
 const SESSION_RESET_MODES = ['both', 'idle', 'daily', 'none']
+const STREAMING_TRANSPORTS = ['edit', 'auto', 'draft', 'off']
 
 export function render() {
   const el = document.createElement('div')
@@ -53,21 +63,25 @@ export function render() {
   let compressionValues = { ...COMPRESSION_DEFAULTS }
   let toolGuardrailsValues = { ...TOOL_GUARDRAILS_DEFAULTS }
   let memoryValues = { ...MEMORY_DEFAULTS }
+  let streamingValues = { ...STREAMING_DEFAULTS }
   let loading = true
   let runtimeLoading = true
   let compressionLoading = true
   let toolGuardrailsLoading = true
   let memoryLoading = true
+  let streamingLoading = true
   let saving = false
   let runtimeSaving = false
   let compressionSaving = false
   let toolGuardrailsSaving = false
   let memorySaving = false
+  let streamingSaving = false
   let error = null
   let runtimeError = null
   let compressionError = null
   let toolGuardrailsError = null
   let memoryError = null
+  let streamingError = null
 
   function esc(value) {
     return String(value ?? '')
@@ -78,7 +92,7 @@ export function render() {
   }
 
   function isBusy() {
-    return loading || runtimeLoading || compressionLoading || toolGuardrailsLoading || memoryLoading || saving || runtimeSaving || compressionSaving || toolGuardrailsSaving || memorySaving
+    return loading || runtimeLoading || compressionLoading || toolGuardrailsLoading || memoryLoading || streamingLoading || saving || runtimeSaving || compressionSaving || toolGuardrailsSaving || memorySaving || streamingSaving
   }
 
   function option(labelKey, value, selected) {
@@ -95,7 +109,7 @@ export function render() {
   }
 
   function renderRuntimePanel() {
-    const disabled = loading || saving || runtimeLoading || runtimeSaving || compressionSaving || toolGuardrailsSaving || memorySaving
+    const disabled = loading || saving || runtimeLoading || runtimeSaving || compressionSaving || toolGuardrailsSaving || memorySaving || streamingSaving
     return `
       <div class="hm-panel hm-config-runtime-panel">
         <div class="hm-panel-header">
@@ -143,7 +157,7 @@ export function render() {
   }
 
   function renderCompressionPanel() {
-    const disabled = loading || saving || compressionLoading || compressionSaving || runtimeSaving || toolGuardrailsSaving || memorySaving
+    const disabled = loading || saving || compressionLoading || compressionSaving || runtimeSaving || toolGuardrailsSaving || memorySaving || streamingSaving
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-compression-panel">
         <div class="hm-panel-header">
@@ -193,7 +207,7 @@ export function render() {
   }
 
   function renderToolGuardrailsPanel() {
-    const disabled = loading || saving || toolGuardrailsLoading || toolGuardrailsSaving || runtimeSaving || compressionSaving || memorySaving
+    const disabled = loading || saving || toolGuardrailsLoading || toolGuardrailsSaving || runtimeSaving || compressionSaving || memorySaving || streamingSaving
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-guardrails-panel">
         <div class="hm-panel-header">
@@ -255,7 +269,7 @@ export function render() {
   }
 
   function renderMemoryPanel() {
-    const disabled = loading || saving || memoryLoading || memorySaving || runtimeSaving || compressionSaving || toolGuardrailsSaving
+    const disabled = loading || saving || memoryLoading || memorySaving || runtimeSaving || compressionSaving || toolGuardrailsSaving || streamingSaving
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-memory-panel">
         <div class="hm-panel-header">
@@ -300,6 +314,58 @@ export function render() {
     `
   }
 
+  function renderStreamingPanel() {
+    const disabled = loading || saving || streamingLoading || streamingSaving || runtimeSaving || compressionSaving || toolGuardrailsSaving || memorySaving
+    return `
+      <div class="hm-panel hm-config-runtime-panel hm-config-streaming-panel">
+        <div class="hm-panel-header">
+          <div>
+            <div class="hm-panel-title">${t('engine.hermesStreamingConfigTitle')}</div>
+            <div class="hm-channel-panel-desc">${t('engine.hermesStreamingConfigDesc')}</div>
+          </div>
+          <div class="hm-panel-actions">
+            <span class="hm-muted">${streamingSaving ? t('engine.hermesConfigStatusSaving') : streamingLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesStreamingConfigStatusReady')}</span>
+            <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-streaming-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesStreamingConfigSave')}</button>
+          </div>
+        </div>
+        <div class="hm-panel-body">
+          ${renderError(streamingError)}
+          <div class="hm-config-check-grid">
+            <label class="hm-channel-check">
+              <input id="hm-streaming-enabled" type="checkbox" ${streamingValues.enabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+              <span>${t('engine.hermesStreamingConfigEnabled')}</span>
+            </label>
+          </div>
+          <div class="hm-config-runtime-grid hm-config-streaming-grid">
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesStreamingConfigTransport')}</span>
+              <select id="hm-streaming-transport" class="hm-input" ${disabled ? 'disabled' : ''}>
+                ${STREAMING_TRANSPORTS.map(mode => option(`engine.hermesStreamingConfigTransport_${mode}`, mode, streamingValues.transport)).join('')}
+              </select>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesStreamingConfigEditInterval')}</span>
+              <input id="hm-streaming-edit-interval" class="hm-input" type="number" inputmode="decimal" min="0.05" max="60" step="0.05" value="${esc(streamingValues.editInterval)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesStreamingConfigBufferThreshold')}</span>
+              <input id="hm-streaming-buffer-threshold" class="hm-input" type="number" inputmode="numeric" min="1" max="5000" step="1" value="${esc(streamingValues.bufferThreshold)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesStreamingConfigFreshFinalAfterSeconds')}</span>
+              <input id="hm-streaming-fresh-final-after-seconds" class="hm-input" type="number" inputmode="decimal" min="0" max="86400" step="1" value="${esc(streamingValues.freshFinalAfterSeconds)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesStreamingConfigCursor')}</span>
+              <input id="hm-streaming-cursor" class="hm-input" value="${esc(streamingValues.cursor)}" ${disabled ? 'disabled' : ''}>
+            </label>
+          </div>
+          <div class="hm-channel-footnote">${t('engine.hermesStreamingConfigFootnote')}</div>
+        </div>
+      </div>
+    `
+  }
+
   function draw() {
     el.innerHTML = `
       <div class="hm-hero">
@@ -315,6 +381,7 @@ export function render() {
       </div>
 
       ${renderRuntimePanel()}
+      ${renderStreamingPanel()}
       ${renderCompressionPanel()}
       ${renderToolGuardrailsPanel()}
       ${renderMemoryPanel()}
@@ -341,6 +408,7 @@ export function render() {
     el.querySelector('#hm-compression-save')?.addEventListener('click', saveCompression)
     el.querySelector('#hm-tool-guardrails-save')?.addEventListener('click', saveToolGuardrails)
     el.querySelector('#hm-memory-save')?.addEventListener('click', saveMemory)
+    el.querySelector('#hm-streaming-save')?.addEventListener('click', saveStreaming)
   }
 
   async function loadRaw() {
@@ -368,17 +436,24 @@ export function render() {
     memoryValues = { ...MEMORY_DEFAULTS, ...(data?.values || {}) }
   }
 
+  async function loadStreaming() {
+    const data = await api.hermesStreamingConfigRead()
+    streamingValues = { ...STREAMING_DEFAULTS, ...(data?.values || {}) }
+  }
+
   async function load() {
     loading = true
     runtimeLoading = true
     compressionLoading = true
     toolGuardrailsLoading = true
     memoryLoading = true
+    streamingLoading = true
     error = null
     runtimeError = null
     compressionError = null
     toolGuardrailsError = null
     memoryError = null
+    streamingError = null
     draw()
     try {
       await loadRaw()
@@ -409,6 +484,14 @@ export function render() {
       toolGuardrailsError = humanizeError(err, t('engine.hermesToolGuardrailsLoadFailed') || 'Load tool guardrail config failed')
     } finally {
       toolGuardrailsLoading = false
+      draw()
+    }
+    try {
+      await loadStreaming()
+    } catch (err) {
+      streamingError = humanizeError(err, t('engine.hermesStreamingConfigLoadFailed') || 'Load streaming config failed')
+    } finally {
+      streamingLoading = false
       draw()
     }
     try {
@@ -451,6 +534,9 @@ export function render() {
       } catch {}
       try {
         await loadMemory()
+      } catch {}
+      try {
+        await loadStreaming()
       } catch {}
     } catch (err) {
       error = humanizeError(err, t('engine.hermesConfigSaveFailed') || 'Save failed')
@@ -577,6 +663,36 @@ export function render() {
       toast(memoryError, 'error')
     } finally {
       memorySaving = false
+      draw()
+    }
+  }
+
+  async function saveStreaming() {
+    const form = {
+      enabled: !!el.querySelector('#hm-streaming-enabled')?.checked,
+      transport: el.querySelector('#hm-streaming-transport')?.value || 'edit',
+      editInterval: el.querySelector('#hm-streaming-edit-interval')?.value || '0.8',
+      bufferThreshold: el.querySelector('#hm-streaming-buffer-threshold')?.value || '24',
+      cursor: el.querySelector('#hm-streaming-cursor')?.value ?? ' ▉',
+      freshFinalAfterSeconds: el.querySelector('#hm-streaming-fresh-final-after-seconds')?.value || '60',
+    }
+    streamingSaving = true
+    streamingError = null
+    draw()
+    try {
+      const result = await api.hermesStreamingConfigSave(form)
+      streamingValues = { ...STREAMING_DEFAULTS, ...(result?.values || form) }
+      await refreshRawAfterStructuredSave()
+      const backup = result?.backup || ''
+      toast({
+        message: t('engine.hermesStreamingConfigSaveSuccess'),
+        hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
+      }, 'success')
+    } catch (err) {
+      streamingError = humanizeError(err, t('engine.hermesStreamingConfigSaveFailed') || 'Save streaming config failed')
+      toast(streamingError, 'error')
+    } finally {
+      streamingSaving = false
       draw()
     }
   }

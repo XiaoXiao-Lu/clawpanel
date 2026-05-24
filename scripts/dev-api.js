@@ -3321,6 +3321,7 @@ function normalizeHermesPlatform(platform) {
 }
 
 const HERMES_SESSION_RESET_MODES = new Set(['both', 'idle', 'daily', 'none'])
+const HERMES_STREAMING_TRANSPORTS = new Set(['auto', 'draft', 'edit', 'off'])
 
 function parseHermesInteger(value, key, fallback, min, max, strict = false) {
   const raw = String(value ?? '').trim()
@@ -3370,6 +3371,25 @@ function readHermesBool(value, fallback) {
 
 function formHermesBool(form, key, fallback) {
   return readHermesBool(form?.[key], fallback)
+}
+
+function normalizeHermesStreamingTransport(value, strict = false) {
+  const transport = String(value ?? '').trim().toLowerCase() || 'edit'
+  if (HERMES_STREAMING_TRANSPORTS.has(transport)) return transport
+  if (strict) throw new Error('streaming.transport 必须是 auto、draft、edit 或 off')
+  return 'edit'
+}
+
+function hermesStreamingConfigSource(root) {
+  if (root.streaming && typeof root.streaming === 'object' && !Array.isArray(root.streaming)) {
+    return root.streaming
+  }
+  const gateway = root.gateway && typeof root.gateway === 'object' && !Array.isArray(root.gateway)
+    ? root.gateway
+    : {}
+  return gateway.streaming && typeof gateway.streaming === 'object' && !Array.isArray(gateway.streaming)
+    ? gateway.streaming
+    : {}
 }
 
 export function buildHermesCompressionConfigValues(config = {}) {
@@ -3479,6 +3499,35 @@ export function mergeHermesMemoryConfig(config = {}, form = {}) {
   memory.user_char_limit = parseHermesInteger(Object.hasOwn(form, 'userCharLimit') ? form.userCharLimit : currentValues.userCharLimit, 'memory.user_char_limit', 1375, 100, 200000, true)
   memory.nudge_interval = parseHermesInteger(Object.hasOwn(form, 'nudgeInterval') ? form.nudgeInterval : currentValues.nudgeInterval, 'memory.nudge_interval', 10, 0, 1000, true)
   next.memory = memory
+  return next
+}
+
+export function buildHermesStreamingConfigValues(config = {}) {
+  const root = config && typeof config === 'object' && !Array.isArray(config) ? config : {}
+  const streaming = hermesStreamingConfigSource(root)
+  return {
+    enabled: readHermesBool(streaming.enabled, false),
+    transport: normalizeHermesStreamingTransport(streaming.transport, false),
+    editInterval: parseHermesFloat(streaming.edit_interval, 'streaming.edit_interval', 0.8, 0.05, 60, false),
+    bufferThreshold: parseHermesInteger(streaming.buffer_threshold, 'streaming.buffer_threshold', 24, 1, 5000, false),
+    cursor: typeof streaming.cursor === 'string' ? streaming.cursor : ' ▉',
+    freshFinalAfterSeconds: parseHermesFloat(streaming.fresh_final_after_seconds, 'streaming.fresh_final_after_seconds', 60, 0, 86400, false),
+  }
+}
+
+export function mergeHermesStreamingConfig(config = {}, form = {}) {
+  const next = mergeConfigsPreservingFields({}, config && typeof config === 'object' && !Array.isArray(config) ? config : {})
+  const currentValues = buildHermesStreamingConfigValues(next)
+  const streaming = next.streaming && typeof next.streaming === 'object' && !Array.isArray(next.streaming)
+    ? mergeConfigsPreservingFields(next.streaming, {})
+    : {}
+  streaming.enabled = formHermesBool(form, 'enabled', currentValues.enabled)
+  streaming.transport = normalizeHermesStreamingTransport(Object.hasOwn(form, 'transport') ? form.transport : currentValues.transport, true)
+  streaming.edit_interval = parseHermesFloat(Object.hasOwn(form, 'editInterval') ? form.editInterval : currentValues.editInterval, 'streaming.edit_interval', 0.8, 0.05, 60, true)
+  streaming.buffer_threshold = parseHermesInteger(Object.hasOwn(form, 'bufferThreshold') ? form.bufferThreshold : currentValues.bufferThreshold, 'streaming.buffer_threshold', 24, 1, 5000, true)
+  streaming.cursor = Object.hasOwn(form, 'cursor') ? String(form.cursor ?? '') : currentValues.cursor
+  streaming.fresh_final_after_seconds = parseHermesFloat(Object.hasOwn(form, 'freshFinalAfterSeconds') ? form.freshFinalAfterSeconds : currentValues.freshFinalAfterSeconds, 'streaming.fresh_final_after_seconds', 60, 0, 86400, true)
+  next.streaming = streaming
   return next
 }
 
@@ -9764,6 +9813,27 @@ const handlers = {
       configPath,
       backup,
       values: buildHermesMemoryConfigValues(next),
+    }
+  },
+
+  hermes_streaming_config_read() {
+    const { configPath, exists, config } = readHermesConfigYamlObject()
+    return {
+      exists,
+      configPath,
+      values: buildHermesStreamingConfigValues(config),
+    }
+  },
+
+  hermes_streaming_config_save({ form } = {}) {
+    const { configPath, config } = readHermesConfigYamlObject()
+    const next = mergeHermesStreamingConfig(config, form || {})
+    const backup = writeHermesConfigYamlObject(configPath, next)
+    return {
+      ok: true,
+      configPath,
+      backup,
+      values: buildHermesStreamingConfigValues(next),
     }
   },
 

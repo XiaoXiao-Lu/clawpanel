@@ -38,12 +38,26 @@ test('Hermes 配置页会暴露记忆结构化配置字段', () => {
   }
 })
 
+test('Hermes 配置页会暴露网关流式结构化配置字段', () => {
+  for (const id of [
+    'hm-streaming-save',
+    'hm-streaming-enabled',
+    'hm-streaming-transport',
+    'hm-streaming-edit-interval',
+    'hm-streaming-buffer-threshold',
+    'hm-streaming-cursor',
+    'hm-streaming-fresh-final-after-seconds',
+  ]) {
+    assert.match(source, new RegExp(`id="${id}"`), `缺少 ${id}`)
+  }
+})
+
 test('Hermes 配置页数值输入会保留 0 值显示', () => {
   assert.doesNotMatch(source, /String\(value \|\| ''\)/, 'esc(value) 不能把合法 0 渲染为空字符串')
 })
 
 test('Hermes 配置页新增结构化配置不会暴露翻译 key', () => {
-  const keys = new Set(extractEngineKeys().filter(key => key.includes('ToolGuardrails') || key.includes('MemoryConfig')))
+  const keys = new Set(extractEngineKeys().filter(key => key.includes('ToolGuardrails') || key.includes('MemoryConfig') || key.includes('StreamingConfig')))
 
   assert.ok(keys.size > 0, '应能提取新增结构化配置用到的 engine 翻译 key')
   for (const key of keys) {

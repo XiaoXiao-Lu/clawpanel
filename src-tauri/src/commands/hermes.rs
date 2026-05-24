@@ -3414,6 +3414,149 @@ fn merge_hermes_memory_config(config: &mut serde_yaml::Value, form: &Value) -> R
     Ok(())
 }
 
+fn normalize_hermes_streaming_transport(
+    value: Option<String>,
+    strict: bool,
+) -> Result<String, String> {
+    let transport = value.unwrap_or_default().trim().to_ascii_lowercase();
+    let transport = if transport.is_empty() {
+        "edit".to_string()
+    } else {
+        transport
+    };
+    if matches!(transport.as_str(), "auto" | "draft" | "edit" | "off") {
+        return Ok(transport);
+    }
+    if strict {
+        Err("streaming.transport 必须是 auto、draft、edit 或 off".to_string())
+    } else {
+        Ok("edit".to_string())
+    }
+}
+
+fn hermes_streaming_config_source(config: &serde_yaml::Value) -> Option<&serde_yaml::Mapping> {
+    let root = config.as_mapping()?;
+    if let Some(streaming) = yaml_get_mapping(root, "streaming") {
+        return Some(streaming);
+    }
+    let gateway = yaml_get_mapping(root, "gateway")?;
+    yaml_get_mapping(gateway, "streaming")
+}
+
+fn build_hermes_streaming_config_values(config: &serde_yaml::Value) -> Value {
+    let streaming = hermes_streaming_config_source(config);
+    let enabled = streaming
+        .and_then(|map| yaml_bool_field(map, "enabled"))
+        .unwrap_or(false);
+    let transport = normalize_hermes_streaming_transport(
+        streaming.and_then(|map| yaml_string_field(map, "transport")),
+        false,
+    )
+    .unwrap_or_else(|_| "edit".to_string());
+    let edit_interval = streaming
+        .map(|map| bounded_hermes_f64(yaml_f64_field(map, "edit_interval"), 0.8, 0.05, 60.0))
+        .unwrap_or(0.8);
+    let buffer_threshold = streaming
+        .map(|map| bounded_hermes_i64(yaml_i64_field(map, "buffer_threshold"), 24, 1, 5000))
+        .unwrap_or(24);
+    let cursor = streaming
+        .and_then(|map| yaml_string_field(map, "cursor"))
+        .unwrap_or_else(|| " ▉".to_string());
+    let fresh_final_after_seconds = streaming
+        .map(|map| {
+            bounded_hermes_f64(
+                yaml_f64_field(map, "fresh_final_after_seconds"),
+                60.0,
+                0.0,
+                86400.0,
+            )
+        })
+        .unwrap_or(60.0);
+
+    serde_json::json!({
+        "enabled": enabled,
+        "transport": transport,
+        "editInterval": edit_interval,
+        "bufferThreshold": buffer_threshold,
+        "cursor": cursor,
+        "freshFinalAfterSeconds": fresh_final_after_seconds,
+    })
+}
+
+fn merge_hermes_streaming_config(
+    config: &mut serde_yaml::Value,
+    form: &Value,
+) -> Result<(), String> {
+    let current = build_hermes_streaming_config_values(config);
+    let enabled =
+        form_bool(form, "enabled").unwrap_or_else(|| current["enabled"].as_bool().unwrap_or(false));
+    let transport = normalize_hermes_streaming_transport(
+        if form.get("transport").is_some() {
+            form_string(form, "transport")
+        } else {
+            current["transport"].as_str().map(ToString::to_string)
+        },
+        true,
+    )?;
+    let edit_interval = validate_hermes_f64(
+        if form.get("editInterval").is_some() {
+            form_f64(form, "editInterval")
+        } else {
+            Some(current["editInterval"].as_f64().unwrap_or(0.8))
+        },
+        "streaming.edit_interval",
+        0.8,
+        0.05,
+        60.0,
+    )?;
+    let buffer_threshold = validate_hermes_i64(
+        if form.get("bufferThreshold").is_some() {
+            form_i64(form, "bufferThreshold")
+        } else {
+            Some(current["bufferThreshold"].as_i64().unwrap_or(24))
+        },
+        "streaming.buffer_threshold",
+        24,
+        1,
+        5000,
+    )?;
+    let cursor = if form.get("cursor").is_some() {
+        form_string(form, "cursor").unwrap_or_default()
+    } else {
+        current["cursor"].as_str().unwrap_or(" ▉").to_string()
+    };
+    let fresh_final_after_seconds = validate_hermes_f64(
+        if form.get("freshFinalAfterSeconds").is_some() {
+            form_f64(form, "freshFinalAfterSeconds")
+        } else {
+            Some(current["freshFinalAfterSeconds"].as_f64().unwrap_or(60.0))
+        },
+        "streaming.fresh_final_after_seconds",
+        60.0,
+        0.0,
+        86400.0,
+    )?;
+
+    let root = ensure_yaml_object(config)?;
+    let streaming = yaml_child_object(root, "streaming")?;
+    streaming.insert(yaml_key("enabled"), serde_yaml::Value::Bool(enabled));
+    streaming.insert(yaml_key("transport"), serde_yaml::Value::String(transport));
+    streaming.insert(
+        yaml_key("edit_interval"),
+        serde_yaml::Value::Number(edit_interval.into()),
+    );
+    streaming.insert(
+        yaml_key("buffer_threshold"),
+        serde_yaml::Value::Number(buffer_threshold.into()),
+    );
+    streaming.insert(yaml_key("cursor"), serde_yaml::Value::String(cursor));
+    streaming.insert(
+        yaml_key("fresh_final_after_seconds"),
+        serde_yaml::Value::Number(fresh_final_after_seconds.into()),
+    );
+    Ok(())
+}
+
 fn build_hermes_session_runtime_config_values(config: &serde_yaml::Value) -> Value {
     let root = config.as_mapping();
     let session_reset = root.and_then(|map| yaml_get_mapping(map, "session_reset"));
@@ -4293,6 +4436,30 @@ pub fn hermes_memory_config_save(form: Value) -> Result<Value, String> {
         "configPath": config_path.to_string_lossy(),
         "backup": backup,
         "values": build_hermes_memory_config_values(&config),
+    }))
+}
+
+#[tauri::command]
+pub fn hermes_streaming_config_read() -> Result<Value, String> {
+    let (config_path, exists, config) = read_hermes_channel_yaml_config()?;
+    ensure_yaml_object(&mut config.clone())?;
+    Ok(serde_json::json!({
+        "exists": exists,
+        "configPath": config_path.to_string_lossy(),
+        "values": build_hermes_streaming_config_values(&config),
+    }))
+}
+
+#[tauri::command]
+pub fn hermes_streaming_config_save(form: Value) -> Result<Value, String> {
+    let (config_path, _exists, mut config) = read_hermes_channel_yaml_config()?;
+    merge_hermes_streaming_config(&mut config, &form)?;
+    let backup = write_hermes_yaml_config(&config_path, &config)?;
+    Ok(serde_json::json!({
+        "ok": true,
+        "configPath": config_path.to_string_lossy(),
+        "backup": backup,
+        "values": build_hermes_streaming_config_values(&config),
     }))
 }
 
@@ -9479,6 +9646,140 @@ streaming:
         )
         .unwrap_err();
         assert!(err.contains("tool_loop_guardrails.hard_stop_after.idempotent_no_progress"));
+    }
+}
+
+#[cfg(test)]
+mod hermes_streaming_config_tests {
+    use super::{build_hermes_streaming_config_values, merge_hermes_streaming_config};
+    use serde_json::json;
+
+    #[test]
+    fn streaming_values_have_upstream_defaults() {
+        let config: serde_yaml::Value = serde_yaml::from_str("{}").unwrap();
+        let values = build_hermes_streaming_config_values(&config);
+        assert_eq!(values["enabled"], false);
+        assert_eq!(values["transport"], "edit");
+        assert_eq!(values["editInterval"], 0.8);
+        assert_eq!(values["bufferThreshold"], 24);
+        assert_eq!(values["cursor"], " ▉");
+        assert_eq!(values["freshFinalAfterSeconds"], 60.0);
+    }
+
+    #[test]
+    fn streaming_values_prefer_top_level_and_fallback_to_gateway() {
+        let fallback: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+gateway:
+  streaming:
+    enabled: true
+    transport: draft
+    edit_interval: 0.25
+    buffer_threshold: 11
+    cursor: "..."
+    fresh_final_after_seconds: 0
+"#,
+        )
+        .unwrap();
+        let values = build_hermes_streaming_config_values(&fallback);
+        assert_eq!(values["enabled"], true);
+        assert_eq!(values["transport"], "draft");
+        assert_eq!(values["editInterval"], 0.25);
+        assert_eq!(values["bufferThreshold"], 11);
+        assert_eq!(values["cursor"], "...");
+        assert_eq!(values["freshFinalAfterSeconds"], 0.0);
+
+        let top_level: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+streaming:
+  enabled: false
+  transport: auto
+  edit_interval: 0.5
+  buffer_threshold: 40
+  cursor: ">"
+  fresh_final_after_seconds: 120
+gateway:
+  streaming:
+    enabled: true
+    transport: draft
+"#,
+        )
+        .unwrap();
+        let values = build_hermes_streaming_config_values(&top_level);
+        assert_eq!(values["enabled"], false);
+        assert_eq!(values["transport"], "auto");
+        assert_eq!(values["editInterval"], 0.5);
+        assert_eq!(values["bufferThreshold"], 40);
+        assert_eq!(values["cursor"], ">");
+        assert_eq!(values["freshFinalAfterSeconds"], 120.0);
+    }
+
+    #[test]
+    fn merge_streaming_config_preserves_unrelated_yaml() {
+        let mut config: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+model:
+  provider: anthropic
+streaming:
+  enabled: false
+  custom_flag: keep-me
+gateway:
+  streaming:
+    enabled: false
+    legacy_flag: keep-nested
+display:
+  streaming: true
+"#,
+        )
+        .unwrap();
+
+        merge_hermes_streaming_config(
+            &mut config,
+            &json!({
+                "enabled": true,
+                "transport": "draft",
+                "editInterval": "0.35",
+                "bufferThreshold": "48",
+                "cursor": "",
+                "freshFinalAfterSeconds": "0",
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(config["model"]["provider"].as_str(), Some("anthropic"));
+        assert_eq!(config["display"]["streaming"].as_bool(), Some(true));
+        assert_eq!(
+            config["gateway"]["streaming"]["legacy_flag"].as_str(),
+            Some("keep-nested")
+        );
+        assert_eq!(config["streaming"]["enabled"].as_bool(), Some(true));
+        assert_eq!(config["streaming"]["transport"].as_str(), Some("draft"));
+        assert_eq!(config["streaming"]["edit_interval"].as_f64(), Some(0.35));
+        assert_eq!(config["streaming"]["buffer_threshold"].as_i64(), Some(48));
+        assert_eq!(config["streaming"]["cursor"].as_str(), Some(""));
+        assert_eq!(
+            config["streaming"]["fresh_final_after_seconds"].as_f64(),
+            Some(0.0)
+        );
+        assert_eq!(config["streaming"]["custom_flag"].as_str(), Some("keep-me"));
+    }
+
+    #[test]
+    fn merge_streaming_config_rejects_invalid_values() {
+        let mut config = serde_yaml::Value::Mapping(serde_yaml::Mapping::new());
+        let err = merge_hermes_streaming_config(&mut config, &json!({ "transport": "invalid" }))
+            .unwrap_err();
+        assert!(err.contains("streaming.transport"));
+        let err = merge_hermes_streaming_config(&mut config, &json!({ "editInterval": 0.01 }))
+            .unwrap_err();
+        assert!(err.contains("streaming.edit_interval"));
+        let err = merge_hermes_streaming_config(&mut config, &json!({ "bufferThreshold": 0 }))
+            .unwrap_err();
+        assert!(err.contains("streaming.buffer_threshold"));
+        let err =
+            merge_hermes_streaming_config(&mut config, &json!({ "freshFinalAfterSeconds": -1 }))
+                .unwrap_err();
+        assert!(err.contains("streaming.fresh_final_after_seconds"));
     }
 }
 

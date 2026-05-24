@@ -6765,6 +6765,10 @@ body[data-active-engine="hermes"][data-theme="dark"] {
   grid-template-columns: repeat(3, minmax(160px, 1fr));
   margin-top: 18px;
 }
+[data-engine="hermes"] .hm-config-streaming-grid {
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+  margin-top: 18px;
+}
 [data-engine="hermes"] .hm-config-subtitle {
   margin-top: 20px;
   color: var(--hm-text-secondary);
@@ -6898,6 +6902,7 @@ body[data-active-engine="hermes"][data-theme="dark"] {
   [data-engine="hermes"] .hm-config-compression-grid,
   [data-engine="hermes"] .hm-config-guardrails-grid,
   [data-engine="hermes"] .hm-config-memory-grid,
+  [data-engine="hermes"] .hm-config-streaming-grid,
   [data-engine="hermes"] .hm-config-check-grid {
     grid-template-columns: 1fr;
   }
