@@ -3334,6 +3334,7 @@ const HERMES_APPROVAL_MODES = new Set(['manual', 'smart', 'off'])
 const HERMES_APPROVAL_CRON_MODES = new Set(['deny', 'approve'])
 const HERMES_LOGGING_LEVELS = new Set(['DEBUG', 'INFO', 'WARNING'])
 const HERMES_AGENT_IMAGE_INPUT_MODES = new Set(['auto', 'native', 'text'])
+const HERMES_AGENT_REASONING_EFFORTS = new Set(['xhigh', 'high', 'medium', 'low', 'minimal', 'none'])
 const HERMES_PROMPT_CACHE_TTLS = new Set(['5m', '1h'])
 const HERMES_PROVIDER_ROUTING_SORTS = new Set(['price', 'throughput', 'latency'])
 const HERMES_PROVIDER_ROUTING_DATA_COLLECTION = new Set(['allow', 'deny'])
@@ -3512,6 +3513,13 @@ function normalizeHermesImageInputMode(value, strict = false) {
   if (HERMES_AGENT_IMAGE_INPUT_MODES.has(mode)) return mode
   if (strict) throw new Error('agent.image_input_mode 必须是 auto、native 或 text')
   return 'auto'
+}
+
+function normalizeHermesReasoningEffort(value, strict = false) {
+  const effort = String(value ?? '').trim().toLowerCase() || 'medium'
+  if (HERMES_AGENT_REASONING_EFFORTS.has(effort)) return effort
+  if (strict) throw new Error('agent.reasoning_effort 必须是 xhigh、high、medium、low、minimal 或 none')
+  return 'medium'
 }
 
 function normalizeHermesPromptCacheTtl(value, strict = false) {
@@ -4018,6 +4026,39 @@ function normalizeHermesToolsetList(value, fieldName = 'agent.disabled_toolsets'
   return normalized
 }
 
+function validateHermesPersonalities(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('agent.personalities 必须是 JSON 对象')
+  }
+  const normalized = {}
+  for (const [rawName, rawPrompt] of Object.entries(value)) {
+    const name = String(rawName || '').trim()
+    if (!name) throw new Error('agent.personalities 名称不能为空')
+    if (!/^[A-Za-z0-9_.-]+$/.test(name)) {
+      throw new Error(`agent.personalities.${name} 名称只能包含字母、数字、下划线、点和短横线`)
+    }
+    if (typeof rawPrompt !== 'string') {
+      throw new Error(`agent.personalities.${name} 必须是字符串`)
+    }
+    const prompt = rawPrompt.trim()
+    if (!prompt) throw new Error(`agent.personalities.${name} 不能为空`)
+    normalized[name] = prompt
+  }
+  return normalized
+}
+
+function parseHermesPersonalitiesJson(raw) {
+  const text = String(raw ?? '').trim()
+  if (!text) return {}
+  let value
+  try {
+    value = JSON.parse(text)
+  } catch (err) {
+    throw new Error(`agent.personalities JSON 格式错误: ${err.message}`)
+  }
+  return validateHermesPersonalities(value)
+}
+
 function validateHermesPlatformToolsets(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('platform_toolsets 必须是 JSON 对象')
@@ -4127,6 +4168,9 @@ export function buildHermesAgentRuntimeConfigValues(config = {}) {
   const agent = root.agent && typeof root.agent === 'object' && !Array.isArray(root.agent)
     ? root.agent
     : {}
+  const personalities = agent.personalities && typeof agent.personalities === 'object' && !Array.isArray(agent.personalities)
+    ? validateHermesPersonalities(agent.personalities)
+    : {}
   return {
     agentMaxTurns: parseHermesInteger(agent.max_turns, 'agent.max_turns', 90, 1, 10000, false),
     gatewayTimeout: parseHermesInteger(agent.gateway_timeout, 'agent.gateway_timeout', 1800, 0, 604800, false),
@@ -4137,6 +4181,9 @@ export function buildHermesAgentRuntimeConfigValues(config = {}) {
     gatewayNotifyInterval: parseHermesInteger(agent.gateway_notify_interval, 'agent.gateway_notify_interval', 180, 0, 86400, false),
     gatewayAutoContinueFreshness: parseHermesInteger(agent.gateway_auto_continue_freshness, 'agent.gateway_auto_continue_freshness', 3600, 0, 604800, false),
     imageInputMode: normalizeHermesImageInputMode(agent.image_input_mode, false),
+    agentVerbose: readHermesBool(agent.verbose, false),
+    reasoningEffort: normalizeHermesReasoningEffort(agent.reasoning_effort, false),
+    personalitiesJson: JSON.stringify(personalities, null, 2),
   }
 }
 
@@ -4155,6 +4202,11 @@ export function mergeHermesAgentRuntimeConfig(config = {}, form = {}) {
   agent.gateway_notify_interval = parseHermesInteger(Object.hasOwn(form, 'gatewayNotifyInterval') ? form.gatewayNotifyInterval : currentValues.gatewayNotifyInterval, 'agent.gateway_notify_interval', 180, 0, 86400, true)
   agent.gateway_auto_continue_freshness = parseHermesInteger(Object.hasOwn(form, 'gatewayAutoContinueFreshness') ? form.gatewayAutoContinueFreshness : currentValues.gatewayAutoContinueFreshness, 'agent.gateway_auto_continue_freshness', 3600, 0, 604800, true)
   agent.image_input_mode = normalizeHermesImageInputMode(Object.hasOwn(form, 'imageInputMode') ? form.imageInputMode : currentValues.imageInputMode, true)
+  agent.verbose = formHermesBool(form, 'agentVerbose', currentValues.agentVerbose)
+  agent.reasoning_effort = normalizeHermesReasoningEffort(Object.hasOwn(form, 'reasoningEffort') ? form.reasoningEffort : currentValues.reasoningEffort, true)
+  const personalities = parseHermesPersonalitiesJson(Object.hasOwn(form, 'personalitiesJson') ? form.personalitiesJson : currentValues.personalitiesJson)
+  if (Object.keys(personalities).length) agent.personalities = personalities
+  else delete agent.personalities
   next.agent = agent
   return next
 }

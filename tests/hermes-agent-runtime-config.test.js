@@ -19,6 +19,9 @@ test('Hermes Agent 长跑保护配置读取会提供上游默认值', () => {
     gatewayNotifyInterval: 180,
     gatewayAutoContinueFreshness: 3600,
     imageInputMode: 'auto',
+    agentVerbose: false,
+    reasoningEffort: 'medium',
+    personalitiesJson: '{}',
   })
 })
 
@@ -34,6 +37,12 @@ test('Hermes Agent 长跑保护配置读取会回显 YAML 字段', () => {
       gateway_notify_interval: 240,
       gateway_auto_continue_freshness: 5400,
       image_input_mode: 'native',
+      verbose: true,
+      reasoning_effort: 'high',
+      personalities: {
+        concise: 'Keep answers short.',
+        teacher: 'Explain with examples.',
+      },
     },
   })
 
@@ -46,6 +55,12 @@ test('Hermes Agent 长跑保护配置读取会回显 YAML 字段', () => {
   assert.equal(values.gatewayNotifyInterval, 240)
   assert.equal(values.gatewayAutoContinueFreshness, 5400)
   assert.equal(values.imageInputMode, 'native')
+  assert.equal(values.agentVerbose, true)
+  assert.equal(values.reasoningEffort, 'high')
+  assert.deepEqual(JSON.parse(values.personalitiesJson), {
+    concise: 'Keep answers short.',
+    teacher: 'Explain with examples.',
+  })
 })
 
 test('Hermes Agent 长跑保护配置保存会保留未知字段并写入 agent', () => {
@@ -67,6 +82,12 @@ test('Hermes Agent 长跑保护配置保存会保留未知字段并写入 agent'
     gatewayNotifyInterval: '120',
     gatewayAutoContinueFreshness: '1800',
     imageInputMode: 'text',
+    agentVerbose: true,
+    reasoningEffort: 'low',
+    personalitiesJson: JSON.stringify({
+      concise: ' Keep replies brief. ',
+      ops: 'Focus on operational risk.',
+    }),
   })
 
   assert.deepEqual(next.model, { provider: 'anthropic' })
@@ -80,7 +101,29 @@ test('Hermes Agent 长跑保护配置保存会保留未知字段并写入 agent'
   assert.equal(next.agent.gateway_notify_interval, 120)
   assert.equal(next.agent.gateway_auto_continue_freshness, 1800)
   assert.equal(next.agent.image_input_mode, 'text')
+  assert.equal(next.agent.verbose, true)
+  assert.equal(next.agent.reasoning_effort, 'low')
+  assert.deepEqual(next.agent.personalities, {
+    concise: 'Keep replies brief.',
+    ops: 'Focus on operational risk.',
+  })
   assert.deepEqual(next.agent.disabled_toolsets, ['terminal'])
+  assert.equal(next.agent.custom_flag, 'keep-agent')
+})
+
+test('Hermes Agent 长跑保护配置保存空人格会删除 personalities', () => {
+  const next = mergeHermesAgentRuntimeConfig({
+    agent: {
+      personalities: {
+        concise: 'Keep answers short.',
+      },
+      custom_flag: 'keep-agent',
+    },
+  }, {
+    personalitiesJson: '{}',
+  })
+
+  assert.equal(next.agent.personalities, undefined)
   assert.equal(next.agent.custom_flag, 'keep-agent')
 })
 
@@ -116,5 +159,17 @@ test('Hermes Agent 长跑保护配置保存会拒绝非法枚举和越界值', (
   assert.throws(
     () => mergeHermesAgentRuntimeConfig({}, { clarifyTimeout: '-1' }),
     /agent\.clarify_timeout/,
+  )
+  assert.throws(
+    () => mergeHermesAgentRuntimeConfig({}, { reasoningEffort: 'maximum' }),
+    /agent\.reasoning_effort/,
+  )
+  assert.throws(
+    () => mergeHermesAgentRuntimeConfig({}, { personalitiesJson: '{"bad name":"x"}' }),
+    /agent\.personalities\.bad name/,
+  )
+  assert.throws(
+    () => mergeHermesAgentRuntimeConfig({}, { personalitiesJson: '{"concise":123}' }),
+    /agent\.personalities\.concise/,
   )
 })

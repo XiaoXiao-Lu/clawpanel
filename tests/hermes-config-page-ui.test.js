@@ -118,6 +118,9 @@ test('Hermes 配置页会暴露 Agent 长跑保护结构化配置字段', () => 
     'hm-agent-gateway-notify-interval',
     'hm-agent-gateway-auto-continue-freshness',
     'hm-agent-image-input-mode',
+    'hm-agent-reasoning-effort',
+    'hm-agent-verbose',
+    'hm-agent-personalities-json',
   ]) {
     assert.match(source, new RegExp(`id="${id}"`), `缺少 ${id}`)
   }

@@ -118,6 +118,9 @@ const AGENT_RUNTIME_DEFAULTS = {
   gatewayNotifyInterval: 180,
   gatewayAutoContinueFreshness: 3600,
   imageInputMode: 'auto',
+  agentVerbose: false,
+  reasoningEffort: 'medium',
+  personalitiesJson: '{}',
 }
 
 const UNAUTHORIZED_DM_DEFAULTS = {
@@ -260,6 +263,7 @@ const STT_OPENAI_MODELS = ['whisper-1', 'gpt-4o-mini-transcribe', 'gpt-4o-transc
 const STT_MISTRAL_MODELS = ['voxtral-mini-latest', 'voxtral-mini-2602']
 const UNAUTHORIZED_DM_BEHAVIORS = ['pair', 'ignore']
 const IMAGE_INPUT_MODES = ['auto', 'native', 'text']
+const REASONING_EFFORTS = ['xhigh', 'high', 'medium', 'low', 'minimal', 'none']
 const DISPLAY_TOOL_PROGRESS_VALUES = ['off', 'new', 'all', 'verbose']
 const DISPLAY_LANGUAGE_VALUES = ['en', 'zh', 'zh-hant', 'ja', 'de', 'es', 'fr', 'tr', 'uk', 'af', 'ko', 'it', 'ga', 'pt', 'ru', 'hu']
 const DISPLAY_RESUME_VALUES = ['full', 'minimal']
@@ -1122,6 +1126,20 @@ export function render() {
               <select id="hm-agent-image-input-mode" class="hm-input" ${disabled ? 'disabled' : ''}>
                 ${IMAGE_INPUT_MODES.map(mode => option(`engine.hermesAgentRuntimeConfigImageInputMode_${mode}`, mode, agentRuntimeValues.imageInputMode)).join('')}
               </select>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesAgentRuntimeConfigReasoningEffort')}</span>
+              <select id="hm-agent-reasoning-effort" class="hm-input" ${disabled ? 'disabled' : ''}>
+                ${REASONING_EFFORTS.map(effort => option(`engine.hermesAgentRuntimeConfigReasoningEffort_${effort}`, effort, agentRuntimeValues.reasoningEffort)).join('')}
+              </select>
+            </label>
+            <label class="hm-channel-check">
+              <input id="hm-agent-verbose" type="checkbox" ${agentRuntimeValues.agentVerbose ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+              <span>${t('engine.hermesAgentRuntimeConfigVerbose')}</span>
+            </label>
+            <label class="hm-field hm-field--wide">
+              <span class="hm-field-label">${t('engine.hermesAgentRuntimeConfigPersonalities')}</span>
+              <textarea id="hm-agent-personalities-json" class="hm-input" spellcheck="false" rows="7" ${disabled ? 'disabled' : ''} style="font-family:var(--hm-font-mono);line-height:1.65;min-height:190px">${esc(agentRuntimeValues.personalitiesJson)}</textarea>
             </label>
           </div>
           <div class="hm-channel-footnote">${t('engine.hermesAgentRuntimeConfigFootnote')}</div>
@@ -3060,6 +3078,9 @@ export function render() {
       gatewayNotifyInterval: el.querySelector('#hm-agent-gateway-notify-interval')?.value || '180',
       gatewayAutoContinueFreshness: el.querySelector('#hm-agent-gateway-auto-continue-freshness')?.value || '3600',
       imageInputMode: el.querySelector('#hm-agent-image-input-mode')?.value || 'auto',
+      reasoningEffort: el.querySelector('#hm-agent-reasoning-effort')?.value || 'medium',
+      agentVerbose: !!el.querySelector('#hm-agent-verbose')?.checked,
+      personalitiesJson: el.querySelector('#hm-agent-personalities-json')?.value || '{}',
     }
     agentRuntimeSaving = true
     agentRuntimeError = null

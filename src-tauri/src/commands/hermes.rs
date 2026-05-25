@@ -5242,6 +5242,71 @@ fn normalize_hermes_image_input_mode(
     }
 }
 
+fn normalize_hermes_reasoning_effort(
+    value: Option<String>,
+    strict: bool,
+) -> Result<String, String> {
+    let effort = value.unwrap_or_default().trim().to_ascii_lowercase();
+    let effort = if effort.is_empty() {
+        "medium".to_string()
+    } else {
+        effort
+    };
+    if matches!(
+        effort.as_str(),
+        "xhigh" | "high" | "medium" | "low" | "minimal" | "none"
+    ) {
+        return Ok(effort);
+    }
+    if strict {
+        Err("agent.reasoning_effort 必须是 xhigh、high、medium、low、minimal 或 none".to_string())
+    } else {
+        Ok("medium".to_string())
+    }
+}
+
+fn validate_hermes_personalities(value: &Value) -> Result<serde_json::Map<String, Value>, String> {
+    let Some(map) = value.as_object() else {
+        return Err("agent.personalities 必须是 JSON 对象".to_string());
+    };
+    let mut normalized = serde_json::Map::new();
+    for (raw_name, raw_prompt) in map {
+        let name = raw_name.trim();
+        if name.is_empty() {
+            return Err("agent.personalities 名称不能为空".to_string());
+        }
+        if !name
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '.' | '-'))
+        {
+            return Err(format!(
+                "agent.personalities.{name} 名称只能包含字母、数字、下划线、点和短横线"
+            ));
+        }
+        let Some(prompt) = raw_prompt.as_str() else {
+            return Err(format!("agent.personalities.{name} 必须是字符串"));
+        };
+        let prompt = prompt.trim();
+        if prompt.is_empty() {
+            return Err(format!("agent.personalities.{name} 不能为空"));
+        }
+        normalized.insert(name.to_string(), Value::String(prompt.to_string()));
+    }
+    Ok(normalized)
+}
+
+fn parse_hermes_personalities_json(
+    raw: Option<String>,
+) -> Result<serde_json::Map<String, Value>, String> {
+    let text = raw.unwrap_or_default().trim().to_string();
+    if text.is_empty() {
+        return Ok(serde_json::Map::new());
+    }
+    let value: Value = serde_json::from_str(&text)
+        .map_err(|err| format!("agent.personalities JSON 格式错误: {err}"))?;
+    validate_hermes_personalities(&value)
+}
+
 fn build_hermes_agent_runtime_config_values(config: &serde_yaml::Value) -> Value {
     let root = config.as_mapping();
     let agent = root.and_then(|map| yaml_get_mapping(map, "agent"));
@@ -5251,6 +5316,16 @@ fn build_hermes_agent_runtime_config_values(config: &serde_yaml::Value) -> Value
         false,
     )
     .unwrap_or_else(|_| "auto".to_string());
+    let reasoning_effort = normalize_hermes_reasoning_effort(
+        agent.and_then(|map| yaml_string_field(map, "reasoning_effort")),
+        false,
+    )
+    .unwrap_or_else(|_| "medium".to_string());
+    let personalities = agent
+        .and_then(|map| yaml_get(map, "personalities"))
+        .and_then(|value| serde_json::to_value(value).ok())
+        .and_then(|value| validate_hermes_personalities(&value).ok())
+        .unwrap_or_default();
 
     serde_json::json!({
         "agentMaxTurns": agent.map(|map| bounded_hermes_i64(yaml_i64_field(map, "max_turns"), 90, 1, 10000)).unwrap_or(90),
@@ -5262,6 +5337,9 @@ fn build_hermes_agent_runtime_config_values(config: &serde_yaml::Value) -> Value
         "gatewayNotifyInterval": agent.map(|map| bounded_hermes_i64(yaml_i64_field(map, "gateway_notify_interval"), 180, 0, 86400)).unwrap_or(180),
         "gatewayAutoContinueFreshness": agent.map(|map| bounded_hermes_i64(yaml_i64_field(map, "gateway_auto_continue_freshness"), 3600, 0, 604800)).unwrap_or(3600),
         "imageInputMode": image_input_mode,
+        "agentVerbose": agent.and_then(|map| yaml_bool_field(map, "verbose")).unwrap_or(false),
+        "reasoningEffort": reasoning_effort,
+        "personalitiesJson": serde_json::to_string_pretty(&Value::Object(personalities)).unwrap_or_else(|_| "{}".to_string()),
     })
 }
 
@@ -5347,6 +5425,22 @@ fn merge_hermes_agent_runtime_config(
         },
         true,
     )?;
+    let agent_verbose = form_bool(form, "agentVerbose")
+        .unwrap_or_else(|| current["agentVerbose"].as_bool().unwrap_or(false));
+    let reasoning_effort = normalize_hermes_reasoning_effort(
+        if form.get("reasoningEffort").is_some() {
+            form_string(form, "reasoningEffort")
+        } else {
+            current["reasoningEffort"].as_str().map(ToString::to_string)
+        },
+        true,
+    )?;
+    let personalities =
+        parse_hermes_personalities_json(form_string(form, "personalitiesJson").or_else(|| {
+            current["personalitiesJson"]
+                .as_str()
+                .map(ToString::to_string)
+        }))?;
 
     let root = ensure_yaml_object(config)?;
     let agent = yaml_child_object(root, "agent")?;
@@ -5386,6 +5480,18 @@ fn merge_hermes_agent_runtime_config(
         yaml_key("image_input_mode"),
         serde_yaml::Value::String(image_input_mode),
     );
+    agent.insert(yaml_key("verbose"), serde_yaml::Value::Bool(agent_verbose));
+    agent.insert(
+        yaml_key("reasoning_effort"),
+        serde_yaml::Value::String(reasoning_effort),
+    );
+    if personalities.is_empty() {
+        agent.remove(yaml_key("personalities"));
+    } else {
+        let yaml_value = serde_yaml::to_value(Value::Object(personalities))
+            .map_err(|err| format!("agent.personalities 转换 YAML 失败: {err}"))?;
+        agent.insert(yaml_key("personalities"), yaml_value);
+    }
     Ok(())
 }
 
@@ -17290,7 +17396,7 @@ agent:
 #[cfg(test)]
 mod hermes_agent_runtime_config_tests {
     use super::{build_hermes_agent_runtime_config_values, merge_hermes_agent_runtime_config};
-    use serde_json::json;
+    use serde_json::{json, Value};
 
     #[test]
     fn agent_runtime_values_have_upstream_defaults() {
@@ -17305,6 +17411,9 @@ mod hermes_agent_runtime_config_tests {
         assert_eq!(values["gatewayNotifyInterval"], 180);
         assert_eq!(values["gatewayAutoContinueFreshness"], 3600);
         assert_eq!(values["imageInputMode"], "auto");
+        assert_eq!(values["agentVerbose"], false);
+        assert_eq!(values["reasoningEffort"], "medium");
+        assert_eq!(values["personalitiesJson"], "{}");
     }
 
     #[test]
@@ -17321,6 +17430,11 @@ agent:
   gateway_notify_interval: 240
   gateway_auto_continue_freshness: 5400
   image_input_mode: native
+  verbose: true
+  reasoning_effort: high
+  personalities:
+    concise: Keep answers short.
+    teacher: Explain with examples.
 "#,
         )
         .unwrap();
@@ -17335,6 +17449,12 @@ agent:
         assert_eq!(values["gatewayNotifyInterval"], 240);
         assert_eq!(values["gatewayAutoContinueFreshness"], 5400);
         assert_eq!(values["imageInputMode"], "native");
+        assert_eq!(values["agentVerbose"], true);
+        assert_eq!(values["reasoningEffort"], "high");
+        let personalities: Value =
+            serde_json::from_str(values["personalitiesJson"].as_str().unwrap()).unwrap();
+        assert_eq!(personalities["concise"], "Keep answers short.");
+        assert_eq!(personalities["teacher"], "Explain with examples.");
     }
 
     #[test]
@@ -17366,6 +17486,9 @@ streaming:
                 "gatewayNotifyInterval": "120",
                 "gatewayAutoContinueFreshness": "1800",
                 "imageInputMode": "text",
+                "agentVerbose": true,
+                "reasoningEffort": "low",
+                "personalitiesJson": r#"{"concise":" Keep replies brief. ","ops":"Focus on operational risk."}"#,
             }),
         )
         .unwrap();
@@ -17390,10 +17513,44 @@ streaming:
             Some(1800)
         );
         assert_eq!(config["agent"]["image_input_mode"].as_str(), Some("text"));
+        assert_eq!(config["agent"]["verbose"].as_bool(), Some(true));
+        assert_eq!(config["agent"]["reasoning_effort"].as_str(), Some("low"));
+        assert_eq!(
+            config["agent"]["personalities"]["concise"].as_str(),
+            Some("Keep replies brief.")
+        );
+        assert_eq!(
+            config["agent"]["personalities"]["ops"].as_str(),
+            Some("Focus on operational risk.")
+        );
         assert_eq!(
             config["agent"]["disabled_toolsets"][0].as_str(),
             Some("terminal")
         );
+        assert_eq!(config["agent"]["custom_flag"].as_str(), Some("keep-agent"));
+    }
+
+    #[test]
+    fn merge_agent_runtime_config_removes_empty_personalities() {
+        let mut config: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+agent:
+  personalities:
+    concise: Keep answers short.
+  custom_flag: keep-agent
+"#,
+        )
+        .unwrap();
+
+        merge_hermes_agent_runtime_config(
+            &mut config,
+            &json!({
+                "personalitiesJson": "{}",
+            }),
+        )
+        .unwrap();
+
+        assert!(config["agent"].get("personalities").is_none());
         assert_eq!(config["agent"]["custom_flag"].as_str(), Some("keep-agent"));
     }
 
@@ -17439,6 +17596,22 @@ streaming:
             merge_hermes_agent_runtime_config(&mut config, &json!({ "clarifyTimeout": "-1" }))
                 .unwrap_err();
         assert!(err.contains("agent.clarify_timeout"));
+        let err =
+            merge_hermes_agent_runtime_config(&mut config, &json!({ "reasoningEffort": "max" }))
+                .unwrap_err();
+        assert!(err.contains("agent.reasoning_effort"));
+        let err = merge_hermes_agent_runtime_config(
+            &mut config,
+            &json!({ "personalitiesJson": r#"{"bad name":"x"}"# }),
+        )
+        .unwrap_err();
+        assert!(err.contains("agent.personalities.bad name"));
+        let err = merge_hermes_agent_runtime_config(
+            &mut config,
+            &json!({ "personalitiesJson": r#"{"concise":123}"# }),
+        )
+        .unwrap_err();
+        assert!(err.contains("agent.personalities.concise"));
     }
 }
 
