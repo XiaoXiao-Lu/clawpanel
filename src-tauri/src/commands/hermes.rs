@@ -7867,6 +7867,12 @@ fn build_hermes_terminal_config_values(config: &serde_yaml::Value) -> Value {
     let terminal_singularity_image = terminal_string("singularity_image");
     let terminal_modal_image = terminal_string("modal_image");
     let terminal_daytona_image = terminal_string("daytona_image");
+    let terminal_ssh_host = terminal_string("ssh_host");
+    let terminal_ssh_user = terminal_string("ssh_user");
+    let terminal_ssh_port = terminal
+        .map(|map| bounded_hermes_i64(yaml_i64_field(map, "ssh_port"), 22, 1, 65535))
+        .unwrap_or(22);
+    let terminal_ssh_key = terminal_string("ssh_key");
     let terminal_container_cpu = terminal
         .map(|map| bounded_hermes_i64(yaml_i64_field(map, "container_cpu"), 1, 1, 64))
         .unwrap_or(1);
@@ -7891,6 +7897,10 @@ fn build_hermes_terminal_config_values(config: &serde_yaml::Value) -> Value {
         "terminalSingularityImage": terminal_singularity_image,
         "terminalModalImage": terminal_modal_image,
         "terminalDaytonaImage": terminal_daytona_image,
+        "terminalSshHost": terminal_ssh_host,
+        "terminalSshUser": terminal_ssh_user,
+        "terminalSshPort": terminal_ssh_port,
+        "terminalSshKey": terminal_ssh_key,
         "terminalContainerCpu": terminal_container_cpu,
         "terminalContainerMemory": terminal_container_memory,
         "terminalContainerDisk": terminal_container_disk,
@@ -7994,6 +8004,32 @@ fn merge_hermes_terminal_config(
         .unwrap_or_default()
         .trim()
         .to_string();
+    let terminal_ssh_host = form_string(form, "terminalSshHost")
+        .or_else(|| current["terminalSshHost"].as_str().map(ToString::to_string))
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let terminal_ssh_user = form_string(form, "terminalSshUser")
+        .or_else(|| current["terminalSshUser"].as_str().map(ToString::to_string))
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let terminal_ssh_port = validate_hermes_i64(
+        if form.get("terminalSshPort").is_some() {
+            form_i64(form, "terminalSshPort")
+        } else {
+            Some(current["terminalSshPort"].as_i64().unwrap_or(22))
+        },
+        "terminal.ssh_port",
+        22,
+        1,
+        65535,
+    )?;
+    let terminal_ssh_key = form_string(form, "terminalSshKey")
+        .or_else(|| current["terminalSshKey"].as_str().map(ToString::to_string))
+        .unwrap_or_default()
+        .trim()
+        .to_string();
     let terminal_container_cpu = validate_hermes_i64(
         if form.get("terminalContainerCpu").is_some() {
             form_i64(form, "terminalContainerCpu")
@@ -8061,6 +8097,13 @@ fn merge_hermes_terminal_config(
     set_optional_yaml_string(terminal, "singularity_image", terminal_singularity_image);
     set_optional_yaml_string(terminal, "modal_image", terminal_modal_image);
     set_optional_yaml_string(terminal, "daytona_image", terminal_daytona_image);
+    set_optional_yaml_string(terminal, "ssh_host", terminal_ssh_host);
+    set_optional_yaml_string(terminal, "ssh_user", terminal_ssh_user);
+    terminal.insert(
+        yaml_key("ssh_port"),
+        serde_yaml::Value::Number(terminal_ssh_port.into()),
+    );
+    set_optional_yaml_string(terminal, "ssh_key", terminal_ssh_key);
     terminal.insert(
         yaml_key("container_cpu"),
         serde_yaml::Value::Number(terminal_container_cpu.into()),
@@ -16582,6 +16625,10 @@ mod hermes_terminal_config_tests {
         assert_eq!(values["terminalSingularityImage"], "");
         assert_eq!(values["terminalModalImage"], "");
         assert_eq!(values["terminalDaytonaImage"], "");
+        assert_eq!(values["terminalSshHost"], "");
+        assert_eq!(values["terminalSshUser"], "");
+        assert_eq!(values["terminalSshPort"], 22);
+        assert_eq!(values["terminalSshKey"], "");
     }
 
     #[test]
@@ -16599,6 +16646,10 @@ terminal:
   singularity_image: docker://nikolaik/python-nodejs:python3.11-nodejs20
   modal_image: python:3.12
   daytona_image: ubuntu:24.04
+  ssh_host: build.example.com
+  ssh_user: deploy
+  ssh_port: 2222
+  ssh_key: ~/.ssh/hermes_ed25519
   container_cpu: 4
   container_memory: 8192
   container_disk: 102400
@@ -16623,6 +16674,10 @@ terminal:
         );
         assert_eq!(values["terminalModalImage"], "python:3.12");
         assert_eq!(values["terminalDaytonaImage"], "ubuntu:24.04");
+        assert_eq!(values["terminalSshHost"], "build.example.com");
+        assert_eq!(values["terminalSshUser"], "deploy");
+        assert_eq!(values["terminalSshPort"], 2222);
+        assert_eq!(values["terminalSshKey"], "~/.ssh/hermes_ed25519");
         assert_eq!(values["terminalContainerCpu"], 4);
         assert_eq!(values["terminalContainerMemory"], 8192);
         assert_eq!(values["terminalContainerDisk"], 102400);
@@ -16660,6 +16715,10 @@ streaming:
                 "terminalSingularityImage": "docker://ubuntu:24.04",
                 "terminalModalImage": "debian:bookworm",
                 "terminalDaytonaImage": "ubuntu:22.04",
+                "terminalSshHost": "ssh.example.com",
+                "terminalSshUser": "hermes",
+                "terminalSshPort": "2200",
+                "terminalSshKey": "~/.ssh/id_ed25519",
                 "terminalContainerCpu": "2",
                 "terminalContainerMemory": "6144",
                 "terminalContainerDisk": "20480",
@@ -16697,6 +16756,16 @@ streaming:
         assert_eq!(
             config["terminal"]["daytona_image"].as_str(),
             Some("ubuntu:22.04")
+        );
+        assert_eq!(
+            config["terminal"]["ssh_host"].as_str(),
+            Some("ssh.example.com")
+        );
+        assert_eq!(config["terminal"]["ssh_user"].as_str(), Some("hermes"));
+        assert_eq!(config["terminal"]["ssh_port"].as_i64(), Some(2200));
+        assert_eq!(
+            config["terminal"]["ssh_key"].as_str(),
+            Some("~/.ssh/id_ed25519")
         );
         assert_eq!(config["terminal"]["container_cpu"].as_i64(), Some(2));
         assert_eq!(config["terminal"]["container_memory"].as_i64(), Some(6144));
@@ -16751,6 +16820,41 @@ terminal:
     }
 
     #[test]
+    fn merge_terminal_config_removes_empty_ssh_fields() {
+        let mut config: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+terminal:
+  ssh_host: old-host
+  ssh_user: old-user
+  ssh_port: 2200
+  ssh_key: ~/.ssh/old
+  custom_flag: keep-terminal
+"#,
+        )
+        .unwrap();
+
+        merge_hermes_terminal_config(
+            &mut config,
+            &json!({
+                "terminalSshHost": "",
+                "terminalSshUser": "  ",
+                "terminalSshPort": "22",
+                "terminalSshKey": "",
+            }),
+        )
+        .unwrap();
+
+        assert!(config["terminal"]["ssh_host"].is_null());
+        assert!(config["terminal"]["ssh_user"].is_null());
+        assert!(config["terminal"]["ssh_key"].is_null());
+        assert_eq!(config["terminal"]["ssh_port"].as_i64(), Some(22));
+        assert_eq!(
+            config["terminal"]["custom_flag"].as_str(),
+            Some("keep-terminal")
+        );
+    }
+
+    #[test]
     fn merge_terminal_config_rejects_invalid_values() {
         let mut config = serde_yaml::Value::Mapping(serde_yaml::Mapping::new());
         let err =
@@ -16771,6 +16875,12 @@ terminal:
             merge_hermes_terminal_config(&mut config, &json!({ "terminalContainerMemory": 127 }))
                 .unwrap_err();
         assert!(err.contains("terminal.container_memory"));
+        let err = merge_hermes_terminal_config(&mut config, &json!({ "terminalSshPort": 0 }))
+            .unwrap_err();
+        assert!(err.contains("terminal.ssh_port"));
+        let err = merge_hermes_terminal_config(&mut config, &json!({ "terminalSshPort": 65536 }))
+            .unwrap_err();
+        assert!(err.contains("terminal.ssh_port"));
     }
 }
 

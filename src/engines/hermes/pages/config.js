@@ -266,6 +266,10 @@ const TERMINAL_DEFAULTS = {
   terminalSingularityImage: '',
   terminalModalImage: '',
   terminalDaytonaImage: '',
+  terminalSshHost: '',
+  terminalSshUser: '',
+  terminalSshPort: 22,
+  terminalSshKey: '',
   terminalContainerCpu: 1,
   terminalContainerMemory: 5120,
   terminalContainerDisk: 51200,
@@ -1993,6 +1997,25 @@ export function render() {
               <span>${t('engine.hermesTerminalConfigContainerPersistent')}</span>
             </label>
           </div>
+          <div class="hm-config-subtitle">${t('engine.hermesTerminalConfigSshTitle')}</div>
+          <div class="hm-config-runtime-grid hm-config-terminal-grid">
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesTerminalConfigSshHost')}</span>
+              <input id="hm-terminal-ssh-host" class="hm-input" value="${esc(terminalValues.terminalSshHost)}" placeholder="my-server.example.com" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesTerminalConfigSshUser')}</span>
+              <input id="hm-terminal-ssh-user" class="hm-input" value="${esc(terminalValues.terminalSshUser)}" placeholder="deploy" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesTerminalConfigSshPort')}</span>
+              <input id="hm-terminal-ssh-port" class="hm-input" type="number" inputmode="numeric" min="1" max="65535" step="1" value="${esc(terminalValues.terminalSshPort)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesTerminalConfigSshKey')}</span>
+              <input id="hm-terminal-ssh-key" class="hm-input" value="${esc(terminalValues.terminalSshKey)}" placeholder="~/.ssh/id_ed25519" ${disabled ? 'disabled' : ''}>
+            </label>
+          </div>
           <div class="hm-config-subtitle">${t('engine.hermesTerminalConfigContainerTitle')}</div>
           <div class="hm-config-runtime-grid hm-config-terminal-grid">
             <label class="hm-field">
@@ -3698,6 +3721,10 @@ export function render() {
       terminalSingularityImage: el.querySelector('#hm-terminal-singularity-image')?.value || '',
       terminalModalImage: el.querySelector('#hm-terminal-modal-image')?.value || '',
       terminalDaytonaImage: el.querySelector('#hm-terminal-daytona-image')?.value || '',
+      terminalSshHost: el.querySelector('#hm-terminal-ssh-host')?.value || '',
+      terminalSshUser: el.querySelector('#hm-terminal-ssh-user')?.value || '',
+      terminalSshPort: el.querySelector('#hm-terminal-ssh-port')?.value || '22',
+      terminalSshKey: el.querySelector('#hm-terminal-ssh-key')?.value || '',
       terminalContainerCpu: el.querySelector('#hm-terminal-container-cpu')?.value || '1',
       terminalContainerMemory: el.querySelector('#hm-terminal-container-memory')?.value || '5120',
       terminalContainerDisk: el.querySelector('#hm-terminal-container-disk')?.value || '51200',

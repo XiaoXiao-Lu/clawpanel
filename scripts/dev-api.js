@@ -5163,6 +5163,10 @@ export function buildHermesTerminalConfigValues(config = {}) {
     terminalSingularityImage: typeof terminal.singularity_image === 'string' ? terminal.singularity_image.trim() : '',
     terminalModalImage: typeof terminal.modal_image === 'string' ? terminal.modal_image.trim() : '',
     terminalDaytonaImage: typeof terminal.daytona_image === 'string' ? terminal.daytona_image.trim() : '',
+    terminalSshHost: typeof terminal.ssh_host === 'string' ? terminal.ssh_host.trim() : '',
+    terminalSshUser: typeof terminal.ssh_user === 'string' ? terminal.ssh_user.trim() : '',
+    terminalSshPort: parseHermesInteger(terminal.ssh_port, 'terminal.ssh_port', 22, 1, 65535, false),
+    terminalSshKey: typeof terminal.ssh_key === 'string' ? terminal.ssh_key.trim() : '',
     terminalContainerCpu: parseHermesInteger(terminal.container_cpu, 'terminal.container_cpu', 1, 1, 64, false),
     terminalContainerMemory: parseHermesInteger(terminal.container_memory, 'terminal.container_memory', 5120, 128, 1048576, false),
     terminalContainerDisk: parseHermesInteger(terminal.container_disk, 'terminal.container_disk', 51200, 1024, 10485760, false),
@@ -5192,6 +5196,16 @@ export function mergeHermesTerminalConfig(config = {}, form = {}) {
     if (image) terminal[yamlKey] = image
     else delete terminal[yamlKey]
   }
+  for (const [formKey, yamlKey] of [
+    ['terminalSshHost', 'ssh_host'],
+    ['terminalSshUser', 'ssh_user'],
+    ['terminalSshKey', 'ssh_key'],
+  ]) {
+    const value = normalizeHermesOptionalString(Object.hasOwn(form, formKey) ? form[formKey] : currentValues[formKey], `terminal.${yamlKey}`)
+    if (value) terminal[yamlKey] = value
+    else delete terminal[yamlKey]
+  }
+  terminal.ssh_port = parseHermesInteger(Object.hasOwn(form, 'terminalSshPort') ? form.terminalSshPort : currentValues.terminalSshPort, 'terminal.ssh_port', 22, 1, 65535, true)
   terminal.container_cpu = parseHermesInteger(Object.hasOwn(form, 'terminalContainerCpu') ? form.terminalContainerCpu : currentValues.terminalContainerCpu, 'terminal.container_cpu', 1, 1, 64, true)
   terminal.container_memory = parseHermesInteger(Object.hasOwn(form, 'terminalContainerMemory') ? form.terminalContainerMemory : currentValues.terminalContainerMemory, 'terminal.container_memory', 5120, 128, 1048576, true)
   terminal.container_disk = parseHermesInteger(Object.hasOwn(form, 'terminalContainerDisk') ? form.terminalContainerDisk : currentValues.terminalContainerDisk, 'terminal.container_disk', 51200, 1024, 10485760, true)

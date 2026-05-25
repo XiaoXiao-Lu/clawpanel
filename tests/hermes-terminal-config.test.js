@@ -24,6 +24,10 @@ test('Hermes 终端执行配置读取会提供上游默认值', () => {
     terminalSingularityImage: '',
     terminalModalImage: '',
     terminalDaytonaImage: '',
+    terminalSshHost: '',
+    terminalSshUser: '',
+    terminalSshPort: 22,
+    terminalSshKey: '',
   })
 })
 
@@ -40,6 +44,10 @@ test('Hermes 终端执行配置读取会回显 YAML 字段', () => {
       singularity_image: 'docker://nikolaik/python-nodejs:python3.11-nodejs20',
       modal_image: 'python:3.12',
       daytona_image: 'ubuntu:24.04',
+      ssh_host: 'build.example.com',
+      ssh_user: 'deploy',
+      ssh_port: 2222,
+      ssh_key: '~/.ssh/hermes_ed25519',
       container_cpu: 4,
       container_memory: 8192,
       container_disk: 102400,
@@ -57,6 +65,10 @@ test('Hermes 终端执行配置读取会回显 YAML 字段', () => {
   assert.equal(values.terminalSingularityImage, 'docker://nikolaik/python-nodejs:python3.11-nodejs20')
   assert.equal(values.terminalModalImage, 'python:3.12')
   assert.equal(values.terminalDaytonaImage, 'ubuntu:24.04')
+  assert.equal(values.terminalSshHost, 'build.example.com')
+  assert.equal(values.terminalSshUser, 'deploy')
+  assert.equal(values.terminalSshPort, 2222)
+  assert.equal(values.terminalSshKey, '~/.ssh/hermes_ed25519')
   assert.equal(values.terminalContainerCpu, 4)
   assert.equal(values.terminalContainerMemory, 8192)
   assert.equal(values.terminalContainerDisk, 102400)
@@ -84,6 +96,10 @@ test('Hermes 终端执行配置保存会保留未知字段并写入上游结构'
     terminalSingularityImage: 'docker://ubuntu:24.04',
     terminalModalImage: 'debian:bookworm',
     terminalDaytonaImage: 'ubuntu:22.04',
+    terminalSshHost: 'ssh.example.com',
+    terminalSshUser: 'hermes',
+    terminalSshPort: '2200',
+    terminalSshKey: '~/.ssh/id_ed25519',
     terminalContainerCpu: '2',
     terminalContainerMemory: '6144',
     terminalContainerDisk: '20480',
@@ -102,6 +118,10 @@ test('Hermes 终端执行配置保存会保留未知字段并写入上游结构'
   assert.equal(next.terminal.singularity_image, 'docker://ubuntu:24.04')
   assert.equal(next.terminal.modal_image, 'debian:bookworm')
   assert.equal(next.terminal.daytona_image, 'ubuntu:22.04')
+  assert.equal(next.terminal.ssh_host, 'ssh.example.com')
+  assert.equal(next.terminal.ssh_user, 'hermes')
+  assert.equal(next.terminal.ssh_port, 2200)
+  assert.equal(next.terminal.ssh_key, '~/.ssh/id_ed25519')
   assert.equal(next.terminal.container_cpu, 2)
   assert.equal(next.terminal.container_memory, 6144)
   assert.equal(next.terminal.container_disk, 20480)
@@ -133,6 +153,29 @@ test('Hermes 终端执行配置保存空镜像会删除对应字段', () => {
   assert.equal(next.terminal.custom_flag, 'keep-terminal')
 })
 
+test('Hermes 终端执行配置保存空 SSH 字段会删除对应字段', () => {
+  const next = mergeHermesTerminalConfig({
+    terminal: {
+      ssh_host: 'old-host',
+      ssh_user: 'old-user',
+      ssh_port: 2200,
+      ssh_key: '~/.ssh/old',
+      custom_flag: 'keep-terminal',
+    },
+  }, {
+    terminalSshHost: '',
+    terminalSshUser: '  ',
+    terminalSshPort: '22',
+    terminalSshKey: '',
+  })
+
+  assert.equal(Object.hasOwn(next.terminal, 'ssh_host'), false)
+  assert.equal(Object.hasOwn(next.terminal, 'ssh_user'), false)
+  assert.equal(Object.hasOwn(next.terminal, 'ssh_key'), false)
+  assert.equal(next.terminal.ssh_port, 22)
+  assert.equal(next.terminal.custom_flag, 'keep-terminal')
+})
+
 test('Hermes 终端执行配置保存会拒绝非法后端和越界值', () => {
   assert.throws(
     () => mergeHermesTerminalConfig({}, { terminalBackend: 'unsafe' }),
@@ -153,5 +196,13 @@ test('Hermes 终端执行配置保存会拒绝非法后端和越界值', () => {
   assert.throws(
     () => mergeHermesTerminalConfig({}, { terminalContainerMemory: '127' }),
     /terminal\.container_memory/,
+  )
+  assert.throws(
+    () => mergeHermesTerminalConfig({}, { terminalSshPort: '0' }),
+    /terminal\.ssh_port/,
+  )
+  assert.throws(
+    () => mergeHermesTerminalConfig({}, { terminalSshPort: '65536' }),
+    /terminal\.ssh_port/,
   )
 })
