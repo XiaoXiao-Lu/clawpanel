@@ -132,6 +132,10 @@ const X_SEARCH_DEFAULTS = {
   xSearchRetries: 2,
 }
 
+const CONTEXT_DEFAULTS = {
+  contextEngine: 'compressor',
+}
+
 const MODEL_ALIASES_DEFAULTS = {
   modelAliasesJson: '{}',
 }
@@ -436,6 +440,7 @@ export function render() {
   let modelValues = { ...MODEL_DEFAULTS }
   let modelCatalogValues = { ...MODEL_CATALOG_DEFAULTS }
   let xSearchValues = { ...X_SEARCH_DEFAULTS }
+  let contextValues = { ...CONTEXT_DEFAULTS }
   let modelAliasesValues = { ...MODEL_ALIASES_DEFAULTS }
   let hooksValues = { ...HOOKS_DEFAULTS }
   let providerOverridesValues = { ...PROVIDER_OVERRIDES_DEFAULTS }
@@ -479,6 +484,7 @@ export function render() {
   let modelLoading = true
   let modelCatalogLoading = true
   let xSearchLoading = true
+  let contextLoading = true
   let modelAliasesLoading = true
   let hooksLoading = true
   let providerOverridesLoading = true
@@ -522,6 +528,7 @@ export function render() {
   let modelSaving = false
   let modelCatalogSaving = false
   let xSearchSaving = false
+  let contextSaving = false
   let modelAliasesSaving = false
   let hooksSaving = false
   let providerOverridesSaving = false
@@ -565,6 +572,7 @@ export function render() {
   let modelError = null
   let modelCatalogError = null
   let xSearchError = null
+  let contextError = null
   let modelAliasesError = null
   let hooksError = null
   let providerOverridesError = null
@@ -601,7 +609,7 @@ export function render() {
   }
 
   function isBusy() {
-    return loading || runtimeLoading || sessionsMaintenanceLoading || updatesLoading || compressionLoading || promptCachingLoading || openrouterCacheLoading || providerRoutingLoading || auxiliaryLoading || toolGuardrailsLoading || memoryLoading || skillsLoading || curatorLoading || quickCommandsLoading || modelLoading || modelCatalogLoading || xSearchLoading || modelAliasesLoading || hooksLoading || providerOverridesLoading || mcpServersLoading || agentToolsetsLoading || platformToolsetsLoading || agentRuntimeLoading || unauthorizedDmLoading || securityLoading || displayLoading || humanDelayLoading || kanbanLoading || streamingLoading || executionLimitsLoading || ioSafetyLoading || checkpointsLoading || cronLoading || loggingLoading || approvalsLoading || privacyLoading || browserLoading || webLoading || lspLoading || sttLoading || ttsVoiceLoading || terminalLoading || saving || runtimeSaving || sessionsMaintenanceSaving || updatesSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || curatorSaving || quickCommandsSaving || modelSaving || modelCatalogSaving || xSearchSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || platformToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || securitySaving || displaySaving || humanDelaySaving || kanbanSaving || streamingSaving || executionLimitsSaving || ioSafetySaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || privacySaving || browserSaving || webSaving || lspSaving || sttSaving || ttsVoiceSaving || terminalSaving
+    return loading || runtimeLoading || sessionsMaintenanceLoading || updatesLoading || compressionLoading || promptCachingLoading || openrouterCacheLoading || providerRoutingLoading || auxiliaryLoading || toolGuardrailsLoading || memoryLoading || skillsLoading || curatorLoading || quickCommandsLoading || modelLoading || modelCatalogLoading || xSearchLoading || contextLoading || modelAliasesLoading || hooksLoading || providerOverridesLoading || mcpServersLoading || agentToolsetsLoading || platformToolsetsLoading || agentRuntimeLoading || unauthorizedDmLoading || securityLoading || displayLoading || humanDelayLoading || kanbanLoading || streamingLoading || executionLimitsLoading || ioSafetyLoading || checkpointsLoading || cronLoading || loggingLoading || approvalsLoading || privacyLoading || browserLoading || webLoading || lspLoading || sttLoading || ttsVoiceLoading || terminalLoading || saving || runtimeSaving || sessionsMaintenanceSaving || updatesSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || curatorSaving || quickCommandsSaving || modelSaving || modelCatalogSaving || xSearchSaving || contextSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || platformToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || securitySaving || displaySaving || humanDelaySaving || kanbanSaving || streamingSaving || executionLimitsSaving || ioSafetySaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || privacySaving || browserSaving || webSaving || lspSaving || sttSaving || ttsVoiceSaving || terminalSaving
   }
 
   function option(labelKey, value, selected) {
@@ -1361,6 +1369,34 @@ export function render() {
             </label>
           </div>
           <div class="hm-channel-footnote">${t('engine.hermesXSearchConfigFootnote')}</div>
+        </div>
+      </div>
+    `
+  }
+
+  function renderContextConfigPanel() {
+    const disabled = loading || saving || contextLoading || contextSaving || modelSaving || modelCatalogSaving || xSearchSaving || quickCommandsSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    return `
+      <div class="hm-panel hm-config-runtime-panel hm-config-context-panel">
+        <div class="hm-panel-header">
+          <div>
+            <div class="hm-panel-title">${t('engine.hermesContextConfigTitle')}</div>
+            <div class="hm-channel-panel-desc">${t('engine.hermesContextConfigDesc')}</div>
+          </div>
+          <div class="hm-panel-actions">
+            <span class="hm-muted">${contextSaving ? t('engine.hermesConfigStatusSaving') : contextLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesContextConfigStatusReady')}</span>
+            <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-context-config-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesContextConfigSave')}</button>
+          </div>
+        </div>
+        <div class="hm-panel-body">
+          ${renderError(contextError)}
+          <div class="hm-config-runtime-grid">
+            <label class="hm-field hm-field--wide">
+              <span class="hm-field-label">${t('engine.hermesContextConfigEngine')}</span>
+              <input id="hm-context-engine" class="hm-input" value="${esc(contextValues.contextEngine)}" placeholder="compressor" ${disabled ? 'disabled' : ''}>
+            </label>
+          </div>
+          <div class="hm-channel-footnote">${t('engine.hermesContextConfigFootnote')}</div>
         </div>
       </div>
     `
@@ -2802,6 +2838,7 @@ export function render() {
       ${renderModelConfigPanel()}
       ${renderModelCatalogConfigPanel()}
       ${renderXSearchConfigPanel()}
+      ${renderContextConfigPanel()}
       ${renderModelAliasesConfigPanel()}
       ${renderHooksConfigPanel()}
       ${renderProviderOverridesConfigPanel()}
@@ -2849,6 +2886,7 @@ export function render() {
     el.querySelector('#hm-model-config-save')?.addEventListener('click', saveModelConfig)
     el.querySelector('#hm-model-catalog-save')?.addEventListener('click', saveModelCatalogConfig)
     el.querySelector('#hm-x-search-save')?.addEventListener('click', saveXSearchConfig)
+    el.querySelector('#hm-context-config-save')?.addEventListener('click', saveContextConfig)
     el.querySelector('#hm-model-aliases-save')?.addEventListener('click', saveModelAliasesConfig)
     el.querySelector('#hm-hooks-save')?.addEventListener('click', saveHooksConfig)
     el.querySelector('#hm-provider-overrides-save')?.addEventListener('click', saveProviderOverridesConfig)
@@ -2960,6 +2998,11 @@ export function render() {
   async function loadXSearchConfig() {
     const data = await api.hermesXSearchConfigRead()
     xSearchValues = { ...X_SEARCH_DEFAULTS, ...(data?.values || {}) }
+  }
+
+  async function loadContextConfig() {
+    const data = await api.hermesContextConfigRead()
+    contextValues = { ...CONTEXT_DEFAULTS, ...(data?.values || {}) }
   }
 
   async function loadModelAliasesConfig() {
@@ -3110,6 +3153,7 @@ export function render() {
     modelLoading = true
     modelCatalogLoading = true
     xSearchLoading = true
+    contextLoading = true
     modelAliasesLoading = true
     hooksLoading = true
     providerOverridesLoading = true
@@ -3153,6 +3197,7 @@ export function render() {
     modelError = null
     modelCatalogError = null
     xSearchError = null
+    contextError = null
     modelAliasesError = null
     hooksError = null
     providerOverridesError = null
@@ -3424,6 +3469,14 @@ export function render() {
       xSearchError = humanizeError(err, t('engine.hermesXSearchConfigLoadFailed') || 'Load X search config failed')
     } finally {
       xSearchLoading = false
+      draw()
+    }
+    try {
+      await loadContextConfig()
+    } catch (err) {
+      contextError = humanizeError(err, t('engine.hermesContextConfigLoadFailed') || 'Load context config failed')
+    } finally {
+      contextLoading = false
       draw()
     }
     try {
@@ -4115,6 +4168,31 @@ export function render() {
       toast(xSearchError, 'error')
     } finally {
       xSearchSaving = false
+      draw()
+    }
+  }
+
+  async function saveContextConfig() {
+    const form = {
+      contextEngine: el.querySelector('#hm-context-engine')?.value || CONTEXT_DEFAULTS.contextEngine,
+    }
+    contextSaving = true
+    contextError = null
+    draw()
+    try {
+      const result = await api.hermesContextConfigSave(form)
+      contextValues = { ...CONTEXT_DEFAULTS, ...(result?.values || form) }
+      await refreshRawAfterStructuredSave()
+      const backup = result?.backup || ''
+      toast({
+        message: t('engine.hermesContextConfigSaveSuccess'),
+        hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
+      }, 'success')
+    } catch (err) {
+      contextError = humanizeError(err, t('engine.hermesContextConfigSaveFailed') || 'Save context config failed')
+      toast(contextError, 'error')
+    } finally {
+      contextSaving = false
       draw()
     }
   }

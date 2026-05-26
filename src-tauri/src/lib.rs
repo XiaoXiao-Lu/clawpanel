@@ -335,6 +335,8 @@ pub fn run() {
             hermes::hermes_model_catalog_config_save,
             hermes::hermes_x_search_config_read,
             hermes::hermes_x_search_config_save,
+            hermes::hermes_context_config_read,
+            hermes::hermes_context_config_save,
             hermes::hermes_stt_config_read,
             hermes::hermes_stt_config_save,
             hermes::hermes_tts_voice_config_read,

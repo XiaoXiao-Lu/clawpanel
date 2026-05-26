@@ -8818,6 +8818,57 @@ fn merge_hermes_x_search_config(
     Ok(())
 }
 
+fn normalize_hermes_context_engine(value: Option<String>, strict: bool) -> Result<String, String> {
+    let text = value.unwrap_or_default().trim().to_string();
+    if text.is_empty() {
+        if strict {
+            return Err("context.engine 不能为空".to_string());
+        }
+        return Ok("compressor".to_string());
+    }
+    if text
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '.' | '-'))
+    {
+        return Ok(text);
+    }
+    if strict {
+        return Err("context.engine 只能包含字母、数字、下划线、点和短横线".to_string());
+    }
+    Ok("compressor".to_string())
+}
+
+fn build_hermes_context_config_values(config: &serde_yaml::Value) -> Value {
+    let root = config.as_mapping();
+    let context = root.and_then(|map| yaml_get_mapping(map, "context"));
+    let engine = normalize_hermes_context_engine(
+        context.and_then(|map| yaml_string_field(map, "engine")),
+        false,
+    )
+    .unwrap_or_else(|_| "compressor".to_string());
+
+    serde_json::json!({
+        "contextEngine": engine,
+    })
+}
+
+fn merge_hermes_context_config(config: &mut serde_yaml::Value, form: &Value) -> Result<(), String> {
+    let current = build_hermes_context_config_values(config);
+    let engine = normalize_hermes_context_engine(
+        if form.get("contextEngine").is_some() {
+            form_string(form, "contextEngine")
+        } else {
+            current["contextEngine"].as_str().map(ToString::to_string)
+        },
+        true,
+    )?;
+
+    let root = ensure_yaml_object(config)?;
+    let context = yaml_child_object(root, "context")?;
+    context.insert(yaml_key("engine"), serde_yaml::Value::String(engine));
+    Ok(())
+}
+
 fn build_hermes_lsp_config_values(config: &serde_yaml::Value) -> Value {
     let root = config.as_mapping();
     let lsp = root.and_then(|map| yaml_get_mapping(map, "lsp"));
@@ -11620,6 +11671,30 @@ pub fn hermes_x_search_config_save(form: Value) -> Result<Value, String> {
         "configPath": config_path.to_string_lossy(),
         "backup": backup,
         "values": build_hermes_x_search_config_values(&config),
+    }))
+}
+
+#[tauri::command]
+pub fn hermes_context_config_read() -> Result<Value, String> {
+    let (config_path, exists, config) = read_hermes_channel_yaml_config()?;
+    ensure_yaml_object(&mut config.clone())?;
+    Ok(serde_json::json!({
+        "exists": exists,
+        "configPath": config_path.to_string_lossy(),
+        "values": build_hermes_context_config_values(&config),
+    }))
+}
+
+#[tauri::command]
+pub fn hermes_context_config_save(form: Value) -> Result<Value, String> {
+    let (config_path, _exists, mut config) = read_hermes_channel_yaml_config()?;
+    merge_hermes_context_config(&mut config, &form)?;
+    let backup = write_hermes_yaml_config(&config_path, &config)?;
+    Ok(serde_json::json!({
+        "ok": true,
+        "configPath": config_path.to_string_lossy(),
+        "backup": backup,
+        "values": build_hermes_context_config_values(&config),
     }))
 }
 
@@ -18486,6 +18561,73 @@ streaming:
         let err = merge_hermes_x_search_config(&mut config, &json!({ "xSearchRetries": 21 }))
             .unwrap_err();
         assert!(err.contains("x_search.retries"));
+    }
+}
+
+#[cfg(test)]
+mod hermes_context_config_tests {
+    use super::{build_hermes_context_config_values, merge_hermes_context_config};
+    use serde_json::json;
+
+    #[test]
+    fn context_values_have_upstream_defaults() {
+        let config: serde_yaml::Value = serde_yaml::from_str("{}").unwrap();
+        let values = build_hermes_context_config_values(&config);
+        assert_eq!(values["contextEngine"], "compressor");
+    }
+
+    #[test]
+    fn context_values_read_yaml_fields() {
+        let config: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+context:
+  engine: lcm
+"#,
+        )
+        .unwrap();
+        let values = build_hermes_context_config_values(&config);
+        assert_eq!(values["contextEngine"], "lcm");
+    }
+
+    #[test]
+    fn merge_context_config_preserves_unknown_fields() {
+        let mut config: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+context:
+  engine: compressor
+  custom_flag: keep-context
+model:
+  provider: anthropic
+streaming:
+  enabled: true
+"#,
+        )
+        .unwrap();
+
+        merge_hermes_context_config(&mut config, &json!({ "contextEngine": "lcm" })).unwrap();
+
+        assert_eq!(config["model"]["provider"].as_str(), Some("anthropic"));
+        assert_eq!(config["streaming"]["enabled"].as_bool(), Some(true));
+        assert_eq!(config["context"]["engine"].as_str(), Some("lcm"));
+        assert_eq!(
+            config["context"]["custom_flag"].as_str(),
+            Some("keep-context")
+        );
+    }
+
+    #[test]
+    fn merge_context_config_rejects_invalid_values() {
+        let mut config = serde_yaml::Value::Mapping(serde_yaml::Mapping::new());
+        let err =
+            merge_hermes_context_config(&mut config, &json!({ "contextEngine": "" })).unwrap_err();
+        assert!(err.contains("context.engine"));
+        let err =
+            merge_hermes_context_config(&mut config, &json!({ "contextEngine": "bad engine" }))
+                .unwrap_err();
+        assert!(err.contains("context.engine"));
+        let err = merge_hermes_context_config(&mut config, &json!({ "contextEngine": "中文" }))
+            .unwrap_err();
+        assert!(err.contains("context.engine"));
     }
 }
 

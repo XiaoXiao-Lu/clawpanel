@@ -4762,6 +4762,38 @@ export function mergeHermesXSearchConfig(config = {}, form = {}) {
   return next
 }
 
+function normalizeHermesContextEngine(value, strict = false) {
+  const text = String(value ?? '').trim()
+  if (!text) {
+    if (strict) throw new Error('context.engine 不能为空')
+    return 'compressor'
+  }
+  if (/^[a-zA-Z0-9_.-]+$/.test(text)) return text
+  if (strict) throw new Error('context.engine 只能包含字母、数字、下划线、点和短横线')
+  return 'compressor'
+}
+
+export function buildHermesContextConfigValues(config = {}) {
+  const root = config && typeof config === 'object' && !Array.isArray(config) ? config : {}
+  const context = root.context && typeof root.context === 'object' && !Array.isArray(root.context)
+    ? root.context
+    : {}
+  return {
+    contextEngine: normalizeHermesContextEngine(context.engine, false),
+  }
+}
+
+export function mergeHermesContextConfig(config = {}, form = {}) {
+  const next = mergeConfigsPreservingFields({}, config && typeof config === 'object' && !Array.isArray(config) ? config : {})
+  const currentValues = buildHermesContextConfigValues(next)
+  const context = next.context && typeof next.context === 'object' && !Array.isArray(next.context)
+    ? mergeConfigsPreservingFields(next.context, {})
+    : {}
+  context.engine = normalizeHermesContextEngine(Object.hasOwn(form, 'contextEngine') ? form.contextEngine : currentValues.contextEngine, true)
+  next.context = context
+  return next
+}
+
 function isHermesModelAliasName(value) {
   return /^[a-zA-Z0-9_.-]+$/.test(String(value || '').trim())
 }
@@ -12516,6 +12548,27 @@ const handlers = {
       configPath,
       backup,
       values: buildHermesXSearchConfigValues(next),
+    }
+  },
+
+  hermes_context_config_read() {
+    const { configPath, exists, config } = readHermesConfigYamlObject()
+    return {
+      exists,
+      configPath,
+      values: buildHermesContextConfigValues(config),
+    }
+  },
+
+  hermes_context_config_save({ form } = {}) {
+    const { configPath, config } = readHermesConfigYamlObject()
+    const next = mergeHermesContextConfig(config, form || {})
+    const backup = writeHermesConfigYamlObject(configPath, next)
+    return {
+      ok: true,
+      configPath,
+      backup,
+      values: buildHermesContextConfigValues(next),
     }
   },
 

@@ -150,6 +150,15 @@ test('Hermes 配置页会暴露 X 搜索结构化配置字段', () => {
   }
 })
 
+test('Hermes 配置页会暴露上下文引擎结构化配置字段', () => {
+  for (const id of [
+    'hm-context-config-save',
+    'hm-context-engine',
+  ]) {
+    assert.match(source, new RegExp(`id="${id}"`), `缺少 ${id}`)
+  }
+})
+
 test('Hermes 配置页会暴露 provider 超时覆盖结构化配置字段', () => {
   for (const id of [
     'hm-provider-overrides-save',
