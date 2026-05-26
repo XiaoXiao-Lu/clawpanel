@@ -126,6 +126,12 @@ const MODEL_CATALOG_DEFAULTS = {
   modelCatalogProvidersJson: '{}',
 }
 
+const X_SEARCH_DEFAULTS = {
+  xSearchModel: 'grok-4.20-reasoning',
+  xSearchTimeoutSeconds: 180,
+  xSearchRetries: 2,
+}
+
 const MODEL_ALIASES_DEFAULTS = {
   modelAliasesJson: '{}',
 }
@@ -429,6 +435,7 @@ export function render() {
   let quickCommandsValues = { ...QUICK_COMMANDS_DEFAULTS }
   let modelValues = { ...MODEL_DEFAULTS }
   let modelCatalogValues = { ...MODEL_CATALOG_DEFAULTS }
+  let xSearchValues = { ...X_SEARCH_DEFAULTS }
   let modelAliasesValues = { ...MODEL_ALIASES_DEFAULTS }
   let hooksValues = { ...HOOKS_DEFAULTS }
   let providerOverridesValues = { ...PROVIDER_OVERRIDES_DEFAULTS }
@@ -471,6 +478,7 @@ export function render() {
   let quickCommandsLoading = true
   let modelLoading = true
   let modelCatalogLoading = true
+  let xSearchLoading = true
   let modelAliasesLoading = true
   let hooksLoading = true
   let providerOverridesLoading = true
@@ -513,6 +521,7 @@ export function render() {
   let quickCommandsSaving = false
   let modelSaving = false
   let modelCatalogSaving = false
+  let xSearchSaving = false
   let modelAliasesSaving = false
   let hooksSaving = false
   let providerOverridesSaving = false
@@ -555,6 +564,7 @@ export function render() {
   let quickCommandsError = null
   let modelError = null
   let modelCatalogError = null
+  let xSearchError = null
   let modelAliasesError = null
   let hooksError = null
   let providerOverridesError = null
@@ -591,7 +601,7 @@ export function render() {
   }
 
   function isBusy() {
-    return loading || runtimeLoading || sessionsMaintenanceLoading || updatesLoading || compressionLoading || promptCachingLoading || openrouterCacheLoading || providerRoutingLoading || auxiliaryLoading || toolGuardrailsLoading || memoryLoading || skillsLoading || curatorLoading || quickCommandsLoading || modelLoading || modelCatalogLoading || modelAliasesLoading || hooksLoading || providerOverridesLoading || mcpServersLoading || agentToolsetsLoading || platformToolsetsLoading || agentRuntimeLoading || unauthorizedDmLoading || securityLoading || displayLoading || humanDelayLoading || kanbanLoading || streamingLoading || executionLimitsLoading || ioSafetyLoading || checkpointsLoading || cronLoading || loggingLoading || approvalsLoading || privacyLoading || browserLoading || webLoading || lspLoading || sttLoading || ttsVoiceLoading || terminalLoading || saving || runtimeSaving || sessionsMaintenanceSaving || updatesSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || curatorSaving || quickCommandsSaving || modelSaving || modelCatalogSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || platformToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || securitySaving || displaySaving || humanDelaySaving || kanbanSaving || streamingSaving || executionLimitsSaving || ioSafetySaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || privacySaving || browserSaving || webSaving || lspSaving || sttSaving || ttsVoiceSaving || terminalSaving
+    return loading || runtimeLoading || sessionsMaintenanceLoading || updatesLoading || compressionLoading || promptCachingLoading || openrouterCacheLoading || providerRoutingLoading || auxiliaryLoading || toolGuardrailsLoading || memoryLoading || skillsLoading || curatorLoading || quickCommandsLoading || modelLoading || modelCatalogLoading || xSearchLoading || modelAliasesLoading || hooksLoading || providerOverridesLoading || mcpServersLoading || agentToolsetsLoading || platformToolsetsLoading || agentRuntimeLoading || unauthorizedDmLoading || securityLoading || displayLoading || humanDelayLoading || kanbanLoading || streamingLoading || executionLimitsLoading || ioSafetyLoading || checkpointsLoading || cronLoading || loggingLoading || approvalsLoading || privacyLoading || browserLoading || webLoading || lspLoading || sttLoading || ttsVoiceLoading || terminalLoading || saving || runtimeSaving || sessionsMaintenanceSaving || updatesSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || curatorSaving || quickCommandsSaving || modelSaving || modelCatalogSaving || xSearchSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || platformToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || securitySaving || displaySaving || humanDelaySaving || kanbanSaving || streamingSaving || executionLimitsSaving || ioSafetySaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || privacySaving || browserSaving || webSaving || lspSaving || sttSaving || ttsVoiceSaving || terminalSaving
   }
 
   function option(labelKey, value, selected) {
@@ -1209,7 +1219,7 @@ export function render() {
   }
 
   function renderQuickCommandsConfigPanel() {
-    const disabled = loading || saving || quickCommandsLoading || quickCommandsSaving || modelSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = loading || saving || quickCommandsLoading || quickCommandsSaving || modelSaving || xSearchSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-quick-commands-panel">
         <div class="hm-panel-header">
@@ -1235,7 +1245,7 @@ export function render() {
   }
 
   function renderModelConfigPanel() {
-    const disabled = loading || saving || modelLoading || modelSaving || modelCatalogSaving || quickCommandsSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = loading || saving || modelLoading || modelSaving || modelCatalogSaving || xSearchSaving || quickCommandsSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-model-panel">
         <div class="hm-panel-header">
@@ -1279,7 +1289,7 @@ export function render() {
   }
 
   function renderModelCatalogConfigPanel() {
-    const disabled = loading || saving || modelCatalogLoading || modelCatalogSaving || modelSaving || quickCommandsSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = loading || saving || modelCatalogLoading || modelCatalogSaving || modelSaving || xSearchSaving || quickCommandsSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-model-catalog-panel">
         <div class="hm-panel-header">
@@ -1320,8 +1330,44 @@ export function render() {
     `
   }
 
+  function renderXSearchConfigPanel() {
+    const disabled = loading || saving || xSearchLoading || xSearchSaving || modelSaving || modelCatalogSaving || quickCommandsSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    return `
+      <div class="hm-panel hm-config-runtime-panel hm-config-x-search-panel">
+        <div class="hm-panel-header">
+          <div>
+            <div class="hm-panel-title">${t('engine.hermesXSearchConfigTitle')}</div>
+            <div class="hm-channel-panel-desc">${t('engine.hermesXSearchConfigDesc')}</div>
+          </div>
+          <div class="hm-panel-actions">
+            <span class="hm-muted">${xSearchSaving ? t('engine.hermesConfigStatusSaving') : xSearchLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesXSearchConfigStatusReady')}</span>
+            <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-x-search-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesXSearchConfigSave')}</button>
+          </div>
+        </div>
+        <div class="hm-panel-body">
+          ${renderError(xSearchError)}
+          <div class="hm-config-runtime-grid">
+            <label class="hm-field hm-field--wide">
+              <span class="hm-field-label">${t('engine.hermesXSearchConfigModel')}</span>
+              <input id="hm-x-search-model" class="hm-input" value="${esc(xSearchValues.xSearchModel)}" placeholder="grok-4.20-reasoning" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesXSearchConfigTimeoutSeconds')}</span>
+              <input id="hm-x-search-timeout-seconds" class="hm-input" type="number" inputmode="numeric" min="30" max="3600" step="1" value="${esc(xSearchValues.xSearchTimeoutSeconds)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesXSearchConfigRetries')}</span>
+              <input id="hm-x-search-retries" class="hm-input" type="number" inputmode="numeric" min="0" max="20" step="1" value="${esc(xSearchValues.xSearchRetries)}" ${disabled ? 'disabled' : ''}>
+            </label>
+          </div>
+          <div class="hm-channel-footnote">${t('engine.hermesXSearchConfigFootnote')}</div>
+        </div>
+      </div>
+    `
+  }
+
   function renderModelAliasesConfigPanel() {
-    const disabled = loading || saving || modelAliasesLoading || modelAliasesSaving || quickCommandsSaving || modelSaving || modelCatalogSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = loading || saving || modelAliasesLoading || modelAliasesSaving || quickCommandsSaving || modelSaving || modelCatalogSaving || xSearchSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-model-aliases-panel">
         <div class="hm-panel-header">
@@ -2755,6 +2801,7 @@ export function render() {
       ${renderQuickCommandsConfigPanel()}
       ${renderModelConfigPanel()}
       ${renderModelCatalogConfigPanel()}
+      ${renderXSearchConfigPanel()}
       ${renderModelAliasesConfigPanel()}
       ${renderHooksConfigPanel()}
       ${renderProviderOverridesConfigPanel()}
@@ -2801,6 +2848,7 @@ export function render() {
     el.querySelector('#hm-quick-commands-save')?.addEventListener('click', saveQuickCommandsConfig)
     el.querySelector('#hm-model-config-save')?.addEventListener('click', saveModelConfig)
     el.querySelector('#hm-model-catalog-save')?.addEventListener('click', saveModelCatalogConfig)
+    el.querySelector('#hm-x-search-save')?.addEventListener('click', saveXSearchConfig)
     el.querySelector('#hm-model-aliases-save')?.addEventListener('click', saveModelAliasesConfig)
     el.querySelector('#hm-hooks-save')?.addEventListener('click', saveHooksConfig)
     el.querySelector('#hm-provider-overrides-save')?.addEventListener('click', saveProviderOverridesConfig)
@@ -2907,6 +2955,11 @@ export function render() {
   async function loadModelCatalogConfig() {
     const data = await api.hermesModelCatalogConfigRead()
     modelCatalogValues = { ...MODEL_CATALOG_DEFAULTS, ...(data?.values || {}) }
+  }
+
+  async function loadXSearchConfig() {
+    const data = await api.hermesXSearchConfigRead()
+    xSearchValues = { ...X_SEARCH_DEFAULTS, ...(data?.values || {}) }
   }
 
   async function loadModelAliasesConfig() {
@@ -3056,6 +3109,7 @@ export function render() {
     quickCommandsLoading = true
     modelLoading = true
     modelCatalogLoading = true
+    xSearchLoading = true
     modelAliasesLoading = true
     hooksLoading = true
     providerOverridesLoading = true
@@ -3098,6 +3152,7 @@ export function render() {
     quickCommandsError = null
     modelError = null
     modelCatalogError = null
+    xSearchError = null
     modelAliasesError = null
     hooksError = null
     providerOverridesError = null
@@ -3361,6 +3416,14 @@ export function render() {
       modelCatalogError = humanizeError(err, t('engine.hermesModelCatalogConfigLoadFailed') || 'Load model catalog config failed')
     } finally {
       modelCatalogLoading = false
+      draw()
+    }
+    try {
+      await loadXSearchConfig()
+    } catch (err) {
+      xSearchError = humanizeError(err, t('engine.hermesXSearchConfigLoadFailed') || 'Load X search config failed')
+    } finally {
+      xSearchLoading = false
       draw()
     }
     try {
@@ -4025,6 +4088,33 @@ export function render() {
       toast(modelCatalogError, 'error')
     } finally {
       modelCatalogSaving = false
+      draw()
+    }
+  }
+
+  async function saveXSearchConfig() {
+    const form = {
+      xSearchModel: el.querySelector('#hm-x-search-model')?.value || X_SEARCH_DEFAULTS.xSearchModel,
+      xSearchTimeoutSeconds: el.querySelector('#hm-x-search-timeout-seconds')?.value || String(X_SEARCH_DEFAULTS.xSearchTimeoutSeconds),
+      xSearchRetries: el.querySelector('#hm-x-search-retries')?.value || String(X_SEARCH_DEFAULTS.xSearchRetries),
+    }
+    xSearchSaving = true
+    xSearchError = null
+    draw()
+    try {
+      const result = await api.hermesXSearchConfigSave(form)
+      xSearchValues = { ...X_SEARCH_DEFAULTS, ...(result?.values || form) }
+      await refreshRawAfterStructuredSave()
+      const backup = result?.backup || ''
+      toast({
+        message: t('engine.hermesXSearchConfigSaveSuccess'),
+        hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
+      }, 'success')
+    } catch (err) {
+      xSearchError = humanizeError(err, t('engine.hermesXSearchConfigSaveFailed') || 'Save X search config failed')
+      toast(xSearchError, 'error')
+    } finally {
+      xSearchSaving = false
       draw()
     }
   }

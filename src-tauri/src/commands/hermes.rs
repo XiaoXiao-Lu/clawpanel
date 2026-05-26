@@ -8724,6 +8724,100 @@ fn merge_hermes_model_catalog_config(
     Ok(())
 }
 
+fn normalize_hermes_x_search_model(value: Option<String>, strict: bool) -> Result<String, String> {
+    let text = value.unwrap_or_default().trim().to_string();
+    if text.is_empty() {
+        if strict {
+            return Err("x_search.model 不能为空".to_string());
+        }
+        return Ok("grok-4.20-reasoning".to_string());
+    }
+    if text
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '.' | ':' | '/' | '-'))
+    {
+        return Ok(text);
+    }
+    if strict {
+        return Err(
+            "x_search.model 只能包含字母、数字、下划线、点、斜杠、冒号和短横线".to_string(),
+        );
+    }
+    Ok("grok-4.20-reasoning".to_string())
+}
+
+fn build_hermes_x_search_config_values(config: &serde_yaml::Value) -> Value {
+    let root = config.as_mapping();
+    let x_search = root.and_then(|map| yaml_get_mapping(map, "x_search"));
+    let model = normalize_hermes_x_search_model(
+        x_search.and_then(|map| yaml_string_field(map, "model")),
+        false,
+    )
+    .unwrap_or_else(|_| "grok-4.20-reasoning".to_string());
+    let timeout_seconds = x_search
+        .map(|map| bounded_hermes_i64(yaml_i64_field(map, "timeout_seconds"), 180, 30, 3600))
+        .unwrap_or(180);
+    let retries = x_search
+        .map(|map| bounded_hermes_i64(yaml_i64_field(map, "retries"), 2, 0, 20))
+        .unwrap_or(2);
+
+    serde_json::json!({
+        "xSearchModel": model,
+        "xSearchTimeoutSeconds": timeout_seconds,
+        "xSearchRetries": retries,
+    })
+}
+
+fn merge_hermes_x_search_config(
+    config: &mut serde_yaml::Value,
+    form: &Value,
+) -> Result<(), String> {
+    let current = build_hermes_x_search_config_values(config);
+    let model = normalize_hermes_x_search_model(
+        if form.get("xSearchModel").is_some() {
+            form_string(form, "xSearchModel")
+        } else {
+            current["xSearchModel"].as_str().map(ToString::to_string)
+        },
+        true,
+    )?;
+    let timeout_seconds = validate_hermes_i64(
+        if form.get("xSearchTimeoutSeconds").is_some() {
+            form_i64(form, "xSearchTimeoutSeconds")
+        } else {
+            current["xSearchTimeoutSeconds"].as_i64()
+        },
+        "x_search.timeout_seconds",
+        180,
+        30,
+        3600,
+    )?;
+    let retries = validate_hermes_i64(
+        if form.get("xSearchRetries").is_some() {
+            form_i64(form, "xSearchRetries")
+        } else {
+            current["xSearchRetries"].as_i64()
+        },
+        "x_search.retries",
+        2,
+        0,
+        20,
+    )?;
+
+    let root = ensure_yaml_object(config)?;
+    let x_search = yaml_child_object(root, "x_search")?;
+    x_search.insert(yaml_key("model"), serde_yaml::Value::String(model));
+    x_search.insert(
+        yaml_key("timeout_seconds"),
+        serde_yaml::Value::Number(serde_yaml::Number::from(timeout_seconds)),
+    );
+    x_search.insert(
+        yaml_key("retries"),
+        serde_yaml::Value::Number(serde_yaml::Number::from(retries)),
+    );
+    Ok(())
+}
+
 fn build_hermes_lsp_config_values(config: &serde_yaml::Value) -> Value {
     let root = config.as_mapping();
     let lsp = root.and_then(|map| yaml_get_mapping(map, "lsp"));
@@ -11502,6 +11596,30 @@ pub fn hermes_model_catalog_config_save(form: Value) -> Result<Value, String> {
         "configPath": config_path.to_string_lossy(),
         "backup": backup,
         "values": build_hermes_model_catalog_config_values(&config),
+    }))
+}
+
+#[tauri::command]
+pub fn hermes_x_search_config_read() -> Result<Value, String> {
+    let (config_path, exists, config) = read_hermes_channel_yaml_config()?;
+    ensure_yaml_object(&mut config.clone())?;
+    Ok(serde_json::json!({
+        "exists": exists,
+        "configPath": config_path.to_string_lossy(),
+        "values": build_hermes_x_search_config_values(&config),
+    }))
+}
+
+#[tauri::command]
+pub fn hermes_x_search_config_save(form: Value) -> Result<Value, String> {
+    let (config_path, _exists, mut config) = read_hermes_channel_yaml_config()?;
+    merge_hermes_x_search_config(&mut config, &form)?;
+    let backup = write_hermes_yaml_config(&config_path, &config)?;
+    Ok(serde_json::json!({
+        "ok": true,
+        "configPath": config_path.to_string_lossy(),
+        "backup": backup,
+        "values": build_hermes_x_search_config_values(&config),
     }))
 }
 
@@ -18273,6 +18391,101 @@ streaming:
         )
         .unwrap_err();
         assert!(err.contains("model_catalog.providers.openrouter.url"));
+    }
+}
+
+#[cfg(test)]
+mod hermes_x_search_config_tests {
+    use super::{build_hermes_x_search_config_values, merge_hermes_x_search_config};
+    use serde_json::json;
+
+    #[test]
+    fn x_search_values_have_upstream_defaults() {
+        let config: serde_yaml::Value = serde_yaml::from_str("{}").unwrap();
+        let values = build_hermes_x_search_config_values(&config);
+        assert_eq!(values["xSearchModel"], "grok-4.20-reasoning");
+        assert_eq!(values["xSearchTimeoutSeconds"], 180);
+        assert_eq!(values["xSearchRetries"], 2);
+    }
+
+    #[test]
+    fn x_search_values_read_yaml_fields() {
+        let config: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+x_search:
+  model: grok-4.20-fast
+  timeout_seconds: 90
+  retries: 4
+"#,
+        )
+        .unwrap();
+        let values = build_hermes_x_search_config_values(&config);
+        assert_eq!(values["xSearchModel"], "grok-4.20-fast");
+        assert_eq!(values["xSearchTimeoutSeconds"], 90);
+        assert_eq!(values["xSearchRetries"], 4);
+    }
+
+    #[test]
+    fn merge_x_search_config_preserves_unknown_fields() {
+        let mut config: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+model:
+  provider: xai
+x_search:
+  model: old-grok
+  timeout_seconds: 60
+  retries: 1
+  custom_flag: keep-x-search
+streaming:
+  enabled: true
+"#,
+        )
+        .unwrap();
+
+        merge_hermes_x_search_config(
+            &mut config,
+            &json!({
+                "xSearchModel": "grok-4.20-reasoning",
+                "xSearchTimeoutSeconds": 240,
+                "xSearchRetries": 3,
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(config["model"]["provider"].as_str(), Some("xai"));
+        assert_eq!(config["streaming"]["enabled"].as_bool(), Some(true));
+        assert_eq!(
+            config["x_search"]["model"].as_str(),
+            Some("grok-4.20-reasoning")
+        );
+        assert_eq!(config["x_search"]["timeout_seconds"].as_i64(), Some(240));
+        assert_eq!(config["x_search"]["retries"].as_i64(), Some(3));
+        assert_eq!(
+            config["x_search"]["custom_flag"].as_str(),
+            Some("keep-x-search")
+        );
+    }
+
+    #[test]
+    fn merge_x_search_config_rejects_invalid_values() {
+        let mut config = serde_yaml::Value::Mapping(serde_yaml::Mapping::new());
+        let err =
+            merge_hermes_x_search_config(&mut config, &json!({ "xSearchModel": "" })).unwrap_err();
+        assert!(err.contains("x_search.model"));
+        let err =
+            merge_hermes_x_search_config(&mut config, &json!({ "xSearchModel": "bad model" }))
+                .unwrap_err();
+        assert!(err.contains("x_search.model"));
+        let err =
+            merge_hermes_x_search_config(&mut config, &json!({ "xSearchTimeoutSeconds": 29 }))
+                .unwrap_err();
+        assert!(err.contains("x_search.timeout_seconds"));
+        let err = merge_hermes_x_search_config(&mut config, &json!({ "xSearchRetries": -1 }))
+            .unwrap_err();
+        assert!(err.contains("x_search.retries"));
+        let err = merge_hermes_x_search_config(&mut config, &json!({ "xSearchRetries": 21 }))
+            .unwrap_err();
+        assert!(err.contains("x_search.retries"));
     }
 }
 

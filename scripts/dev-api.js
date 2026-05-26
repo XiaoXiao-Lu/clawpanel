@@ -4679,6 +4679,17 @@ function normalizeHermesModelConfigString(value, key, required = false) {
   return text
 }
 
+function normalizeHermesXSearchModel(value, strict = false) {
+  const text = String(value ?? '').trim()
+  if (!text) {
+    if (strict) throw new Error('x_search.model 不能为空')
+    return 'grok-4.20-reasoning'
+  }
+  if (/^[a-zA-Z0-9_.:/-]+$/.test(text)) return text
+  if (strict) throw new Error('x_search.model 只能包含字母、数字、下划线、点、斜杠、冒号和短横线')
+  return 'grok-4.20-reasoning'
+}
+
 function normalizeHermesOptionalModelInteger(value, key) {
   const raw = String(value ?? '').trim()
   if (!raw) return ''
@@ -4723,6 +4734,31 @@ export function mergeHermesModelConfig(config = {}, form = {}) {
   else delete model.max_tokens
   delete model.model
   next.model = model
+  return next
+}
+
+export function buildHermesXSearchConfigValues(config = {}) {
+  const root = config && typeof config === 'object' && !Array.isArray(config) ? config : {}
+  const xSearch = root.x_search && typeof root.x_search === 'object' && !Array.isArray(root.x_search)
+    ? root.x_search
+    : {}
+  return {
+    xSearchModel: normalizeHermesXSearchModel(xSearch.model, false),
+    xSearchTimeoutSeconds: parseHermesInteger(xSearch.timeout_seconds, 'x_search.timeout_seconds', 180, 30, 3600, false),
+    xSearchRetries: parseHermesInteger(xSearch.retries, 'x_search.retries', 2, 0, 20, false),
+  }
+}
+
+export function mergeHermesXSearchConfig(config = {}, form = {}) {
+  const next = mergeConfigsPreservingFields({}, config && typeof config === 'object' && !Array.isArray(config) ? config : {})
+  const currentValues = buildHermesXSearchConfigValues(next)
+  const xSearch = next.x_search && typeof next.x_search === 'object' && !Array.isArray(next.x_search)
+    ? mergeConfigsPreservingFields(next.x_search, {})
+    : {}
+  xSearch.model = normalizeHermesXSearchModel(Object.hasOwn(form, 'xSearchModel') ? form.xSearchModel : currentValues.xSearchModel, true)
+  xSearch.timeout_seconds = parseHermesInteger(Object.hasOwn(form, 'xSearchTimeoutSeconds') ? form.xSearchTimeoutSeconds : currentValues.xSearchTimeoutSeconds, 'x_search.timeout_seconds', 180, 30, 3600, true)
+  xSearch.retries = parseHermesInteger(Object.hasOwn(form, 'xSearchRetries') ? form.xSearchRetries : currentValues.xSearchRetries, 'x_search.retries', 2, 0, 20, true)
+  next.x_search = xSearch
   return next
 }
 
@@ -12459,6 +12495,27 @@ const handlers = {
       configPath,
       backup,
       values: buildHermesModelConfigValues(next),
+    }
+  },
+
+  hermes_x_search_config_read() {
+    const { configPath, exists, config } = readHermesConfigYamlObject()
+    return {
+      exists,
+      configPath,
+      values: buildHermesXSearchConfigValues(config),
+    }
+  },
+
+  hermes_x_search_config_save({ form } = {}) {
+    const { configPath, config } = readHermesConfigYamlObject()
+    const next = mergeHermesXSearchConfig(config, form || {})
+    const backup = writeHermesConfigYamlObject(configPath, next)
+    return {
+      ok: true,
+      configPath,
+      backup,
+      values: buildHermesXSearchConfigValues(next),
     }
   },
 

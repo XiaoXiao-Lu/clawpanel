@@ -139,6 +139,17 @@ test('Hermes 配置页会暴露模型目录结构化配置字段', () => {
   }
 })
 
+test('Hermes 配置页会暴露 X 搜索结构化配置字段', () => {
+  for (const id of [
+    'hm-x-search-save',
+    'hm-x-search-model',
+    'hm-x-search-timeout-seconds',
+    'hm-x-search-retries',
+  ]) {
+    assert.match(source, new RegExp(`id="${id}"`), `缺少 ${id}`)
+  }
+})
+
 test('Hermes 配置页会暴露 provider 超时覆盖结构化配置字段', () => {
   for (const id of [
     'hm-provider-overrides-save',
