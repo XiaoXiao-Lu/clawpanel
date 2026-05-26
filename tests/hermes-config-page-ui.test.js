@@ -476,6 +476,33 @@ test('Hermes 配置页会暴露语音转写结构化配置字段', () => {
   }
 })
 
+test('Hermes 配置页会暴露语音输出与录音结构化配置字段', () => {
+  for (const id of [
+    'hm-tts-voice-save',
+    'hm-tts-provider',
+    'hm-tts-edge-voice',
+    'hm-tts-openai-model',
+    'hm-tts-openai-voice',
+    'hm-tts-elevenlabs-voice-id',
+    'hm-tts-elevenlabs-model-id',
+    'hm-tts-xai-voice-id',
+    'hm-tts-xai-language',
+    'hm-tts-xai-sample-rate',
+    'hm-tts-xai-bit-rate',
+    'hm-tts-mistral-model',
+    'hm-tts-mistral-voice-id',
+    'hm-tts-piper-voice',
+    'hm-voice-record-key',
+    'hm-voice-max-recording-seconds',
+    'hm-voice-auto-tts',
+    'hm-voice-beep-enabled',
+    'hm-voice-silence-threshold',
+    'hm-voice-silence-duration',
+  ]) {
+    assert.match(source, new RegExp(`id="${id}"`), `缺少 ${id}`)
+  }
+})
+
 test('Hermes 配置页会暴露 Kanban 调度稳定性结构化配置字段', () => {
   for (const id of [
     'hm-kanban-config-save',

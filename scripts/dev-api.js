@@ -3330,6 +3330,8 @@ const HERMES_STT_PROVIDERS = new Set(['auto', 'local', 'groq', 'openai', 'mistra
 const HERMES_STT_LOCAL_MODELS = new Set(['tiny', 'base', 'small', 'medium', 'large-v3', 'turbo'])
 const HERMES_STT_OPENAI_MODELS = new Set(['whisper-1', 'gpt-4o-mini-transcribe', 'gpt-4o-transcribe'])
 const HERMES_STT_MISTRAL_MODELS = new Set(['voxtral-mini-latest', 'voxtral-mini-2602'])
+const HERMES_TTS_PROVIDERS = new Set(['edge', 'elevenlabs', 'openai', 'xai', 'minimax', 'mistral', 'gemini', 'neutts', 'kittentts', 'piper'])
+const HERMES_TTS_OPENAI_VOICES = new Set(['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'])
 const HERMES_AUXILIARY_PROVIDERS = new Set(['auto', 'openrouter', 'nous', 'gemini', 'ollama-cloud', 'codex', 'main'])
 const HERMES_APPROVAL_MODES = new Set(['manual', 'smart', 'off'])
 const HERMES_APPROVAL_CRON_MODES = new Set(['deny', 'approve'])
@@ -3504,6 +3506,28 @@ function normalizeHermesSttLanguage(value, strict = false) {
   if (/^[a-z]{2,3}(-[A-Za-z0-9]+)?$/.test(language)) return language
   if (strict) throw new Error('stt.local.language 必须为空或合法语言标签，例如 zh、en、pt-BR')
   return ''
+}
+
+function normalizeHermesTtsProvider(value, strict = false) {
+  const provider = String(value ?? '').trim().toLowerCase() || 'edge'
+  if (HERMES_TTS_PROVIDERS.has(provider)) return provider
+  if (strict) throw new Error('tts.provider 必须是 edge、elevenlabs、openai、xai、minimax、mistral、gemini、neutts、kittentts 或 piper')
+  return 'edge'
+}
+
+function normalizeHermesTtsOpenaiVoice(value, strict = false) {
+  const voice = String(value ?? '').trim().toLowerCase() || 'alloy'
+  if (HERMES_TTS_OPENAI_VOICES.has(voice)) return voice
+  if (strict) throw new Error('tts.openai.voice 必须是 alloy、echo、fable、onyx、nova 或 shimmer')
+  return 'alloy'
+}
+
+function normalizeHermesVoiceLanguage(value, strict = false, key = 'tts.xai.language') {
+  const language = String(value ?? '').trim()
+  if (!language) return 'en'
+  if (/^[a-z]{2,3}(-[A-Za-z0-9]+)?$/.test(language)) return language
+  if (strict) throw new Error(`${key} 必须是合法语言标签，例如 en、zh、pt-BR`)
+  return 'en'
 }
 
 function normalizeHermesApprovalMode(value, strict = false) {
@@ -5477,6 +5501,92 @@ export function buildHermesSttConfigValues(config = {}) {
     sttOpenaiModel: normalizeHermesSttOpenaiModel(openai.model, false),
     sttMistralModel: normalizeHermesSttMistralModel(mistral.model, false),
   }
+}
+
+export function buildHermesTtsVoiceConfigValues(config = {}) {
+  const root = config && typeof config === 'object' && !Array.isArray(config) ? config : {}
+  const tts = root.tts && typeof root.tts === 'object' && !Array.isArray(root.tts) ? root.tts : {}
+  const edge = tts.edge && typeof tts.edge === 'object' && !Array.isArray(tts.edge) ? tts.edge : {}
+  const openai = tts.openai && typeof tts.openai === 'object' && !Array.isArray(tts.openai) ? tts.openai : {}
+  const elevenlabs = tts.elevenlabs && typeof tts.elevenlabs === 'object' && !Array.isArray(tts.elevenlabs) ? tts.elevenlabs : {}
+  const xai = tts.xai && typeof tts.xai === 'object' && !Array.isArray(tts.xai) ? tts.xai : {}
+  const mistral = tts.mistral && typeof tts.mistral === 'object' && !Array.isArray(tts.mistral) ? tts.mistral : {}
+  const piper = tts.piper && typeof tts.piper === 'object' && !Array.isArray(tts.piper) ? tts.piper : {}
+  const voice = root.voice && typeof root.voice === 'object' && !Array.isArray(root.voice) ? root.voice : {}
+  return {
+    ttsProvider: normalizeHermesTtsProvider(tts.provider, false),
+    ttsEdgeVoice: typeof edge.voice === 'string' ? edge.voice.trim() : 'en-US-AriaNeural',
+    ttsOpenaiModel: typeof openai.model === 'string' && openai.model.trim() ? openai.model.trim() : 'gpt-4o-mini-tts',
+    ttsOpenaiVoice: normalizeHermesTtsOpenaiVoice(openai.voice, false),
+    ttsElevenlabsVoiceId: typeof elevenlabs.voice_id === 'string' ? elevenlabs.voice_id.trim() : 'pNInz6obpgDQGcFmaJgB',
+    ttsElevenlabsModelId: typeof elevenlabs.model_id === 'string' ? elevenlabs.model_id.trim() : 'eleven_multilingual_v2',
+    ttsXaiVoiceId: typeof xai.voice_id === 'string' && xai.voice_id.trim() ? xai.voice_id.trim() : 'eve',
+    ttsXaiLanguage: normalizeHermesVoiceLanguage(xai.language, false, 'tts.xai.language'),
+    ttsXaiSampleRate: parseHermesInteger(xai.sample_rate, 'tts.xai.sample_rate', 24000, 8000, 192000, false),
+    ttsXaiBitRate: parseHermesInteger(xai.bit_rate, 'tts.xai.bit_rate', 128000, 16000, 512000, false),
+    ttsMistralModel: typeof mistral.model === 'string' && mistral.model.trim() ? mistral.model.trim() : 'voxtral-mini-tts-2603',
+    ttsMistralVoiceId: typeof mistral.voice_id === 'string' ? mistral.voice_id.trim() : 'c69964a6-ab8b-4f8a-9465-ec0925096ec8',
+    ttsPiperVoice: typeof piper.voice === 'string' ? piper.voice.trim() : 'en_US-lessac-medium',
+    voiceRecordKey: typeof voice.record_key === 'string' ? voice.record_key.trim() : 'ctrl+b',
+    voiceMaxRecordingSeconds: parseHermesInteger(voice.max_recording_seconds, 'voice.max_recording_seconds', 120, 1, 3600, false),
+    voiceAutoTts: readHermesBool(voice.auto_tts, false),
+    voiceBeepEnabled: readHermesBool(voice.beep_enabled, true),
+    voiceSilenceThreshold: parseHermesInteger(voice.silence_threshold, 'voice.silence_threshold', 200, 0, 32767, false),
+    voiceSilenceDuration: parseHermesFloat(voice.silence_duration, 'voice.silence_duration', 3, 0.1, 60, false),
+  }
+}
+
+export function mergeHermesTtsVoiceConfig(config = {}, form = {}) {
+  const next = mergeConfigsPreservingFields({}, config && typeof config === 'object' && !Array.isArray(config) ? config : {})
+  const currentValues = buildHermesTtsVoiceConfigValues(next)
+  const tts = next.tts && typeof next.tts === 'object' && !Array.isArray(next.tts) ? mergeConfigsPreservingFields(next.tts, {}) : {}
+  const edge = tts.edge && typeof tts.edge === 'object' && !Array.isArray(tts.edge) ? mergeConfigsPreservingFields(tts.edge, {}) : {}
+  const openai = tts.openai && typeof tts.openai === 'object' && !Array.isArray(tts.openai) ? mergeConfigsPreservingFields(tts.openai, {}) : {}
+  const elevenlabs = tts.elevenlabs && typeof tts.elevenlabs === 'object' && !Array.isArray(tts.elevenlabs) ? mergeConfigsPreservingFields(tts.elevenlabs, {}) : {}
+  const xai = tts.xai && typeof tts.xai === 'object' && !Array.isArray(tts.xai) ? mergeConfigsPreservingFields(tts.xai, {}) : {}
+  const mistral = tts.mistral && typeof tts.mistral === 'object' && !Array.isArray(tts.mistral) ? mergeConfigsPreservingFields(tts.mistral, {}) : {}
+  const piper = tts.piper && typeof tts.piper === 'object' && !Array.isArray(tts.piper) ? mergeConfigsPreservingFields(tts.piper, {}) : {}
+  const voice = next.voice && typeof next.voice === 'object' && !Array.isArray(next.voice) ? mergeConfigsPreservingFields(next.voice, {}) : {}
+  tts.provider = normalizeHermesTtsProvider(Object.hasOwn(form, 'ttsProvider') ? form.ttsProvider : currentValues.ttsProvider, true)
+  const edgeVoice = normalizeHermesOptionalString(Object.hasOwn(form, 'ttsEdgeVoice') ? form.ttsEdgeVoice : currentValues.ttsEdgeVoice, 'tts.edge.voice')
+  if (edgeVoice) edge.voice = edgeVoice
+  else delete edge.voice
+  openai.model = normalizeHermesOptionalString(Object.hasOwn(form, 'ttsOpenaiModel') ? form.ttsOpenaiModel : currentValues.ttsOpenaiModel, 'tts.openai.model') || 'gpt-4o-mini-tts'
+  openai.voice = normalizeHermesTtsOpenaiVoice(Object.hasOwn(form, 'ttsOpenaiVoice') ? form.ttsOpenaiVoice : currentValues.ttsOpenaiVoice, true)
+  const elevenlabsVoiceId = normalizeHermesOptionalString(Object.hasOwn(form, 'ttsElevenlabsVoiceId') ? form.ttsElevenlabsVoiceId : currentValues.ttsElevenlabsVoiceId, 'tts.elevenlabs.voice_id')
+  if (elevenlabsVoiceId) elevenlabs.voice_id = elevenlabsVoiceId
+  else delete elevenlabs.voice_id
+  const elevenlabsModelId = normalizeHermesOptionalString(Object.hasOwn(form, 'ttsElevenlabsModelId') ? form.ttsElevenlabsModelId : currentValues.ttsElevenlabsModelId, 'tts.elevenlabs.model_id')
+  if (elevenlabsModelId) elevenlabs.model_id = elevenlabsModelId
+  else delete elevenlabs.model_id
+  xai.voice_id = normalizeHermesOptionalString(Object.hasOwn(form, 'ttsXaiVoiceId') ? form.ttsXaiVoiceId : currentValues.ttsXaiVoiceId, 'tts.xai.voice_id') || 'eve'
+  xai.language = normalizeHermesVoiceLanguage(Object.hasOwn(form, 'ttsXaiLanguage') ? form.ttsXaiLanguage : currentValues.ttsXaiLanguage, true, 'tts.xai.language')
+  xai.sample_rate = parseHermesInteger(Object.hasOwn(form, 'ttsXaiSampleRate') ? form.ttsXaiSampleRate : currentValues.ttsXaiSampleRate, 'tts.xai.sample_rate', 24000, 8000, 192000, true)
+  xai.bit_rate = parseHermesInteger(Object.hasOwn(form, 'ttsXaiBitRate') ? form.ttsXaiBitRate : currentValues.ttsXaiBitRate, 'tts.xai.bit_rate', 128000, 16000, 512000, true)
+  mistral.model = normalizeHermesOptionalString(Object.hasOwn(form, 'ttsMistralModel') ? form.ttsMistralModel : currentValues.ttsMistralModel, 'tts.mistral.model') || 'voxtral-mini-tts-2603'
+  const mistralVoiceId = normalizeHermesOptionalString(Object.hasOwn(form, 'ttsMistralVoiceId') ? form.ttsMistralVoiceId : currentValues.ttsMistralVoiceId, 'tts.mistral.voice_id')
+  if (mistralVoiceId) mistral.voice_id = mistralVoiceId
+  else delete mistral.voice_id
+  const piperVoice = normalizeHermesOptionalString(Object.hasOwn(form, 'ttsPiperVoice') ? form.ttsPiperVoice : currentValues.ttsPiperVoice, 'tts.piper.voice')
+  if (piperVoice) piper.voice = piperVoice
+  else delete piper.voice
+  const recordKey = normalizeHermesOptionalString(Object.hasOwn(form, 'voiceRecordKey') ? form.voiceRecordKey : currentValues.voiceRecordKey, 'voice.record_key')
+  if (recordKey) voice.record_key = recordKey
+  else delete voice.record_key
+  voice.max_recording_seconds = parseHermesInteger(Object.hasOwn(form, 'voiceMaxRecordingSeconds') ? form.voiceMaxRecordingSeconds : currentValues.voiceMaxRecordingSeconds, 'voice.max_recording_seconds', 120, 1, 3600, true)
+  voice.auto_tts = formHermesBool(form, 'voiceAutoTts', currentValues.voiceAutoTts)
+  voice.beep_enabled = formHermesBool(form, 'voiceBeepEnabled', currentValues.voiceBeepEnabled)
+  voice.silence_threshold = parseHermesInteger(Object.hasOwn(form, 'voiceSilenceThreshold') ? form.voiceSilenceThreshold : currentValues.voiceSilenceThreshold, 'voice.silence_threshold', 200, 0, 32767, true)
+  voice.silence_duration = parseHermesFloat(Object.hasOwn(form, 'voiceSilenceDuration') ? form.voiceSilenceDuration : currentValues.voiceSilenceDuration, 'voice.silence_duration', 3, 0.1, 60, true)
+  tts.edge = edge
+  tts.openai = openai
+  tts.elevenlabs = elevenlabs
+  tts.xai = xai
+  tts.mistral = mistral
+  tts.piper = piper
+  next.tts = tts
+  next.voice = voice
+  return next
 }
 
 export function mergeHermesSttConfig(config = {}, form = {}) {
@@ -12665,6 +12775,27 @@ const handlers = {
       configPath,
       backup,
       values: buildHermesSttConfigValues(next),
+    }
+  },
+
+  hermes_tts_voice_config_read() {
+    const { configPath, exists, config } = readHermesConfigYamlObject()
+    return {
+      exists,
+      configPath,
+      values: buildHermesTtsVoiceConfigValues(config),
+    }
+  },
+
+  hermes_tts_voice_config_save({ form } = {}) {
+    const { configPath, config } = readHermesConfigYamlObject()
+    const next = mergeHermesTtsVoiceConfig(config, form || {})
+    const backup = writeHermesConfigYamlObject(configPath, next)
+    return {
+      ok: true,
+      configPath,
+      backup,
+      values: buildHermesTtsVoiceConfigValues(next),
     }
   },
 

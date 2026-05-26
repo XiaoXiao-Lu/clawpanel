@@ -7228,6 +7228,85 @@ fn normalize_hermes_stt_language(value: Option<String>, strict: bool) -> Result<
     }
 }
 
+fn normalize_hermes_tts_provider(value: Option<String>, strict: bool) -> Result<String, String> {
+    let provider = value.unwrap_or_default().trim().to_ascii_lowercase();
+    let provider = if provider.is_empty() {
+        "edge".to_string()
+    } else {
+        provider
+    };
+    if matches!(
+        provider.as_str(),
+        "edge"
+            | "elevenlabs"
+            | "openai"
+            | "xai"
+            | "minimax"
+            | "mistral"
+            | "gemini"
+            | "neutts"
+            | "kittentts"
+            | "piper"
+    ) {
+        return Ok(provider);
+    }
+    if strict {
+        Err("tts.provider 必须是 edge、elevenlabs、openai、xai、minimax、mistral、gemini、neutts、kittentts 或 piper".to_string())
+    } else {
+        Ok("edge".to_string())
+    }
+}
+
+fn normalize_hermes_tts_openai_voice(
+    value: Option<String>,
+    strict: bool,
+) -> Result<String, String> {
+    let voice = value.unwrap_or_default().trim().to_ascii_lowercase();
+    let voice = if voice.is_empty() {
+        "alloy".to_string()
+    } else {
+        voice
+    };
+    if matches!(
+        voice.as_str(),
+        "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer"
+    ) {
+        return Ok(voice);
+    }
+    if strict {
+        Err("tts.openai.voice 必须是 alloy、echo、fable、onyx、nova 或 shimmer".to_string())
+    } else {
+        Ok("alloy".to_string())
+    }
+}
+
+fn normalize_hermes_voice_language(
+    value: Option<String>,
+    strict: bool,
+    key: &str,
+) -> Result<String, String> {
+    let language = value.unwrap_or_default().trim().to_string();
+    if language.is_empty() {
+        return Ok("en".to_string());
+    }
+    let mut parts = language.split('-');
+    let Some(first) = parts.next() else {
+        return Ok("en".to_string());
+    };
+    let first_valid =
+        (2..=3).contains(&first.len()) && first.chars().all(|ch| ch.is_ascii_lowercase());
+    let rest_valid =
+        parts.all(|part| !part.is_empty() && part.chars().all(|ch| ch.is_ascii_alphanumeric()));
+    if first_valid && rest_valid {
+        return Ok(language);
+    }
+    if strict {
+        Err(format!("{key} 必须是合法语言标签，例如 en、zh、pt-BR"))
+    } else {
+        Ok("en".to_string())
+    }
+}
+
 fn normalize_hermes_approval_mode(value: Option<String>, strict: bool) -> Result<String, String> {
     let mode = value.unwrap_or_default().trim().to_ascii_lowercase();
     let mode = if mode.is_empty() {
@@ -8422,6 +8501,233 @@ fn merge_hermes_stt_config(config: &mut serde_yaml::Value, form: &Value) -> Resu
     mistral.insert(
         yaml_key("model"),
         serde_yaml::Value::String(stt_mistral_model),
+    );
+    Ok(())
+}
+
+fn build_hermes_tts_voice_config_values(config: &serde_yaml::Value) -> Value {
+    let root = config.as_mapping();
+    let tts = root.and_then(|map| yaml_get_mapping(map, "tts"));
+    let edge = tts.and_then(|map| yaml_get_mapping(map, "edge"));
+    let openai = tts.and_then(|map| yaml_get_mapping(map, "openai"));
+    let elevenlabs = tts.and_then(|map| yaml_get_mapping(map, "elevenlabs"));
+    let xai = tts.and_then(|map| yaml_get_mapping(map, "xai"));
+    let mistral = tts.and_then(|map| yaml_get_mapping(map, "mistral"));
+    let piper = tts.and_then(|map| yaml_get_mapping(map, "piper"));
+    let voice = root.and_then(|map| yaml_get_mapping(map, "voice"));
+    let tts_string = |section: Option<&serde_yaml::Mapping>, key: &str, fallback: &str| {
+        section
+            .and_then(|map| yaml_string_field(map, key))
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| fallback.to_string())
+    };
+    serde_json::json!({
+        "ttsProvider": normalize_hermes_tts_provider(tts.and_then(|map| yaml_string_field(map, "provider")), false).unwrap_or_else(|_| "edge".to_string()),
+        "ttsEdgeVoice": tts_string(edge, "voice", "en-US-AriaNeural"),
+        "ttsOpenaiModel": tts_string(openai, "model", "gpt-4o-mini-tts"),
+        "ttsOpenaiVoice": normalize_hermes_tts_openai_voice(openai.and_then(|map| yaml_string_field(map, "voice")), false).unwrap_or_else(|_| "alloy".to_string()),
+        "ttsElevenlabsVoiceId": tts_string(elevenlabs, "voice_id", "pNInz6obpgDQGcFmaJgB"),
+        "ttsElevenlabsModelId": tts_string(elevenlabs, "model_id", "eleven_multilingual_v2"),
+        "ttsXaiVoiceId": tts_string(xai, "voice_id", "eve"),
+        "ttsXaiLanguage": normalize_hermes_voice_language(xai.and_then(|map| yaml_string_field(map, "language")), false, "tts.xai.language").unwrap_or_else(|_| "en".to_string()),
+        "ttsXaiSampleRate": xai.map(|map| bounded_hermes_i64(yaml_i64_field(map, "sample_rate"), 24000, 8000, 192000)).unwrap_or(24000),
+        "ttsXaiBitRate": xai.map(|map| bounded_hermes_i64(yaml_i64_field(map, "bit_rate"), 128000, 16000, 512000)).unwrap_or(128000),
+        "ttsMistralModel": tts_string(mistral, "model", "voxtral-mini-tts-2603"),
+        "ttsMistralVoiceId": tts_string(mistral, "voice_id", "c69964a6-ab8b-4f8a-9465-ec0925096ec8"),
+        "ttsPiperVoice": tts_string(piper, "voice", "en_US-lessac-medium"),
+        "voiceRecordKey": voice.and_then(|map| yaml_string_field(map, "record_key")).map(|value| value.trim().to_string()).unwrap_or_else(|| "ctrl+b".to_string()),
+        "voiceMaxRecordingSeconds": voice.map(|map| bounded_hermes_i64(yaml_i64_field(map, "max_recording_seconds"), 120, 1, 3600)).unwrap_or(120),
+        "voiceAutoTts": voice.and_then(|map| yaml_bool_field(map, "auto_tts")).unwrap_or(false),
+        "voiceBeepEnabled": voice.and_then(|map| yaml_bool_field(map, "beep_enabled")).unwrap_or(true),
+        "voiceSilenceThreshold": voice.map(|map| bounded_hermes_i64(yaml_i64_field(map, "silence_threshold"), 200, 0, 32767)).unwrap_or(200),
+        "voiceSilenceDuration": voice.map(|map| bounded_hermes_f64(yaml_f64_field(map, "silence_duration"), 3.0, 0.1, 60.0)).unwrap_or(3.0),
+    })
+}
+
+fn merge_hermes_tts_voice_config(
+    config: &mut serde_yaml::Value,
+    form: &Value,
+) -> Result<(), String> {
+    let current = build_hermes_tts_voice_config_values(config);
+    let form_or_current_string = |key: &str| {
+        if form.get(key).is_some() {
+            form_string(form, key)
+        } else {
+            current[key].as_str().map(ToString::to_string)
+        }
+    };
+    let tts_provider = normalize_hermes_tts_provider(form_or_current_string("ttsProvider"), true)?;
+    let tts_edge_voice = form_or_current_string("ttsEdgeVoice")
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let tts_openai_model = form_or_current_string("ttsOpenaiModel")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "gpt-4o-mini-tts".to_string());
+    let tts_openai_voice =
+        normalize_hermes_tts_openai_voice(form_or_current_string("ttsOpenaiVoice"), true)?;
+    let tts_elevenlabs_voice_id = form_or_current_string("ttsElevenlabsVoiceId")
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let tts_elevenlabs_model_id = form_or_current_string("ttsElevenlabsModelId")
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let tts_xai_voice_id = form_or_current_string("ttsXaiVoiceId")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "eve".to_string());
+    let tts_xai_language = normalize_hermes_voice_language(
+        form_or_current_string("ttsXaiLanguage"),
+        true,
+        "tts.xai.language",
+    )?;
+    let tts_xai_sample_rate = validate_hermes_i64(
+        if form.get("ttsXaiSampleRate").is_some() {
+            form_i64(form, "ttsXaiSampleRate")
+        } else {
+            current["ttsXaiSampleRate"].as_i64()
+        },
+        "tts.xai.sample_rate",
+        24000,
+        8000,
+        192000,
+    )?;
+    let tts_xai_bit_rate = validate_hermes_i64(
+        if form.get("ttsXaiBitRate").is_some() {
+            form_i64(form, "ttsXaiBitRate")
+        } else {
+            current["ttsXaiBitRate"].as_i64()
+        },
+        "tts.xai.bit_rate",
+        128000,
+        16000,
+        512000,
+    )?;
+    let tts_mistral_model = form_or_current_string("ttsMistralModel")
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "voxtral-mini-tts-2603".to_string());
+    let tts_mistral_voice_id = form_or_current_string("ttsMistralVoiceId")
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let tts_piper_voice = form_or_current_string("ttsPiperVoice")
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let voice_record_key = form_or_current_string("voiceRecordKey")
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let voice_max_recording_seconds = validate_hermes_i64(
+        if form.get("voiceMaxRecordingSeconds").is_some() {
+            form_i64(form, "voiceMaxRecordingSeconds")
+        } else {
+            current["voiceMaxRecordingSeconds"].as_i64()
+        },
+        "voice.max_recording_seconds",
+        120,
+        1,
+        3600,
+    )?;
+    let voice_auto_tts = form_bool(form, "voiceAutoTts")
+        .unwrap_or_else(|| current["voiceAutoTts"].as_bool().unwrap_or(false));
+    let voice_beep_enabled = form_bool(form, "voiceBeepEnabled")
+        .unwrap_or_else(|| current["voiceBeepEnabled"].as_bool().unwrap_or(true));
+    let voice_silence_threshold = validate_hermes_i64(
+        if form.get("voiceSilenceThreshold").is_some() {
+            form_i64(form, "voiceSilenceThreshold")
+        } else {
+            current["voiceSilenceThreshold"].as_i64()
+        },
+        "voice.silence_threshold",
+        200,
+        0,
+        32767,
+    )?;
+    let voice_silence_duration = validate_hermes_f64(
+        if form.get("voiceSilenceDuration").is_some() {
+            form_f64(form, "voiceSilenceDuration")
+        } else {
+            current["voiceSilenceDuration"].as_f64()
+        },
+        "voice.silence_duration",
+        3.0,
+        0.1,
+        60.0,
+    )?;
+
+    let root = ensure_yaml_object(config)?;
+    let tts = yaml_child_object(root, "tts")?;
+    tts.insert(
+        yaml_key("provider"),
+        serde_yaml::Value::String(tts_provider),
+    );
+    let edge = yaml_child_object(tts, "edge")?;
+    set_optional_yaml_string(edge, "voice", tts_edge_voice);
+    let openai = yaml_child_object(tts, "openai")?;
+    openai.insert(
+        yaml_key("model"),
+        serde_yaml::Value::String(tts_openai_model),
+    );
+    openai.insert(
+        yaml_key("voice"),
+        serde_yaml::Value::String(tts_openai_voice),
+    );
+    let elevenlabs = yaml_child_object(tts, "elevenlabs")?;
+    set_optional_yaml_string(elevenlabs, "voice_id", tts_elevenlabs_voice_id);
+    set_optional_yaml_string(elevenlabs, "model_id", tts_elevenlabs_model_id);
+    let xai = yaml_child_object(tts, "xai")?;
+    xai.insert(
+        yaml_key("voice_id"),
+        serde_yaml::Value::String(tts_xai_voice_id),
+    );
+    xai.insert(
+        yaml_key("language"),
+        serde_yaml::Value::String(tts_xai_language),
+    );
+    xai.insert(
+        yaml_key("sample_rate"),
+        serde_yaml::Value::Number(tts_xai_sample_rate.into()),
+    );
+    xai.insert(
+        yaml_key("bit_rate"),
+        serde_yaml::Value::Number(tts_xai_bit_rate.into()),
+    );
+    let mistral = yaml_child_object(tts, "mistral")?;
+    mistral.insert(
+        yaml_key("model"),
+        serde_yaml::Value::String(tts_mistral_model),
+    );
+    set_optional_yaml_string(mistral, "voice_id", tts_mistral_voice_id);
+    let piper = yaml_child_object(tts, "piper")?;
+    set_optional_yaml_string(piper, "voice", tts_piper_voice);
+
+    let voice = yaml_child_object(root, "voice")?;
+    set_optional_yaml_string(voice, "record_key", voice_record_key);
+    voice.insert(
+        yaml_key("max_recording_seconds"),
+        serde_yaml::Value::Number(voice_max_recording_seconds.into()),
+    );
+    voice.insert(
+        yaml_key("auto_tts"),
+        serde_yaml::Value::Bool(voice_auto_tts),
+    );
+    voice.insert(
+        yaml_key("beep_enabled"),
+        serde_yaml::Value::Bool(voice_beep_enabled),
+    );
+    voice.insert(
+        yaml_key("silence_threshold"),
+        serde_yaml::Value::Number(voice_silence_threshold.into()),
+    );
+    voice.insert(
+        yaml_key("silence_duration"),
+        serde_yaml::to_value(voice_silence_duration).map_err(|err| err.to_string())?,
     );
     Ok(())
 }
@@ -10685,6 +10991,30 @@ pub fn hermes_stt_config_save(form: Value) -> Result<Value, String> {
         "configPath": config_path.to_string_lossy(),
         "backup": backup,
         "values": build_hermes_stt_config_values(&config),
+    }))
+}
+
+#[tauri::command]
+pub fn hermes_tts_voice_config_read() -> Result<Value, String> {
+    let (config_path, exists, config) = read_hermes_channel_yaml_config()?;
+    ensure_yaml_object(&mut config.clone())?;
+    Ok(serde_json::json!({
+        "exists": exists,
+        "configPath": config_path.to_string_lossy(),
+        "values": build_hermes_tts_voice_config_values(&config),
+    }))
+}
+
+#[tauri::command]
+pub fn hermes_tts_voice_config_save(form: Value) -> Result<Value, String> {
+    let (config_path, _exists, mut config) = read_hermes_channel_yaml_config()?;
+    merge_hermes_tts_voice_config(&mut config, &form)?;
+    let backup = write_hermes_yaml_config(&config_path, &config)?;
+    Ok(serde_json::json!({
+        "ok": true,
+        "configPath": config_path.to_string_lossy(),
+        "backup": backup,
+        "values": build_hermes_tts_voice_config_values(&config),
     }))
 }
 
@@ -17238,6 +17568,242 @@ memory:
         let err = merge_hermes_stt_config(&mut config, &json!({ "sttLocalLanguage": "中文" }))
             .unwrap_err();
         assert!(err.contains("stt.local.language"));
+    }
+}
+
+#[cfg(test)]
+mod hermes_tts_voice_config_tests {
+    use super::{build_hermes_tts_voice_config_values, merge_hermes_tts_voice_config};
+    use serde_json::json;
+
+    #[test]
+    fn tts_voice_values_have_upstream_defaults() {
+        let config: serde_yaml::Value = serde_yaml::from_str("{}").unwrap();
+        let values = build_hermes_tts_voice_config_values(&config);
+        assert_eq!(values["ttsProvider"], "edge");
+        assert_eq!(values["ttsEdgeVoice"], "en-US-AriaNeural");
+        assert_eq!(values["ttsOpenaiModel"], "gpt-4o-mini-tts");
+        assert_eq!(values["ttsOpenaiVoice"], "alloy");
+        assert_eq!(values["ttsElevenlabsVoiceId"], "pNInz6obpgDQGcFmaJgB");
+        assert_eq!(values["ttsElevenlabsModelId"], "eleven_multilingual_v2");
+        assert_eq!(values["ttsXaiVoiceId"], "eve");
+        assert_eq!(values["ttsXaiLanguage"], "en");
+        assert_eq!(values["ttsXaiSampleRate"], 24000);
+        assert_eq!(values["ttsXaiBitRate"], 128000);
+        assert_eq!(values["ttsMistralModel"], "voxtral-mini-tts-2603");
+        assert_eq!(
+            values["ttsMistralVoiceId"],
+            "c69964a6-ab8b-4f8a-9465-ec0925096ec8"
+        );
+        assert_eq!(values["ttsPiperVoice"], "en_US-lessac-medium");
+        assert_eq!(values["voiceRecordKey"], "ctrl+b");
+        assert_eq!(values["voiceMaxRecordingSeconds"], 120);
+        assert_eq!(values["voiceAutoTts"], false);
+        assert_eq!(values["voiceBeepEnabled"], true);
+        assert_eq!(values["voiceSilenceThreshold"], 200);
+        assert_eq!(values["voiceSilenceDuration"], 3.0);
+    }
+
+    #[test]
+    fn tts_voice_values_read_yaml_fields() {
+        let config: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+tts:
+  provider: openai
+  edge:
+    voice: zh-CN-XiaoxiaoNeural
+  openai:
+    model: gpt-4o-mini-tts
+    voice: nova
+  elevenlabs:
+    voice_id: voice-123
+    model_id: eleven_turbo_v2_5
+  xai:
+    voice_id: custom-eve
+    language: zh
+    sample_rate: 48000
+    bit_rate: 192000
+  mistral:
+    model: voxtral-mini-tts-2603
+    voice_id: mistral-voice
+  piper:
+    voice: zh_CN-huayan-medium
+voice:
+  record_key: ctrl+shift+v
+  max_recording_seconds: 240
+  auto_tts: true
+  beep_enabled: false
+  silence_threshold: 350
+  silence_duration: 1.5
+"#,
+        )
+        .unwrap();
+        let values = build_hermes_tts_voice_config_values(&config);
+        assert_eq!(values["ttsProvider"], "openai");
+        assert_eq!(values["ttsEdgeVoice"], "zh-CN-XiaoxiaoNeural");
+        assert_eq!(values["ttsOpenaiVoice"], "nova");
+        assert_eq!(values["ttsElevenlabsVoiceId"], "voice-123");
+        assert_eq!(values["ttsXaiLanguage"], "zh");
+        assert_eq!(values["ttsXaiSampleRate"], 48000);
+        assert_eq!(values["ttsMistralVoiceId"], "mistral-voice");
+        assert_eq!(values["ttsPiperVoice"], "zh_CN-huayan-medium");
+        assert_eq!(values["voiceRecordKey"], "ctrl+shift+v");
+        assert_eq!(values["voiceAutoTts"], true);
+        assert_eq!(values["voiceBeepEnabled"], false);
+        assert_eq!(values["voiceSilenceDuration"], 1.5);
+    }
+
+    #[test]
+    fn merge_tts_voice_config_preserves_unknown_fields() {
+        let mut config: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+model:
+  provider: anthropic
+tts:
+  provider: edge
+  custom_flag: keep-tts
+  openai:
+    custom_flag: keep-openai
+  piper:
+    voices_dir: /cache/piper
+voice:
+  custom_flag: keep-voice
+streaming:
+  enabled: true
+"#,
+        )
+        .unwrap();
+
+        merge_hermes_tts_voice_config(
+            &mut config,
+            &json!({
+                "ttsProvider": "openai",
+                "ttsEdgeVoice": "zh-CN-XiaoxiaoNeural",
+                "ttsOpenaiModel": "gpt-4o-mini-tts",
+                "ttsOpenaiVoice": "nova",
+                "ttsElevenlabsVoiceId": "voice-123",
+                "ttsElevenlabsModelId": "eleven_turbo_v2_5",
+                "ttsXaiVoiceId": "eve-pro",
+                "ttsXaiLanguage": "zh",
+                "ttsXaiSampleRate": "48000",
+                "ttsXaiBitRate": "192000",
+                "ttsMistralModel": "voxtral-mini-tts-2603",
+                "ttsMistralVoiceId": "mistral-voice",
+                "ttsPiperVoice": "zh_CN-huayan-medium",
+                "voiceRecordKey": "ctrl+shift+v",
+                "voiceMaxRecordingSeconds": "240",
+                "voiceAutoTts": true,
+                "voiceBeepEnabled": false,
+                "voiceSilenceThreshold": "350",
+                "voiceSilenceDuration": "1.5",
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(config["model"]["provider"].as_str(), Some("anthropic"));
+        assert_eq!(config["streaming"]["enabled"].as_bool(), Some(true));
+        assert_eq!(config["tts"]["provider"].as_str(), Some("openai"));
+        assert_eq!(
+            config["tts"]["edge"]["voice"].as_str(),
+            Some("zh-CN-XiaoxiaoNeural")
+        );
+        assert_eq!(config["tts"]["openai"]["voice"].as_str(), Some("nova"));
+        assert_eq!(
+            config["tts"]["openai"]["custom_flag"].as_str(),
+            Some("keep-openai")
+        );
+        assert_eq!(
+            config["tts"]["elevenlabs"]["voice_id"].as_str(),
+            Some("voice-123")
+        );
+        assert_eq!(config["tts"]["xai"]["sample_rate"].as_i64(), Some(48000));
+        assert_eq!(config["tts"]["xai"]["bit_rate"].as_i64(), Some(192000));
+        assert_eq!(
+            config["tts"]["mistral"]["voice_id"].as_str(),
+            Some("mistral-voice")
+        );
+        assert_eq!(
+            config["tts"]["piper"]["voice"].as_str(),
+            Some("zh_CN-huayan-medium")
+        );
+        assert_eq!(
+            config["tts"]["piper"]["voices_dir"].as_str(),
+            Some("/cache/piper")
+        );
+        assert_eq!(config["tts"]["custom_flag"].as_str(), Some("keep-tts"));
+        assert_eq!(config["voice"]["record_key"].as_str(), Some("ctrl+shift+v"));
+        assert_eq!(config["voice"]["max_recording_seconds"].as_i64(), Some(240));
+        assert_eq!(config["voice"]["auto_tts"].as_bool(), Some(true));
+        assert_eq!(config["voice"]["beep_enabled"].as_bool(), Some(false));
+        assert_eq!(config["voice"]["silence_threshold"].as_i64(), Some(350));
+        assert_eq!(config["voice"]["silence_duration"].as_f64(), Some(1.5));
+        assert_eq!(config["voice"]["custom_flag"].as_str(), Some("keep-voice"));
+    }
+
+    #[test]
+    fn merge_tts_voice_config_removes_empty_optional_overrides() {
+        let mut config: serde_yaml::Value = serde_yaml::from_str(
+            r#"
+tts:
+  edge:
+    voice: custom-edge
+  elevenlabs:
+    voice_id: voice-123
+    model_id: model-123
+  piper:
+    voice: custom-piper
+    voices_dir: /cache/piper
+voice:
+  record_key: ctrl+shift+v
+  custom_flag: keep-voice
+"#,
+        )
+        .unwrap();
+
+        merge_hermes_tts_voice_config(
+            &mut config,
+            &json!({
+                "ttsEdgeVoice": "",
+                "ttsElevenlabsVoiceId": " ",
+                "ttsElevenlabsModelId": "",
+                "ttsPiperVoice": "",
+                "voiceRecordKey": "",
+            }),
+        )
+        .unwrap();
+
+        assert!(config["tts"]["edge"]["voice"].is_null());
+        assert!(config["tts"]["elevenlabs"]["voice_id"].is_null());
+        assert!(config["tts"]["elevenlabs"]["model_id"].is_null());
+        assert!(config["tts"]["piper"]["voice"].is_null());
+        assert_eq!(
+            config["tts"]["piper"]["voices_dir"].as_str(),
+            Some("/cache/piper")
+        );
+        assert!(config["voice"]["record_key"].is_null());
+        assert_eq!(config["voice"]["custom_flag"].as_str(), Some("keep-voice"));
+    }
+
+    #[test]
+    fn merge_tts_voice_config_rejects_invalid_values() {
+        let mut config = serde_yaml::Value::Mapping(serde_yaml::Mapping::new());
+        let err = merge_hermes_tts_voice_config(&mut config, &json!({ "ttsProvider": "bad" }))
+            .unwrap_err();
+        assert!(err.contains("tts.provider"));
+        let err = merge_hermes_tts_voice_config(&mut config, &json!({ "ttsOpenaiVoice": "robot" }))
+            .unwrap_err();
+        assert!(err.contains("tts.openai.voice"));
+        let err = merge_hermes_tts_voice_config(&mut config, &json!({ "ttsXaiSampleRate": "0" }))
+            .unwrap_err();
+        assert!(err.contains("tts.xai.sample_rate"));
+        let err =
+            merge_hermes_tts_voice_config(&mut config, &json!({ "voiceMaxRecordingSeconds": "0" }))
+                .unwrap_err();
+        assert!(err.contains("voice.max_recording_seconds"));
+        let err =
+            merge_hermes_tts_voice_config(&mut config, &json!({ "voiceSilenceDuration": "-1" }))
+                .unwrap_err();
+        assert!(err.contains("voice.silence_duration"));
     }
 }
 

@@ -303,6 +303,28 @@ const STT_DEFAULTS = {
   sttMistralModel: 'voxtral-mini-latest',
 }
 
+const TTS_VOICE_DEFAULTS = {
+  ttsProvider: 'edge',
+  ttsEdgeVoice: 'en-US-AriaNeural',
+  ttsOpenaiModel: 'gpt-4o-mini-tts',
+  ttsOpenaiVoice: 'alloy',
+  ttsElevenlabsVoiceId: 'pNInz6obpgDQGcFmaJgB',
+  ttsElevenlabsModelId: 'eleven_multilingual_v2',
+  ttsXaiVoiceId: 'eve',
+  ttsXaiLanguage: 'en',
+  ttsXaiSampleRate: 24000,
+  ttsXaiBitRate: 128000,
+  ttsMistralModel: 'voxtral-mini-tts-2603',
+  ttsMistralVoiceId: 'c69964a6-ab8b-4f8a-9465-ec0925096ec8',
+  ttsPiperVoice: 'en_US-lessac-medium',
+  voiceRecordKey: 'ctrl+b',
+  voiceMaxRecordingSeconds: 120,
+  voiceAutoTts: false,
+  voiceBeepEnabled: true,
+  voiceSilenceThreshold: 200,
+  voiceSilenceDuration: 3,
+}
+
 const TERMINAL_DEFAULTS = {
   terminalBackend: 'local',
   terminalCwd: '.',
@@ -339,6 +361,8 @@ const STT_PROVIDERS = ['auto', 'local', 'groq', 'openai', 'mistral']
 const STT_LOCAL_MODELS = ['tiny', 'base', 'small', 'medium', 'large-v3', 'turbo']
 const STT_OPENAI_MODELS = ['whisper-1', 'gpt-4o-mini-transcribe', 'gpt-4o-transcribe']
 const STT_MISTRAL_MODELS = ['voxtral-mini-latest', 'voxtral-mini-2602']
+const TTS_PROVIDERS = ['edge', 'elevenlabs', 'openai', 'xai', 'minimax', 'mistral', 'gemini', 'neutts', 'kittentts', 'piper']
+const TTS_OPENAI_VOICES = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer']
 const UNAUTHORIZED_DM_BEHAVIORS = ['pair', 'ignore']
 const IMAGE_INPUT_MODES = ['auto', 'native', 'text']
 const REASONING_EFFORTS = ['xhigh', 'high', 'medium', 'low', 'minimal', 'none']
@@ -399,6 +423,7 @@ export function render() {
   let privacyValues = { ...PRIVACY_DEFAULTS }
   let browserValues = { ...BROWSER_DEFAULTS }
   let sttValues = { ...STT_DEFAULTS }
+  let ttsVoiceValues = { ...TTS_VOICE_DEFAULTS }
   let terminalValues = { ...TERMINAL_DEFAULTS }
     let loading = true
     let runtimeLoading = true
@@ -437,6 +462,7 @@ export function render() {
   let privacyLoading = true
   let browserLoading = true
   let sttLoading = true
+  let ttsVoiceLoading = true
   let terminalLoading = true
     let saving = false
     let runtimeSaving = false
@@ -475,6 +501,7 @@ export function render() {
   let privacySaving = false
   let browserSaving = false
   let sttSaving = false
+  let ttsVoiceSaving = false
   let terminalSaving = false
     let error = null
     let runtimeError = null
@@ -513,6 +540,7 @@ export function render() {
   let privacyError = null
   let browserError = null
   let sttError = null
+  let ttsVoiceError = null
   let terminalError = null
 
   function esc(value) {
@@ -524,7 +552,7 @@ export function render() {
   }
 
   function isBusy() {
-    return loading || runtimeLoading || sessionsMaintenanceLoading || updatesLoading || compressionLoading || promptCachingLoading || openrouterCacheLoading || providerRoutingLoading || auxiliaryLoading || toolGuardrailsLoading || memoryLoading || skillsLoading || curatorLoading || quickCommandsLoading || modelLoading || modelAliasesLoading || hooksLoading || providerOverridesLoading || mcpServersLoading || agentToolsetsLoading || platformToolsetsLoading || agentRuntimeLoading || unauthorizedDmLoading || securityLoading || displayLoading || humanDelayLoading || kanbanLoading || streamingLoading || executionLimitsLoading || ioSafetyLoading || checkpointsLoading || cronLoading || loggingLoading || approvalsLoading || privacyLoading || browserLoading || sttLoading || terminalLoading || saving || runtimeSaving || sessionsMaintenanceSaving || updatesSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || curatorSaving || quickCommandsSaving || modelSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || platformToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || securitySaving || displaySaving || humanDelaySaving || kanbanSaving || streamingSaving || executionLimitsSaving || ioSafetySaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || privacySaving || browserSaving || sttSaving || terminalSaving
+    return loading || runtimeLoading || sessionsMaintenanceLoading || updatesLoading || compressionLoading || promptCachingLoading || openrouterCacheLoading || providerRoutingLoading || auxiliaryLoading || toolGuardrailsLoading || memoryLoading || skillsLoading || curatorLoading || quickCommandsLoading || modelLoading || modelAliasesLoading || hooksLoading || providerOverridesLoading || mcpServersLoading || agentToolsetsLoading || platformToolsetsLoading || agentRuntimeLoading || unauthorizedDmLoading || securityLoading || displayLoading || humanDelayLoading || kanbanLoading || streamingLoading || executionLimitsLoading || ioSafetyLoading || checkpointsLoading || cronLoading || loggingLoading || approvalsLoading || privacyLoading || browserLoading || sttLoading || ttsVoiceLoading || terminalLoading || saving || runtimeSaving || sessionsMaintenanceSaving || updatesSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || curatorSaving || quickCommandsSaving || modelSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || platformToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || securitySaving || displaySaving || humanDelaySaving || kanbanSaving || streamingSaving || executionLimitsSaving || ioSafetySaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || privacySaving || browserSaving || sttSaving || ttsVoiceSaving || terminalSaving
   }
 
   function option(labelKey, value, selected) {
@@ -2271,6 +2299,112 @@ export function render() {
     `
   }
 
+  function renderTtsVoicePanel() {
+    const disabled = loading || saving || ttsVoiceLoading || ttsVoiceSaving || sttSaving || approvalsSaving || cronSaving || loggingSaving || privacySaving || browserSaving || terminalSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || ioSafetySaving || checkpointsSaving
+    return `
+      <div class="hm-panel hm-config-runtime-panel hm-config-tts-voice-panel">
+        <div class="hm-panel-header">
+          <div>
+            <div class="hm-panel-title">${t('engine.hermesTtsVoiceConfigTitle')}</div>
+            <div class="hm-channel-panel-desc">${t('engine.hermesTtsVoiceConfigDesc')}</div>
+          </div>
+          <div class="hm-panel-actions">
+            <span class="hm-muted">${ttsVoiceSaving ? t('engine.hermesConfigStatusSaving') : ttsVoiceLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesTtsVoiceConfigStatusReady')}</span>
+            <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-tts-voice-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesTtsVoiceConfigSave')}</button>
+          </div>
+        </div>
+        <div class="hm-panel-body">
+          ${renderError(ttsVoiceError)}
+          <div class="hm-config-check-grid">
+            <label class="hm-channel-check">
+              <input id="hm-voice-auto-tts" type="checkbox" ${ttsVoiceValues.voiceAutoTts ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+              <span>${t('engine.hermesVoiceConfigAutoTts')}</span>
+            </label>
+            <label class="hm-channel-check">
+              <input id="hm-voice-beep-enabled" type="checkbox" ${ttsVoiceValues.voiceBeepEnabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+              <span>${t('engine.hermesVoiceConfigBeepEnabled')}</span>
+            </label>
+          </div>
+          <div class="hm-config-runtime-grid hm-config-tts-grid">
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesTtsConfigProvider')}</span>
+              <select id="hm-tts-provider" class="hm-input" ${disabled ? 'disabled' : ''}>
+                ${TTS_PROVIDERS.map(provider => option(`engine.hermesTtsConfigProvider_${provider}`, provider, ttsVoiceValues.ttsProvider)).join('')}
+              </select>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesTtsConfigEdgeVoice')}</span>
+              <input id="hm-tts-edge-voice" class="hm-input" placeholder="en-US-AriaNeural" value="${esc(ttsVoiceValues.ttsEdgeVoice)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesTtsConfigOpenaiModel')}</span>
+              <input id="hm-tts-openai-model" class="hm-input" placeholder="gpt-4o-mini-tts" value="${esc(ttsVoiceValues.ttsOpenaiModel)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesTtsConfigOpenaiVoice')}</span>
+              <select id="hm-tts-openai-voice" class="hm-input" ${disabled ? 'disabled' : ''}>
+                ${TTS_OPENAI_VOICES.map(voice => option(`engine.hermesTtsConfigOpenaiVoice_${voice}`, voice, ttsVoiceValues.ttsOpenaiVoice)).join('')}
+              </select>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesTtsConfigElevenlabsVoiceId')}</span>
+              <input id="hm-tts-elevenlabs-voice-id" class="hm-input" placeholder="pNInz6obpgDQGcFmaJgB" value="${esc(ttsVoiceValues.ttsElevenlabsVoiceId)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesTtsConfigElevenlabsModelId')}</span>
+              <input id="hm-tts-elevenlabs-model-id" class="hm-input" placeholder="eleven_multilingual_v2" value="${esc(ttsVoiceValues.ttsElevenlabsModelId)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesTtsConfigXaiVoiceId')}</span>
+              <input id="hm-tts-xai-voice-id" class="hm-input" placeholder="eve" value="${esc(ttsVoiceValues.ttsXaiVoiceId)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesTtsConfigXaiLanguage')}</span>
+              <input id="hm-tts-xai-language" class="hm-input" placeholder="en" value="${esc(ttsVoiceValues.ttsXaiLanguage)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesTtsConfigXaiSampleRate')}</span>
+              <input id="hm-tts-xai-sample-rate" class="hm-input" type="number" inputmode="numeric" min="8000" max="192000" step="1000" value="${esc(ttsVoiceValues.ttsXaiSampleRate)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesTtsConfigXaiBitRate')}</span>
+              <input id="hm-tts-xai-bit-rate" class="hm-input" type="number" inputmode="numeric" min="16000" max="512000" step="1000" value="${esc(ttsVoiceValues.ttsXaiBitRate)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesTtsConfigMistralModel')}</span>
+              <input id="hm-tts-mistral-model" class="hm-input" placeholder="voxtral-mini-tts-2603" value="${esc(ttsVoiceValues.ttsMistralModel)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesTtsConfigMistralVoiceId')}</span>
+              <input id="hm-tts-mistral-voice-id" class="hm-input" placeholder="c69964a6-ab8b-4f8a-9465-ec0925096ec8" value="${esc(ttsVoiceValues.ttsMistralVoiceId)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesTtsConfigPiperVoice')}</span>
+              <input id="hm-tts-piper-voice" class="hm-input" placeholder="en_US-lessac-medium" value="${esc(ttsVoiceValues.ttsPiperVoice)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesVoiceConfigRecordKey')}</span>
+              <input id="hm-voice-record-key" class="hm-input" placeholder="ctrl+b" value="${esc(ttsVoiceValues.voiceRecordKey)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesVoiceConfigMaxRecordingSeconds')}</span>
+              <input id="hm-voice-max-recording-seconds" class="hm-input" type="number" inputmode="numeric" min="1" max="3600" step="1" value="${esc(ttsVoiceValues.voiceMaxRecordingSeconds)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesVoiceConfigSilenceThreshold')}</span>
+              <input id="hm-voice-silence-threshold" class="hm-input" type="number" inputmode="numeric" min="0" max="32767" step="1" value="${esc(ttsVoiceValues.voiceSilenceThreshold)}" ${disabled ? 'disabled' : ''}>
+            </label>
+            <label class="hm-field">
+              <span class="hm-field-label">${t('engine.hermesVoiceConfigSilenceDuration')}</span>
+              <input id="hm-voice-silence-duration" class="hm-input" type="number" inputmode="decimal" min="0.1" max="60" step="0.1" value="${esc(ttsVoiceValues.voiceSilenceDuration)}" ${disabled ? 'disabled' : ''}>
+            </label>
+          </div>
+          <div class="hm-channel-footnote">${t('engine.hermesTtsVoiceConfigFootnote')}</div>
+        </div>
+      </div>
+    `
+  }
+
   function renderTerminalPanel() {
     const disabled = loading || saving || terminalLoading || terminalSaving || approvalsSaving || cronSaving || loggingSaving || browserSaving || sttSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || checkpointsSaving
     return `
@@ -2425,6 +2559,7 @@ export function render() {
       ${renderPrivacyPanel()}
       ${renderBrowserPanel()}
       ${renderSttPanel()}
+      ${renderTtsVoicePanel()}
       ${renderCompressionPanel()}
       ${renderPromptCachingPanel()}
       ${renderOpenrouterCachePanel()}
@@ -2503,6 +2638,7 @@ export function render() {
     el.querySelector('#hm-privacy-save')?.addEventListener('click', savePrivacyConfig)
     el.querySelector('#hm-browser-save')?.addEventListener('click', saveBrowserConfig)
     el.querySelector('#hm-stt-save')?.addEventListener('click', saveSttConfig)
+    el.querySelector('#hm-tts-voice-save')?.addEventListener('click', saveTtsVoiceConfig)
     el.querySelector('#hm-terminal-save')?.addEventListener('click', saveTerminal)
   }
 
@@ -2691,6 +2827,11 @@ export function render() {
     sttValues = { ...STT_DEFAULTS, ...(data?.values || {}) }
   }
 
+  async function loadTtsVoiceConfig() {
+    const data = await api.hermesTtsVoiceConfigRead()
+    ttsVoiceValues = { ...TTS_VOICE_DEFAULTS, ...(data?.values || {}) }
+  }
+
   async function loadTerminal() {
     const data = await api.hermesTerminalConfigRead()
     terminalValues = { ...TERMINAL_DEFAULTS, ...(data?.values || {}) }
@@ -2734,6 +2875,7 @@ export function render() {
     privacyLoading = true
     browserLoading = true
     sttLoading = true
+    ttsVoiceLoading = true
     terminalLoading = true
     error = null
     runtimeError = null
@@ -2771,6 +2913,7 @@ export function render() {
     privacyError = null
     browserError = null
     sttError = null
+    ttsVoiceError = null
     terminalError = null
     draw()
     try {
@@ -2930,6 +3073,14 @@ export function render() {
       sttError = humanizeError(err, t('engine.hermesSttConfigLoadFailed') || 'Load speech transcription config failed')
     } finally {
       sttLoading = false
+      draw()
+    }
+    try {
+      await loadTtsVoiceConfig()
+    } catch (err) {
+      ttsVoiceError = humanizeError(err, t('engine.hermesTtsVoiceConfigLoadFailed') || 'Load speech output config failed')
+    } finally {
+      ttsVoiceLoading = false
       draw()
     }
     try {
@@ -4260,6 +4411,49 @@ export function render() {
       toast(sttError, 'error')
     } finally {
       sttSaving = false
+      draw()
+    }
+  }
+
+  async function saveTtsVoiceConfig() {
+    const form = {
+      ttsProvider: el.querySelector('#hm-tts-provider')?.value || 'edge',
+      ttsEdgeVoice: el.querySelector('#hm-tts-edge-voice')?.value || '',
+      ttsOpenaiModel: el.querySelector('#hm-tts-openai-model')?.value || 'gpt-4o-mini-tts',
+      ttsOpenaiVoice: el.querySelector('#hm-tts-openai-voice')?.value || 'alloy',
+      ttsElevenlabsVoiceId: el.querySelector('#hm-tts-elevenlabs-voice-id')?.value || '',
+      ttsElevenlabsModelId: el.querySelector('#hm-tts-elevenlabs-model-id')?.value || '',
+      ttsXaiVoiceId: el.querySelector('#hm-tts-xai-voice-id')?.value || 'eve',
+      ttsXaiLanguage: el.querySelector('#hm-tts-xai-language')?.value || 'en',
+      ttsXaiSampleRate: el.querySelector('#hm-tts-xai-sample-rate')?.value || '24000',
+      ttsXaiBitRate: el.querySelector('#hm-tts-xai-bit-rate')?.value || '128000',
+      ttsMistralModel: el.querySelector('#hm-tts-mistral-model')?.value || 'voxtral-mini-tts-2603',
+      ttsMistralVoiceId: el.querySelector('#hm-tts-mistral-voice-id')?.value || '',
+      ttsPiperVoice: el.querySelector('#hm-tts-piper-voice')?.value || '',
+      voiceRecordKey: el.querySelector('#hm-voice-record-key')?.value || '',
+      voiceMaxRecordingSeconds: el.querySelector('#hm-voice-max-recording-seconds')?.value || '120',
+      voiceAutoTts: !!el.querySelector('#hm-voice-auto-tts')?.checked,
+      voiceBeepEnabled: !!el.querySelector('#hm-voice-beep-enabled')?.checked,
+      voiceSilenceThreshold: el.querySelector('#hm-voice-silence-threshold')?.value || '200',
+      voiceSilenceDuration: el.querySelector('#hm-voice-silence-duration')?.value || '3',
+    }
+    ttsVoiceSaving = true
+    ttsVoiceError = null
+    draw()
+    try {
+      const result = await api.hermesTtsVoiceConfigSave(form)
+      ttsVoiceValues = { ...TTS_VOICE_DEFAULTS, ...(result?.values || form) }
+      await refreshRawAfterStructuredSave()
+      const backup = result?.backup || ''
+      toast({
+        message: t('engine.hermesTtsVoiceConfigSaveSuccess'),
+        hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
+      }, 'success')
+    } catch (err) {
+      ttsVoiceError = humanizeError(err, t('engine.hermesTtsVoiceConfigSaveFailed') || 'Save speech output config failed')
+      toast(ttsVoiceError, 'error')
+    } finally {
+      ttsVoiceSaving = false
       draw()
     }
   }
