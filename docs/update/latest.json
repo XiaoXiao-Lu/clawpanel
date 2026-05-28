@@ -1,6 +1,6 @@
 {
   "version": "0.16.5",
-  "minAppVersion": "0.15.3",
+  "minAppVersion": "0.17.0",
   "hash": "sha256:1913611f9f84e7f8c28dfc6d10c0de5078ce99e6d894c4c8bb9210676d69c5e2",
   "url": "https://github.com/qingchencloud/clawpanel/releases/download/v0.16.5/web-0.16.5.zip",
   "size": 2599816,
