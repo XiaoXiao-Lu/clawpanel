@@ -82,6 +82,7 @@ export default {
       section: t('sidebar.sectionExtension'),
       items: [
         { route: '/skills', label: t('sidebar.skills'), icon: 'skills', gate: 'skills' },
+        { route: '/connectors', label: t('sidebar.connectors'), icon: 'connectors' },
         { route: '/plugin-hub', label: t('sidebar.pluginHub'), icon: 'extensions' },
       ]
     }, {
@@ -110,6 +111,7 @@ export default {
       { path: '/memory', loader: () => import('../../pages/memory.js') },
       { path: '/dreaming', loader: () => import('../../pages/dreaming.js') },
       { path: '/skills', loader: () => import('../../pages/skills.js') },
+      { path: '/connectors', loader: () => import('../../pages/connectors.js') },
       { path: '/security', loader: () => import('../../pages/security.js') },
       { path: '/about', loader: () => import('../../pages/about.js') },
       { path: '/assistant', loader: () => import('../../pages/assistant.js') },

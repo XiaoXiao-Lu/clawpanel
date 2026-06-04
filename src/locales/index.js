@@ -21,6 +21,7 @@ import dreaming from './modules/dreaming.js'
 import cron from './modules/cron.js'
 import usage from './modules/usage.js'
 import skills from './modules/skills.js'
+import connectors from './modules/connectors.js'
 import chat from './modules/chat.js'
 import chatDebug from './modules/chat-debug.js'
 import setup from './modules/setup.js'
@@ -45,7 +46,7 @@ import kernel from './modules/kernel.js'
 const MODULES = {
   common, sidebar, instance, dashboard, services, settings,
   models, agents, agentDetail, gateway, security, communication, channels,
-  memory, dreaming, cron, usage, skills, chat, chatDebug, setup, about,
+  memory, dreaming, cron, usage, skills, connectors, chat, chatDebug, setup, about,
   ext, logs, assistant, toast, modal, engagement, diagnose, routeMap, extensions,
   engine, ciaoBug, cliConflict, glossary, hermesLazyDeps, notifications, kernel,
 }

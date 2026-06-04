@@ -27,6 +27,7 @@ export default {
   cron: _('定时任务', 'Cron Jobs', '定時任務', 'スケジュールタスク', '예약 작업', 'Tác vụ định kỳ', 'Tareas', 'Tarefas', 'Планировщик', 'Tâches planifiées', 'Geplante Aufgaben'),
   usage: _('使用情况', 'Usage', '使用情況', '使用状況', '사용 현황', 'Sử dụng', 'Uso', 'Uso', 'Использование', 'Utilisation', 'Nutzung'),
   skills: _('Skills', 'Skills'),
+  connectors: _('连接器', 'Connectors', '連接器', 'コネクター', '커넥터', 'Kết nối', 'Conectores', 'Conectores', 'Коннекторы', 'Connecteurs', 'Konnektoren'),
   pluginHub: _('插件中心', 'Plugin Hub', '插件中心', 'プラグインハブ', '플러그인 허브', 'Trung tâm plugin', 'Centro de plugins', 'Centro de plugins', 'Центр плагинов', 'Centre de plugins', 'Plugin-Hub'),
   extensions: _('扩展与主题', 'Extensions', '擴展與主題', '拡張とテーマ', '확장 및 테마'),
   settings: _('面板设置', 'Settings', '面板設定', 'パネル設定', '패널 설정', 'Cài đặt', 'Configuración', 'Configurações', 'Настройки', 'Paramètres', 'Einstellungen'),

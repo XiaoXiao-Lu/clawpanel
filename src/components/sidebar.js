@@ -52,6 +52,7 @@ function NAV_ITEMS_FULL() { return [
     section: t('sidebar.sectionExtension'),
     items: [
       { route: '/skills', label: t('sidebar.skills'), icon: 'skills', gate: 'skills' },
+      { route: '/connectors', label: t('sidebar.connectors'), icon: 'connectors' },
       { route: '/plugin-hub', label: t('sidebar.pluginHub'), icon: 'extensions' },
     ]
   },
@@ -119,6 +120,7 @@ const ICONS = {
   security: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>',
   dreaming: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 109.8 9.8z"/><path d="M17 4l.8 1.7L19.5 6.5l-1.7.8L17 9l-.8-1.7-1.7-.8 1.7-.8L17 4z"/></svg>',
   skills: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>',
+  connectors: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22v-5"/><path d="M9 8V2h6v6"/><path d="M7 8h10a5 5 0 010 10H7a5 5 0 010-10z"/><path d="M12 8v5"/></svg>',
   channels: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
   clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
   'bar-chart': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>',
@@ -513,4 +515,3 @@ function _filterLangOptions(query) {
     opt.style.display = (label.includes(q) || code.includes(q)) ? '' : 'none'
   })
 }
-
