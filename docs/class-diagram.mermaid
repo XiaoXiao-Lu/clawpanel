@@ -1,0 +1,108 @@
+classDiagram
+    class Utils {
+        +escapeHtml(str) string
+        +escapeAttr(str) string
+    }
+
+    class CommandPalette {
+        +initCommandPalette()
+        +registerCommand(cmd) void
+        +registerCommands(cmds) void
+        +searchCommands(query) CommandItem[]
+        +open() void
+        +close() void
+        -_commandIndex CommandItem[]
+        -_overlay HTMLElement
+        -_selectedIndex number
+        -_inputEl HTMLInputElement
+        -renderResults(items) void
+        -handleKeydown(e) void
+        -executeSelected() void
+    }
+
+    class CommandItem {
+        <<typedef>>
+        +id string
+        +category string
+        +label string
+        +hint string
+        +icon string
+        +shortcut string
+        +execute() void
+        +keywords string[]
+        +disabled boolean
+    }
+
+    class Sidebar {
+        +renderSidebar(el) void
+        +openMobileSidebar() void
+        -_delegated boolean
+        -renderNavItems(navItems) string
+        -handleNavClick(e) void
+    }
+
+    class SidebarIcons {
+        <<module>>
+        +ICONS Object~string, string~
+    }
+
+    class SidebarNav {
+        <<module>>
+        +NAV_ITEMS_FULL() Section[]
+        +NAV_ITEMS_SETUP() Section[]
+        +NAV_ITEMS_ENGINE_SELECT() Section[]
+        +renderEngineSwitcher() string
+        +renderKernelUpgradeHint() string
+    }
+
+    class SidebarMobile {
+        <<module>>
+        +openMobileSidebar() void
+        +closeMobileSidebar() void
+    }
+
+    class Toast {
+        +toast(message, type, options) void
+        -ensureContainer() HTMLElement
+        -isStructuredError(v) boolean
+    }
+
+    class Router {
+        +registerRoute(path, loader) void
+        +navigate(path) void
+        +getCurrentRoute() string
+        +reloadCurrentRoute() void
+        +initRouter(contentEl) void
+        -routes Object
+        -_moduleCache Object
+        -loadRoute() Promise
+    }
+
+    class EngineManager {
+        +registerEngine(engine) void
+        +getActiveEngine() Engine
+        +getActiveEngineId() string
+        +switchEngine(id) Promise
+        +listEngines() EngineMeta[]
+        +onEngineChange(fn) Unsub
+        +needsInitialEngineChoice() boolean
+    }
+
+    class Modal {
+        +showConfirm(message, options) Promise~boolean~
+        +showModal(opts) void
+        +showContentModal(opts) HTMLElement
+        +showUpgradeModal(title) UpgradeModal
+    }
+
+    CommandPalette --> Utils : uses escapeHtml
+    CommandPalette --> CommandItem : manages
+    CommandPalette --> Router : navigate()
+    CommandPalette --> EngineManager : switchEngine()
+    Sidebar --> SidebarIcons : imports ICONS
+    Sidebar --> SidebarNav : imports NAV_ITEMS, renderEngineSwitcher
+    Sidebar --> SidebarMobile : imports open/close
+    Sidebar --> Utils : uses escapeHtml
+    Sidebar --> Modal : showConfirm (engine switch)
+    Sidebar --> EngineManager : getActiveEngine, switchEngine
+    Toast ..> Utils : (future use)

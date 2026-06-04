@@ -21,16 +21,10 @@ import { showConfirm } from '../../../components/modal.js'
 import { getChatStore, getSourceLabel } from '../lib/chat-store.js'
 import { svgIcon } from '../lib/svg-icons.js'
 import { t } from '../../../lib/i18n.js'
+import { escapeHtml as escHtml, escapeAttr as escAttr } from '../../../lib/utils.js'
 
 // ----------------------------------------------------------- helpers
 
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-function escAttr(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
 
 function sanitizeMarkdownUrl(url) {
   const raw = String(url || '').trim()

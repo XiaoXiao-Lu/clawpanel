@@ -3,16 +3,8 @@
  */
 
 import { t } from '../lib/i18n.js'
+import { escapeAttr } from '../lib/utils.js'
 
-// 转义 HTML 属性值，防止双引号等字符破坏 HTML 结构
-function escapeAttr(str) {
-  if (!str) return ''
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-}
 
 /**
  * 自定义确认弹窗，替代原生 confirm()

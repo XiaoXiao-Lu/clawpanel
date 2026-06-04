@@ -266,6 +266,70 @@ function modelMetaLine(entry) {
   return meta.join(' · ')
 }
 
+function renderPrimaryOptions(config, primary) {
+  const providers = config?.models?.providers || {}
+  return Object.entries(providers).map(([providerKey, provider]) => {
+    const options = (provider.models || []).map((model) => {
+      const modelId = typeof model === 'string' ? model : model.id
+      const name = typeof model === 'string' ? model : (model.name || model.id)
+      const full = `${providerKey}/${modelId}`
+      const label = name && name !== modelId ? `${name} · ${modelId}` : modelId
+      return `<option value="${escapeHtml(full)}" ${full === primary ? 'selected' : ''}>${escapeHtml(label)}</option>`
+    }).join('')
+    if (!options) return ''
+    return `<optgroup label="${escapeHtml(providerKey)}">${options}</optgroup>`
+  }).join('')
+}
+
+function getModelScore(entry, mode) {
+  const model = entry?.model
+  const latency = typeof model === 'object' && model?.latency != null ? model.latency : 12000
+  const context = typeof model === 'object' && model?.contextWindow ? model.contextWindow : 0
+  const reasoning = typeof model === 'object' && model?.reasoning ? 1 : 0
+  const testedPenalty = typeof model === 'object' && model?.testStatus === 'fail' ? 1000000 : 0
+  if (mode === 'fast') return latency + testedPenalty
+  if (mode === 'context') return -context + latency / 20 + testedPenalty
+  if (mode === 'reasoning') return -reasoning * 100000 - context / 10 + latency / 20 + testedPenalty
+  return latency / 2 - Math.min(context, 200000) / 120 + testedPenalty
+}
+
+function buildRoutePreset(config, mode) {
+  const all = collectAllModels(config)
+    .map(item => ({ ...item, entry: getModelObject(config, item.full) }))
+    .sort((a, b) => getModelScore(a.entry, mode) - getModelScore(b.entry, mode))
+  const primary = all[0]?.full || ''
+  const seenProviders = new Set(primary ? [all[0].provider] : [])
+  const fallbacks = []
+  const addFallback = (item) => {
+    if (fallbacks.length >= 3) return
+    if (fallbacks.includes(item.full)) return
+    fallbacks.push(item.full)
+    seenProviders.add(item.provider)
+  }
+  if (mode === 'stable') {
+    for (const item of all.slice(1)) {
+      if (fallbacks.length >= 3) break
+      if (seenProviders.has(item.provider)) continue
+      addFallback(item)
+    }
+  }
+  for (const item of all.slice(1)) {
+    if (fallbacks.length >= 3) break
+    addFallback(item)
+  }
+  return { primary, fallbacks }
+}
+
+function applyRoutePreset(state, mode) {
+  const next = buildRoutePreset(state.config, mode)
+  if (!next.primary) return false
+  const modelConfig = ensureDefaultModelConfig(state)
+  modelConfig.primary = next.primary
+  modelConfig.fallbacks = dedupeFallbacks(next.fallbacks, next.primary)
+  normalizeDefaultModelSelection(state.config)
+  return true
+}
+
 // 渲染当前主模型状态栏
 function renderDefaultBar(page, state) {
   const bar = page.querySelector('#default-model-bar')
@@ -280,12 +344,12 @@ function renderDefaultBar(page, state) {
   const validFallbacks = fallbacks.filter(f => getModelObject(state.config, f))
   const invalidFallbackCount = Math.max(0, fallbacks.length - validFallbacks.length)
   const providerCount = Object.keys(state.config?.models?.providers || {}).length
-  const switchOptions = allModels.map(m => `<option value="${escapeHtml(m.full)}" ${m.full === primary ? 'selected' : ''}>${escapeHtml(m.full)}</option>`).join('')
+  const switchOptions = renderPrimaryOptions(state.config, primary)
 
   bar.innerHTML = `
     <div class="models-control-console">
       <div class="models-console-main">
-        <div class="models-console-kicker">${t('models.systemModelTitle')}</div>
+        <div class="models-console-kicker">${t('models.routingConsole')}</div>
         <div class="models-console-head">
           <div class="models-primary-icon">${icon('crown', 20)}</div>
           <div class="models-primary-copy">
@@ -302,6 +366,13 @@ function renderDefaultBar(page, state) {
           <button class="btn btn-primary btn-sm" id="models-test-primary" ${primaryEntry ? '' : 'disabled'}>${icon('radio', 14)} ${t('models.testPrimary')}</button>
           <button class="btn btn-secondary btn-sm" id="models-locate-primary" ${primaryEntry ? '' : 'disabled'}>${icon('target', 14)} ${t('models.locateModel')}</button>
           <button class="btn btn-secondary btn-sm" id="models-toggle-fallbacks">${chevron} ${collapsed ? t('models.manageFallbacks') : t('models.collapseFallbacks')}</button>
+        </div>
+        <div class="models-route-presets" aria-label="${t('models.routePresetTitle')}">
+          <span>${t('models.routePresetTitle')}</span>
+          <button class="models-preset-btn" data-preset="fast">${t('models.routeFast')}</button>
+          <button class="models-preset-btn" data-preset="stable">${t('models.routeStable')}</button>
+          <button class="models-preset-btn" data-preset="context">${t('models.routeContext')}</button>
+          <button class="models-preset-btn" data-preset="reasoning">${t('models.routeReasoning')}</button>
         </div>
       </div>
       <div class="models-console-side">
@@ -350,6 +421,18 @@ function renderDefaultBar(page, state) {
   }
   bar.querySelector('#models-locate-primary')?.addEventListener('click', () => locateModel(page, primary))
   bar.querySelector('#models-test-primary')?.addEventListener('click', (e) => testFullModel(e.currentTarget, state, primary))
+  bar.querySelectorAll('[data-preset]').forEach(btn => {
+    btn.onclick = () => {
+      pushUndo(state)
+      const ok = applyRoutePreset(state, btn.dataset.preset)
+      if (!ok) return
+      renderDefaultBar(page, state)
+      renderProviders(page, state)
+      updateUndoBtn(page, state)
+      autoSave(state)
+      toast(t('models.routePresetApplied'), 'success')
+    }
+  })
   bar.querySelectorAll('[data-action="locate-fallback"]').forEach(btn => {
     btn.onclick = () => locateModel(page, btn.dataset.full)
   })
@@ -361,7 +444,6 @@ function renderDefaultBar(page, state) {
 
 function renderFallbackWaterfall(state) {
   const primary = getCurrentPrimary(state.config)
-  const allModels = collectAllModels(state.config)
   const currentFallbacks = state.config?.agents?.defaults?.model?.fallbacks || []
 
   // 分组候选模型
@@ -382,53 +464,62 @@ function renderFallbackWaterfall(state) {
   if (!state._fallback_candidates_collapsed) state._fallback_candidates_collapsed = {}
 
   return `
-    <div class="fallback-editor-panel" style="background: var(--bg-secondary); padding: 12px; border-radius: var(--radius-md);">
-      <div style="margin-bottom: 12px; font-size: 11px; color: var(--text-secondary); background: var(--bg-info-subtle); padding: 6px 10px; border-radius: 4px; border-left: 3px solid var(--primary); line-height:1.6;">
+    <div class="fallback-editor-panel">
+      <div class="fallback-best-practice">
         ${t('models.bestPracticeHint')}
       </div>
 
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
-        <div style="background: var(--bg-tertiary); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 8px;">
-            <div style="font-size: var(--font-size-xs); font-weight: bold; color: var(--text-tertiary);">${t('models.activeChainTitle')}</div>
-            ${currentFallbacks.length > 0 ? `<button class="btn btn-xs btn-secondary btn-clear-all-fb" style="padding:1px 6px; font-size:10px;">${t('models.clearAll')}</button>` : ''}
+      <div class="fallback-workbench">
+        <div class="fallback-workbench-pane">
+          <div class="fallback-pane-head">
+            <div>
+              <div class="fallback-pane-title">${t('models.activeChainTitle')}</div>
+              <div class="fallback-pane-subtitle">${t('models.activeChainSubtitle')}</div>
+            </div>
+            ${currentFallbacks.length > 0 ? `<button class="btn btn-sm btn-secondary btn-clear-all-fb">${t('models.clearAll')}</button>` : ''}
           </div>
-          <div id="active-fallback-list" style="display: flex; flex-direction: column; gap: 4px; min-height: 50px;">
+          <div id="active-fallback-list" class="active-fallback-list">
             ${currentFallbacks.map((f, i) => `
-              <div class="fallback-chain-item" data-id="${f}" style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-primary); padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border-color);">
-                <div style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1;">
-                  <span class="fallback-drag-handle" style="color:var(--text-tertiary);cursor:grab;user-select:none;font-size:14px;padding:2px; flex-shrink: 0;">⋮⋮</span>
-                  <span style="font-family: var(--font-mono); font-size: var(--font-size-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(f)}">${i + 1}. ${escapeHtml(f)}</span>
+              <div class="fallback-chain-item" data-id="${f}">
+                <div class="fallback-chain-main">
+                  <span class="fallback-drag-handle">⋮⋮</span>
+                  <span class="fallback-priority">${i + 1}</span>
+                  <span class="fallback-chain-name" title="${escapeHtml(f)}">${escapeHtml(f)}</span>
                 </div>
-                <div style="display: flex; gap: 4px; flex-shrink: 0;">
-                  <button class="btn btn-xs btn-secondary btn-set-primary-from-fb" data-id="${f}" style="padding: 1px 4px; font-size: 10px;">${t('models.setAsPrimary')}</button>
+                <div class="fallback-chain-actions">
+                  <button class="btn btn-sm btn-secondary btn-set-primary-from-fb" data-id="${f}">${t('models.setAsPrimary')}</button>
                   <button class="btn-icon btn-remove-fb" data-id="${f}" title="${t('models.remove')}">${icon('x', 12)}</button>
                 </div>
               </div>
             `).join('')}
-            ${currentFallbacks.length === 0 ? `<div style="font-size: 12px; color: var(--text-tertiary); text-align: center; padding: 20px; border: 1px dashed var(--border-color); border-radius: 4px;">${t('models.noFallbackSelected')}</div>` : ''}
+            ${currentFallbacks.length === 0 ? `<div class="fallback-empty-state">${t('models.noFallbackSelected')}</div>` : ''}
           </div>
         </div>
 
-        <div style="background: var(--bg-tertiary); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-          <div style="font-size: var(--font-size-xs); font-weight: bold; margin-bottom: 8px; color: var(--text-tertiary);">${t('models.candidatePoolTitle')}</div>
-          <div id="candidate-model-pool" style="display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; padding-right: 4px;">
-            ${Object.keys(candidatesByProvider).length === 0 ? `<div style="font-size: 12px; color: var(--text-tertiary); text-align: center; padding: 20px;">${t('models.noCandidateModel')}</div>` :
+        <div class="fallback-workbench-pane">
+          <div class="fallback-pane-head">
+            <div>
+              <div class="fallback-pane-title">${t('models.candidatePoolTitle')}</div>
+              <div class="fallback-pane-subtitle">${t('models.candidatePoolSubtitle')}</div>
+            </div>
+          </div>
+          <div id="candidate-model-pool" class="candidate-model-pool">
+            ${Object.keys(candidatesByProvider).length === 0 ? `<div class="fallback-empty-state">${t('models.noCandidateModel')}</div>` :
               Object.keys(candidatesByProvider).map(pKey => {
                 const collapsed = !!state._fallback_candidates_collapsed[pKey]
                 const mIds = candidatesByProvider[pKey]
                 return `
                   <div class="candidate-provider-group" data-provider="${pKey}">
-                    <div class="candidate-provider-header" style="display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--bg-tertiary); border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; color: var(--text-secondary);">
+                    <div class="candidate-provider-header">
                       <span class="chevron">${collapsed ? '▸' : '▾'}</span>
                       <span>${pKey}</span>
-                      <span style="margin-left: auto; color: var(--text-tertiary); font-weight: normal;">${mIds.length}</span>
+                      <span>${mIds.length}</span>
                     </div>
-                    <div class="candidate-provider-list" style="display: ${collapsed ? 'none' : 'flex'}; flex-direction: column; gap: 4px; padding: 4px 0 4px 12px;">
+                    <div class="candidate-provider-list" style="display: ${collapsed ? 'none' : 'flex'}">
                       ${mIds.map(mId => `
-                        <div class="candidate-item" style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-primary); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); opacity: 0.9;">
-                          <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(mId)}">${escapeHtml(mId)}</span>
-                          <button class="btn btn-xs btn-primary btn-add-fb" data-full="${pKey}/${mId}" style="padding: 1px 6px; font-size: 10px;">${t('models.add')}</button>
+                        <div class="candidate-item">
+                          <span title="${escapeHtml(mId)}">${escapeHtml(mId)}</span>
+                          <button class="btn btn-sm btn-primary btn-add-fb" data-full="${pKey}/${mId}">${t('models.add')}</button>
                         </div>
                       `).join('')}
                     </div>
@@ -439,8 +530,6 @@ function renderFallbackWaterfall(state) {
           </div>
         </div>
       </div>
-
-
     </div>
   `
 }
@@ -718,6 +807,7 @@ function renderProviders(page, state) {
   const primary = getCurrentPrimary(state.config)
   const search = state.search || ''
   const sortBy = state.sortBy || 'default'
+  const fallbackSet = new Set(state.config?.agents?.defaults?.model?.fallbacks || [])
 
   if (!keys.length) {
     listEl.innerHTML = `
@@ -735,7 +825,7 @@ function renderProviders(page, state) {
     const filtered = search
       ? models.filter((m) => {
           const id = (typeof m === 'string' ? m : m.id).toLowerCase()
-          const name = (m.name || '').toLowerCase()
+          const name = (typeof m === 'string' ? '' : (m.name || '')).toLowerCase()
           return id.includes(search) || name.includes(search)
         })
       : models
@@ -829,6 +919,10 @@ function renderModelCards(providerKey, models, primary, search, fallbackSet = ne
             ${latencyTag}
           </div>
           <div style="font-size:var(--font-size-xs);color:var(--text-tertiary);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(meta.join(' · '))}">${escapeHtml(meta.join(' · ')) || ''}</div>
+          <label class="model-reasoning-toggle" title="${escapeHtml(t('models.reasoningHint'))}">
+            <input type="checkbox" data-action="toggle-reasoning" ${m.reasoning ? 'checked' : ''}>
+            <span>${t('models.isReasoningLabel')}</span>
+          </label>
         </div>
         <div style="display:flex;gap:6px;flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end;margin-left:auto">
           <button class="btn btn-sm btn-secondary" data-action="test-model">${t('models.testBtn')}</button>
@@ -1249,6 +1343,23 @@ async function handleAction(action, btn, card, section, providerKey, provider, p
       updateUndoBtn(page, state)
       autoSave(state)
       toast(added ? t('models.fallbackAdded') : t('models.fallbackRemoved'), 'success')
+      break
+    }
+    case 'toggle-reasoning': {
+      if (!card) return
+      const idx = findModelIdx(provider, card.dataset.modelId)
+      if (idx < 0) return
+      pushUndo(state)
+      const current = provider.models[idx]
+      if (typeof current === 'string') {
+        provider.models[idx] = { id: current, name: current, reasoning: btn.checked }
+      } else {
+        current.reasoning = btn.checked
+      }
+      renderProviders(page, state)
+      renderDefaultBar(page, state)
+      updateUndoBtn(page, state)
+      autoSave(state)
       break
     }
     case 'test-model': {

@@ -12,6 +12,7 @@ import { wsClient } from '../lib/ws-client.js'
 import { attachCliConflictBanner } from '../components/cli-conflict-banner.js'
 import { icon } from '../lib/icons.js'
 import { countMcpServers } from '../lib/mcp-config.js'
+import { escapeHtml } from '../lib/utils.js'
 
 let _unsubGw = null
 let _dashboardLoadChain = Promise.resolve()
@@ -722,7 +723,6 @@ function renderOverview(page, services, mcpConfig, backups, config, agents, stat
     })
   })
 }
-
 function renderSessionStatus(sessions) {
   if (!sessions || !sessions.recent || sessions.recent.length === 0) return ''
   const rows = sessions.recent.slice(0, 5).map(s => {
@@ -1141,8 +1141,4 @@ function renderOnboarding(page, ctx) {
       navigate(s.route)
     })
   })
-}
-
-function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }

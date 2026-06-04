@@ -1,0 +1,222 @@
+/**
+ * Command Palette (Ctrl+K / Cmd+K)
+ * 居中浮层，支持模糊搜索、键盘导航、命令执行
+ */
+import { t } from '../lib/i18n.js'
+import { navigate } from '../router.js'
+import { escapeHtml } from '../lib/utils.js'
+
+const _commandIndex = []
+let _overlay = null
+let _input = null
+let _resultsEl = null
+let _selectedIndex = 0
+let _filteredItems = []
+
+/** 注册单个命令 */
+export function registerCommand(cmd) {
+  _commandIndex.push(cmd)
+}
+
+/** 批量注册命令 */
+export function registerCommands(cmds) {
+  _commandIndex.push(...cmds)
+}
+
+/** 搜索匹配 */
+export function searchCommands(query) {
+  const q = query.toLowerCase().trim()
+  if (!q) return _commandIndex.filter(c => !c.disabled)
+  return _commandIndex.filter(c => {
+    if (c.disabled) return false
+    const haystack = [c.label, c.hint || '', ...(c.keywords || [])].join(' ').toLowerCase()
+    if (c.label.toLowerCase().startsWith(q)) return true
+    if (haystack.includes(q)) return true
+    const tokens = q.split(/\s+/)
+    return tokens.every(t => haystack.includes(t))
+  }).sort((a, b) => {
+    const aPrefix = a.label.toLowerCase().startsWith(q) ? 0 : 1
+    const bPrefix = b.label.toLowerCase().startsWith(q) ? 0 : 1
+    return aPrefix - bPrefix
+  })
+}
+
+/** 打开 Command Palette */
+export function openPalette() {
+  if (_overlay) return
+  _selectedIndex = 0
+  
+  // 创建遮罩层
+  _overlay = document.createElement('div')
+  _overlay.className = 'command-palette-overlay'
+  _overlay.addEventListener('click', (e) => {
+    if (e.target === _overlay) closePalette()
+  })
+
+  // 主容器
+  const palette = document.createElement('div')
+  palette.className = 'command-palette'
+
+  // 搜索输入框
+  _input = document.createElement('input')
+  _input.className = 'command-palette-input'
+  _input.type = 'text'
+  _input.placeholder = t('commandPalette.placeholder') || '搜索命令...'
+  _input.addEventListener('input', () => {
+    _selectedIndex = 0
+    renderResults(searchCommands(_input.value))
+  })
+  _input.addEventListener('keydown', handleKeydown)
+  palette.appendChild(_input)
+
+  // 结果列表
+  _resultsEl = document.createElement('div')
+  _resultsEl.className = 'command-palette-results'
+  palette.appendChild(_resultsEl)
+
+  _overlay.appendChild(palette)
+  document.body.appendChild(_overlay)
+
+  // 渲染全部命令
+  renderResults(searchCommands(''))
+  _input.focus()
+}
+
+/** 关闭 Command Palette */
+export function closePalette() {
+  if (_overlay) {
+    _overlay.remove()
+    _overlay = null
+    _input = null
+    _resultsEl = null
+  }
+}
+
+function handleKeydown(e) {
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    closePalette()
+    return
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    _selectedIndex = Math.min(_selectedIndex + 1, _filteredItems.length - 1)
+    updateSelection()
+    return
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    _selectedIndex = Math.max(_selectedIndex - 1, 0)
+    updateSelection()
+    return
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    if (_filteredItems[_selectedIndex]) {
+      executeCommand(_filteredItems[_selectedIndex])
+    }
+    return
+  }
+}
+
+function renderResults(items) {
+  _filteredItems = items
+  if (!_resultsEl) return
+  _resultsEl.innerHTML = ''
+
+  if (items.length === 0) {
+    const empty = document.createElement('div')
+    empty.className = 'command-palette-empty'
+    empty.textContent = t('commandPalette.noResults') || '无匹配命令'
+    _resultsEl.appendChild(empty)
+    return
+  }
+
+  // 按 category 分组
+  const groups = {}
+  items.forEach((item, idx) => {
+    const cat = item.category || 'other'
+    if (!groups[cat]) groups[cat] = []
+    groups[cat].push({ ...item, _idx: idx })
+  })
+
+  const categoryLabels = {
+    navigation: t('commandPalette.categoryNavigation') || '导航',
+    engine: t('commandPalette.categoryEngine') || '引擎',
+    action: t('commandPalette.categoryAction') || '操作',
+    settings: t('commandPalette.categorySettings') || '设置',
+    other: ''
+  }
+
+  for (const [cat, catItems] of Object.entries(groups)) {
+    if (categoryLabels[cat] !== undefined && categoryLabels[cat]) {
+      const groupLabel = document.createElement('div')
+      groupLabel.className = 'command-palette-group-label'
+      groupLabel.textContent = categoryLabels[cat]
+      _resultsEl.appendChild(groupLabel)
+    }
+
+    catItems.forEach(item => {
+      const row = document.createElement('div')
+      row.className = 'command-palette-item'
+      if (item._idx === _selectedIndex) row.classList.add('active')
+      row.dataset.idx = item._idx
+
+      const iconSpan = document.createElement('span')
+      iconSpan.className = 'command-palette-item-icon'
+      iconSpan.textContent = item.icon || ''
+      row.appendChild(iconSpan)
+
+      const labelSpan = document.createElement('span')
+      labelSpan.className = 'command-palette-item-label'
+      labelSpan.textContent = item.label
+      row.appendChild(labelSpan)
+
+      if (item.hint) {
+        const hintSpan = document.createElement('span')
+        hintSpan.className = 'command-palette-item-hint'
+        hintSpan.textContent = item.hint
+        row.appendChild(hintSpan)
+      }
+
+      if (item.shortcut) {
+        const shortcutSpan = document.createElement('span')
+        shortcutSpan.className = 'command-palette-item-shortcut'
+        shortcutSpan.textContent = item.shortcut
+        row.appendChild(shortcutSpan)
+      }
+
+      row.addEventListener('click', () => executeCommand(item))
+      _resultsEl.appendChild(row)
+    })
+  }
+}
+
+function updateSelection() {
+  if (!_resultsEl) return
+  const items = _resultsEl.querySelectorAll('.command-palette-item')
+  items.forEach((el, i) => {
+    el.classList.toggle('active', parseInt(el.dataset.idx) === _selectedIndex)
+  })
+  // 滚动到可见区域
+  const active = _resultsEl.querySelector('.command-palette-item.active')
+  if (active) active.scrollIntoView({ block: 'nearest' })
+}
+
+function executeCommand(cmd) {
+  closePalette()
+  if (cmd && typeof cmd.execute === 'function') {
+    try { cmd.execute() } catch (err) { console.error('Command execute error:', err) }
+  }
+}
+
+/** 初始化：绑定全局快捷键 */
+export function initCommandPalette() {
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault()
+      if (_overlay) closePalette()
+      else openPalette()
+    }
+  })
+}

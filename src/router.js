@@ -2,6 +2,7 @@
  * 极简 hash 路由
  */
 import { t } from './lib/i18n.js'
+import { escapeHtml as escHtml } from './lib/utils.js'
 
 const routes = {}
 const _moduleCache = {}
@@ -151,9 +152,6 @@ function showLoadError(container, hash, error) {
   `
 }
 
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
-}
 
 export function getCurrentRoute() {
   return window.location.hash.slice(1) || _defaultRoute

@@ -30,7 +30,8 @@ function isStructuredError(v) {
 export function toast(message, type = 'info', options = {}) {
   // 结构化错误对象需要展示「主行 + hint + 技术详情折叠」，duration 给长一些
   const structured = isStructuredError(message)
-  const duration = options.duration || (structured && (message.hint || message.raw) ? 6000 : 3000)
+  const duration = options.duration || (structured && (message.hint || message.raw) ? 6000
+    : (type === 'error' || type === 'warning') ? 8000 : 3000)
   const action = options.action // 可选的操作按钮（DOM 元素）
 
   const container = ensureContainer()
@@ -97,9 +98,24 @@ export function toast(message, type = 'info', options = {}) {
     el.appendChild(action)
   }
 
+  // 添加关闭按钮
+  const closeBtn = document.createElement('button')
+  closeBtn.className = 'toast-close'
+  closeBtn.innerHTML = '&times;'
+  closeBtn.setAttribute('aria-label', 'Close')
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    clearTimeout(autoRemoveTimer)
+    el.style.opacity = '0'
+    el.style.transform = 'translateX(20px)'
+    el.style.transition = 'all 250ms ease'
+    setTimeout(() => el.remove(), 250)
+  })
+  el.appendChild(closeBtn)
+
   container.appendChild(el)
 
-  setTimeout(() => {
+  const autoRemoveTimer = setTimeout(() => {
     el.style.opacity = '0'
     el.style.transform = 'translateX(20px)'
     el.style.transition = 'all 250ms ease'

@@ -8,6 +8,7 @@ window._jsLoaded = true
 import { registerRoute, initRouter, navigate, setDefaultRoute } from './router.js'
 import { renderSidebar, openMobileSidebar } from './components/sidebar.js'
 import { initTheme } from './lib/theme.js'
+import { initDesktopWindowChrome } from './lib/window-chrome.js'
 import { detectOpenclawStatus, isOpenclawReady, isUpgrading, isGatewayRunning, isGatewayForeign, onGatewayChange, startGatewayPoll, onGuardianGiveUp, resetAutoRestart, loadActiveInstance, getActiveInstance, onInstanceChange } from './lib/app-state.js'
 import { wsClient } from './lib/ws-client.js'
 import { api, checkBackendHealth, isBackendOnline, isTauriRuntime, onBackendStatusChange } from './lib/tauri-api.js'
@@ -17,11 +18,13 @@ import { isForeignGatewayError, showGatewayConflictGuidance } from './lib/gatewa
 import { tryShowEngagement } from './components/engagement.js'
 import { toast } from './components/toast.js'
 import { initI18n, t } from './lib/i18n.js'
+import { escapeHtml } from './lib/utils.js'
 import { initFeatureGates } from './lib/feature-gates.js'
 import { onKernelChange } from './lib/kernel.js'
 import { showFloorBlocker, hideFloorBlocker } from './components/floor-blocker.js'
-import { registerEngine, initEngineManager, getActiveEngine, getActiveEngineId, needsInitialEngineChoice, isEngineSetupDeferred, adoptActiveEngineSelection, onEngineChange } from './lib/engine-manager.js'
+import { registerEngine, initEngineManager, getActiveEngine, getActiveEngineId, listEngines, switchEngine, needsInitialEngineChoice, isEngineSetupDeferred, adoptActiveEngineSelection, onEngineChange } from './lib/engine-manager.js'
 import openclawEngine from './engines/openclaw/index.js'
+import { initCommandPalette, registerCommands } from './components/command-palette.js'
 import hermesEngine from './engines/hermes/index.js'
 import xintianEngine from './engines/xintian/index.js'
 
@@ -35,6 +38,7 @@ import './style/chat.css'
 import './style/agents.css'
 import './style/debug.css'
 import './style/assistant.css'
+import './components/command-palette.css'
 import './style/ai-drawer.css'
 // 引擎专属样式（scope 到 [data-engine="<id>"] 子树，不影响其他引擎）
 import './engines/hermes/style/hermes.css'
@@ -43,11 +47,8 @@ import './engines/xintian/style/xintian.css'
 // 初始化主题 + 国际化
 initTheme()
 initI18n()
+initDesktopWindowChrome()
 
-/** HTML 转义，防止 XSS 注入 */
-function escapeHtml(str) {
-  return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 
 async function openGatewayConflict(error = null) {
   const services = await api.getServicesStatus().catch(() => [])
@@ -327,6 +328,46 @@ async function boot() {
 
   // 初始化引擎管理器：读取 clawpanel.json 的 engineMode，注册对应路由
   await initEngineManager()
+
+  // 初始化 Command Palette
+  initCommandPalette()
+  // 注册导航命令（从引擎的 getNavItems 动态生成）
+  const navCommands = []
+  const engines = listEngines()
+  engines.forEach(engine => {
+    if (engine.getNavItems) {
+      const items = engine.getNavItems()
+      items.forEach(section => {
+        (section.items || []).forEach(item => {
+          navCommands.push({
+            id: `nav:${item.route}`,
+            category: 'navigation',
+            label: item.label,
+            hint: item.route,
+            icon: item.icon || '📄',
+            execute: () => navigate(item.route),
+            keywords: [item.route]
+          })
+        })
+      })
+    }
+  })
+
+  // 引擎切换命令
+  const engineCommands = engines.filter(e => e.id !== getActiveEngineId()).map(engine => ({
+    id: `engine:switch:${engine.id}`,
+    category: 'engine',
+    label: `切换到 ${engine.name}`,
+    hint: engine.id,
+    icon: '🔄',
+    execute: () => switchEngine(engine.id)
+  }))
+
+  registerCommands([
+    ...navCommands,
+    ...engineCommands,
+    { id: 'action:toggle-theme', category: 'settings', label: t('settings.theme') || '切换主题', icon: '🌓', execute: () => { /* theme toggle logic */ } },
+  ])
 
   // 用户尚未做过明确的引擎选择（无 engineSetupChoice）→ 立即把默认路由
   // 指向 /engine-select，避免初始化期间先闪到 /dashboard 或 /setup 再被
