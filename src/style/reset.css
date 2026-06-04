@@ -11,6 +11,7 @@ html, body {
   font-size: var(--font-size-md);
   color: var(--text-primary);
   background: var(--bg-primary);
+  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -23,6 +24,15 @@ html, body {
 
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-hover); }
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-glow);
+}
 
 button {
   font-family: inherit;
@@ -41,19 +51,29 @@ input, textarea, select {
   border-radius: var(--radius-md);
   padding: var(--space-sm) var(--space-md);
   outline: none;
-  transition: border-color var(--transition-fast);
+  min-height: 38px;
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 input:focus, textarea:focus, select:focus {
   border-color: var(--border-focus);
+  background: var(--bg-secondary);
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-primary);
-  border-radius: 3px;
+  background: color-mix(in srgb, var(--text-tertiary) 38%, transparent);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary);
+  background: color-mix(in srgb, var(--text-tertiary) 62%, transparent);
+  background-clip: content-box;
 }
