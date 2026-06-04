@@ -1955,4 +1955,19 @@ export default {
   xtFootHome: _('官网', 'Website', '官網'),
   xtFootDownload: _('下载', 'Download', '下載'),
   xtFootSupport: _('帮助中心', 'Help Center', '幫助中心'),
+
+  // === 配置页分组导航 ===
+  configGroupCoreRuntime: _('核心运行时', 'Core Runtime', '核心執行時'),
+  configGroupSessions: _('会话管理', 'Sessions', '會話管理'),
+  configGroupExecution: _('执行与沙箱', 'Execution & Sandbox', '執行與沙箱'),
+  configGroupModels: _('模型', 'Models', '模型'),
+  configGroupToolsSkills: _('工具与技能', 'Tools & Skills', '工具與技能'),
+  configGroupMemoryContext: _('记忆与上下文', 'Memory & Context', '記憶與上下文'),
+  configGroupUiDisplay: _('界面与显示', 'UI & Display', '界面與顯示'),
+  configGroupIntegrations: _('集成与扩展', 'Integrations', '整合與擴展'),
+  configGroupAdvanced: _('高级', 'Advanced', '高級'),
+  configSearchPlaceholder: _('搜索配置...', 'Search configuration...', '搜尋設定...'),
+  configSaveAllModels: _('保存全部模型配置', 'Save All Model Configs', '儲存全部模型設定'),
+  configNoResults: _('未找到匹配的配置项', 'No matching configuration found', '未找到符合的設定項目'),
+  configSearching: _('搜索中...', 'Searching...', '搜尋中...'),
 }

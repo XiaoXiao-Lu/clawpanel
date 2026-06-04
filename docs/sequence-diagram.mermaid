@@ -1,0 +1,36 @@
+sequenceDiagram
+    participant Page as config.js render()
+    participant Bus as PanelStateBus
+    participant Sidebar as config-sidebar.js
+    participant Groups as config-groups.js
+    participant DOM as Browser DOM
+
+    Page->>Bus: new PanelStateBus()
+    Page->>Bus: register(44 panels)
+    Page->>Page: init all *Values + setLoading states
+    Page->>DOM: draw() → 渲染 hero + 搜索框 + 两栏布局
+    Page->>Sidebar: renderSidebar(CONFIG_GROUPS)
+    Sidebar-->>DOM: 侧栏 nav 列表 (9 个分组链接)
+    Page->>DOM: 按 CONFIG_GROUPS 循环渲染分组 section
+    Note over Page,DOM: 每个 section: id="cfg-group-{id}"<br/>内含分组标题 + panel 列表
+    
+    Page->>Page: 绑定 IntersectionObserver
+    Note over Page,DOM: 每个 section 进入视口<br/>→ 侧栏对应链接 .active
+
+    Page->>Page: load() → 顺序加载 44 个配置
+    loop 每个面板
+        Page->>API: hermesXxxConfigRead()
+        Page->>Bus: setLoading(id, false)
+        Page->>Page: draw() 局部刷新
+    end
+
+    opt 用户搜索
+        DOM->>Sidebar: input 事件触发 filterPanels(query)
+        Sidebar->>DOM: 遍历 .hm-panel → display:none 不匹配项
+        Sidebar->>DOM: 隐藏空分组 section 标题
+    end
+
+    opt 用户点击侧栏链接
+        Sidebar->>DOM: document.getElementById('cfg-group-xxx')
+        DOM->>DOM: scrollIntoView({ behavior: 'smooth' })
+    end

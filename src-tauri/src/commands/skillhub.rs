@@ -40,6 +40,16 @@ pub struct SkillHubItem {
     #[serde(default)]
     pub homepage: Option<String>,
     #[serde(default)]
+    pub icon: Option<String>,
+    #[serde(default)]
+    pub logo: Option<String>,
+    #[serde(default)]
+    pub avatar: Option<String>,
+    #[serde(default)]
+    pub avatar_url: Option<String>,
+    #[serde(default)]
+    pub image: Option<String>,
+    #[serde(default)]
     pub downloads: Option<u64>,
     #[serde(default)]
     pub installs: Option<u64>,

@@ -39,6 +39,6 @@ test('dashboard and skill marketplace use raised surfaces with stable list hiera
   assert.match(cssBlock(pagesCss, '.dashboard-health-card'), /background:\s*var\(--surface-raised\)/)
   assert.match(cssBlock(pagesCss, '.dashboard-health-card'), /box-shadow:\s*var\(--shadow-md\)/)
   assert.match(cssBlock(pagesCss, '.skills-store-searchbar'), /background:\s*var\(--surface-raised\)/)
-  assert.match(cssBlock(pagesCss, '.skills-store-preview'), /position:\s*sticky/)
-  assert.match(cssBlock(pagesCss, '.clawhub-item.store-item:hover,\n.clawhub-item.store-item.active'), /transform:\s*translateY\(-1px\)/)
+  assert.match(cssBlock(pagesCss, '.skills-store-results'), /display:\s*grid/)
+  assert.match(cssBlock(pagesCss, '.clawhub-item.store-item:hover'), /transform:\s*translateY\(-1px\)/)
 })

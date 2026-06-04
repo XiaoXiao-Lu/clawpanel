@@ -21,22 +21,34 @@ export async function render() {
       <div>
         <h1 class="page-title">${t('agents.title')}</h1>
         <p class="page-desc">${t('agents.desc')}</p>
-        <p class="page-subhint">${t('agents.detailHint')}</p>
       </div>
       <div class="page-actions">
         <button class="btn btn-primary" id="btn-add-agent">${t('agents.addAgent')}</button>
       </div>
     </div>
     <div class="page-content">
+      <div id="agents-stats-bar" class="agents-stats-bar"></div>
+      <div class="agents-toolbar">
+        <div class="models-search-wrap">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="form-input" id="agents-search" placeholder="${t('agents.detailHint')}">
+        </div>
+      </div>
       <div id="agents-list"></div>
     </div>
   `
 
-  const state = { agents: [], bindings: [] }
+  const state = { agents: [], bindings: [], search: '' }
   // 非阻塞：先返回 DOM，后台加载数据
   loadAgents(page, state)
 
   page.querySelector('#btn-add-agent').addEventListener('click', () => showAddAgentDialog(page, state))
+
+  // 搜索过滤
+  page.querySelector('#agents-search').oninput = (e) => {
+    state.search = e.target.value.trim().toLowerCase()
+    renderAgents(page, state)
+  }
 
   return page
 }
@@ -116,8 +128,45 @@ function _renderRuntimeBadge(runtime) {
 
 function renderAgents(page, state) {
   const container = page.querySelector('#agents-list')
-  if (!state.agents.length) {
-    container.innerHTML = `
+
+  // stats bar
+  const defaultAgent = state.agents.find(a => a.isDefault || a.id === 'main')
+  const totalBindings = (state.bindings || []).length
+  const statsBar = page.querySelector('#agents-stats-bar')
+  if (statsBar) {
+    statsBar.innerHTML = `
+      <div class="agents-stat">
+        <span class="agents-stat__num">${state.agents.length}</span>
+        <span class="agents-stat__label">${t('agents.totalAgents') || '个 Agent'}</span>
+      </div>
+      <div class="agents-stat">
+        <span class="agents-stat__num">${defaultAgent ? (defaultAgent.identityEmoji || '🤖') : '—'}</span>
+        <span class="agents-stat__label">${defaultAgent ? (defaultAgent.identityName || defaultAgent.id) : t('common.none')}</span>
+      </div>
+      <div class="agents-stat">
+        <span class="agents-stat__num">${totalBindings}</span>
+        <span class="agents-stat__label">${t('agents.bindings') || '渠道绑定'}</span>
+      </div>
+    `
+  }
+
+  // filter by search
+  const search = state.search || ''
+  let filtered = state.agents
+  if (search) {
+    filtered = state.agents.filter(a => {
+      const name = (a.identityName || '').toLowerCase()
+      const model = typeof a.model === 'object' ? (a.model?.primary || '') : (a.model || '')
+      const ws = (a.workspace || '').toLowerCase()
+      const text = `${a.id} ${name} ${model} ${ws}`.toLowerCase()
+      return text.includes(search)
+    })
+  }
+
+  if (!filtered.length) {
+    container.innerHTML = search
+      ? `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">${t('agents.noMatch') || '没有匹配的 Agent'}</div></div>`
+      : `
       <div class="empty-state">
         <div class="empty-icon">🤖</div>
         <div class="empty-title">${t('agents.noAgents')}</div>
@@ -131,46 +180,38 @@ function renderAgents(page, state) {
     return
   }
 
-  container.innerHTML = state.agents.map(a => {
+  container.innerHTML = filtered.map(a => {
     const isDefault = a.isDefault || a.id === 'main'
-    const name = a.identityName ? a.identityName.split(',')[0].trim() : t('agents.noDesc')
+    const name = a.identityName ? a.identityName.split(',')[0].trim() : ''
+    const emoji = a.identityEmoji || '🤖'
+    const modelStr = typeof a.model === 'object' ? (a.model?.primary || a.model?.id || '') : (a.model || '')
+    const bindingCount = (state.bindings || []).filter(b => (b.agentId || 'main') === a.id).length
+
     return `
-      <div class="agent-card" data-id="${a.id}">
+      <div class="agent-card${isDefault ? ' agent-card--default' : ''}" data-id="${a.id}">
         <div class="agent-card-header">
           <div class="agent-card-title">
-            <span class="agent-id">${a.id}</span>
-            ${isDefault ? `<span class="badge badge-success">${t('agents.default')}</span>` : ''}
+            <span class="agent-av">${emoji}</span>
+            <div class="agent-name-block">
+              <span class="agent-display-name">${name || a.id}</span>
+              <span class="agent-id-sub">${a.id}${isDefault ? ` · ${t('agents.default')}` : ''}</span>
+            </div>
           </div>
           <div class="agent-card-actions">
             <button class="btn btn-sm btn-primary" data-action="detail" data-id="${a.id}">${t('agents.detail')}</button>
-            <button class="btn btn-sm btn-secondary" data-action="backup" data-id="${a.id}">${t('agents.backup')}</button>
             <button class="btn btn-sm btn-secondary" data-action="edit" data-id="${a.id}">${t('agents.edit')}</button>
             ${!isDefault ? `<button class="btn btn-sm btn-danger" data-action="delete" data-id="${a.id}">${t('agents.delete')}</button>` : ''}
           </div>
         </div>
         <div class="agent-card-body">
-          <div class="agent-info-row">
-            <span class="agent-info-label">${t('agents.labelName')}</span>
-            <span class="agent-info-value">${name}</span>
-          </div>
-          <div class="agent-info-row">
-            <span class="agent-info-label">${t('agents.labelModel')}</span>
-            <span class="agent-info-value">${typeof a.model === 'object' ? (a.model?.primary || a.model?.id || JSON.stringify(a.model)) : (a.model || t('agents.notSet'))}</span>
-          </div>
-          <div class="agent-info-row">
-            <span class="agent-info-label">${t('agents.labelWorkspace')}</span>
-            <span class="agent-info-value" style="font-family:var(--font-mono);font-size:var(--font-size-xs)">${a.workspace || t('agents.notSet')}</span>
-          </div>
-          ${hasFeature('agents.runtime') ? `
-          <div class="agent-info-row">
-            <span class="agent-info-label">${t('agents.labelRuntime')}</span>
-            <span class="agent-info-value">${_renderRuntimeBadge(a.agentRuntime)}</span>
-          </div>` : ''}
-          <div class="agent-info-row">
-            <span class="agent-info-label">${t('agents.labelBindings')}</span>
-            <span class="agent-info-value">${renderBindingBadges(a.id, state.bindings)}</span>
+          <div class="agent-meta-grid">
+            ${modelStr ? `<div class="agent-meta-item"><span class="agent-meta-label">${t('agents.labelModel')}</span><span class="agent-meta-value" title="${modelStr}">${modelStr}</span></div>` : ''}
+            ${a.workspace ? `<div class="agent-meta-item"><span class="agent-meta-label">${t('agents.labelWorkspace')}</span><span class="agent-meta-value" title="${a.workspace}">${a.workspace}</span></div>` : ''}
+            <div class="agent-meta-item"><span class="agent-meta-label">${t('agents.bindings') || '渠道'}</span><span class="agent-meta-value">${bindingCount > 0 ? renderBindingBadges(a.id, state.bindings) : `<span style="color:var(--text-tertiary)">${t('agents.noBinding')}</span>`}</span></div>
+            ${hasFeature('agents.runtime') ? `<div class="agent-meta-item"><span class="agent-meta-label">${t('agents.labelRuntime')}</span><span class="agent-meta-value">${_renderRuntimeBadge(a.agentRuntime)}</span></div>` : ''}
           </div>
         </div>
+        <div class="agent-card-click-hint">${t('agents.clickToDetail') || '点击查看详情 →'}</div>
       </div>
     `
   }).join('')

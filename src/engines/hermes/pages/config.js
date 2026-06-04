@@ -5,6 +5,9 @@ import { t } from '../../../lib/i18n.js'
 import { api } from '../../../lib/tauri-api.js'
 import { toast } from '../../../components/toast.js'
 import { humanizeError } from '../../../lib/humanize-error.js'
+import { CONFIG_GROUPS, getGroupByPanelId } from '../lib/config-groups.js'
+import { panelStateBus } from '../lib/panel-state-bus.js'
+import { renderSidebar, initSidebarScrollSpy, initSearchFilter } from '../lib/config-sidebar.js'
 
 const SESSION_RUNTIME_DEFAULTS = {
   sessionResetMode: 'both',
@@ -485,138 +488,22 @@ export function render() {
   let sttValues = { ...STT_DEFAULTS }
   let ttsVoiceValues = { ...TTS_VOICE_DEFAULTS }
   let terminalValues = { ...TERMINAL_DEFAULTS }
-    let loading = true
-    let runtimeLoading = true
-    let sessionsMaintenanceLoading = true
-    let updatesLoading = true
-    let compressionLoading = true
-  let promptCachingLoading = true
-  let openrouterCacheLoading = true
-  let providerRoutingLoading = true
-  let auxiliaryLoading = true
-  let toolGuardrailsLoading = true
-  let memoryLoading = true
-  let skillsLoading = true
-  let curatorLoading = true
-  let quickCommandsLoading = true
-  let modelLoading = true
-  let modelCatalogLoading = true
-  let xSearchLoading = true
-  let contextLoading = true
-  let modelAliasesLoading = true
-  let hooksLoading = true
-  let providerOverridesLoading = true
-  let mcpServersLoading = true
-  let agentToolsetsLoading = true
-  let platformToolsetsLoading = true
-  let agentRuntimeLoading = true
-  let unauthorizedDmLoading = true
-  let securityLoading = true
-  let displayLoading = true
-  let humanDelayLoading = true
-  let kanbanLoading = true
-  let streamingLoading = true
-  let executionLimitsLoading = true
-  let ioSafetyLoading = true
-  let checkpointsLoading = true
-  let cronLoading = true
-  let loggingLoading = true
-  let approvalsLoading = true
-  let privacyLoading = true
-  let browserLoading = true
-  let webLoading = true
-  let lspLoading = true
-  let sttLoading = true
-  let ttsVoiceLoading = true
-  let terminalLoading = true
-    let saving = false
-    let runtimeSaving = false
-    let sessionsMaintenanceSaving = false
-    let updatesSaving = false
-    let compressionSaving = false
-  let promptCachingSaving = false
-  let openrouterCacheSaving = false
-  let providerRoutingSaving = false
-  let auxiliarySaving = false
-  let toolGuardrailsSaving = false
-  let memorySaving = false
-  let skillsSaving = false
-  let curatorSaving = false
-  let quickCommandsSaving = false
-  let modelSaving = false
-  let modelCatalogSaving = false
-  let xSearchSaving = false
-  let contextSaving = false
-  let modelAliasesSaving = false
-  let hooksSaving = false
-  let providerOverridesSaving = false
-  let mcpServersSaving = false
-  let agentToolsetsSaving = false
-  let platformToolsetsSaving = false
-  let agentRuntimeSaving = false
-  let unauthorizedDmSaving = false
-  let securitySaving = false
-  let displaySaving = false
-  let humanDelaySaving = false
-  let kanbanSaving = false
-  let streamingSaving = false
-  let executionLimitsSaving = false
-  let ioSafetySaving = false
-  let checkpointsSaving = false
-  let cronSaving = false
-  let loggingSaving = false
-  let approvalsSaving = false
-  let privacySaving = false
-  let browserSaving = false
-  let webSaving = false
-  let lspSaving = false
-  let sttSaving = false
-  let ttsVoiceSaving = false
-  let terminalSaving = false
-    let error = null
-    let runtimeError = null
-    let sessionsMaintenanceError = null
-    let updatesError = null
-    let compressionError = null
-  let promptCachingError = null
-  let openrouterCacheError = null
-  let providerRoutingError = null
-  let auxiliaryError = null
-  let toolGuardrailsError = null
-  let memoryError = null
-  let skillsError = null
-  let curatorError = null
-  let quickCommandsError = null
-  let modelError = null
-  let modelCatalogError = null
-  let xSearchError = null
-  let contextError = null
-  let modelAliasesError = null
-  let hooksError = null
-  let providerOverridesError = null
-  let mcpServersError = null
-  let agentToolsetsError = null
-  let platformToolsetsError = null
-  let agentRuntimeError = null
-  let unauthorizedDmError = null
-  let securityError = null
-  let displayError = null
-  let humanDelayError = null
-  let kanbanError = null
-  let streamingError = null
-  let executionLimitsError = null
-  let ioSafetyError = null
-  let checkpointsError = null
-  let cronError = null
-  let loggingError = null
-  let approvalsError = null
-  let privacyError = null
-  let browserError = null
-  let webError = null
-  let lspError = null
-  let sttError = null
-  let ttsVoiceError = null
-  let terminalError = null
+  // Register all panels with PanelStateBus
+  const ALL_PANEL_IDS = [
+    'runtime', 'agent-runtime', 'unauthorized-dm',
+    'sessions-maintenance', 'updates',
+    'execution-limits', 'io-safety', 'streaming', 'terminal', 'checkpoints',
+    'model-config', 'model-catalog', 'x-search', 'context-config', 'model-aliases',
+    'skills-config', 'agent-toolsets', 'platform-toolsets', 'hooks', 'curator-config', 'quick-commands',
+    'memory', 'compression', 'prompt-caching',
+    'display', 'human-delay', 'approvals',
+    'browser', 'web-config', 'lsp', 'stt', 'tts-voice', 'provider-routing', 'openrouter-cache', 'auxiliary',
+    'security', 'privacy', 'kanban', 'cron', 'logging', 'tool-guardrails', 'mcp-servers', 'provider-overrides',
+  ]
+  ALL_PANEL_IDS.forEach(id => panelStateBus.register(id, { loading: true, saving: false, error: null }))
+  let loading = true
+  let saving = false
+  let error = null
 
   function esc(value) {
     return String(value ?? '')
@@ -627,7 +514,7 @@ export function render() {
   }
 
   function isBusy() {
-    return loading || runtimeLoading || sessionsMaintenanceLoading || updatesLoading || compressionLoading || promptCachingLoading || openrouterCacheLoading || providerRoutingLoading || auxiliaryLoading || toolGuardrailsLoading || memoryLoading || skillsLoading || curatorLoading || quickCommandsLoading || modelLoading || modelCatalogLoading || xSearchLoading || contextLoading || modelAliasesLoading || hooksLoading || providerOverridesLoading || mcpServersLoading || agentToolsetsLoading || platformToolsetsLoading || agentRuntimeLoading || unauthorizedDmLoading || securityLoading || displayLoading || humanDelayLoading || kanbanLoading || streamingLoading || executionLimitsLoading || ioSafetyLoading || checkpointsLoading || cronLoading || loggingLoading || approvalsLoading || privacyLoading || browserLoading || webLoading || lspLoading || sttLoading || ttsVoiceLoading || terminalLoading || saving || runtimeSaving || sessionsMaintenanceSaving || updatesSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || curatorSaving || quickCommandsSaving || modelSaving || modelCatalogSaving || xSearchSaving || contextSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || platformToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || securitySaving || displaySaving || humanDelaySaving || kanbanSaving || streamingSaving || executionLimitsSaving || ioSafetySaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || privacySaving || browserSaving || webSaving || lspSaving || sttSaving || ttsVoiceSaving || terminalSaving
+    return loading || saving || panelStateBus.isAnyLoading() || panelStateBus.isAnySaving()
   }
 
   function option(labelKey, value, selected) {
@@ -644,7 +531,7 @@ export function render() {
   }
 
   function renderRuntimePanel() {
-    const disabled = loading || saving || runtimeLoading || runtimeSaving || sessionsMaintenanceSaving || updatesSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel">
         <div class="hm-panel-header">
@@ -653,12 +540,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesSessionRuntimeDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${runtimeSaving ? t('engine.hermesConfigStatusSaving') : runtimeLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesSessionRuntimeStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('runtime')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('runtime')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesSessionRuntimeStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-runtime-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesSessionRuntimeSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(runtimeError)}
+          ${renderError(panelStateBus.getState('runtime')?.error)}
           <div class="hm-config-runtime-grid">
             <label class="hm-field">
               <span class="hm-field-label">${t('engine.hermesSessionResetMode')}</span>
@@ -696,7 +583,7 @@ export function render() {
   }
 
   function renderSessionsMaintenancePanel() {
-    const disabled = loading || saving || sessionsMaintenanceLoading || sessionsMaintenanceSaving || runtimeSaving || updatesSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel">
         <div class="hm-panel-header">
@@ -705,12 +592,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesSessionsMaintenanceDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${sessionsMaintenanceSaving ? t('engine.hermesConfigStatusSaving') : sessionsMaintenanceLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesSessionsMaintenanceStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('sessions-maintenance')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('sessions-maintenance')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesSessionsMaintenanceStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-sessions-maintenance-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesSessionsMaintenanceSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(sessionsMaintenanceError)}
+          ${renderError(panelStateBus.getState('sessions-maintenance')?.error)}
           <div class="hm-config-check-grid">
             <label class="hm-channel-check">
               <input id="hm-sessions-auto-prune" type="checkbox" ${sessionsMaintenanceValues.sessionsAutoPrune ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -742,7 +629,7 @@ export function render() {
   }
 
   function renderUpdatesPanel() {
-    const disabled = loading || saving || updatesLoading || updatesSaving || runtimeSaving || sessionsMaintenanceSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel">
         <div class="hm-panel-header">
@@ -751,12 +638,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesUpdatesConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${updatesSaving ? t('engine.hermesConfigStatusSaving') : updatesLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesUpdatesConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('updates')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('updates')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesUpdatesConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-updates-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesUpdatesConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(updatesError)}
+          ${renderError(panelStateBus.getState('updates')?.error)}
           <div class="hm-config-check-grid">
             <label class="hm-channel-check">
               <input id="hm-updates-pre-update-backup" type="checkbox" ${updatesValues.updatesPreUpdateBackup ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -776,7 +663,7 @@ export function render() {
   }
 
   function renderCompressionPanel() {
-    const disabled = loading || saving || compressionLoading || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || runtimeSaving || updatesSaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-compression-panel">
         <div class="hm-panel-header">
@@ -785,12 +672,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesCompressionDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${compressionSaving ? t('engine.hermesConfigStatusSaving') : compressionLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesCompressionStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('compression')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('compression')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesCompressionStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-compression-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesCompressionSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(compressionError)}
+          ${renderError(panelStateBus.getState('compression')?.error)}
           <div class="hm-config-check-grid">
             <label class="hm-channel-check">
               <input id="hm-compression-enabled" type="checkbox" ${compressionValues.enabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -826,7 +713,7 @@ export function render() {
   }
 
   function renderPromptCachingPanel() {
-    const disabled = loading || saving || promptCachingLoading || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || runtimeSaving || compressionSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-prompt-caching-panel">
         <div class="hm-panel-header">
@@ -835,12 +722,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesPromptCachingConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${promptCachingSaving ? t('engine.hermesConfigStatusSaving') : promptCachingLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesPromptCachingConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('prompt-caching')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('prompt-caching')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesPromptCachingConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-prompt-caching-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesPromptCachingConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(promptCachingError)}
+          ${renderError(panelStateBus.getState('prompt-caching')?.error)}
           <div class="hm-config-runtime-grid">
             <label class="hm-field">
               <span class="hm-field-label">${t('engine.hermesPromptCachingConfigCacheTtl')}</span>
@@ -856,7 +743,7 @@ export function render() {
   }
 
   function renderOpenrouterCachePanel() {
-    const disabled = loading || saving || openrouterCacheLoading || openrouterCacheSaving || providerRoutingSaving || runtimeSaving || compressionSaving || promptCachingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-openrouter-cache-panel">
         <div class="hm-panel-header">
@@ -865,12 +752,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesOpenrouterCacheConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${openrouterCacheSaving ? t('engine.hermesConfigStatusSaving') : openrouterCacheLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesOpenrouterCacheConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('openrouter-cache')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('openrouter-cache')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesOpenrouterCacheConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-openrouter-cache-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesOpenrouterCacheConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(openrouterCacheError)}
+          ${renderError(panelStateBus.getState('openrouter-cache')?.error)}
           <div class="hm-config-check-grid">
             <label class="hm-channel-check">
               <input id="hm-openrouter-response-cache" type="checkbox" ${openrouterCacheValues.openrouterResponseCache ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -890,7 +777,7 @@ export function render() {
   }
 
   function renderProviderRoutingPanel() {
-    const disabled = loading || saving || providerRoutingLoading || providerRoutingSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-provider-routing-panel">
         <div class="hm-panel-header">
@@ -899,12 +786,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesProviderRoutingConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${providerRoutingSaving ? t('engine.hermesConfigStatusSaving') : providerRoutingLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesProviderRoutingConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('provider-routing')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('provider-routing')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesProviderRoutingConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-provider-routing-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesProviderRoutingConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(providerRoutingError)}
+          ${renderError(panelStateBus.getState('provider-routing')?.error)}
           <div class="hm-config-runtime-grid">
             <label class="hm-field">
               <span class="hm-field-label">${t('engine.hermesProviderRoutingConfigSort')}</span>
@@ -952,7 +839,7 @@ export function render() {
   }
 
   function renderAuxiliaryConfigPanel() {
-    const disabled = loading || saving || auxiliaryLoading || auxiliarySaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-auxiliary-panel">
         <div class="hm-panel-header">
@@ -961,12 +848,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesAuxiliaryConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${auxiliarySaving ? t('engine.hermesConfigStatusSaving') : auxiliaryLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesAuxiliaryConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('auxiliary')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('auxiliary')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesAuxiliaryConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-auxiliary-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesAuxiliaryConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(auxiliaryError)}
+          ${renderError(panelStateBus.getState('auxiliary')?.error)}
           <div class="hm-config-subtitle">${t('engine.hermesAuxiliaryConfigVisionTitle')}</div>
           <div class="hm-config-runtime-grid hm-config-auxiliary-grid">
             <label class="hm-field">
@@ -1029,7 +916,7 @@ export function render() {
   }
 
   function renderToolGuardrailsPanel() {
-    const disabled = loading || saving || toolGuardrailsLoading || toolGuardrailsSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-guardrails-panel">
         <div class="hm-panel-header">
@@ -1038,12 +925,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesToolGuardrailsDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${toolGuardrailsSaving ? t('engine.hermesConfigStatusSaving') : toolGuardrailsLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesToolGuardrailsStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('tool-guardrails')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('tool-guardrails')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesToolGuardrailsStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-tool-guardrails-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesToolGuardrailsSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(toolGuardrailsError)}
+          ${renderError(panelStateBus.getState('tool-guardrails')?.error)}
           <div class="hm-config-check-grid">
             <label class="hm-channel-check">
               <input id="hm-tool-guardrails-warnings-enabled" type="checkbox" ${toolGuardrailsValues.warningsEnabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -1091,7 +978,7 @@ export function render() {
   }
 
   function renderMemoryPanel() {
-    const disabled = loading || saving || memoryLoading || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-memory-panel">
         <div class="hm-panel-header">
@@ -1100,12 +987,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesMemoryConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${memorySaving ? t('engine.hermesConfigStatusSaving') : memoryLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesMemoryConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('memory')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('memory')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesMemoryConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-memory-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesMemoryConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(memoryError)}
+          ${renderError(panelStateBus.getState('memory')?.error)}
           <div class="hm-config-check-grid">
             <label class="hm-channel-check">
               <input id="hm-memory-enabled" type="checkbox" ${memoryValues.memoryEnabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -1141,7 +1028,7 @@ export function render() {
   }
 
   function renderSkillsConfigPanel() {
-    const disabled = loading || saving || skillsLoading || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-skills-panel">
         <div class="hm-panel-header">
@@ -1150,12 +1037,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesSkillsConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${skillsSaving ? t('engine.hermesConfigStatusSaving') : skillsLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesSkillsConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('skills-config')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('skills-config')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesSkillsConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-skills-config-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesSkillsConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(skillsError)}
+          ${renderError(panelStateBus.getState('skills-config')?.error)}
           <div class="hm-config-runtime-grid hm-config-skills-grid">
             <label class="hm-field">
               <span class="hm-field-label">${t('engine.hermesSkillsConfigCreationNudgeInterval')}</span>
@@ -1191,7 +1078,7 @@ export function render() {
   }
 
   function renderCuratorConfigPanel() {
-    const disabled = loading || saving || curatorLoading || curatorSaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-curator-panel">
         <div class="hm-panel-header">
@@ -1200,12 +1087,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesCuratorConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${curatorSaving ? t('engine.hermesConfigStatusSaving') : curatorLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesCuratorConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('curator-config')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('curator-config')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesCuratorConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-curator-config-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesCuratorConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(curatorError)}
+          ${renderError(panelStateBus.getState('curator-config')?.error)}
           <div class="hm-config-check-grid">
             <label class="hm-channel-check">
               <input id="hm-curator-enabled" type="checkbox" ${curatorValues.curatorEnabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -1245,7 +1132,7 @@ export function render() {
   }
 
   function renderQuickCommandsConfigPanel() {
-    const disabled = loading || saving || quickCommandsLoading || quickCommandsSaving || modelSaving || xSearchSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-quick-commands-panel">
         <div class="hm-panel-header">
@@ -1254,12 +1141,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesQuickCommandsConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${quickCommandsSaving ? t('engine.hermesConfigStatusSaving') : quickCommandsLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesQuickCommandsConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('quick-commands')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('quick-commands')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesQuickCommandsConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-quick-commands-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesQuickCommandsConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(quickCommandsError)}
+          ${renderError(panelStateBus.getState('quick-commands')?.error)}
           <label class="hm-field hm-field--wide">
             <span class="hm-field-label">${t('engine.hermesQuickCommandsConfigJson')}</span>
             <textarea id="hm-quick-commands-json" class="hm-input" spellcheck="false" rows="8" ${disabled ? 'disabled' : ''} style="font-family:var(--hm-font-mono);line-height:1.65;min-height:220px">${esc(quickCommandsValues.quickCommandsJson)}</textarea>
@@ -1271,7 +1158,7 @@ export function render() {
   }
 
   function renderModelConfigPanel() {
-    const disabled = loading || saving || modelLoading || modelSaving || modelCatalogSaving || xSearchSaving || quickCommandsSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-model-panel">
         <div class="hm-panel-header">
@@ -1280,12 +1167,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesModelConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${modelSaving ? t('engine.hermesConfigStatusSaving') : modelLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesModelConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('model-config')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('model-config')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesModelConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-model-config-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesModelConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(modelError)}
+          ${renderError(panelStateBus.getState('model-config')?.error)}
           <div class="hm-config-runtime-grid">
             <label class="hm-field">
               <span class="hm-field-label">${t('engine.hermesModelConfigDefault')}</span>
@@ -1315,7 +1202,7 @@ export function render() {
   }
 
   function renderModelCatalogConfigPanel() {
-    const disabled = loading || saving || modelCatalogLoading || modelCatalogSaving || modelSaving || xSearchSaving || quickCommandsSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-model-catalog-panel">
         <div class="hm-panel-header">
@@ -1324,12 +1211,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesModelCatalogConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${modelCatalogSaving ? t('engine.hermesConfigStatusSaving') : modelCatalogLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesModelCatalogConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('model-catalog')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('model-catalog')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesModelCatalogConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-model-catalog-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesModelCatalogConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(modelCatalogError)}
+          ${renderError(panelStateBus.getState('model-catalog')?.error)}
           <div class="hm-config-check-grid">
             <label class="hm-channel-check">
               <input id="hm-model-catalog-enabled" type="checkbox" ${modelCatalogValues.modelCatalogEnabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -1357,7 +1244,7 @@ export function render() {
   }
 
   function renderXSearchConfigPanel() {
-    const disabled = loading || saving || xSearchLoading || xSearchSaving || modelSaving || modelCatalogSaving || quickCommandsSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-x-search-panel">
         <div class="hm-panel-header">
@@ -1366,12 +1253,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesXSearchConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${xSearchSaving ? t('engine.hermesConfigStatusSaving') : xSearchLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesXSearchConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('x-search')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('x-search')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesXSearchConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-x-search-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesXSearchConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(xSearchError)}
+          ${renderError(panelStateBus.getState('x-search')?.error)}
           <div class="hm-config-runtime-grid">
             <label class="hm-field hm-field--wide">
               <span class="hm-field-label">${t('engine.hermesXSearchConfigModel')}</span>
@@ -1393,7 +1280,7 @@ export function render() {
   }
 
   function renderContextConfigPanel() {
-    const disabled = loading || saving || contextLoading || contextSaving || modelSaving || modelCatalogSaving || xSearchSaving || quickCommandsSaving || modelAliasesSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-context-panel">
         <div class="hm-panel-header">
@@ -1402,12 +1289,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesContextConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${contextSaving ? t('engine.hermesConfigStatusSaving') : contextLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesContextConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('context-config')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('context-config')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesContextConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-context-config-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesContextConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(contextError)}
+          ${renderError(panelStateBus.getState('context-config')?.error)}
           <div class="hm-config-runtime-grid">
             <label class="hm-field hm-field--wide">
               <span class="hm-field-label">${t('engine.hermesContextConfigEngine')}</span>
@@ -1421,7 +1308,7 @@ export function render() {
   }
 
   function renderModelAliasesConfigPanel() {
-    const disabled = loading || saving || modelAliasesLoading || modelAliasesSaving || quickCommandsSaving || modelSaving || modelCatalogSaving || xSearchSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-model-aliases-panel">
         <div class="hm-panel-header">
@@ -1430,12 +1317,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesModelAliasesConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${modelAliasesSaving ? t('engine.hermesConfigStatusSaving') : modelAliasesLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesModelAliasesConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('model-aliases')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('model-aliases')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesModelAliasesConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-model-aliases-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesModelAliasesConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(modelAliasesError)}
+          ${renderError(panelStateBus.getState('model-aliases')?.error)}
           <label class="hm-field hm-field--wide">
             <span class="hm-field-label">${t('engine.hermesModelAliasesConfigJson')}</span>
             <textarea id="hm-model-aliases-json" class="hm-input" spellcheck="false" rows="8" ${disabled ? 'disabled' : ''} style="font-family:var(--hm-font-mono);line-height:1.65;min-height:220px">${esc(modelAliasesValues.modelAliasesJson)}</textarea>
@@ -1447,7 +1334,7 @@ export function render() {
   }
 
   function renderHooksConfigPanel() {
-    const disabled = loading || saving || hooksLoading || hooksSaving || quickCommandsSaving || modelAliasesSaving || providerOverridesSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-hooks-panel">
         <div class="hm-panel-header">
@@ -1456,12 +1343,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesHooksConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${hooksSaving ? t('engine.hermesConfigStatusSaving') : hooksLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesHooksConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('hooks')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('hooks')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesHooksConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-hooks-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesHooksConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(hooksError)}
+          ${renderError(panelStateBus.getState('hooks')?.error)}
           <label class="hm-channel-check">
             <input id="hm-hooks-auto-accept" type="checkbox" ${hooksValues.hooksAutoAccept ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
             <span>${t('engine.hermesHooksConfigAutoAccept')}</span>
@@ -1477,7 +1364,7 @@ export function render() {
   }
 
   function renderProviderOverridesConfigPanel() {
-    const disabled = loading || saving || providerOverridesLoading || providerOverridesSaving || quickCommandsSaving || hooksSaving || mcpServersSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-provider-overrides-panel">
         <div class="hm-panel-header">
@@ -1486,12 +1373,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesProviderOverridesConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${providerOverridesSaving ? t('engine.hermesConfigStatusSaving') : providerOverridesLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesProviderOverridesConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('provider-overrides')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('provider-overrides')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesProviderOverridesConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-provider-overrides-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesProviderOverridesConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(providerOverridesError)}
+          ${renderError(panelStateBus.getState('provider-overrides')?.error)}
           <label class="hm-field hm-field--wide">
             <span class="hm-field-label">${t('engine.hermesProviderOverridesConfigJson')}</span>
             <textarea id="hm-provider-overrides-json" class="hm-input" spellcheck="false" rows="9" ${disabled ? 'disabled' : ''} style="font-family:var(--hm-font-mono);line-height:1.65;min-height:260px">${esc(providerOverridesValues.providerOverridesJson)}</textarea>
@@ -1503,7 +1390,7 @@ export function render() {
   }
 
   function renderMcpServersConfigPanel() {
-    const disabled = loading || saving || mcpServersLoading || mcpServersSaving || quickCommandsSaving || hooksSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-mcp-servers-panel">
         <div class="hm-panel-header">
@@ -1512,12 +1399,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesMcpServersConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${mcpServersSaving ? t('engine.hermesConfigStatusSaving') : mcpServersLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesMcpServersConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('mcp-servers')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('mcp-servers')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesMcpServersConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-mcp-servers-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesMcpServersConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(mcpServersError)}
+          ${renderError(panelStateBus.getState('mcp-servers')?.error)}
           <label class="hm-field hm-field--wide">
             <span class="hm-field-label">${t('engine.hermesMcpServersConfigJson')}</span>
             <textarea id="hm-mcp-servers-json" class="hm-input" spellcheck="false" rows="9" ${disabled ? 'disabled' : ''} style="font-family:var(--hm-font-mono);line-height:1.65;min-height:260px">${esc(mcpServersValues.mcpServersJson)}</textarea>
@@ -1529,7 +1416,7 @@ export function render() {
   }
 
   function renderAgentToolsetsConfigPanel() {
-    const disabled = loading || saving || agentToolsetsLoading || agentToolsetsSaving || platformToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || hooksSaving || providerOverridesSaving || mcpServersSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-agent-toolsets-panel">
         <div class="hm-panel-header">
@@ -1538,12 +1425,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesAgentToolsetsConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${agentToolsetsSaving ? t('engine.hermesConfigStatusSaving') : agentToolsetsLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesAgentToolsetsConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('agent-toolsets')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('agent-toolsets')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesAgentToolsetsConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-agent-toolsets-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesAgentToolsetsConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(agentToolsetsError)}
+          ${renderError(panelStateBus.getState('agent-toolsets')?.error)}
           <label class="hm-field hm-field--wide">
             <span class="hm-field-label">${t('engine.hermesAgentToolsetsConfigDisabledToolsets')}</span>
             <textarea id="hm-agent-disabled-toolsets" class="hm-input" spellcheck="false" rows="4" ${disabled ? 'disabled' : ''}>${esc(agentToolsetsValues.disabledToolsets)}</textarea>
@@ -1555,7 +1442,7 @@ export function render() {
   }
 
   function renderPlatformToolsetsConfigPanel() {
-    const disabled = loading || saving || platformToolsetsLoading || platformToolsetsSaving || agentToolsetsSaving || agentRuntimeSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || mcpServersSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-platform-toolsets-panel">
         <div class="hm-panel-header">
@@ -1564,12 +1451,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesPlatformToolsetsConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${platformToolsetsSaving ? t('engine.hermesConfigStatusSaving') : platformToolsetsLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesPlatformToolsetsConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('platform-toolsets')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('platform-toolsets')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesPlatformToolsetsConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-platform-toolsets-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesPlatformToolsetsConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(platformToolsetsError)}
+          ${renderError(panelStateBus.getState('platform-toolsets')?.error)}
           <label class="hm-field hm-field--wide">
             <span class="hm-field-label">${t('engine.hermesPlatformToolsetsConfigJson')}</span>
             <textarea id="hm-platform-toolsets-json" class="hm-input" spellcheck="false" rows="9" ${disabled ? 'disabled' : ''} style="font-family:var(--hm-font-mono);line-height:1.65;min-height:260px">${esc(platformToolsetsValues.platformToolsetsJson)}</textarea>
@@ -1581,7 +1468,7 @@ export function render() {
   }
 
   function renderAgentRuntimeConfigPanel() {
-    const disabled = loading || saving || agentRuntimeLoading || agentRuntimeSaving || agentToolsetsSaving || platformToolsetsSaving || unauthorizedDmSaving || securitySaving || displaySaving || humanDelaySaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || streamingSaving || executionLimitsSaving || ioSafetySaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || privacySaving || browserSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-agent-runtime-panel">
         <div class="hm-panel-header">
@@ -1590,12 +1477,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesAgentRuntimeConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${agentRuntimeSaving ? t('engine.hermesConfigStatusSaving') : agentRuntimeLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesAgentRuntimeConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('agent-runtime')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('agent-runtime')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesAgentRuntimeConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-agent-runtime-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesAgentRuntimeConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(agentRuntimeError)}
+          ${renderError(panelStateBus.getState('agent-runtime')?.error)}
           <div class="hm-config-runtime-grid hm-config-agent-runtime-grid">
             <label class="hm-field">
               <span class="hm-field-label">${t('engine.hermesAgentRuntimeConfigMaxTurns')}</span>
@@ -1657,7 +1544,7 @@ export function render() {
   }
 
   function renderUnauthorizedDmConfigPanel() {
-    const disabled = loading || saving || unauthorizedDmLoading || unauthorizedDmSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || securitySaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-unauthorized-dm-panel">
         <div class="hm-panel-header">
@@ -1666,12 +1553,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesUnauthorizedDmConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${unauthorizedDmSaving ? t('engine.hermesConfigStatusSaving') : unauthorizedDmLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesUnauthorizedDmConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('unauthorized-dm')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('unauthorized-dm')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesUnauthorizedDmConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-unauthorized-dm-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesUnauthorizedDmConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(unauthorizedDmError)}
+          ${renderError(panelStateBus.getState('unauthorized-dm')?.error)}
           <div class="hm-config-runtime-grid hm-config-unauthorized-dm-grid">
             <label class="hm-field">
               <span class="hm-field-label">${t('engine.hermesUnauthorizedDmConfigBehavior')}</span>
@@ -1687,7 +1574,7 @@ export function render() {
   }
 
   function renderSecurityConfigPanel() {
-    const disabled = loading || saving || securityLoading || securitySaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-security-panel">
         <div class="hm-panel-header">
@@ -1696,12 +1583,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesSecurityConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${securitySaving ? t('engine.hermesConfigStatusSaving') : securityLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesSecurityConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('security')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('security')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesSecurityConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-security-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesSecurityConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(securityError)}
+          ${renderError(panelStateBus.getState('security')?.error)}
           <div class="hm-config-check-grid">
             <label class="hm-channel-check">
               <input id="hm-security-tirith-enabled" type="checkbox" ${securityValues.tirithEnabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -1729,7 +1616,7 @@ export function render() {
   }
 
   function renderDisplayConfigPanel() {
-    const disabled = loading || saving || displayLoading || displaySaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || securitySaving || humanDelaySaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-display-panel">
         <div class="hm-panel-header">
@@ -1738,12 +1625,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesDisplayConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${displaySaving ? t('engine.hermesConfigStatusSaving') : displayLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesDisplayConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('display')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('display')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesDisplayConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-display-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesDisplayConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(displayError)}
+          ${renderError(panelStateBus.getState('display')?.error)}
           <div class="hm-config-runtime-grid hm-config-display-grid">
             <label class="hm-field">
               <span class="hm-field-label">${t('engine.hermesDisplayConfigToolProgress')}</span>
@@ -1893,7 +1780,7 @@ export function render() {
   }
 
   function renderHumanDelayConfigPanel() {
-    const disabled = loading || saving || humanDelayLoading || humanDelaySaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || securitySaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-human-delay-panel">
         <div class="hm-panel-header">
@@ -1902,12 +1789,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesHumanDelayConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${humanDelaySaving ? t('engine.hermesConfigStatusSaving') : humanDelayLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesHumanDelayConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('human-delay')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('human-delay')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesHumanDelayConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-human-delay-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesHumanDelayConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(humanDelayError)}
+          ${renderError(panelStateBus.getState('human-delay')?.error)}
           <div class="hm-config-runtime-grid hm-config-human-delay-grid">
             <label class="hm-field">
               <span class="hm-field-label">${t('engine.hermesHumanDelayConfigMode')}</span>
@@ -1931,7 +1818,7 @@ export function render() {
   }
 
   function renderKanbanConfigPanel() {
-    const disabled = loading || saving || kanbanLoading || kanbanSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || securitySaving || displaySaving || humanDelaySaving || streamingSaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-kanban-panel">
         <div class="hm-panel-header">
@@ -1940,12 +1827,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesKanbanConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${kanbanSaving ? t('engine.hermesConfigStatusSaving') : kanbanLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesKanbanConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('kanban')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('kanban')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesKanbanConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-kanban-config-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesKanbanConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(kanbanError)}
+          ${renderError(panelStateBus.getState('kanban')?.error)}
           <div class="hm-config-runtime-grid hm-config-kanban-grid">
             <label class="hm-field hm-field--checkbox">
               <input id="hm-kanban-dispatch-in-gateway" type="checkbox" ${kanbanValues.dispatchInGateway ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -2007,7 +1894,7 @@ export function render() {
   }
 
   function renderStreamingPanel() {
-    const disabled = loading || saving || streamingLoading || streamingSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || securitySaving || executionLimitsSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-streaming-panel">
         <div class="hm-panel-header">
@@ -2016,12 +1903,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesStreamingConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${streamingSaving ? t('engine.hermesConfigStatusSaving') : streamingLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesStreamingConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('streaming')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('streaming')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesStreamingConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-streaming-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesStreamingConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(streamingError)}
+          ${renderError(panelStateBus.getState('streaming')?.error)}
           <div class="hm-config-check-grid">
             <label class="hm-channel-check">
               <input id="hm-streaming-enabled" type="checkbox" ${streamingValues.enabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -2059,7 +1946,7 @@ export function render() {
   }
 
   function renderExecutionLimitsPanel() {
-    const disabled = loading || saving || executionLimitsLoading || executionLimitsSaving || terminalSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-execution-limits-panel">
         <div class="hm-panel-header">
@@ -2068,12 +1955,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesExecutionLimitsDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${executionLimitsSaving ? t('engine.hermesConfigStatusSaving') : executionLimitsLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesExecutionLimitsStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('execution-limits')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('execution-limits')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesExecutionLimitsStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-execution-limits-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesExecutionLimitsSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(executionLimitsError)}
+          ${renderError(panelStateBus.getState('execution-limits')?.error)}
           <div class="hm-config-subtitle">${t('engine.hermesExecutionLimitsCodeTitle')}</div>
           <div class="hm-config-runtime-grid hm-config-execution-grid">
             <label class="hm-field">
@@ -2139,7 +2026,7 @@ export function render() {
   }
 
   function renderIoSafetyPanel() {
-    const disabled = loading || saving || ioSafetyLoading || ioSafetySaving || checkpointsSaving || cronSaving || loggingSaving || approvalsSaving || terminalSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-io-safety-panel">
         <div class="hm-panel-header">
@@ -2148,12 +2035,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesIoSafetyDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${ioSafetySaving ? t('engine.hermesConfigStatusSaving') : ioSafetyLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesIoSafetyStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('io-safety')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('io-safety')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesIoSafetyStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-io-safety-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesIoSafetySave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(ioSafetyError)}
+          ${renderError(panelStateBus.getState('io-safety')?.error)}
           <div class="hm-config-runtime-grid hm-config-io-safety-grid">
             <label class="hm-field">
               <span class="hm-field-label">${t('engine.hermesIoSafetyFileReadMaxChars')}</span>
@@ -2179,7 +2066,7 @@ export function render() {
   }
 
   function renderCheckpointsPanel() {
-    const disabled = loading || saving || checkpointsLoading || checkpointsSaving || ioSafetySaving || cronSaving || loggingSaving || approvalsSaving || privacySaving || browserSaving || terminalSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-checkpoints-panel">
         <div class="hm-panel-header">
@@ -2188,12 +2075,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesCheckpointsConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${checkpointsSaving ? t('engine.hermesConfigStatusSaving') : checkpointsLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesCheckpointsConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('checkpoints')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('checkpoints')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesCheckpointsConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-checkpoints-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesCheckpointsConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(checkpointsError)}
+          ${renderError(panelStateBus.getState('checkpoints')?.error)}
           <div class="hm-config-check-grid">
             <label class="hm-channel-check">
               <input id="hm-checkpoints-enabled" type="checkbox" ${checkpointsValues.checkpointsEnabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -2237,7 +2124,7 @@ export function render() {
   }
 
   function renderCronPanel() {
-    const disabled = loading || saving || cronLoading || cronSaving || checkpointsSaving || loggingSaving || approvalsSaving || privacySaving || browserSaving || terminalSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || ioSafetySaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-cron-panel">
         <div class="hm-panel-header">
@@ -2246,12 +2133,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesCronConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${cronSaving ? t('engine.hermesConfigStatusSaving') : cronLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesCronConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('cron')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('cron')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesCronConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-cron-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesCronConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(cronError)}
+          ${renderError(panelStateBus.getState('cron')?.error)}
           <div class="hm-config-check-grid">
             <label class="hm-channel-check">
               <input id="hm-cron-wrap-response" type="checkbox" ${cronValues.cronWrapResponse ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -2271,7 +2158,7 @@ export function render() {
   }
 
   function renderLoggingPanel() {
-    const disabled = loading || saving || loggingLoading || loggingSaving || checkpointsSaving || cronSaving || approvalsSaving || privacySaving || browserSaving || terminalSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || ioSafetySaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-logging-panel">
         <div class="hm-panel-header">
@@ -2280,12 +2167,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesLoggingConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${loggingSaving ? t('engine.hermesConfigStatusSaving') : loggingLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesLoggingConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('logging')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('logging')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesLoggingConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-logging-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesLoggingConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(loggingError)}
+          ${renderError(panelStateBus.getState('logging')?.error)}
           <div class="hm-config-check-grid">
             <label class="hm-channel-check">
               <input id="hm-logging-memory-monitor-enabled" type="checkbox" ${loggingValues.loggingMemoryMonitorEnabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -2319,7 +2206,7 @@ export function render() {
   }
 
   function renderApprovalsPanel() {
-    const disabled = loading || saving || approvalsLoading || approvalsSaving || checkpointsSaving || cronSaving || loggingSaving || privacySaving || browserSaving || terminalSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || ioSafetySaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-approvals-panel">
         <div class="hm-panel-header">
@@ -2328,12 +2215,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesApprovalsConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${approvalsSaving ? t('engine.hermesConfigStatusSaving') : approvalsLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesApprovalsConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('approvals')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('approvals')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesApprovalsConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-approvals-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesApprovalsConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(approvalsError)}
+          ${renderError(panelStateBus.getState('approvals')?.error)}
           <div class="hm-config-runtime-grid hm-config-approvals-grid">
             <label class="hm-field">
               <span class="hm-field-label">${t('engine.hermesApprovalsConfigMode')}</span>
@@ -2369,7 +2256,7 @@ export function render() {
   }
 
   function renderPrivacyPanel() {
-    const disabled = loading || saving || privacyLoading || privacySaving || approvalsSaving || cronSaving || loggingSaving || browserSaving || terminalSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || ioSafetySaving || checkpointsSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-privacy-panel">
         <div class="hm-panel-header">
@@ -2378,12 +2265,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesPrivacyConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${privacySaving ? t('engine.hermesConfigStatusSaving') : privacyLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesPrivacyConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('privacy')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('privacy')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesPrivacyConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-privacy-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesPrivacyConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(privacyError)}
+          ${renderError(panelStateBus.getState('privacy')?.error)}
           <div class="hm-config-check-grid">
             <label class="hm-channel-check">
               <input id="hm-privacy-redact-pii" type="checkbox" ${privacyValues.redactPii ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -2397,7 +2284,7 @@ export function render() {
   }
 
   function renderBrowserPanel() {
-    const disabled = loading || saving || browserLoading || browserSaving || webSaving || approvalsSaving || cronSaving || loggingSaving || privacySaving || sttSaving || terminalSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || ioSafetySaving || checkpointsSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-browser-panel">
         <div class="hm-panel-header">
@@ -2406,12 +2293,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesBrowserConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${browserSaving ? t('engine.hermesConfigStatusSaving') : browserLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesBrowserConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('browser')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('browser')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesBrowserConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-browser-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesBrowserConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(browserError)}
+          ${renderError(panelStateBus.getState('browser')?.error)}
           <div class="hm-config-runtime-grid hm-config-browser-grid">
             <label class="hm-field">
               <span class="hm-field-label">${t('engine.hermesBrowserConfigEngine')}</span>
@@ -2484,7 +2371,7 @@ export function render() {
   }
 
   function renderWebConfigPanel() {
-    const disabled = loading || saving || webLoading || webSaving || browserSaving || lspSaving || approvalsSaving || cronSaving || loggingSaving || privacySaving || sttSaving || terminalSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || ioSafetySaving || checkpointsSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-web-panel">
         <div class="hm-panel-header">
@@ -2493,12 +2380,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesWebConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${webSaving ? t('engine.hermesConfigStatusSaving') : webLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesWebConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('web-config')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('web-config')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesWebConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-web-config-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesWebConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(webError)}
+          ${renderError(panelStateBus.getState('web-config')?.error)}
           <div class="hm-config-runtime-grid hm-config-web-grid">
             <label class="hm-field">
               <span class="hm-field-label">${t('engine.hermesWebConfigBackend')}</span>
@@ -2526,7 +2413,7 @@ export function render() {
   }
 
   function renderLspConfigPanel() {
-    const disabled = loading || saving || lspLoading || lspSaving || webSaving || browserSaving || approvalsSaving || cronSaving || loggingSaving || privacySaving || sttSaving || terminalSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || ioSafetySaving || checkpointsSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-lsp-panel">
         <div class="hm-panel-header">
@@ -2535,12 +2422,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesLspConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${lspSaving ? t('engine.hermesConfigStatusSaving') : lspLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesLspConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('lsp')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('lsp')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesLspConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-lsp-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesLspConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(lspError)}
+          ${renderError(panelStateBus.getState('lsp')?.error)}
           <div class="hm-config-check-grid">
             <label class="hm-channel-check">
               <input id="hm-lsp-enabled" type="checkbox" ${lspValues.lspEnabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -2572,7 +2459,7 @@ export function render() {
   }
 
   function renderSttPanel() {
-    const disabled = loading || saving || sttLoading || sttSaving || webSaving || lspSaving || approvalsSaving || cronSaving || loggingSaving || privacySaving || browserSaving || terminalSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || ioSafetySaving || checkpointsSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-stt-panel">
         <div class="hm-panel-header">
@@ -2581,12 +2468,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesSttConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${sttSaving ? t('engine.hermesConfigStatusSaving') : sttLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesSttConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('stt')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('stt')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesSttConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-stt-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesSttConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(sttError)}
+          ${renderError(panelStateBus.getState('stt')?.error)}
           <div class="hm-config-check-grid">
             <label class="hm-channel-check">
               <input id="hm-stt-enabled" type="checkbox" ${sttValues.sttEnabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -2630,7 +2517,7 @@ export function render() {
   }
 
   function renderTtsVoicePanel() {
-    const disabled = loading || saving || ttsVoiceLoading || ttsVoiceSaving || sttSaving || approvalsSaving || cronSaving || loggingSaving || privacySaving || browserSaving || terminalSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || ioSafetySaving || checkpointsSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-tts-voice-panel">
         <div class="hm-panel-header">
@@ -2639,12 +2526,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesTtsVoiceConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${ttsVoiceSaving ? t('engine.hermesConfigStatusSaving') : ttsVoiceLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesTtsVoiceConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('tts-voice')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('tts-voice')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesTtsVoiceConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-tts-voice-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesTtsVoiceConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(ttsVoiceError)}
+          ${renderError(panelStateBus.getState('tts-voice')?.error)}
           <div class="hm-config-check-grid">
             <label class="hm-channel-check">
               <input id="hm-voice-auto-tts" type="checkbox" ${ttsVoiceValues.voiceAutoTts ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
@@ -2736,7 +2623,7 @@ export function render() {
   }
 
   function renderTerminalPanel() {
-    const disabled = loading || saving || terminalLoading || terminalSaving || approvalsSaving || cronSaving || loggingSaving || browserSaving || sttSaving || runtimeSaving || compressionSaving || promptCachingSaving || openrouterCacheSaving || providerRoutingSaving || auxiliarySaving || toolGuardrailsSaving || memorySaving || skillsSaving || quickCommandsSaving || providerOverridesSaving || agentToolsetsSaving || agentRuntimeSaving || unauthorizedDmSaving || streamingSaving || executionLimitsSaving || checkpointsSaving
+    const disabled = isBusy()
     return `
       <div class="hm-panel hm-config-runtime-panel hm-config-terminal-panel">
         <div class="hm-panel-header">
@@ -2745,12 +2632,12 @@ export function render() {
             <div class="hm-channel-panel-desc">${t('engine.hermesTerminalConfigDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${terminalSaving ? t('engine.hermesConfigStatusSaving') : terminalLoading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesTerminalConfigStatusReady')}</span>
+            <span class="hm-muted">${panelStateBus.getState('terminal')?.saving ? t('engine.hermesConfigStatusSaving') : panelStateBus.getState('terminal')?.loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesTerminalConfigStatusReady')}</span>
             <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-terminal-save" ${disabled ? 'disabled' : ''}>${t('engine.hermesTerminalConfigSave')}</button>
           </div>
         </div>
         <div class="hm-panel-body">
-          ${renderError(terminalError)}
+          ${renderError(panelStateBus.getState('terminal')?.error)}
           <div class="hm-config-runtime-grid hm-config-terminal-grid">
             <label class="hm-field">
               <span class="hm-field-label">${t('engine.hermesTerminalConfigBackend')}</span>
@@ -2885,77 +2772,104 @@ export function render() {
     `
   }
 
+  function renderGroupedPanels() {
+    const renderers = {
+      'runtime': renderRuntimePanel,
+      'agent-runtime': renderAgentRuntimeConfigPanel,
+      'unauthorized-dm': renderUnauthorizedDmConfigPanel,
+      'sessions-maintenance': renderSessionsMaintenancePanel,
+      'updates': renderUpdatesPanel,
+      'execution-limits': renderExecutionLimitsPanel,
+      'io-safety': renderIoSafetyPanel,
+      'streaming': renderStreamingPanel,
+      'terminal': renderTerminalPanel,
+      'checkpoints': renderCheckpointsPanel,
+      'model-config': renderModelConfigPanel,
+      'model-catalog': renderModelCatalogConfigPanel,
+      'x-search': renderXSearchConfigPanel,
+      'context-config': renderContextConfigPanel,
+      'model-aliases': renderModelAliasesConfigPanel,
+      'skills-config': renderSkillsConfigPanel,
+      'agent-toolsets': renderAgentToolsetsConfigPanel,
+      'platform-toolsets': renderPlatformToolsetsConfigPanel,
+      'hooks': renderHooksConfigPanel,
+      'curator-config': renderCuratorConfigPanel,
+      'quick-commands': renderQuickCommandsConfigPanel,
+      'memory': renderMemoryPanel,
+      'compression': renderCompressionPanel,
+      'prompt-caching': renderPromptCachingPanel,
+      'display': renderDisplayConfigPanel,
+      'human-delay': renderHumanDelayConfigPanel,
+      'approvals': renderApprovalsPanel,
+      'browser': renderBrowserPanel,
+      'web-config': renderWebConfigPanel,
+      'lsp': renderLspConfigPanel,
+      'stt': renderSttPanel,
+      'tts-voice': renderTtsVoicePanel,
+      'provider-routing': renderProviderRoutingPanel,
+      'openrouter-cache': renderOpenrouterCachePanel,
+      'auxiliary': renderAuxiliaryConfigPanel,
+      'security': renderSecurityConfigPanel,
+      'privacy': renderPrivacyPanel,
+      'kanban': renderKanbanConfigPanel,
+      'cron': renderCronPanel,
+      'logging': renderLoggingPanel,
+      'tool-guardrails': renderToolGuardrailsPanel,
+      'mcp-servers': renderMcpServersConfigPanel,
+      'provider-overrides': renderProviderOverridesConfigPanel,
+    }
+
+    return CONFIG_GROUPS.map(group => `
+      <section class="hm-config-group" id="cfg-group-\${group.id}">
+        <h2 class="hm-config-group__title">\${t('engine.' + group.titleKey)}</h2>
+        \${group.panels.map(p => {
+          const renderer = renderers[p.id]
+          return renderer ? renderer() : ''
+        }).join('')}
+      </section>
+    `).join('')
+  }
+
   function draw() {
     el.innerHTML = `
       <div class="hm-hero">
         <div class="hm-hero-title">
-          <div class="hm-hero-eyebrow">${t('engine.hermesConfigEyebrow')}</div>
-          <h1 class="hm-hero-h1">${t('engine.hermesConfigTitle')}</h1>
+          <div class="hm-hero-eyebrow">\${t('engine.hermesConfigEyebrow')}</div>
+          <h1 class="hm-hero-h1">\${t('engine.hermesConfigTitle')}</h1>
           <div class="hm-hero-sub">~/.hermes/config.yaml</div>
         </div>
         <div class="hm-hero-actions">
-          <button class="hm-btn hm-btn--ghost hm-btn--sm" id="hm-config-reload" ${isBusy() ? 'disabled' : ''}>${t('engine.hermesConfigReload')}</button>
-          <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-config-save" ${isBusy() ? 'disabled' : ''}>${t('engine.hermesConfigSave')}</button>
+          <button class="hm-btn hm-btn--ghost hm-btn--sm" id="hm-config-reload" \${isBusy() ? 'disabled' : ''}>\${t('engine.hermesConfigReload')}</button>
+          <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-config-save" \${isBusy() ? 'disabled' : ''}>\${t('engine.hermesConfigSave')}</button>
         </div>
       </div>
 
-      ${renderRuntimePanel()}
-      ${renderSessionsMaintenancePanel()}
-      ${renderUpdatesPanel()}
-      ${renderTerminalPanel()}
-      ${renderStreamingPanel()}
-      ${renderExecutionLimitsPanel()}
-      ${renderIoSafetyPanel()}
-      ${renderCheckpointsPanel()}
-      ${renderCronPanel()}
-      ${renderLoggingPanel()}
-      ${renderApprovalsPanel()}
-      ${renderPrivacyPanel()}
-      ${renderBrowserPanel()}
-      ${renderWebConfigPanel()}
-      ${renderLspConfigPanel()}
-      ${renderSttPanel()}
-      ${renderTtsVoicePanel()}
-      ${renderCompressionPanel()}
-      ${renderPromptCachingPanel()}
-      ${renderOpenrouterCachePanel()}
-      ${renderProviderRoutingPanel()}
-      ${renderAuxiliaryConfigPanel()}
-      ${renderToolGuardrailsPanel()}
-      ${renderMemoryPanel()}
-      ${renderSkillsConfigPanel()}
-      ${renderCuratorConfigPanel()}
-      ${renderQuickCommandsConfigPanel()}
-      ${renderModelConfigPanel()}
-      ${renderModelCatalogConfigPanel()}
-      ${renderXSearchConfigPanel()}
-      ${renderContextConfigPanel()}
-      ${renderModelAliasesConfigPanel()}
-      ${renderHooksConfigPanel()}
-      ${renderProviderOverridesConfigPanel()}
-      ${renderMcpServersConfigPanel()}
-      ${renderAgentToolsetsConfigPanel()}
-      ${renderPlatformToolsetsConfigPanel()}
-      ${renderAgentRuntimeConfigPanel()}
-      ${renderUnauthorizedDmConfigPanel()}
-      ${renderSecurityConfigPanel()}
-      ${renderDisplayConfigPanel()}
-      ${renderHumanDelayConfigPanel()}
-      ${renderKanbanConfigPanel()}
+      <div class="hm-config-body">
+        <aside class="hm-config-sidebar">
+          \${renderSidebar(CONFIG_GROUPS)}
+          <div class="hm-sidebar__spacer"></div>
+        </aside>
+        <main class="hm-config-content" id="hm-config-content">
+          <div class="hm-config-search">
+            <input type="text" class="hm-input" id="hm-config-search" placeholder="\${t('engine.configSearchPlaceholder')}">
+          </div>
+          \${renderGroupedPanels()}
+        </main>
+      </div>
 
       <div class="hm-panel">
         <div class="hm-panel-header">
           <div>
             <div class="hm-panel-title">config.yaml</div>
-            <div class="hm-channel-panel-desc">${t('engine.hermesConfigRawDesc')}</div>
+            <div class="hm-channel-panel-desc">\${t('engine.hermesConfigRawDesc')}</div>
           </div>
           <div class="hm-panel-actions">
-            <span class="hm-muted">${saving ? t('engine.hermesConfigStatusSaving') : loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesConfigStatusReady')}</span>
+            <span class="hm-muted">\${saving ? t('engine.hermesConfigStatusSaving') : loading ? t('engine.hermesConfigStatusLoading') : t('engine.hermesConfigStatusReady')}</span>
           </div>
         </div>
         <div class="hm-panel-body" style="padding:0">
-          ${renderError(error)}
-          <textarea id="hm-config-yaml" class="hm-input" spellcheck="false" ${isBusy() ? 'disabled' : ''} style="width:100%;min-height:560px;border:0;border-radius:0;background:var(--hm-surface-0);font-family:var(--hm-font-mono);font-size:12px;line-height:1.7;padding:18px 20px;resize:vertical">${esc(yaml)}</textarea>
+          \${renderError(error)}
+          <textarea id="hm-config-yaml" class="hm-input" spellcheck="false" \${isBusy() ? 'disabled' : ''} style="width:100%;min-height:560px;border:0;border-radius:0;background:var(--hm-surface-0);font-family:var(--hm-font-mono);font-size:12px;line-height:1.7;padding:18px 20px;resize:vertical">\${esc(yaml)}</textarea>
         </div>
       </div>
     `
@@ -3004,8 +2918,13 @@ export function render() {
     el.querySelector('#hm-stt-save')?.addEventListener('click', saveSttConfig)
     el.querySelector('#hm-tts-voice-save')?.addEventListener('click', saveTtsVoiceConfig)
     el.querySelector('#hm-terminal-save')?.addEventListener('click', saveTerminal)
+
+    // Init sidebar scroll spy and search filter
+    initSidebarScrollSpy(CONFIG_GROUPS, el.querySelector('#hm-config-content'))
+    initSearchFilter(el.querySelector('#hm-config-search'), el.querySelector('#hm-config-content'))
   }
 
+  
   async function loadRaw() {
     const data = await api.hermesConfigRawRead()
     yaml = data?.yaml || ''
@@ -3228,92 +3147,92 @@ export function render() {
 
   async function load() {
     loading = true
-    runtimeLoading = true
-    sessionsMaintenanceLoading = true
-    updatesLoading = true
-    compressionLoading = true
-    promptCachingLoading = true
-    openrouterCacheLoading = true
-    providerRoutingLoading = true
-    auxiliaryLoading = true
-    toolGuardrailsLoading = true
-    memoryLoading = true
-    skillsLoading = true
-    curatorLoading = true
-    quickCommandsLoading = true
-    modelLoading = true
-    modelCatalogLoading = true
-    xSearchLoading = true
-    contextLoading = true
-    modelAliasesLoading = true
-    hooksLoading = true
-    providerOverridesLoading = true
-    mcpServersLoading = true
-    agentToolsetsLoading = true
-    platformToolsetsLoading = true
-    agentRuntimeLoading = true
-    unauthorizedDmLoading = true
-    securityLoading = true
-    displayLoading = true
-    humanDelayLoading = true
-    kanbanLoading = true
-    streamingLoading = true
-    executionLimitsLoading = true
-    ioSafetyLoading = true
-    checkpointsLoading = true
-    cronLoading = true
-    loggingLoading = true
-    approvalsLoading = true
-    privacyLoading = true
-    browserLoading = true
-    webLoading = true
-    lspLoading = true
-    sttLoading = true
-    ttsVoiceLoading = true
-    terminalLoading = true
+    panelStateBus.setLoading('runtime', true)
+    panelStateBus.setLoading('sessions-maintenance', true)
+    panelStateBus.setLoading('updates', true)
+    panelStateBus.setLoading('compression', true)
+    panelStateBus.setLoading('prompt-caching', true)
+    panelStateBus.setLoading('openrouter-cache', true)
+    panelStateBus.setLoading('provider-routing', true)
+    panelStateBus.setLoading('auxiliary', true)
+    panelStateBus.setLoading('tool-guardrails', true)
+    panelStateBus.setLoading('memory', true)
+    panelStateBus.setLoading('skills-config', true)
+    panelStateBus.setLoading('curator-config', true)
+    panelStateBus.setLoading('quick-commands', true)
+    panelStateBus.setLoading('model-config', true)
+    panelStateBus.setLoading('model-catalog', true)
+    panelStateBus.setLoading('x-search', true)
+    panelStateBus.setLoading('context-config', true)
+    panelStateBus.setLoading('model-aliases', true)
+    panelStateBus.setLoading('hooks', true)
+    panelStateBus.setLoading('provider-overrides', true)
+    panelStateBus.setLoading('mcp-servers', true)
+    panelStateBus.setLoading('agent-toolsets', true)
+    panelStateBus.setLoading('platform-toolsets', true)
+    panelStateBus.setLoading('agent-runtime', true)
+    panelStateBus.setLoading('unauthorized-dm', true)
+    panelStateBus.setLoading('security', true)
+    panelStateBus.setLoading('display', true)
+    panelStateBus.setLoading('human-delay', true)
+    panelStateBus.setLoading('kanban', true)
+    panelStateBus.setLoading('streaming', true)
+    panelStateBus.setLoading('execution-limits', true)
+    panelStateBus.setLoading('io-safety', true)
+    panelStateBus.setLoading('checkpoints', true)
+    panelStateBus.setLoading('cron', true)
+    panelStateBus.setLoading('logging', true)
+    panelStateBus.setLoading('approvals', true)
+    panelStateBus.setLoading('privacy', true)
+    panelStateBus.setLoading('browser', true)
+    panelStateBus.setLoading('web-config', true)
+    panelStateBus.setLoading('lsp', true)
+    panelStateBus.setLoading('stt', true)
+    panelStateBus.setLoading('tts-voice', true)
+    panelStateBus.setLoading('terminal', true)
     error = null
-    runtimeError = null
-    sessionsMaintenanceError = null
-    updatesError = null
-    compressionError = null
-    promptCachingError = null
-    openrouterCacheError = null
-    providerRoutingError = null
-    auxiliaryError = null
-    toolGuardrailsError = null
-    memoryError = null
-    skillsError = null
-    curatorError = null
-    quickCommandsError = null
-    modelError = null
-    modelCatalogError = null
-    xSearchError = null
-    contextError = null
-    modelAliasesError = null
-    hooksError = null
-    providerOverridesError = null
-    mcpServersError = null
-    agentToolsetsError = null
-    platformToolsetsError = null
-    agentRuntimeError = null
-    unauthorizedDmError = null
-    securityError = null
-    displayError = null
-    humanDelayError = null
-    streamingError = null
-    executionLimitsError = null
-    ioSafetyError = null
-    checkpointsError = null
-    cronError = null
-    loggingError = null
-    approvalsError = null
-    privacyError = null
-    browserError = null
-    webError = null
-    lspError = null
-    sttError = null
-    ttsVoiceError = null
-    terminalError = null
+    panelStateBus.setError('runtime', null)
+    panelStateBus.setError('sessions-maintenance', null)
+    panelStateBus.setError('updates', null)
+    panelStateBus.setError('compression', null)
+    panelStateBus.setError('prompt-caching', null)
+    panelStateBus.setError('openrouter-cache', null)
+    panelStateBus.setError('provider-routing', null)
+    panelStateBus.setError('auxiliary', null)
+    panelStateBus.setError('tool-guardrails', null)
+    panelStateBus.setError('memory', null)
+    panelStateBus.setError('skills-config', null)
+    panelStateBus.setError('curator-config', null)
+    panelStateBus.setError('quick-commands', null)
+    panelStateBus.setError('model-config', null)
+    panelStateBus.setError('model-catalog', null)
+    panelStateBus.setError('x-search', null)
+    panelStateBus.setError('context-config', null)
+    panelStateBus.setError('model-aliases', null)
+    panelStateBus.setError('hooks', null)
+    panelStateBus.setError('provider-overrides', null)
+    panelStateBus.setError('mcp-servers', null)
+    panelStateBus.setError('agent-toolsets', null)
+    panelStateBus.setError('platform-toolsets', null)
+    panelStateBus.setError('agent-runtime', null)
+    panelStateBus.setError('unauthorized-dm', null)
+    panelStateBus.setError('security', null)
+    panelStateBus.setError('display', null)
+    panelStateBus.setError('human-delay', null)
+    panelStateBus.setError('streaming', null)
+    panelStateBus.setError('execution-limits', null)
+    panelStateBus.setError('io-safety', null)
+    panelStateBus.setError('checkpoints', null)
+    panelStateBus.setError('cron', null)
+    panelStateBus.setError('logging', null)
+    panelStateBus.setError('approvals', null)
+    panelStateBus.setError('privacy', null)
+    panelStateBus.setError('browser', null)
+    panelStateBus.setError('web-config', null)
+    panelStateBus.setError('lsp', null)
+    panelStateBus.setError('stt', null)
+    panelStateBus.setError('tts-voice', null)
+    panelStateBus.setError('terminal', null)
     draw()
     try {
       await loadRaw()
@@ -3325,345 +3244,345 @@ export function render() {
     try {
       await loadRuntime()
     } catch (err) {
-      runtimeError = humanizeError(err, t('engine.hermesSessionRuntimeLoadFailed') || 'Load runtime config failed')
+      panelStateBus.setError('runtime', humanizeError(err, t('engine.hermesSessionRuntimeLoadFailed') || 'Load runtime config failed'))
     } finally {
-      runtimeLoading = false
+      panelStateBus.setLoading('runtime', false)
       draw()
     }
     try {
       await loadSessionsMaintenance()
     } catch (err) {
-      sessionsMaintenanceError = humanizeError(err, t('engine.hermesSessionsMaintenanceLoadFailed') || 'Load session maintenance config failed')
+      panelStateBus.setError('sessions-maintenance', humanizeError(err, t('engine.hermesSessionsMaintenanceLoadFailed') || 'Load session maintenance config failed'))
     } finally {
-      sessionsMaintenanceLoading = false
+      panelStateBus.setLoading('sessions-maintenance', false)
       draw()
     }
     try {
       await loadUpdatesConfig()
     } catch (err) {
-      updatesError = humanizeError(err, t('engine.hermesUpdatesConfigLoadFailed') || 'Load updates config failed')
+      panelStateBus.setError('updates', humanizeError(err, t('engine.hermesUpdatesConfigLoadFailed') || 'Load updates config failed'))
     } finally {
-      updatesLoading = false
+      panelStateBus.setLoading('updates', false)
       draw()
     }
     try {
       await loadCompression()
     } catch (err) {
-      compressionError = humanizeError(err, t('engine.hermesCompressionLoadFailed') || 'Load compression config failed')
+      panelStateBus.setError('compression', humanizeError(err, t('engine.hermesCompressionLoadFailed') || 'Load compression config failed'))
     } finally {
-      compressionLoading = false
+      panelStateBus.setLoading('compression', false)
       draw()
     }
     try {
       await loadPromptCaching()
     } catch (err) {
-      promptCachingError = humanizeError(err, t('engine.hermesPromptCachingConfigLoadFailed') || 'Load prompt caching config failed')
+      panelStateBus.setError('prompt-caching', humanizeError(err, t('engine.hermesPromptCachingConfigLoadFailed') || 'Load prompt caching config failed'))
     } finally {
-      promptCachingLoading = false
+      panelStateBus.setLoading('prompt-caching', false)
       draw()
     }
     try {
       await loadOpenrouterCache()
     } catch (err) {
-      openrouterCacheError = humanizeError(err, t('engine.hermesOpenrouterCacheConfigLoadFailed') || 'Load OpenRouter cache config failed')
+      panelStateBus.setError('openrouter-cache', humanizeError(err, t('engine.hermesOpenrouterCacheConfigLoadFailed') || 'Load OpenRouter cache config failed'))
     } finally {
-      openrouterCacheLoading = false
+      panelStateBus.setLoading('openrouter-cache', false)
       draw()
     }
     try {
       await loadProviderRouting()
     } catch (err) {
-      providerRoutingError = humanizeError(err, t('engine.hermesProviderRoutingConfigLoadFailed') || 'Load provider routing config failed')
+      panelStateBus.setError('provider-routing', humanizeError(err, t('engine.hermesProviderRoutingConfigLoadFailed') || 'Load provider routing config failed'))
     } finally {
-      providerRoutingLoading = false
+      panelStateBus.setLoading('provider-routing', false)
       draw()
     }
     try {
       await loadAuxiliaryConfig()
     } catch (err) {
-      auxiliaryError = humanizeError(err, t('engine.hermesAuxiliaryConfigLoadFailed') || 'Load auxiliary config failed')
+      panelStateBus.setError('auxiliary', humanizeError(err, t('engine.hermesAuxiliaryConfigLoadFailed') || 'Load auxiliary config failed'))
     } finally {
-      auxiliaryLoading = false
+      panelStateBus.setLoading('auxiliary', false)
       draw()
     }
     try {
       await loadToolGuardrails()
     } catch (err) {
-      toolGuardrailsError = humanizeError(err, t('engine.hermesToolGuardrailsLoadFailed') || 'Load tool guardrail config failed')
+      panelStateBus.setError('tool-guardrails', humanizeError(err, t('engine.hermesToolGuardrailsLoadFailed') || 'Load tool guardrail config failed'))
     } finally {
-      toolGuardrailsLoading = false
+      panelStateBus.setLoading('tool-guardrails', false)
       draw()
     }
     try {
       await loadStreaming()
     } catch (err) {
-      streamingError = humanizeError(err, t('engine.hermesStreamingConfigLoadFailed') || 'Load streaming config failed')
+      panelStateBus.setError('streaming', humanizeError(err, t('engine.hermesStreamingConfigLoadFailed') || 'Load streaming config failed'))
     } finally {
-      streamingLoading = false
+      panelStateBus.setLoading('streaming', false)
       draw()
     }
     try {
       await loadExecutionLimits()
     } catch (err) {
-      executionLimitsError = humanizeError(err, t('engine.hermesExecutionLimitsLoadFailed') || 'Load execution limit config failed')
+      panelStateBus.setError('execution-limits', humanizeError(err, t('engine.hermesExecutionLimitsLoadFailed') || 'Load execution limit config failed'))
     } finally {
-      executionLimitsLoading = false
+      panelStateBus.setLoading('execution-limits', false)
       draw()
     }
     try {
       await loadIoSafety()
     } catch (err) {
-      ioSafetyError = humanizeError(err, t('engine.hermesIoSafetyLoadFailed') || 'Load input/output safety config failed')
+      panelStateBus.setError('io-safety', humanizeError(err, t('engine.hermesIoSafetyLoadFailed') || 'Load input/output safety config failed'))
     } finally {
-      ioSafetyLoading = false
+      panelStateBus.setLoading('io-safety', false)
       draw()
     }
     try {
       await loadCheckpoints()
     } catch (err) {
-      checkpointsError = humanizeError(err, t('engine.hermesCheckpointsConfigLoadFailed') || 'Load checkpoints config failed')
+      panelStateBus.setError('checkpoints', humanizeError(err, t('engine.hermesCheckpointsConfigLoadFailed') || 'Load checkpoints config failed'))
     } finally {
-      checkpointsLoading = false
+      panelStateBus.setLoading('checkpoints', false)
       draw()
     }
     try {
       await loadCronConfig()
     } catch (err) {
-      cronError = humanizeError(err, t('engine.hermesCronConfigLoadFailed') || 'Load cron config failed')
+      panelStateBus.setError('cron', humanizeError(err, t('engine.hermesCronConfigLoadFailed') || 'Load cron config failed'))
     } finally {
-      cronLoading = false
+      panelStateBus.setLoading('cron', false)
       draw()
     }
     try {
       await loadLoggingConfig()
     } catch (err) {
-      loggingError = humanizeError(err, t('engine.hermesLoggingConfigLoadFailed') || 'Load logging config failed')
+      panelStateBus.setError('logging', humanizeError(err, t('engine.hermesLoggingConfigLoadFailed') || 'Load logging config failed'))
     } finally {
-      loggingLoading = false
+      panelStateBus.setLoading('logging', false)
       draw()
     }
     try {
       await loadApprovalsConfig()
     } catch (err) {
-      approvalsError = humanizeError(err, t('engine.hermesApprovalsConfigLoadFailed') || 'Load approvals config failed')
+      panelStateBus.setError('approvals', humanizeError(err, t('engine.hermesApprovalsConfigLoadFailed') || 'Load approvals config failed'))
     } finally {
-      approvalsLoading = false
+      panelStateBus.setLoading('approvals', false)
       draw()
     }
     try {
       await loadPrivacyConfig()
     } catch (err) {
-      privacyError = humanizeError(err, t('engine.hermesPrivacyConfigLoadFailed') || 'Load privacy config failed')
+      panelStateBus.setError('privacy', humanizeError(err, t('engine.hermesPrivacyConfigLoadFailed') || 'Load privacy config failed'))
     } finally {
-      privacyLoading = false
+      panelStateBus.setLoading('privacy', false)
       draw()
     }
     try {
       await loadBrowserConfig()
     } catch (err) {
-      browserError = humanizeError(err, t('engine.hermesBrowserConfigLoadFailed') || 'Load browser config failed')
+      panelStateBus.setError('browser', humanizeError(err, t('engine.hermesBrowserConfigLoadFailed') || 'Load browser config failed'))
     } finally {
-      browserLoading = false
+      panelStateBus.setLoading('browser', false)
       draw()
     }
     try {
       await loadWebConfig()
     } catch (err) {
-      webError = humanizeError(err, t('engine.hermesWebConfigLoadFailed') || 'Load web tool config failed')
+      panelStateBus.setError('web-config', humanizeError(err, t('engine.hermesWebConfigLoadFailed') || 'Load web tool config failed'))
     } finally {
-      webLoading = false
+      panelStateBus.setLoading('web-config', false)
       draw()
     }
     try {
       await loadLspConfig()
     } catch (err) {
-      lspError = humanizeError(err, t('engine.hermesLspConfigLoadFailed') || 'Load LSP config failed')
+      panelStateBus.setError('lsp', humanizeError(err, t('engine.hermesLspConfigLoadFailed') || 'Load LSP config failed'))
     } finally {
-      lspLoading = false
+      panelStateBus.setLoading('lsp', false)
       draw()
     }
     try {
       await loadSttConfig()
     } catch (err) {
-      sttError = humanizeError(err, t('engine.hermesSttConfigLoadFailed') || 'Load speech transcription config failed')
+      panelStateBus.setError('stt', humanizeError(err, t('engine.hermesSttConfigLoadFailed') || 'Load speech transcription config failed'))
     } finally {
-      sttLoading = false
+      panelStateBus.setLoading('stt', false)
       draw()
     }
     try {
       await loadTtsVoiceConfig()
     } catch (err) {
-      ttsVoiceError = humanizeError(err, t('engine.hermesTtsVoiceConfigLoadFailed') || 'Load speech output config failed')
+      panelStateBus.setError('tts-voice', humanizeError(err, t('engine.hermesTtsVoiceConfigLoadFailed') || 'Load speech output config failed'))
     } finally {
-      ttsVoiceLoading = false
+      panelStateBus.setLoading('tts-voice', false)
       draw()
     }
     try {
       await loadTerminal()
     } catch (err) {
-      terminalError = humanizeError(err, t('engine.hermesTerminalConfigLoadFailed') || 'Load terminal config failed')
+      panelStateBus.setError('terminal', humanizeError(err, t('engine.hermesTerminalConfigLoadFailed') || 'Load terminal config failed'))
     } finally {
-      terminalLoading = false
+      panelStateBus.setLoading('terminal', false)
       draw()
     }
     try {
       await loadMemory()
     } catch (err) {
-      memoryError = humanizeError(err, t('engine.hermesMemoryConfigLoadFailed') || 'Load memory config failed')
+      panelStateBus.setError('memory', humanizeError(err, t('engine.hermesMemoryConfigLoadFailed') || 'Load memory config failed'))
     } finally {
-      memoryLoading = false
+      panelStateBus.setLoading('memory', false)
       draw()
     }
     try {
       await loadSkillsConfig()
     } catch (err) {
-      skillsError = humanizeError(err, t('engine.hermesSkillsConfigLoadFailed') || 'Load skills config failed')
+      panelStateBus.setError('skills-config', humanizeError(err, t('engine.hermesSkillsConfigLoadFailed') || 'Load skills config failed'))
     } finally {
-      skillsLoading = false
+      panelStateBus.setLoading('skills-config', false)
       draw()
     }
     try {
       await loadCuratorConfig()
     } catch (err) {
-      curatorError = humanizeError(err, t('engine.hermesCuratorConfigLoadFailed') || 'Load curator config failed')
+      panelStateBus.setError('curator-config', humanizeError(err, t('engine.hermesCuratorConfigLoadFailed') || 'Load curator config failed'))
     } finally {
-      curatorLoading = false
+      panelStateBus.setLoading('curator-config', false)
       draw()
     }
     try {
       await loadQuickCommandsConfig()
     } catch (err) {
-      quickCommandsError = humanizeError(err, t('engine.hermesQuickCommandsConfigLoadFailed') || 'Load quick commands config failed')
+      panelStateBus.setError('quick-commands', humanizeError(err, t('engine.hermesQuickCommandsConfigLoadFailed') || 'Load quick commands config failed'))
     } finally {
-      quickCommandsLoading = false
+      panelStateBus.setLoading('quick-commands', false)
       draw()
     }
     try {
       await loadModelConfig()
     } catch (err) {
-      modelError = humanizeError(err, t('engine.hermesModelConfigLoadFailed') || 'Load model config failed')
+      panelStateBus.setError('model-config', humanizeError(err, t('engine.hermesModelConfigLoadFailed') || 'Load model config failed'))
     } finally {
-      modelLoading = false
+      panelStateBus.setLoading('model-config', false)
       draw()
     }
     try {
       await loadModelCatalogConfig()
     } catch (err) {
-      modelCatalogError = humanizeError(err, t('engine.hermesModelCatalogConfigLoadFailed') || 'Load model catalog config failed')
+      panelStateBus.setError('model-catalog', humanizeError(err, t('engine.hermesModelCatalogConfigLoadFailed') || 'Load model catalog config failed'))
     } finally {
-      modelCatalogLoading = false
+      panelStateBus.setLoading('model-catalog', false)
       draw()
     }
     try {
       await loadXSearchConfig()
     } catch (err) {
-      xSearchError = humanizeError(err, t('engine.hermesXSearchConfigLoadFailed') || 'Load X search config failed')
+      panelStateBus.setError('x-search', humanizeError(err, t('engine.hermesXSearchConfigLoadFailed') || 'Load X search config failed'))
     } finally {
-      xSearchLoading = false
+      panelStateBus.setLoading('x-search', false)
       draw()
     }
     try {
       await loadContextConfig()
     } catch (err) {
-      contextError = humanizeError(err, t('engine.hermesContextConfigLoadFailed') || 'Load context config failed')
+      panelStateBus.setError('context-config', humanizeError(err, t('engine.hermesContextConfigLoadFailed') || 'Load context config failed'))
     } finally {
-      contextLoading = false
+      panelStateBus.setLoading('context-config', false)
       draw()
     }
     try {
       await loadModelAliasesConfig()
     } catch (err) {
-      modelAliasesError = humanizeError(err, t('engine.hermesModelAliasesConfigLoadFailed') || 'Load model aliases config failed')
+      panelStateBus.setError('model-aliases', humanizeError(err, t('engine.hermesModelAliasesConfigLoadFailed') || 'Load model aliases config failed'))
     } finally {
-      modelAliasesLoading = false
+      panelStateBus.setLoading('model-aliases', false)
       draw()
     }
     try {
       await loadHooksConfig()
     } catch (err) {
-      hooksError = humanizeError(err, t('engine.hermesHooksConfigLoadFailed') || 'Load hooks config failed')
+      panelStateBus.setError('hooks', humanizeError(err, t('engine.hermesHooksConfigLoadFailed') || 'Load hooks config failed'))
     } finally {
-      hooksLoading = false
+      panelStateBus.setLoading('hooks', false)
       draw()
     }
     try {
       await loadProviderOverridesConfig()
     } catch (err) {
-      providerOverridesError = humanizeError(err, t('engine.hermesProviderOverridesConfigLoadFailed') || 'Load provider override config failed')
+      panelStateBus.setError('provider-overrides', humanizeError(err, t('engine.hermesProviderOverridesConfigLoadFailed') || 'Load provider override config failed'))
     } finally {
-      providerOverridesLoading = false
+      panelStateBus.setLoading('provider-overrides', false)
       draw()
     }
     try {
       await loadMcpServersConfig()
     } catch (err) {
-      mcpServersError = humanizeError(err, t('engine.hermesMcpServersConfigLoadFailed') || 'Load MCP servers config failed')
+      panelStateBus.setError('mcp-servers', humanizeError(err, t('engine.hermesMcpServersConfigLoadFailed') || 'Load MCP servers config failed'))
     } finally {
-      mcpServersLoading = false
+      panelStateBus.setLoading('mcp-servers', false)
       draw()
     }
     try {
       await loadAgentToolsetsConfig()
     } catch (err) {
-      agentToolsetsError = humanizeError(err, t('engine.hermesAgentToolsetsConfigLoadFailed') || 'Load agent toolsets config failed')
+      panelStateBus.setError('agent-toolsets', humanizeError(err, t('engine.hermesAgentToolsetsConfigLoadFailed') || 'Load agent toolsets config failed'))
     } finally {
-      agentToolsetsLoading = false
+      panelStateBus.setLoading('agent-toolsets', false)
       draw()
     }
     try {
       await loadPlatformToolsetsConfig()
     } catch (err) {
-      platformToolsetsError = humanizeError(err, t('engine.hermesPlatformToolsetsConfigLoadFailed') || 'Load platform toolsets config failed')
+      panelStateBus.setError('platform-toolsets', humanizeError(err, t('engine.hermesPlatformToolsetsConfigLoadFailed') || 'Load platform toolsets config failed'))
     } finally {
-      platformToolsetsLoading = false
+      panelStateBus.setLoading('platform-toolsets', false)
       draw()
     }
     try {
       await loadAgentRuntimeConfig()
     } catch (err) {
-      agentRuntimeError = humanizeError(err, t('engine.hermesAgentRuntimeConfigLoadFailed') || 'Load agent runtime config failed')
+      panelStateBus.setError('agent-runtime', humanizeError(err, t('engine.hermesAgentRuntimeConfigLoadFailed') || 'Load agent runtime config failed'))
     } finally {
-      agentRuntimeLoading = false
+      panelStateBus.setLoading('agent-runtime', false)
       draw()
     }
     try {
       await loadUnauthorizedDmConfig()
     } catch (err) {
-      unauthorizedDmError = humanizeError(err, t('engine.hermesUnauthorizedDmConfigLoadFailed') || 'Load unauthorized DM config failed')
+      panelStateBus.setError('unauthorized-dm', humanizeError(err, t('engine.hermesUnauthorizedDmConfigLoadFailed') || 'Load unauthorized DM config failed'))
     } finally {
-      unauthorizedDmLoading = false
+      panelStateBus.setLoading('unauthorized-dm', false)
       draw()
     }
     try {
       await loadSecurityConfig()
     } catch (err) {
-      securityError = humanizeError(err, t('engine.hermesSecurityConfigLoadFailed') || 'Load security config failed')
+      panelStateBus.setError('security', humanizeError(err, t('engine.hermesSecurityConfigLoadFailed') || 'Load security config failed'))
     } finally {
-      securityLoading = false
+      panelStateBus.setLoading('security', false)
       draw()
     }
     try {
       await loadDisplayConfig()
     } catch (err) {
-      displayError = humanizeError(err, t('engine.hermesDisplayConfigLoadFailed') || 'Load display config failed')
+      panelStateBus.setError('display', humanizeError(err, t('engine.hermesDisplayConfigLoadFailed') || 'Load display config failed'))
     } finally {
-      displayLoading = false
+      panelStateBus.setLoading('display', false)
       draw()
     }
     try {
       await loadHumanDelayConfig()
     } catch (err) {
-      humanDelayError = humanizeError(err, t('engine.hermesHumanDelayConfigLoadFailed') || 'Load human delay config failed')
+      panelStateBus.setError('human-delay', humanizeError(err, t('engine.hermesHumanDelayConfigLoadFailed') || 'Load human delay config failed'))
     } finally {
-      humanDelayLoading = false
+      panelStateBus.setLoading('human-delay', false)
       draw()
     }
     try {
       await loadKanbanConfig()
     } catch (err) {
-      kanbanError = humanizeError(err, t('engine.hermesKanbanConfigLoadFailed') || 'Load Kanban config failed')
+      panelStateBus.setError('kanban', humanizeError(err, t('engine.hermesKanbanConfigLoadFailed') || 'Load Kanban config failed'))
     } finally {
-      kanbanLoading = false
+      panelStateBus.setLoading('kanban', false)
       draw()
     }
   }
@@ -3810,8 +3729,8 @@ export function render() {
       threadSessionsPerUser: !!el.querySelector('#hm-thread-sessions-per-user')?.checked,
       worktreeEnabled: !!el.querySelector('#hm-worktree-enabled')?.checked,
     }
-    runtimeSaving = true
-    runtimeError = null
+    panelStateBus.setSaving('runtime', true)
+    panelStateBus.setError('runtime', null)
     draw()
     try {
       const result = await api.hermesSessionRuntimeConfigSave(form)
@@ -3823,10 +3742,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      runtimeError = humanizeError(err, t('engine.hermesSessionRuntimeSaveFailed') || 'Save runtime config failed')
-      toast(runtimeError, 'error')
+      panelStateBus.setError('runtime', humanizeError(err, t('engine.hermesSessionRuntimeSaveFailed') || 'Save runtime config failed'))
+      toast(panelStateBus.getState('runtime')?.error, 'error')
     } finally {
-      runtimeSaving = false
+      panelStateBus.setSaving('runtime', false)
       draw()
     }
   }
@@ -3839,8 +3758,8 @@ export function render() {
       sessionsMinIntervalHours: el.querySelector('#hm-sessions-min-interval-hours')?.value || '24',
       sessionsWriteJsonSnapshots: !!el.querySelector('#hm-sessions-write-json-snapshots')?.checked,
     }
-    sessionsMaintenanceSaving = true
-    sessionsMaintenanceError = null
+    panelStateBus.setSaving('sessions-maintenance', true)
+    panelStateBus.setError('sessions-maintenance', null)
     draw()
     try {
       const result = await api.hermesSessionsMaintenanceConfigSave(form)
@@ -3852,10 +3771,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      sessionsMaintenanceError = humanizeError(err, t('engine.hermesSessionsMaintenanceSaveFailed') || 'Save session maintenance config failed')
-      toast(sessionsMaintenanceError, 'error')
+      panelStateBus.setError('sessions-maintenance', humanizeError(err, t('engine.hermesSessionsMaintenanceSaveFailed') || 'Save session maintenance config failed'))
+      toast(panelStateBus.getState('sessions-maintenance')?.error, 'error')
     } finally {
-      sessionsMaintenanceSaving = false
+      panelStateBus.setSaving('sessions-maintenance', false)
       draw()
     }
   }
@@ -3865,8 +3784,8 @@ export function render() {
       updatesPreUpdateBackup: !!el.querySelector('#hm-updates-pre-update-backup')?.checked,
       updatesBackupKeep: el.querySelector('#hm-updates-backup-keep')?.value || '5',
     }
-    updatesSaving = true
-    updatesError = null
+    panelStateBus.setSaving('updates', true)
+    panelStateBus.setError('updates', null)
     draw()
     try {
       const result = await api.hermesUpdatesConfigSave(form)
@@ -3878,10 +3797,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      updatesError = humanizeError(err, t('engine.hermesUpdatesConfigSaveFailed') || 'Save updates config failed')
-      toast(updatesError, 'error')
+      panelStateBus.setError('updates', humanizeError(err, t('engine.hermesUpdatesConfigSaveFailed') || 'Save updates config failed'))
+      toast(panelStateBus.getState('updates')?.error, 'error')
     } finally {
-      updatesSaving = false
+      panelStateBus.setSaving('updates', false)
       draw()
     }
   }
@@ -3895,8 +3814,8 @@ export function render() {
       protectFirstN: el.querySelector('#hm-compression-protect-first-n')?.value || '3',
       abortOnSummaryFailure: !!el.querySelector('#hm-compression-abort-on-summary-failure')?.checked,
     }
-    compressionSaving = true
-    compressionError = null
+    panelStateBus.setSaving('compression', true)
+    panelStateBus.setError('compression', null)
     draw()
     try {
       const result = await api.hermesCompressionConfigSave(form)
@@ -3908,10 +3827,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      compressionError = humanizeError(err, t('engine.hermesCompressionSaveFailed') || 'Save compression config failed')
-      toast(compressionError, 'error')
+      panelStateBus.setError('compression', humanizeError(err, t('engine.hermesCompressionSaveFailed') || 'Save compression config failed'))
+      toast(panelStateBus.getState('compression')?.error, 'error')
     } finally {
-      compressionSaving = false
+      panelStateBus.setSaving('compression', false)
       draw()
     }
   }
@@ -3920,8 +3839,8 @@ export function render() {
     const form = {
       promptCacheTtl: el.querySelector('#hm-prompt-cache-ttl')?.value || '5m',
     }
-    promptCachingSaving = true
-    promptCachingError = null
+    panelStateBus.setSaving('prompt-caching', true)
+    panelStateBus.setError('prompt-caching', null)
     draw()
     try {
       const result = await api.hermesPromptCachingConfigSave(form)
@@ -3933,10 +3852,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      promptCachingError = humanizeError(err, t('engine.hermesPromptCachingConfigSaveFailed') || 'Save prompt caching config failed')
-      toast(promptCachingError, 'error')
+      panelStateBus.setError('prompt-caching', humanizeError(err, t('engine.hermesPromptCachingConfigSaveFailed') || 'Save prompt caching config failed'))
+      toast(panelStateBus.getState('prompt-caching')?.error, 'error')
     } finally {
-      promptCachingSaving = false
+      panelStateBus.setSaving('prompt-caching', false)
       draw()
     }
   }
@@ -3946,8 +3865,8 @@ export function render() {
       openrouterResponseCache: !!el.querySelector('#hm-openrouter-response-cache')?.checked,
       openrouterResponseCacheTtl: el.querySelector('#hm-openrouter-response-cache-ttl')?.value || '300',
     }
-    openrouterCacheSaving = true
-    openrouterCacheError = null
+    panelStateBus.setSaving('openrouter-cache', true)
+    panelStateBus.setError('openrouter-cache', null)
     draw()
     try {
       const result = await api.hermesOpenrouterCacheConfigSave(form)
@@ -3959,10 +3878,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      openrouterCacheError = humanizeError(err, t('engine.hermesOpenrouterCacheConfigSaveFailed') || 'Save OpenRouter cache config failed')
-      toast(openrouterCacheError, 'error')
+      panelStateBus.setError('openrouter-cache', humanizeError(err, t('engine.hermesOpenrouterCacheConfigSaveFailed') || 'Save OpenRouter cache config failed'))
+      toast(panelStateBus.getState('openrouter-cache')?.error, 'error')
     } finally {
-      openrouterCacheSaving = false
+      panelStateBus.setSaving('openrouter-cache', false)
       draw()
     }
   }
@@ -3976,8 +3895,8 @@ export function render() {
       providerRoutingRequireParameters: !!el.querySelector('#hm-provider-routing-require-parameters')?.checked,
       providerRoutingDataCollection: el.querySelector('#hm-provider-routing-data-collection')?.value || 'allow',
     }
-    providerRoutingSaving = true
-    providerRoutingError = null
+    panelStateBus.setSaving('provider-routing', true)
+    panelStateBus.setError('provider-routing', null)
     draw()
     try {
       const result = await api.hermesProviderRoutingConfigSave(form)
@@ -3989,10 +3908,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      providerRoutingError = humanizeError(err, t('engine.hermesProviderRoutingConfigSaveFailed') || 'Save provider routing config failed')
-      toast(providerRoutingError, 'error')
+      panelStateBus.setError('provider-routing', humanizeError(err, t('engine.hermesProviderRoutingConfigSaveFailed') || 'Save provider routing config failed'))
+      toast(panelStateBus.getState('provider-routing')?.error, 'error')
     } finally {
-      providerRoutingSaving = false
+      panelStateBus.setSaving('provider-routing', false)
       draw()
     }
   }
@@ -4010,8 +3929,8 @@ export function render() {
       auxiliarySessionSearchTimeout: el.querySelector('#hm-auxiliary-session-search-timeout')?.value || '30',
       auxiliarySessionSearchMaxConcurrency: el.querySelector('#hm-auxiliary-session-search-max-concurrency')?.value || '3',
     }
-    auxiliarySaving = true
-    auxiliaryError = null
+    panelStateBus.setSaving('auxiliary', true)
+    panelStateBus.setError('auxiliary', null)
     draw()
     try {
       const result = await api.hermesAuxiliaryConfigSave(form)
@@ -4023,10 +3942,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      auxiliaryError = humanizeError(err, t('engine.hermesAuxiliaryConfigSaveFailed') || 'Save auxiliary config failed')
-      toast(auxiliaryError, 'error')
+      panelStateBus.setError('auxiliary', humanizeError(err, t('engine.hermesAuxiliaryConfigSaveFailed') || 'Save auxiliary config failed'))
+      toast(panelStateBus.getState('auxiliary')?.error, 'error')
     } finally {
-      auxiliarySaving = false
+      panelStateBus.setSaving('auxiliary', false)
       draw()
     }
   }
@@ -4042,8 +3961,8 @@ export function render() {
       hardStopSameToolFailure: el.querySelector('#hm-tool-guardrails-hard-stop-same-tool-failure')?.value || '8',
       hardStopNoProgress: el.querySelector('#hm-tool-guardrails-hard-stop-no-progress')?.value || '5',
     }
-    toolGuardrailsSaving = true
-    toolGuardrailsError = null
+    panelStateBus.setSaving('tool-guardrails', true)
+    panelStateBus.setError('tool-guardrails', null)
     draw()
     try {
       const result = await api.hermesToolLoopGuardrailsConfigSave(form)
@@ -4055,10 +3974,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      toolGuardrailsError = humanizeError(err, t('engine.hermesToolGuardrailsSaveFailed') || 'Save tool guardrail config failed')
-      toast(toolGuardrailsError, 'error')
+      panelStateBus.setError('tool-guardrails', humanizeError(err, t('engine.hermesToolGuardrailsSaveFailed') || 'Save tool guardrail config failed'))
+      toast(panelStateBus.getState('tool-guardrails')?.error, 'error')
     } finally {
-      toolGuardrailsSaving = false
+      panelStateBus.setSaving('tool-guardrails', false)
       draw()
     }
   }
@@ -4072,8 +3991,8 @@ export function render() {
       nudgeInterval: el.querySelector('#hm-memory-nudge-interval')?.value || '10',
       flushMinTurns: el.querySelector('#hm-memory-flush-min-turns')?.value || '6',
     }
-    memorySaving = true
-    memoryError = null
+    panelStateBus.setSaving('memory', true)
+    panelStateBus.setError('memory', null)
     draw()
     try {
       const result = await api.hermesMemoryConfigSave(form)
@@ -4085,10 +4004,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      memoryError = humanizeError(err, t('engine.hermesMemoryConfigSaveFailed') || 'Save memory config failed')
-      toast(memoryError, 'error')
+      panelStateBus.setError('memory', humanizeError(err, t('engine.hermesMemoryConfigSaveFailed') || 'Save memory config failed'))
+      toast(panelStateBus.getState('memory')?.error, 'error')
     } finally {
-      memorySaving = false
+      panelStateBus.setSaving('memory', false)
       draw()
     }
   }
@@ -4102,8 +4021,8 @@ export function render() {
       guardAgentCreated: !!el.querySelector('#hm-skills-guard-agent-created')?.checked,
       externalDirs: el.querySelector('#hm-skills-external-dirs')?.value || '',
     }
-    skillsSaving = true
-    skillsError = null
+    panelStateBus.setSaving('skills-config', true)
+    panelStateBus.setError('skills-config', null)
     draw()
     try {
       const result = await api.hermesSkillsConfigSave(form)
@@ -4115,10 +4034,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      skillsError = humanizeError(err, t('engine.hermesSkillsConfigSaveFailed') || 'Save skills config failed')
-      toast(skillsError, 'error')
+      panelStateBus.setError('skills-config', humanizeError(err, t('engine.hermesSkillsConfigSaveFailed') || 'Save skills config failed'))
+      toast(panelStateBus.getState('skills-config')?.error, 'error')
     } finally {
-      skillsSaving = false
+      panelStateBus.setSaving('skills-config', false)
       draw()
     }
   }
@@ -4133,8 +4052,8 @@ export function render() {
       curatorBackupEnabled: !!el.querySelector('#hm-curator-backup-enabled')?.checked,
       curatorBackupKeep: el.querySelector('#hm-curator-backup-keep')?.value || '5',
     }
-    curatorSaving = true
-    curatorError = null
+    panelStateBus.setSaving('curator-config', true)
+    panelStateBus.setError('curator-config', null)
     draw()
     try {
       const result = await api.hermesCuratorConfigSave(form)
@@ -4146,10 +4065,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      curatorError = humanizeError(err, t('engine.hermesCuratorConfigSaveFailed') || 'Save curator config failed')
-      toast(curatorError, 'error')
+      panelStateBus.setError('curator-config', humanizeError(err, t('engine.hermesCuratorConfigSaveFailed') || 'Save curator config failed'))
+      toast(panelStateBus.getState('curator-config')?.error, 'error')
     } finally {
-      curatorSaving = false
+      panelStateBus.setSaving('curator-config', false)
       draw()
     }
   }
@@ -4158,8 +4077,8 @@ export function render() {
     const form = {
       quickCommandsJson: el.querySelector('#hm-quick-commands-json')?.value || '{}',
     }
-    quickCommandsSaving = true
-    quickCommandsError = null
+    panelStateBus.setSaving('quick-commands', true)
+    panelStateBus.setError('quick-commands', null)
     draw()
     try {
       const result = await api.hermesQuickCommandsConfigSave(form)
@@ -4171,10 +4090,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      quickCommandsError = humanizeError(err, t('engine.hermesQuickCommandsConfigSaveFailed') || 'Save quick commands config failed')
-      toast(quickCommandsError, 'error')
+      panelStateBus.setError('quick-commands', humanizeError(err, t('engine.hermesQuickCommandsConfigSaveFailed') || 'Save quick commands config failed'))
+      toast(panelStateBus.getState('quick-commands')?.error, 'error')
     } finally {
-      quickCommandsSaving = false
+      panelStateBus.setSaving('quick-commands', false)
       draw()
     }
   }
@@ -4187,8 +4106,8 @@ export function render() {
       modelContextLength: el.querySelector('#hm-model-context-length')?.value || '',
       modelMaxTokens: el.querySelector('#hm-model-max-tokens')?.value || '',
     }
-    modelSaving = true
-    modelError = null
+    panelStateBus.setSaving('model-config', true)
+    panelStateBus.setError('model-config', null)
     draw()
     try {
       const result = await api.hermesModelConfigSave(form)
@@ -4200,10 +4119,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      modelError = humanizeError(err, t('engine.hermesModelConfigSaveFailed') || 'Save model config failed')
-      toast(modelError, 'error')
+      panelStateBus.setError('model-config', humanizeError(err, t('engine.hermesModelConfigSaveFailed') || 'Save model config failed'))
+      toast(panelStateBus.getState('model-config')?.error, 'error')
     } finally {
-      modelSaving = false
+      panelStateBus.setSaving('model-config', false)
       draw()
     }
   }
@@ -4215,8 +4134,8 @@ export function render() {
       modelCatalogTtlHours: el.querySelector('#hm-model-catalog-ttl-hours')?.value || '24',
       modelCatalogProvidersJson: el.querySelector('#hm-model-catalog-providers-json')?.value || '{}',
     }
-    modelCatalogSaving = true
-    modelCatalogError = null
+    panelStateBus.setSaving('model-catalog', true)
+    panelStateBus.setError('model-catalog', null)
     draw()
     try {
       const result = await api.hermesModelCatalogConfigSave(form)
@@ -4228,10 +4147,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      modelCatalogError = humanizeError(err, t('engine.hermesModelCatalogConfigSaveFailed') || 'Save model catalog config failed')
-      toast(modelCatalogError, 'error')
+      panelStateBus.setError('model-catalog', humanizeError(err, t('engine.hermesModelCatalogConfigSaveFailed') || 'Save model catalog config failed'))
+      toast(panelStateBus.getState('model-catalog')?.error, 'error')
     } finally {
-      modelCatalogSaving = false
+      panelStateBus.setSaving('model-catalog', false)
       draw()
     }
   }
@@ -4242,8 +4161,8 @@ export function render() {
       xSearchTimeoutSeconds: el.querySelector('#hm-x-search-timeout-seconds')?.value || String(X_SEARCH_DEFAULTS.xSearchTimeoutSeconds),
       xSearchRetries: el.querySelector('#hm-x-search-retries')?.value || String(X_SEARCH_DEFAULTS.xSearchRetries),
     }
-    xSearchSaving = true
-    xSearchError = null
+    panelStateBus.setSaving('x-search', true)
+    panelStateBus.setError('x-search', null)
     draw()
     try {
       const result = await api.hermesXSearchConfigSave(form)
@@ -4255,10 +4174,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      xSearchError = humanizeError(err, t('engine.hermesXSearchConfigSaveFailed') || 'Save X search config failed')
-      toast(xSearchError, 'error')
+      panelStateBus.setError('x-search', humanizeError(err, t('engine.hermesXSearchConfigSaveFailed') || 'Save X search config failed'))
+      toast(panelStateBus.getState('x-search')?.error, 'error')
     } finally {
-      xSearchSaving = false
+      panelStateBus.setSaving('x-search', false)
       draw()
     }
   }
@@ -4267,8 +4186,8 @@ export function render() {
     const form = {
       contextEngine: el.querySelector('#hm-context-engine')?.value || CONTEXT_DEFAULTS.contextEngine,
     }
-    contextSaving = true
-    contextError = null
+    panelStateBus.setSaving('context-config', true)
+    panelStateBus.setError('context-config', null)
     draw()
     try {
       const result = await api.hermesContextConfigSave(form)
@@ -4280,10 +4199,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      contextError = humanizeError(err, t('engine.hermesContextConfigSaveFailed') || 'Save context config failed')
-      toast(contextError, 'error')
+      panelStateBus.setError('context-config', humanizeError(err, t('engine.hermesContextConfigSaveFailed') || 'Save context config failed'))
+      toast(panelStateBus.getState('context-config')?.error, 'error')
     } finally {
-      contextSaving = false
+      panelStateBus.setSaving('context-config', false)
       draw()
     }
   }
@@ -4292,8 +4211,8 @@ export function render() {
     const form = {
       modelAliasesJson: el.querySelector('#hm-model-aliases-json')?.value || '{}',
     }
-    modelAliasesSaving = true
-    modelAliasesError = null
+    panelStateBus.setSaving('model-aliases', true)
+    panelStateBus.setError('model-aliases', null)
     draw()
     try {
       const result = await api.hermesModelAliasesConfigSave(form)
@@ -4305,10 +4224,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      modelAliasesError = humanizeError(err, t('engine.hermesModelAliasesConfigSaveFailed') || 'Save model aliases config failed')
-      toast(modelAliasesError, 'error')
+      panelStateBus.setError('model-aliases', humanizeError(err, t('engine.hermesModelAliasesConfigSaveFailed') || 'Save model aliases config failed'))
+      toast(panelStateBus.getState('model-aliases')?.error, 'error')
     } finally {
-      modelAliasesSaving = false
+      panelStateBus.setSaving('model-aliases', false)
       draw()
     }
   }
@@ -4318,8 +4237,8 @@ export function render() {
       hooksAutoAccept: !!el.querySelector('#hm-hooks-auto-accept')?.checked,
       hooksJson: el.querySelector('#hm-hooks-json')?.value || '{}',
     }
-    hooksSaving = true
-    hooksError = null
+    panelStateBus.setSaving('hooks', true)
+    panelStateBus.setError('hooks', null)
     draw()
     try {
       const result = await api.hermesHooksConfigSave(form)
@@ -4331,10 +4250,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      hooksError = humanizeError(err, t('engine.hermesHooksConfigSaveFailed') || 'Save hooks config failed')
-      toast(hooksError, 'error')
+      panelStateBus.setError('hooks', humanizeError(err, t('engine.hermesHooksConfigSaveFailed') || 'Save hooks config failed'))
+      toast(panelStateBus.getState('hooks')?.error, 'error')
     } finally {
-      hooksSaving = false
+      panelStateBus.setSaving('hooks', false)
       draw()
     }
   }
@@ -4343,8 +4262,8 @@ export function render() {
     const form = {
       providerOverridesJson: el.querySelector('#hm-provider-overrides-json')?.value || '{}',
     }
-    providerOverridesSaving = true
-    providerOverridesError = null
+    panelStateBus.setSaving('provider-overrides', true)
+    panelStateBus.setError('provider-overrides', null)
     draw()
     try {
       const result = await api.hermesProviderOverridesConfigSave(form)
@@ -4356,10 +4275,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      providerOverridesError = humanizeError(err, t('engine.hermesProviderOverridesConfigSaveFailed') || 'Save provider override config failed')
-      toast(providerOverridesError, 'error')
+      panelStateBus.setError('provider-overrides', humanizeError(err, t('engine.hermesProviderOverridesConfigSaveFailed') || 'Save provider override config failed'))
+      toast(panelStateBus.getState('provider-overrides')?.error, 'error')
     } finally {
-      providerOverridesSaving = false
+      panelStateBus.setSaving('provider-overrides', false)
       draw()
     }
   }
@@ -4368,8 +4287,8 @@ export function render() {
     const form = {
       mcpServersJson: el.querySelector('#hm-mcp-servers-json')?.value || '{}',
     }
-    mcpServersSaving = true
-    mcpServersError = null
+    panelStateBus.setSaving('mcp-servers', true)
+    panelStateBus.setError('mcp-servers', null)
     draw()
     try {
       const result = await api.hermesMcpServersConfigSave(form)
@@ -4381,10 +4300,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      mcpServersError = humanizeError(err, t('engine.hermesMcpServersConfigSaveFailed') || 'Save MCP servers config failed')
-      toast(mcpServersError, 'error')
+      panelStateBus.setError('mcp-servers', humanizeError(err, t('engine.hermesMcpServersConfigSaveFailed') || 'Save MCP servers config failed'))
+      toast(panelStateBus.getState('mcp-servers')?.error, 'error')
     } finally {
-      mcpServersSaving = false
+      panelStateBus.setSaving('mcp-servers', false)
       draw()
     }
   }
@@ -4393,8 +4312,8 @@ export function render() {
     const form = {
       disabledToolsets: el.querySelector('#hm-agent-disabled-toolsets')?.value || '',
     }
-    agentToolsetsSaving = true
-    agentToolsetsError = null
+    panelStateBus.setSaving('agent-toolsets', true)
+    panelStateBus.setError('agent-toolsets', null)
     draw()
     try {
       const result = await api.hermesAgentToolsetsConfigSave(form)
@@ -4406,10 +4325,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      agentToolsetsError = humanizeError(err, t('engine.hermesAgentToolsetsConfigSaveFailed') || 'Save agent toolsets config failed')
-      toast(agentToolsetsError, 'error')
+      panelStateBus.setError('agent-toolsets', humanizeError(err, t('engine.hermesAgentToolsetsConfigSaveFailed') || 'Save agent toolsets config failed'))
+      toast(panelStateBus.getState('agent-toolsets')?.error, 'error')
     } finally {
-      agentToolsetsSaving = false
+      panelStateBus.setSaving('agent-toolsets', false)
       draw()
     }
   }
@@ -4418,8 +4337,8 @@ export function render() {
     const form = {
       platformToolsetsJson: el.querySelector('#hm-platform-toolsets-json')?.value || '{}',
     }
-    platformToolsetsSaving = true
-    platformToolsetsError = null
+    panelStateBus.setSaving('platform-toolsets', true)
+    panelStateBus.setError('platform-toolsets', null)
     draw()
     try {
       const result = await api.hermesPlatformToolsetsConfigSave(form)
@@ -4431,10 +4350,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      platformToolsetsError = humanizeError(err, t('engine.hermesPlatformToolsetsConfigSaveFailed') || 'Save platform toolsets config failed')
-      toast(platformToolsetsError, 'error')
+      panelStateBus.setError('platform-toolsets', humanizeError(err, t('engine.hermesPlatformToolsetsConfigSaveFailed') || 'Save platform toolsets config failed'))
+      toast(panelStateBus.getState('platform-toolsets')?.error, 'error')
     } finally {
-      platformToolsetsSaving = false
+      panelStateBus.setSaving('platform-toolsets', false)
       draw()
     }
   }
@@ -4454,8 +4373,8 @@ export function render() {
       agentVerbose: !!el.querySelector('#hm-agent-verbose')?.checked,
       personalitiesJson: el.querySelector('#hm-agent-personalities-json')?.value || '{}',
     }
-    agentRuntimeSaving = true
-    agentRuntimeError = null
+    panelStateBus.setSaving('agent-runtime', true)
+    panelStateBus.setError('agent-runtime', null)
     draw()
     try {
       const result = await api.hermesAgentRuntimeConfigSave(form)
@@ -4467,10 +4386,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      agentRuntimeError = humanizeError(err, t('engine.hermesAgentRuntimeConfigSaveFailed') || 'Save agent runtime config failed')
-      toast(agentRuntimeError, 'error')
+      panelStateBus.setError('agent-runtime', humanizeError(err, t('engine.hermesAgentRuntimeConfigSaveFailed') || 'Save agent runtime config failed'))
+      toast(panelStateBus.getState('agent-runtime')?.error, 'error')
     } finally {
-      agentRuntimeSaving = false
+      panelStateBus.setSaving('agent-runtime', false)
       draw()
     }
   }
@@ -4479,8 +4398,8 @@ export function render() {
     const form = {
       unauthorizedDmBehavior: el.querySelector('#hm-unauthorized-dm-behavior')?.value || 'pair',
     }
-    unauthorizedDmSaving = true
-    unauthorizedDmError = null
+    panelStateBus.setSaving('unauthorized-dm', true)
+    panelStateBus.setError('unauthorized-dm', null)
     draw()
     try {
       const result = await api.hermesUnauthorizedDmConfigSave(form)
@@ -4492,10 +4411,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      unauthorizedDmError = humanizeError(err, t('engine.hermesUnauthorizedDmConfigSaveFailed') || 'Save unauthorized DM config failed')
-      toast(unauthorizedDmError, 'error')
+      panelStateBus.setError('unauthorized-dm', humanizeError(err, t('engine.hermesUnauthorizedDmConfigSaveFailed') || 'Save unauthorized DM config failed'))
+      toast(panelStateBus.getState('unauthorized-dm')?.error, 'error')
     } finally {
-      unauthorizedDmSaving = false
+      panelStateBus.setSaving('unauthorized-dm', false)
       draw()
     }
   }
@@ -4507,8 +4426,8 @@ export function render() {
       tirithTimeout: el.querySelector('#hm-security-tirith-timeout')?.value || '5',
       tirithFailOpen: !!el.querySelector('#hm-security-tirith-fail-open')?.checked,
     }
-    securitySaving = true
-    securityError = null
+    panelStateBus.setSaving('security', true)
+    panelStateBus.setError('security', null)
     draw()
     try {
       const result = await api.hermesSecurityConfigSave(form)
@@ -4520,10 +4439,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      securityError = humanizeError(err, t('engine.hermesSecurityConfigSaveFailed') || 'Save security config failed')
-      toast(securityError, 'error')
+      panelStateBus.setError('security', humanizeError(err, t('engine.hermesSecurityConfigSaveFailed') || 'Save security config failed'))
+      toast(panelStateBus.getState('security')?.error, 'error')
     } finally {
-      securitySaving = false
+      panelStateBus.setSaving('security', false)
       draw()
     }
   }
@@ -4561,8 +4480,8 @@ export function render() {
       displayEphemeralSystemTtl: el.querySelector('#hm-display-ephemeral-system-ttl')?.value || '0',
       displayCopyShortcut: el.querySelector('#hm-display-copy-shortcut')?.value || 'auto',
     }
-    displaySaving = true
-    displayError = null
+    panelStateBus.setSaving('display', true)
+    panelStateBus.setError('display', null)
     draw()
     try {
       const result = await api.hermesDisplayConfigSave(form)
@@ -4574,10 +4493,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      displayError = humanizeError(err, t('engine.hermesDisplayConfigSaveFailed') || 'Save display config failed')
-      toast(displayError, 'error')
+      panelStateBus.setError('display', humanizeError(err, t('engine.hermesDisplayConfigSaveFailed') || 'Save display config failed'))
+      toast(panelStateBus.getState('display')?.error, 'error')
     } finally {
-      displaySaving = false
+      panelStateBus.setSaving('display', false)
       draw()
     }
   }
@@ -4588,8 +4507,8 @@ export function render() {
       humanDelayMinMs: el.querySelector('#hm-human-delay-min-ms')?.value || '800',
       humanDelayMaxMs: el.querySelector('#hm-human-delay-max-ms')?.value || '2500',
     }
-    humanDelaySaving = true
-    humanDelayError = null
+    panelStateBus.setSaving('human-delay', true)
+    panelStateBus.setError('human-delay', null)
     draw()
     try {
       const result = await api.hermesHumanDelayConfigSave(form)
@@ -4601,10 +4520,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      humanDelayError = humanizeError(err, t('engine.hermesHumanDelayConfigSaveFailed') || 'Save human delay config failed')
-      toast(humanDelayError, 'error')
+      panelStateBus.setError('human-delay', humanizeError(err, t('engine.hermesHumanDelayConfigSaveFailed') || 'Save human delay config failed'))
+      toast(panelStateBus.getState('human-delay')?.error, 'error')
     } finally {
-      humanDelaySaving = false
+      panelStateBus.setSaving('human-delay', false)
       draw()
     }
   }
@@ -4624,8 +4543,8 @@ export function render() {
       defaultAssignee: el.querySelector('#hm-kanban-default-assignee')?.value || '',
       dispatchStaleTimeoutSeconds: el.querySelector('#hm-kanban-dispatch-stale-timeout-seconds')?.value || '14400',
     }
-    kanbanSaving = true
-    kanbanError = null
+    panelStateBus.setSaving('kanban', true)
+    panelStateBus.setError('kanban', null)
     draw()
     try {
       const result = await api.hermesKanbanConfigSave(form)
@@ -4637,10 +4556,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      kanbanError = humanizeError(err, t('engine.hermesKanbanConfigSaveFailed') || 'Save Kanban config failed')
-      toast(kanbanError, 'error')
+      panelStateBus.setError('kanban', humanizeError(err, t('engine.hermesKanbanConfigSaveFailed') || 'Save Kanban config failed'))
+      toast(panelStateBus.getState('kanban')?.error, 'error')
     } finally {
-      kanbanSaving = false
+      panelStateBus.setSaving('kanban', false)
       draw()
     }
   }
@@ -4654,8 +4573,8 @@ export function render() {
       cursor: el.querySelector('#hm-streaming-cursor')?.value ?? ' ▉',
       freshFinalAfterSeconds: el.querySelector('#hm-streaming-fresh-final-after-seconds')?.value || '60',
     }
-    streamingSaving = true
-    streamingError = null
+    panelStateBus.setSaving('streaming', true)
+    panelStateBus.setError('streaming', null)
     draw()
     try {
       const result = await api.hermesStreamingConfigSave(form)
@@ -4667,10 +4586,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      streamingError = humanizeError(err, t('engine.hermesStreamingConfigSaveFailed') || 'Save streaming config failed')
-      toast(streamingError, 'error')
+      panelStateBus.setError('streaming', humanizeError(err, t('engine.hermesStreamingConfigSaveFailed') || 'Save streaming config failed'))
+      toast(panelStateBus.getState('streaming')?.error, 'error')
     } finally {
-      streamingSaving = false
+      panelStateBus.setSaving('streaming', false)
       draw()
     }
   }
@@ -4690,8 +4609,8 @@ export function render() {
       delegationSubagentAutoApprove: !!el.querySelector('#hm-delegation-subagent-auto-approve')?.checked,
       delegationInheritMcpToolsets: !!el.querySelector('#hm-delegation-inherit-mcp-toolsets')?.checked,
     }
-    executionLimitsSaving = true
-    executionLimitsError = null
+    panelStateBus.setSaving('execution-limits', true)
+    panelStateBus.setError('execution-limits', null)
     draw()
     try {
       const result = await api.hermesExecutionLimitsConfigSave(form)
@@ -4703,10 +4622,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      executionLimitsError = humanizeError(err, t('engine.hermesExecutionLimitsSaveFailed') || 'Save execution limit config failed')
-      toast(executionLimitsError, 'error')
+      panelStateBus.setError('execution-limits', humanizeError(err, t('engine.hermesExecutionLimitsSaveFailed') || 'Save execution limit config failed'))
+      toast(panelStateBus.getState('execution-limits')?.error, 'error')
     } finally {
-      executionLimitsSaving = false
+      panelStateBus.setSaving('execution-limits', false)
       draw()
     }
   }
@@ -4718,8 +4637,8 @@ export function render() {
       toolOutputMaxLines: el.querySelector('#hm-tool-output-max-lines')?.value || '2000',
       toolOutputMaxLineLength: el.querySelector('#hm-tool-output-max-line-length')?.value || '2000',
     }
-    ioSafetySaving = true
-    ioSafetyError = null
+    panelStateBus.setSaving('io-safety', true)
+    panelStateBus.setError('io-safety', null)
     draw()
     try {
       const result = await api.hermesIoSafetyConfigSave(form)
@@ -4731,10 +4650,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      ioSafetyError = humanizeError(err, t('engine.hermesIoSafetySaveFailed') || 'Save input/output safety config failed')
-      toast(ioSafetyError, 'error')
+      panelStateBus.setError('io-safety', humanizeError(err, t('engine.hermesIoSafetySaveFailed') || 'Save input/output safety config failed'))
+      toast(panelStateBus.getState('io-safety')?.error, 'error')
     } finally {
-      ioSafetySaving = false
+      panelStateBus.setSaving('io-safety', false)
       draw()
     }
   }
@@ -4750,8 +4669,8 @@ export function render() {
       checkpointDeleteOrphans: !!el.querySelector('#hm-checkpoints-delete-orphans')?.checked,
       checkpointMinIntervalHours: el.querySelector('#hm-checkpoints-min-interval-hours')?.value || '24',
     }
-    checkpointsSaving = true
-    checkpointsError = null
+    panelStateBus.setSaving('checkpoints', true)
+    panelStateBus.setError('checkpoints', null)
     draw()
     try {
       const result = await api.hermesCheckpointsConfigSave(form)
@@ -4763,10 +4682,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      checkpointsError = humanizeError(err, t('engine.hermesCheckpointsConfigSaveFailed') || 'Save checkpoints config failed')
-      toast(checkpointsError, 'error')
+      panelStateBus.setError('checkpoints', humanizeError(err, t('engine.hermesCheckpointsConfigSaveFailed') || 'Save checkpoints config failed'))
+      toast(panelStateBus.getState('checkpoints')?.error, 'error')
     } finally {
-      checkpointsSaving = false
+      panelStateBus.setSaving('checkpoints', false)
       draw()
     }
   }
@@ -4776,8 +4695,8 @@ export function render() {
       cronWrapResponse: !!el.querySelector('#hm-cron-wrap-response')?.checked,
       cronMaxParallelJobs: el.querySelector('#hm-cron-max-parallel-jobs')?.value || '0',
     }
-    cronSaving = true
-    cronError = null
+    panelStateBus.setSaving('cron', true)
+    panelStateBus.setError('cron', null)
     draw()
     try {
       const result = await api.hermesCronConfigSave(form)
@@ -4789,10 +4708,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      cronError = humanizeError(err, t('engine.hermesCronConfigSaveFailed') || 'Save cron config failed')
-      toast(cronError, 'error')
+      panelStateBus.setError('cron', humanizeError(err, t('engine.hermesCronConfigSaveFailed') || 'Save cron config failed'))
+      toast(panelStateBus.getState('cron')?.error, 'error')
     } finally {
-      cronSaving = false
+      panelStateBus.setSaving('cron', false)
       draw()
     }
   }
@@ -4805,8 +4724,8 @@ export function render() {
       loggingMemoryMonitorEnabled: !!el.querySelector('#hm-logging-memory-monitor-enabled')?.checked,
       loggingMemoryMonitorIntervalSeconds: el.querySelector('#hm-logging-memory-monitor-interval-seconds')?.value || '300',
     }
-    loggingSaving = true
-    loggingError = null
+    panelStateBus.setSaving('logging', true)
+    panelStateBus.setError('logging', null)
     draw()
     try {
       const result = await api.hermesLoggingConfigSave(form)
@@ -4818,10 +4737,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      loggingError = humanizeError(err, t('engine.hermesLoggingConfigSaveFailed') || 'Save logging config failed')
-      toast(loggingError, 'error')
+      panelStateBus.setError('logging', humanizeError(err, t('engine.hermesLoggingConfigSaveFailed') || 'Save logging config failed'))
+      toast(panelStateBus.getState('logging')?.error, 'error')
     } finally {
-      loggingSaving = false
+      panelStateBus.setSaving('logging', false)
       draw()
     }
   }
@@ -4834,8 +4753,8 @@ export function render() {
       approvalMcpReloadConfirm: !!el.querySelector('#hm-approval-mcp-reload-confirm')?.checked,
       approvalDestructiveSlashConfirm: !!el.querySelector('#hm-approval-destructive-slash-confirm')?.checked,
     }
-    approvalsSaving = true
-    approvalsError = null
+    panelStateBus.setSaving('approvals', true)
+    panelStateBus.setError('approvals', null)
     draw()
     try {
       const result = await api.hermesApprovalsConfigSave(form)
@@ -4847,10 +4766,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      approvalsError = humanizeError(err, t('engine.hermesApprovalsConfigSaveFailed') || 'Save approvals config failed')
-      toast(approvalsError, 'error')
+      panelStateBus.setError('approvals', humanizeError(err, t('engine.hermesApprovalsConfigSaveFailed') || 'Save approvals config failed'))
+      toast(panelStateBus.getState('approvals')?.error, 'error')
     } finally {
-      approvalsSaving = false
+      panelStateBus.setSaving('approvals', false)
       draw()
     }
   }
@@ -4859,8 +4778,8 @@ export function render() {
     const form = {
       redactPii: !!el.querySelector('#hm-privacy-redact-pii')?.checked,
     }
-    privacySaving = true
-    privacyError = null
+    panelStateBus.setSaving('privacy', true)
+    panelStateBus.setError('privacy', null)
     draw()
     try {
       const result = await api.hermesPrivacyConfigSave(form)
@@ -4872,10 +4791,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      privacyError = humanizeError(err, t('engine.hermesPrivacyConfigSaveFailed') || 'Save privacy config failed')
-      toast(privacyError, 'error')
+      panelStateBus.setError('privacy', humanizeError(err, t('engine.hermesPrivacyConfigSaveFailed') || 'Save privacy config failed'))
+      toast(panelStateBus.getState('privacy')?.error, 'error')
     } finally {
-      privacySaving = false
+      panelStateBus.setSaving('privacy', false)
       draw()
     }
   }
@@ -4896,8 +4815,8 @@ export function render() {
       browserDialogPolicy: el.querySelector('#hm-browser-dialog-policy')?.value || 'must_respond',
       browserDialogTimeout: el.querySelector('#hm-browser-dialog-timeout')?.value || '300',
     }
-    browserSaving = true
-    browserError = null
+    panelStateBus.setSaving('browser', true)
+    panelStateBus.setError('browser', null)
     draw()
     try {
       const result = await api.hermesBrowserConfigSave(form)
@@ -4909,10 +4828,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      browserError = humanizeError(err, t('engine.hermesBrowserConfigSaveFailed') || 'Save browser config failed')
-      toast(browserError, 'error')
+      panelStateBus.setError('browser', humanizeError(err, t('engine.hermesBrowserConfigSaveFailed') || 'Save browser config failed'))
+      toast(panelStateBus.getState('browser')?.error, 'error')
     } finally {
-      browserSaving = false
+      panelStateBus.setSaving('browser', false)
       draw()
     }
   }
@@ -4923,8 +4842,8 @@ export function render() {
       webSearchBackend: el.querySelector('#hm-web-search-backend')?.value || '',
       webExtractBackend: el.querySelector('#hm-web-extract-backend')?.value || '',
     }
-    webSaving = true
-    webError = null
+    panelStateBus.setSaving('web-config', true)
+    panelStateBus.setError('web-config', null)
     draw()
     try {
       const result = await api.hermesWebConfigSave(form)
@@ -4936,10 +4855,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      webError = humanizeError(err, t('engine.hermesWebConfigSaveFailed') || 'Save web tool config failed')
-      toast(webError, 'error')
+      panelStateBus.setError('web-config', humanizeError(err, t('engine.hermesWebConfigSaveFailed') || 'Save web tool config failed'))
+      toast(panelStateBus.getState('web-config')?.error, 'error')
     } finally {
-      webSaving = false
+      panelStateBus.setSaving('web-config', false)
       draw()
     }
   }
@@ -4951,8 +4870,8 @@ export function render() {
       lspWaitTimeout: el.querySelector('#hm-lsp-wait-timeout')?.value || '5',
       lspInstallStrategy: el.querySelector('#hm-lsp-install-strategy')?.value || 'auto',
     }
-    lspSaving = true
-    lspError = null
+    panelStateBus.setSaving('lsp', true)
+    panelStateBus.setError('lsp', null)
     draw()
     try {
       const result = await api.hermesLspConfigSave(form)
@@ -4964,10 +4883,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      lspError = humanizeError(err, t('engine.hermesLspConfigSaveFailed') || 'Save LSP config failed')
-      toast(lspError, 'error')
+      panelStateBus.setError('lsp', humanizeError(err, t('engine.hermesLspConfigSaveFailed') || 'Save LSP config failed'))
+      toast(panelStateBus.getState('lsp')?.error, 'error')
     } finally {
-      lspSaving = false
+      panelStateBus.setSaving('lsp', false)
       draw()
     }
   }
@@ -4981,8 +4900,8 @@ export function render() {
       sttOpenaiModel: el.querySelector('#hm-stt-openai-model')?.value || 'whisper-1',
       sttMistralModel: el.querySelector('#hm-stt-mistral-model')?.value || 'voxtral-mini-latest',
     }
-    sttSaving = true
-    sttError = null
+    panelStateBus.setSaving('stt', true)
+    panelStateBus.setError('stt', null)
     draw()
     try {
       const result = await api.hermesSttConfigSave(form)
@@ -4994,10 +4913,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      sttError = humanizeError(err, t('engine.hermesSttConfigSaveFailed') || 'Save speech transcription config failed')
-      toast(sttError, 'error')
+      panelStateBus.setError('stt', humanizeError(err, t('engine.hermesSttConfigSaveFailed') || 'Save speech transcription config failed'))
+      toast(panelStateBus.getState('stt')?.error, 'error')
     } finally {
-      sttSaving = false
+      panelStateBus.setSaving('stt', false)
       draw()
     }
   }
@@ -5024,8 +4943,8 @@ export function render() {
       voiceSilenceThreshold: el.querySelector('#hm-voice-silence-threshold')?.value || '200',
       voiceSilenceDuration: el.querySelector('#hm-voice-silence-duration')?.value || '3',
     }
-    ttsVoiceSaving = true
-    ttsVoiceError = null
+    panelStateBus.setSaving('tts-voice', true)
+    panelStateBus.setError('tts-voice', null)
     draw()
     try {
       const result = await api.hermesTtsVoiceConfigSave(form)
@@ -5037,10 +4956,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      ttsVoiceError = humanizeError(err, t('engine.hermesTtsVoiceConfigSaveFailed') || 'Save speech output config failed')
-      toast(ttsVoiceError, 'error')
+      panelStateBus.setError('tts-voice', humanizeError(err, t('engine.hermesTtsVoiceConfigSaveFailed') || 'Save speech output config failed'))
+      toast(panelStateBus.getState('tts-voice')?.error, 'error')
     } finally {
-      ttsVoiceSaving = false
+      panelStateBus.setSaving('tts-voice', false)
       draw()
     }
   }
@@ -5076,8 +4995,8 @@ export function render() {
       terminalContainerDisk: el.querySelector('#hm-terminal-container-disk')?.value || '51200',
       terminalContainerPersistent: !!el.querySelector('#hm-terminal-container-persistent')?.checked,
     }
-    terminalSaving = true
-    terminalError = null
+    panelStateBus.setSaving('terminal', true)
+    panelStateBus.setError('terminal', null)
     draw()
     try {
       const result = await api.hermesTerminalConfigSave(form)
@@ -5089,10 +5008,10 @@ export function render() {
         hint: backup ? t('engine.hermesConfigBackupHint', { path: backup }) : '',
       }, 'success')
     } catch (err) {
-      terminalError = humanizeError(err, t('engine.hermesTerminalConfigSaveFailed') || 'Save terminal config failed')
-      toast(terminalError, 'error')
+      panelStateBus.setError('terminal', humanizeError(err, t('engine.hermesTerminalConfigSaveFailed') || 'Save terminal config failed'))
+      toast(panelStateBus.getState('terminal')?.error, 'error')
     } finally {
-      terminalSaving = false
+      panelStateBus.setSaving('terminal', false)
       draw()
     }
   }

@@ -1,108 +1,102 @@
 classDiagram
-    class Utils {
-        +escapeHtml(str) string
-        +escapeAttr(str) string
+    class ConfigGroup {
+        +String id
+        +String titleKey
+        +String icon
+        +PanelEntry[] panels
     }
 
-    class CommandPalette {
-        +initCommandPalette()
-        +registerCommand(cmd) void
-        +registerCommands(cmds) void
-        +searchCommands(query) CommandItem[]
+    class PanelEntry {
+        +String id
+        +String cssClass
+        +String renderFnName
+        +String saveBtnId
+    }
+
+    class CONFIG_GROUPS {
+        <<constant>>
+        +ConfigGroup[] groups
+    }
+
+    class PanelStateBus {
+        -Map~string, PanelState~ states
+        +register(id) void
+        +setLoading(id, value) void
+        +setSaving(id, value) void
+        +setError(id, error) void
+        +isAnySaving() Boolean
+        +isAnyLoading() Boolean
+        +isPanelBusy(id) Boolean
+        +getState(id) PanelState
+        +reset() void
+    }
+
+    class PanelState {
+        +String id
+        +Boolean loading
+        +Boolean saving
+        +String|null error
+    }
+
+    class MarkdownRenderer {
+        +render(md) String
+        -escHtml(s) String
+        -renderCodeBlocks(text) String
+        -renderTables(text) String
+        -renderTaskLists(text) String
+        -renderBlockquotes(text) String
+        -renderHeadings(text) String
+        -renderOrderedLists(text) String
+        -renderUnorderedLists(text) String
+        -renderHorizontalRules(text) String
+        -renderInlineCode(text) String
+        -renderBold(text) String
+        -renderItalic(text) String
+        -renderStrikethrough(text) String
+        -renderLinks(text) String
+        -renderLineBreaks(text) String
+    }
+
+    class MemoryDraft {
+        +String memory
+        +String user
+        +String soul
+        +String activeTab
+        +Number savedAt
+    }
+
+    class ModelCombobox {
+        +HTMLElement container
+        +Array models
+        +String currentValue
+        +Boolean isOpen
+        +create(container, options) ModelCombobox
+        +setModels(models) void
+        +getValue() String
+        +setValue(val) void
+        +filter(query) Array
         +open() void
         +close() void
-        -_commandIndex CommandItem[]
-        -_overlay HTMLElement
-        -_selectedIndex number
-        -_inputEl HTMLInputElement
-        -renderResults(items) void
-        -handleKeydown(e) void
-        -executeSelected() void
+        +destroy() void
     }
 
-    class CommandItem {
-        <<typedef>>
-        +id string
-        +category string
-        +label string
-        +hint string
-        +icon string
-        +shortcut string
-        +execute() void
-        +keywords string[]
-        +disabled boolean
+    class ConfigSidebar {
+        +renderSidebar(groups) String
+        +initScrollSpy(groups, container) void
+        +initSearchFilter(container) void
+        +highlightActive(activeIndex) void
+        +filterPanels(query) void
     }
 
-    class Sidebar {
-        +renderSidebar(el) void
-        +openMobileSidebar() void
-        -_delegated boolean
-        -renderNavItems(navItems) string
-        -handleNavClick(e) void
-    }
+    ConfigGroup "1" --> "*" PanelEntry : contains
+    CONFIG_GROUPS "1" --> "9" ConfigGroup : defines
+    PanelStateBus "1" --> "*" PanelState : manages
+    ConfigSidebar --> CONFIG_GROUPS : reads
 
-    class SidebarIcons {
-        <<module>>
-        +ICONS Object~string, string~
-    }
+    note for ConfigGroup "9 个分组：<br/>core-runtime, sessions, execution,<br/>models, tools-skills, memory-context,<br/>ui-display, integrations, advanced"
 
-    class SidebarNav {
-        <<module>>
-        +NAV_ITEMS_FULL() Section[]
-        +NAV_ITEMS_SETUP() Section[]
-        +NAV_ITEMS_ENGINE_SELECT() Section[]
-        +renderEngineSwitcher() string
-        +renderKernelUpgradeHint() string
-    }
+    note for PanelEntry "44 个面板，每个映射到<br/>config.js 中的一个 renderXxxPanel() 函数"
 
-    class SidebarMobile {
-        <<module>>
-        +openMobileSidebar() void
-        +closeMobileSidebar() void
-    }
+    note for PanelStateBus "替代 config.js 中<br/>88 个独立状态变量<br/>的集中管理方案"
 
-    class Toast {
-        +toast(message, type, options) void
-        -ensureContainer() HTMLElement
-        -isStructuredError(v) boolean
-    }
-
-    class Router {
-        +registerRoute(path, loader) void
-        +navigate(path) void
-        +getCurrentRoute() string
-        +reloadCurrentRoute() void
-        +initRouter(contentEl) void
-        -routes Object
-        -_moduleCache Object
-        -loadRoute() Promise
-    }
-
-    class EngineManager {
-        +registerEngine(engine) void
-        +getActiveEngine() Engine
-        +getActiveEngineId() string
-        +switchEngine(id) Promise
-        +listEngines() EngineMeta[]
-        +onEngineChange(fn) Unsub
-        +needsInitialEngineChoice() boolean
-    }
-
-    class Modal {
-        +showConfirm(message, options) Promise~boolean~
-        +showModal(opts) void
-        +showContentModal(opts) HTMLElement
-        +showUpgradeModal(title) UpgradeModal
-    }
-
-    CommandPalette --> Utils : uses escapeHtml
-    CommandPalette --> CommandItem : manages
-    CommandPalette --> Router : navigate()
-    CommandPalette --> EngineManager : switchEngine()
-    Sidebar --> SidebarIcons : imports ICONS
-    Sidebar --> SidebarNav : imports NAV_ITEMS, renderEngineSwitcher
-    Sidebar --> SidebarMobile : imports open/close
-    Sidebar --> Utils : uses escapeHtml
-    Sidebar --> Modal : showConfirm (engine switch)
-    Sidebar --> EngineManager : getActiveEngine, switchEngine
-    Toast ..> Utils : (future use)
+    note for MarkdownRenderer "增强版 mdToHtml()：<br/>支持表格、任务列表、删除线、<br/>引用块、有序列表、代码高亮"

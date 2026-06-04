@@ -1,38 +1,157 @@
 /* Agent 管理页面样式 */
+
+/* ===== Stats Bar ===== */
+.agents-stats-bar {
+  display: flex;
+  gap: var(--space-xl);
+  padding: var(--space-lg) var(--space-xl);
+  margin-bottom: var(--space-md);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.agents-stat {
+  flex: 1;
+  text-align: center;
+}
+
+.agents-stat__num {
+  display: block;
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.agents-stat__label {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+
+/* ===== Toolbar ===== */
+.agents-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.agents-toolbar .models-search-wrap {
+  width: min(460px, 100%);
+}
+
+/* ===== Agent Card ===== */
 .agent-card {
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
-  padding: 16px;
-  margin-bottom: 12px;
+  padding: 20px 24px;
+  margin-bottom: 14px;
   cursor: pointer;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  position: relative;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .agent-card:hover {
-  border-color: var(--accent);
-  box-shadow: var(--shadow-sm);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border-primary));
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1.5px);
+}
+
+.agent-card--default {
+  border-color: var(--success);
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--success-muted) 100%);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+.agent-card--default:hover {
+  border-color: var(--success);
+  box-shadow: 0 0 0 1px var(--success-muted), var(--shadow-md);
 }
 
 .agent-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  gap: 12px;
 }
 
 .agent-card-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  min-width: 0;
 }
 
-.agent-id {
+.agent-av {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  flex-shrink: 0;
+}
+
+.agent-name-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.agent-display-name {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agent-id-sub {
   font-family: var(--font-mono);
-  font-size: var(--font-size-base);
-  font-weight: 500;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
 }
 
+/* click hint */
+.agent-card-click-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  text-align: right;
+  margin-top: 4px;
+}
+
+.agent-card:hover .agent-card-click-hint {
+  opacity: 0.7;
+}
+
+.agent-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.agent-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ===== Badges ===== */
 .badge {
   font-size: var(--font-size-xs);
   padding: 2px 8px;
@@ -59,38 +178,83 @@
   color: var(--text-secondary);
 }
 
-.agent-card-actions {
-  display: flex;
-  gap: 6px;
+/* meta grid */
+.agent-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 24px;
 }
 
-.agent-card-body {
+.agent-meta-item {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
+  min-width: 0;
 }
 
-.agent-info-row {
-  display: flex;
-  gap: 12px;
-  font-size: var(--font-size-sm);
-}
-
-.agent-info-label {
+.agent-meta-label {
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
-  min-width: 60px;
-  flex-shrink: 0;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
-.agent-info-value {
+.agent-meta-value {
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
   word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.page-subhint {
-  margin-top: 6px;
-  font-size: var(--font-size-sm);
-  color: var(--accent);
+@media (max-width: 600px) {
+  .agent-meta-grid {
+    grid-template-columns: 1fr;
+  }
+  .agent-card-header {
+    flex-wrap: wrap;
+  }
+  .agent-card-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .agents-stats-bar {
+    padding: var(--space-md);
+    gap: var(--space-md);
+  }
+}
+
+/* ===== Skill preview modal ===== */
+.agent-skill-preview-modal {
+  max-width: 520px !important;
+}
+
+.skill-preview-desc {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.skill-preview-section {
+  margin-bottom: 14px;
+}
+
+.skill-preview-section h4 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 6px 0;
+}
+
+.skill-preview-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 /* ==================== Agent 详情页 ==================== */
@@ -294,6 +458,11 @@
   margin-right: auto;
 }
 
+/* Skills tab: lift max-width so grid fills the page */
+.agent-overview:has(.agent-skills-list) {
+  max-width: none;
+}
+
 .agent-multiline-input {
   min-height: 88px;
   resize: vertical;
@@ -302,23 +471,29 @@
 
 .agent-skills-list {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
 }
 
 .agent-skill-card {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: flex-start;
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
-  padding: 14px;
+  padding: 12px 14px;
   cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.agent-skill-card:hover:not(.is-muted) {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
 }
 
 .agent-skill-card.is-muted {
-  opacity: 0.7;
+  opacity: 0.5;
 }
 
 .agent-skill-main {
@@ -350,10 +525,4 @@
   background: var(--warning-muted);
   padding: 2px 8px;
   border-radius: 999px;
-}
-
-@media (max-width: 800px) {
-  .agent-skills-list {
-    grid-template-columns: 1fr;
-  }
 }

@@ -662,6 +662,7 @@ fn scan_custom_skill_detail(
         if let Some(full_path) = base.get("fullPath").cloned() {
             detail["fullPath"] = full_path;
         }
+        copy_skill_visual_fields(&mut detail, &base);
 
         return Some(detail);
     }
@@ -721,6 +722,7 @@ fn scan_local_skill_entries_for_agent(
             if let Some(full_path) = base.get("fullPath").cloned() {
                 item["fullPath"] = full_path;
             }
+            copy_skill_visual_fields(&mut item, &base);
 
             skills.push(item);
         }
@@ -733,6 +735,14 @@ fn scan_local_skill_entries_for_agent(
     });
 
     Ok(skills)
+}
+
+fn copy_skill_visual_fields(target: &mut Value, source: &Value) {
+    for key in ["homepage", "icon", "logo", "avatar", "avatar_url", "image", "version", "author"] {
+        if let Some(value) = source.get(key).cloned() {
+            target[key] = value;
+        }
+    }
 }
 
 fn scan_local_skill_entries() -> Result<Vec<Value>, String> {
@@ -843,6 +853,11 @@ fn scan_single_skill(skill_path: &std::path::Path, name: &str) -> Value {
                 if let Some(homepage) = pkg.get("homepage").and_then(|v| v.as_str()) {
                     result["homepage"] = Value::String(homepage.to_string());
                 }
+                for key in ["icon", "logo", "avatar", "avatar_url", "image"] {
+                    if let Some(value) = pkg.get(key).and_then(|v| v.as_str()) {
+                        result[key] = Value::String(value.to_string());
+                    }
+                }
 
                 // 提取 dependencies
                 if let Some(deps) = pkg.get("dependencies").and_then(|v| v.as_object()) {
@@ -890,6 +905,11 @@ fn scan_single_skill(skill_path: &std::path::Path, name: &str) -> Value {
             }
             if let Some(full_path) = frontmatter.get("fullPath").and_then(|v| v.as_str()) {
                 result["fullPath"] = Value::String(full_path.to_string());
+            }
+            for key in ["homepage", "icon", "logo", "avatar", "avatar_url", "image"] {
+                if let Some(value) = frontmatter.get(key).and_then(|v| v.as_str()) {
+                    result[key] = Value::String(value.to_string());
+                }
             }
         }
     }

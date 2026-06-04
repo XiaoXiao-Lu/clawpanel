@@ -577,36 +577,73 @@ body.has-desktop-chrome #main-col {
   align-items: center;
   gap: 10px;
   min-height: 36px;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   font-weight: 500;
   cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
   user-select: none;
+  margin: 2px 0;
 }
 
 .nav-item:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+  transform: translateX(2px);
 }
 
 .nav-item.active {
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg-secondary));
-  color: var(--accent-hover);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 14%, var(--bg-secondary)) 0%, color-mix(in srgb, var(--accent) 6%, var(--bg-secondary)) 100%);
+  color: var(--accent);
+  font-weight: 600;
   box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.nav-item.active:hover {
+  transform: none;
 }
 
 .nav-item svg {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
-  opacity: 0.7;
+  opacity: 0.75;
+  transition: transform var(--transition-fast), opacity var(--transition-fast), color var(--transition-fast);
+}
+
+/* 莫兰迪彩色图标配置 - 未激活状态下的柔和质感色彩 */
+.nav-item[data-nav-icon="dashboard"] svg { color: #5a9bd5; }      /* 蓝 */
+.nav-item[data-nav-icon="assistant"] svg { color: #b08bb2; }      /* 莫兰迪紫 */
+.nav-item[data-nav-icon="chat"] svg { color: #f29c8e; }           /* 莫兰迪粉橘 */
+.nav-item[data-nav-icon="route-map"] svg { color: #6fba9a; }      /* 莫兰迪青 */
+.nav-item[data-nav-icon="services"] svg { color: #e5b567; }       /* 莫兰迪金黄 */
+.nav-item[data-nav-icon="logs"] svg { color: #8ba8cc; }           /* 雾霾蓝 */
+.nav-item[data-nav-icon="models"] svg { color: #bf8185; }         /* 玫瑰褐 */
+.nav-item[data-nav-icon="agents"] svg { color: #8c90c7; }         /* 莫兰迪蓝紫 */
+.nav-item[data-nav-icon="gateway"] svg { color: #69a7b1; }        /* 莫兰迪湖蓝 */
+.nav-item[data-nav-icon="channels"] svg { color: #7cb57c; }       /* 莫兰迪绿 */
+.nav-item[data-nav-icon="memory"] svg { color: #d69c73; }         /* 莫兰迪驼色 */
+.nav-item[data-nav-icon="dreaming"] svg { color: #a499d6; }       /* 莫兰迪熏衣草紫 */
+.nav-item[data-nav-icon="clock"] svg { color: #78a1a3; }          /* 灰绿 */
+.nav-item[data-nav-icon="bar-chart"] svg { color: #e07a5f; }      /* 砖红 */
+.nav-item[data-nav-icon="skills"] svg { color: #d5896f; }         /* 珊瑚橙 */
+.nav-item[data-nav-icon="connectors"] svg { color: #4fa3a5; }     /* 暗青 */
+.nav-item[data-nav-icon="extensions"] svg { color: #d883a7; }     /* 烟粉 */
+.nav-item[data-nav-icon="settings"] svg { color: #7b8a99; }       /* 石板灰 */
+.nav-item[data-nav-icon="debug"] svg { color: #cc7a8a; }          /* 暗粉 */
+.nav-item[data-nav-icon="diagnose"] svg { color: #a3c293; }       /* 豆绿 */
+.nav-item[data-nav-icon="about"] svg { color: #b3a580; }          /* 卡其绿 */
+
+.nav-item:hover svg {
+  opacity: 1;
+  transform: scale(1.1);
 }
 
 .nav-item.active svg {
   opacity: 1;
+  color: var(--accent) !important; /* 激活时统一样式 */
 }
 
 /* 主内容列（横幅 + 内容区） */

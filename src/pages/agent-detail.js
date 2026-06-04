@@ -380,6 +380,65 @@ function renderSkills(container, state) {
   `
 
   container.querySelector('#btn-save-skills').addEventListener('click', () => saveSkills(container, state))
+
+  // 点击技能卡片（非 checkbox）弹出预览
+  container.querySelectorAll('.agent-skill-card').forEach(card => {
+    card.addEventListener('click', async (e) => {
+      if (e.target.tagName === 'INPUT') return // 不拦截 checkbox
+      const name = card.querySelector('.agent-skill-checkbox')?.dataset.skillName
+      if (!name) return
+      showSkillPreview(name, state.agentId)
+    })
+  })
+}
+
+function showSkillPreview(name, agentId) {
+  // 显示加载中弹窗
+  const overlay = document.createElement('div')
+  overlay.className = 'modal-overlay'
+  overlay.innerHTML = `
+    <div class="modal agent-skill-preview-modal">
+      <div class="modal-title">🧩 ${esc(name)}</div>
+      <div class="modal-body" style="padding:40px;text-align:center;color:var(--text-tertiary)">加载中...</div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" data-action="cancel">${t('common.close') || '关闭'}</button>
+      </div>
+    </div>
+  `
+  document.body.appendChild(overlay)
+
+  const close = () => overlay.remove()
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
+  overlay.querySelector('[data-action="cancel"]').onclick = close
+
+  // 异步加载详情
+  api.skillsInfo(name, agentId).then(detail => {
+    const deps = (detail?.dependencies || []).length
+    const missingInfo = detail?.missing || {}
+    const reqs = detail?.requirements || {}
+    const allMissing = [
+      ...(missingInfo.bins || []),
+      ...(missingInfo.anyBins || []),
+      ...(missingInfo.env || []),
+      ...(missingInfo.config || []),
+    ]
+    const allReqs = [
+      ...(reqs.bins || []).map(b => typeof b === 'string' ? b : b.name || JSON.stringify(b)),
+      ...(reqs.env || []).map(e => typeof e === 'string' ? e : e.name || JSON.stringify(e)),
+    ]
+
+    const body = overlay.querySelector('.modal-body')
+    if (!body) return
+    body.style.cssText = 'padding:16px 20px'
+    body.innerHTML = '<div class="skill-preview-desc">' + esc(detail?.description || '暂无描述') + '</div>' +
+      (allReqs.length ? '<div class="skill-preview-section"><h4>所需工具</h4><div class="skill-preview-tags">' + allReqs.map(r => '<span class="badge badge-api-type">' + esc(r) + '</span>').join('') + '</div></div>' : '') +
+      (allMissing.length ? '<div class="skill-preview-section"><h4>⚠ 缺少依赖</h4><div class="skill-preview-tags">' + allMissing.map(m => '<span class="badge" style="background:var(--error-muted);color:var(--error)">' + esc(String(m)) + '</span>').join('') + '</div></div>' : '') +
+      (detail?.homepage ? '<div class="skill-preview-section"><a href="' + esc(detail.homepage) + '" target="_blank" rel="noopener" style="color:var(--accent)">🔗 查看主页</a></div>' : '') +
+      (detail?.source ? '<div class="skill-preview-section" style="color:var(--text-tertiary);font-size:12px">来源: ' + esc(detail.source) + (detail?.version ? ' · v' + esc(detail.version) : '') + (detail?.author ? ' · ' + esc(detail.author) : '') + '</div>' : '')
+  }).catch(e => {
+    const body = overlay.querySelector('.modal-body')
+    if (body) body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--error)">加载失败: ' + esc(String(e)) + '</div>'
+  })
 }
 
 function renderSkillCard(skill, checked) {
