@@ -86,6 +86,20 @@ export async function install(slug, skillsDir) {
   return targetDir
 }
 
+/**
+ * 安装用户上传的 Skill zip。
+ * @param {Buffer} zipBuf
+ * @param {string} name
+ * @param {string} skillsDir
+ * @returns {Promise<string>}
+ */
+export async function installZip(zipBuf, name, skillsDir) {
+  const slug = normalizeInstallName(name)
+  const targetDir = path.join(skillsDir, slug)
+  await extractZip(zipBuf, targetDir)
+  return targetDir
+}
+
 // ── 内部工具 ──────────────────────────────────────────────
 
 function validateSlug(slug) {
@@ -93,6 +107,15 @@ function validateSlug(slug) {
   if (slug.includes('..') || slug.includes('/') || slug.includes('\\')) {
     throw new Error(`无效的 Skill slug: ${slug}`)
   }
+}
+
+function normalizeInstallName(name) {
+  const slug = String(name || '').trim()
+    .replace(/\.zip$/i, '')
+    .replace(/[^a-zA-Z0-9_.-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  validateSlug(slug)
+  return slug
 }
 
 /**

@@ -144,6 +144,70 @@ pub async fn skillhub_install(slug: String, agent_id: Option<String>) -> Result<
     }))
 }
 
+/// 安装用户上传的 Skill zip
+#[tauri::command]
+pub async fn skills_install_zip(
+    name: String,
+    zip_base64: String,
+    agent_id: Option<String>,
+) -> Result<Value, String> {
+    let raw_name = name.trim();
+    if raw_name.is_empty() {
+        return Err("Skill zip 文件名不能为空".into());
+    }
+    if zip_base64.trim().is_empty() {
+        return Err("Skill zip 内容不能为空".into());
+    }
+    let skills_dir = match resolve_agent_skills_dir(agent_id.as_deref()) {
+        Some(dir) => dir,
+        None => super::openclaw_dir().join("skills"),
+    };
+    if !skills_dir.exists() {
+        std::fs::create_dir_all(&skills_dir).map_err(|e| format!("创建 skills 目录失败: {e}"))?;
+    }
+    let payload = zip_base64
+        .rsplit(',')
+        .next()
+        .unwrap_or(zip_base64.as_str())
+        .trim();
+    let bytes = decode_base64_payload(payload)?;
+    if bytes.is_empty() {
+        return Err("Skill zip 内容为空".into());
+    }
+    let installed_path = super::skillhub::install_zip(&bytes, raw_name, &skills_dir)?;
+    Ok(serde_json::json!({
+        "success": true,
+        "name": raw_name.trim_end_matches(".zip").trim_end_matches(".ZIP"),
+        "path": installed_path.to_string_lossy(),
+    }))
+}
+
+fn decode_base64_payload(input: &str) -> Result<Vec<u8>, String> {
+    let mut out = Vec::new();
+    let mut buf: u32 = 0;
+    let mut bits = 0u8;
+    for ch in input.chars().filter(|c| !c.is_whitespace()) {
+        if ch == '=' {
+            break;
+        }
+        let val = match ch {
+            'A'..='Z' => ch as u32 - 'A' as u32,
+            'a'..='z' => ch as u32 - 'a' as u32 + 26,
+            '0'..='9' => ch as u32 - '0' as u32 + 52,
+            '+' | '-' => 62,
+            '/' | '_' => 63,
+            _ => return Err("Skill zip base64 内容无效".into()),
+        };
+        buf = (buf << 6) | val;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push(((buf >> bits) & 0xff) as u8);
+        }
+    }
+    Ok(out)
+}
+
 /// 卸载 Skill（删除 skills/<name>/ 目录）
 #[tauri::command]
 pub async fn skills_uninstall(name: String, agent_id: Option<String>) -> Result<Value, String> {

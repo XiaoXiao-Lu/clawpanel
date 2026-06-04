@@ -5134,7 +5134,7 @@ async function sendMessageDirect(text) {
   session.messages.push(aiMsg)
 
   _isStreaming = true
-  _sendBtn.innerHTML = stopIcon()
+  if (_sendBtn) _sendBtn.innerHTML = stopIcon()
   setSessionStatus(session.id, 'streaming')
 
   // 渲染流式 typing 状态
@@ -5497,10 +5497,17 @@ function stopIcon() {
   return '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
 }
 
+function handleAssistantErrorInjected() {
+  checkErrorContext()
+  if (_errorContext) renderErrorBanner()
+}
+
 // ── 页面渲染 ──
 export async function render() {
   loadConfig()
-  loadSessions()
+  // During an in-flight reply, the stream writes into the live session objects.
+  // Replacing _sessions on remount would detach later chunks from the page state.
+  if (!_isStreaming) loadSessions()
 
   // 确保数据目录存在（~/.openclaw/clawpanel/images/ 等）
   api.ensureDataDir().catch(e => console.warn('数据目录初始化失败:', e))
@@ -5602,10 +5609,7 @@ export async function render() {
     setTimeout(() => renderErrorBanner(), 100)
   }
   // 监听实时错误注入（用户已在助手页面时，其他页面发生错误）
-  window.addEventListener('assistant-error-injected', () => {
-    checkErrorContext()
-    if (_errorContext) renderErrorBanner()
-  })
+  window.addEventListener('assistant-error-injected', handleAssistantErrorInjected)
 
   // ── 事件绑定 ──
 
@@ -5864,7 +5868,8 @@ function autoResize(textarea) {
 
 export function cleanup() {
   flushSave()
-  stopStreaming()
+  // Keep in-flight replies alive when the user navigates away; the stop button
+  // remains the explicit cancellation path.
   stopStreamRefresh()
   _pendingImages = []
   _page = null
@@ -5873,4 +5878,5 @@ export function cleanup() {
   _textarea = null
   _sendBtn = null
   _sessionListEl = null
+  window.removeEventListener('assistant-error-injected', handleAssistantErrorInjected)
 }

@@ -11,10 +11,43 @@ import { wsClient } from '../lib/ws-client.js'
 
 let _loadSeq = 0
 let _selectedAgentId = null // null = default (main)
+let _storeIndex = null // featured SkillHub index
+let _storeItems = []
+let _selectedStoreSlug = null
+let _installedNames = new Set() // installed skill keys
 
 function esc(str) {
   if (!str) return ''
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function skillKey(value) {
+  return String(value || '').trim().toLowerCase()
+}
+
+function storeItemName(item) {
+  return item?.display_name || item?.displayName || item?.name || item?.slug || ''
+}
+
+function storeItemDesc(item) {
+  return item?.description_zh || item?.summary || item?.description || ''
+}
+
+function storeItemCategory(item) {
+  return item?.category || item?.categories?.[0] || ''
+}
+
+function isStoreItemInstalled(item) {
+  return [item?.slug, item?.name, item?.display_name, item?.displayName]
+    .some(v => _installedNames.has(skillKey(v)))
+}
+
+function formatCount(value) {
+  const n = Number(value || 0)
+  if (!Number.isFinite(n) || n <= 0) return ''
+  if (n >= 10000) return `${(n / 10000).toFixed(n >= 100000 ? 0 : 1)}w`
+  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`
+  return String(n)
 }
 
 export async function render() {
@@ -56,13 +89,45 @@ export async function render() {
       <div class="stat-card loading-placeholder" style="height:96px"></div>
     </div>
     <div id="skills-tab-store" class="config-section" style="display:none">
-      <div class="clawhub-toolbar" style="margin-bottom:var(--space-sm)">
-        <input class="input clawhub-search-input" id="skill-store-search" placeholder="${t('skills.searchPlaceholder')}" type="text" style="flex:1">
-        <button class="btn btn-primary btn-sm" data-action="store-search">${t('skills.search')}</button>
-        <a class="btn btn-secondary btn-sm" href="https://skillhub.tencent.com" target="_blank" rel="noopener">${t('skills.browse')}</a>
+      <div class="skills-store-header">
+        <div>
+          <div class="skills-store-title">${t('skills.storeTitle')}</div>
+          <div class="skills-store-subtitle">${t('skills.storeSubtitle')}</div>
+        </div>
+        <div class="skills-store-header-actions">
+          <input type="file" id="skill-zip-input" accept=".zip,application/zip" style="display:none">
+          <button class="btn btn-secondary btn-sm" data-action="skill-install-zip">${t('skills.installZip')}</button>
+          <a class="btn btn-secondary btn-sm" id="skill-store-browse" href="https://www.skillhub.cn/" target="_blank" rel="noopener">${t('skills.browseCn')}</a>
+        </div>
       </div>
-      <div id="store-results" class="clawhub-list" style="max-height:calc(100vh - 300px);overflow-y:auto">
-        <div class="form-hint" style="padding:var(--space-xl);text-align:center">${t('skills.storeLoading')}</div>
+      <div class="skills-store-searchbar">
+        <input class="input clawhub-search-input" id="skill-store-search" placeholder="${t('skills.searchPlaceholder')}" type="text">
+        <button class="btn btn-primary btn-sm" data-action="store-search">${t('skills.search')}</button>
+      </div>
+      <div class="skills-store-filters">
+        <button class="skills-chip active" data-action="store-query" data-query="">${t('skills.featured')}</button>
+        <button class="skills-chip" data-action="store-query" data-query="github">GitHub</button>
+        <button class="skills-chip" data-action="store-query" data-query="browser">Browser</button>
+        <button class="skills-chip" data-action="store-query" data-query="search">Search</button>
+        <button class="skills-chip" data-action="store-query" data-query="data">Data</button>
+        <button class="skills-chip" data-action="store-query" data-query="social">Social</button>
+      </div>
+      <div class="skills-store-meta" id="skill-store-meta">${t('skills.storeLoading')}</div>
+      <div class="skills-store-layout">
+        <div id="store-results" class="clawhub-list skills-store-results">
+          <div class="form-hint" style="padding:var(--space-xl);text-align:center">${t('skills.storeLoading')}</div>
+        </div>
+        <div id="store-preview" class="skills-store-preview">
+          <div class="skills-preview-empty">${t('skills.previewEmpty')}</div>
+        </div>
+      </div>
+      <div class="skills-store-footer">
+        <span>${t('skills.storeSourceHint')}</span>
+        <select class="input" id="skill-store-source">
+          <option value="skillhubcn">${t('skills.sourceCn')}</option>
+          <option value="cos">${t('skills.sourceMirror')}</option>
+          <option value="official">${t('skills.sourceOfficial')}</option>
+        </select>
       </div>
     </div>
   `
@@ -312,24 +377,45 @@ async function handleInstallDep(page, btn) {
   }
 }
 
-// ===== 技能商店（SkillHub SDK）=====
-let _storeIndex = null // 缓存的全量索引
-let _installedNames = new Set() // 已安装的 skill 名称
-
 async function loadStore(page) {
   const results = page.querySelector('#store-results')
+  const meta = page.querySelector('#skill-store-meta')
   if (!results) return
+  updateStoreSourceUi(page)
   results.innerHTML = `<div class="form-hint" style="padding:var(--space-xl);text-align:center">${t('skills.storeLoading')}</div>`
+  if (meta) meta.textContent = t('skills.storeLoading')
   try {
-    _storeIndex = await api.skillhubIndex()
     // 获取已安装列表用于标记
     try {
       const data = await api.skillsList(_selectedAgentId)
-      _installedNames = new Set((data?.skills || []).map(s => s.name))
+      _installedNames = new Set((data?.skills || []).flatMap(s => [s.name, s.slug]).map(skillKey).filter(Boolean))
     } catch { _installedNames = new Set() }
+    _storeIndex = await api.skillhubIndex()
+    _storeItems = Array.isArray(_storeIndex) ? _storeIndex : []
+    _selectedStoreSlug = _storeItems[0]?.slug || null
+    if (meta) meta.textContent = t('skills.featuredMeta', { count: _storeItems.length })
     renderStoreItems(results, _storeIndex)
+    renderStorePreview(page)
   } catch (e) {
     results.innerHTML = `<div style="color:var(--error);padding:var(--space-lg);text-align:center">${t('skills.storeLoadFailed')}: ${esc(e?.message || e)}</div>`
+    renderStorePreview(page, null)
+  }
+}
+
+function updateStoreSourceUi(page) {
+  const select = page.querySelector('#skill-store-source')
+  const browse = page.querySelector('#skill-store-browse')
+  if (!select || !browse) return
+  const source = select.value || 'cos'
+  if (source === 'official') {
+    browse.href = 'https://www.skillhub.club/'
+    browse.textContent = t('skills.browseOfficial')
+  } else if (source === 'skillhubcn') {
+    browse.href = 'https://www.skillhub.cn/'
+    browse.textContent = t('skills.browseCn')
+  } else {
+    browse.href = 'https://skillhub-1388575217.cos.ap-guangzhou.myqcloud.com/skills.json'
+    browse.textContent = t('skills.browseMirror')
   }
 }
 
@@ -338,19 +424,33 @@ function renderStoreItems(el, items) {
     el.innerHTML = `<div class="clawhub-empty" style="padding:var(--space-xl);text-align:center">${t('skills.noResults')}</div>`
     return
   }
+  _storeItems = items
+  if (!_selectedStoreSlug || !items.some(item => item.slug === _selectedStoreSlug)) {
+    _selectedStoreSlug = items[0]?.slug || null
+  }
   el.innerHTML = items.map(item => {
     const slug = item.slug || ''
-    const name = item.display_name || item.displayName || item.name || slug
-    const desc = item.summary || item.description || ''
-    const installed = _installedNames.has(slug)
+    const name = storeItemName(item)
+    const desc = storeItemDesc(item)
+    const category = storeItemCategory(item)
+    const installed = isStoreItemInstalled(item)
+    const stats = [
+      item.version ? `v${item.version}` : '',
+      item.author || item.owner_name || '',
+      formatCount(item.downloads || item.installs) ? `${formatCount(item.downloads || item.installs)} ${t('skills.downloads')}` : '',
+      formatCount(item.stars) ? `${formatCount(item.stars)} ${t('skills.stars')}` : '',
+    ].filter(Boolean).map(esc).join(' · ')
+    const tags = [...(item.tags || []), category].filter(Boolean).slice(0, 4)
     return `
-      <div class="clawhub-item store-item" data-slug="${esc(slug)}" data-name="${esc(name)}" data-desc="${esc(desc)}">
+      <div class="clawhub-item store-item ${slug === _selectedStoreSlug ? 'active' : ''}" data-action="store-select" data-slug="${esc(slug)}" data-name="${esc(name)}" data-desc="${esc(desc)}">
         <div class="clawhub-item-main">
           <div class="clawhub-item-title">📦 ${esc(name)}</div>
+          ${stats ? `<div class="clawhub-item-meta">${stats}</div>` : ''}
           <div class="clawhub-item-desc">${esc(desc)}</div>
-          ${item.version ? `<div class="clawhub-item-meta">v${esc(item.version)}${item.author ? ` · ${esc(item.author)}` : ''}</div>` : ''}
+          ${tags.length ? `<div class="skills-store-tags">${tags.map(tag => `<span>${esc(tag)}</span>`).join('')}</div>` : ''}
         </div>
         <div class="clawhub-item-actions">
+          <button class="btn btn-secondary btn-sm" data-action="store-preview" data-slug="${esc(slug)}">${t('skills.preview')}</button>
           ${installed
             ? `<span class="clawhub-badge installed">${t('skills.installed')}</span>`
             : `<button class="btn btn-primary btn-sm" data-action="store-install" data-slug="${esc(slug)}">${t('skills.install')}</button>`
@@ -361,45 +461,87 @@ function renderStoreItems(el, items) {
   }).join('')
 }
 
+function renderStorePreview(page, explicitItem) {
+  const preview = page.querySelector('#store-preview')
+  if (!preview) return
+  const item = explicitItem || _storeItems.find(i => i.slug === _selectedStoreSlug)
+  if (!item) {
+    preview.innerHTML = `<div class="skills-preview-empty">${t('skills.previewEmpty')}</div>`
+    return
+  }
+  const slug = item.slug || ''
+  const name = storeItemName(item)
+  const desc = storeItemDesc(item)
+  const category = storeItemCategory(item)
+  const installed = isStoreItemInstalled(item)
+  const homepage = item.homepage || ''
+  const labels = item.labels && typeof item.labels === 'object' ? Object.entries(item.labels) : []
+  const tags = [...(item.tags || []), category].filter(Boolean)
+  const stats = [
+    item.version ? ['Version', item.version] : null,
+    item.author || item.owner_name ? [t('skills.author'), item.author || item.owner_name] : null,
+    formatCount(item.downloads || item.installs) ? [t('skills.downloads'), formatCount(item.downloads || item.installs)] : null,
+    formatCount(item.stars) ? [t('skills.stars'), formatCount(item.stars)] : null,
+  ].filter(Boolean)
+  preview.innerHTML = `
+    <div class="skills-preview-head">
+      <div>
+        <div class="skills-preview-title">📦 ${esc(name)}</div>
+        <div class="skills-preview-slug">${esc(slug)}</div>
+      </div>
+      ${installed ? `<span class="clawhub-badge installed">${t('skills.installed')}</span>` : ''}
+    </div>
+    <div class="skills-preview-actions">
+      ${installed
+        ? `<button class="btn btn-secondary btn-sm" disabled>${t('skills.installed')}</button>`
+        : `<button class="btn btn-primary btn-sm" data-action="store-install" data-slug="${esc(slug)}">${t('skills.install')}</button>`}
+      ${homepage ? `<a class="btn btn-secondary btn-sm" href="${esc(homepage)}" target="_blank" rel="noopener">${t('skills.openHomepage')}</a>` : ''}
+    </div>
+    <div class="skills-preview-section">
+      <div class="skills-preview-label">${t('skills.previewUse')}</div>
+      <div class="skills-preview-desc">${esc(desc || t('skills.noDescription'))}</div>
+    </div>
+    ${stats.length ? `<div class="skills-preview-stats">${stats.map(([k, v]) => `<div><strong>${esc(v)}</strong><span>${esc(k)}</span></div>`).join('')}</div>` : ''}
+    ${tags.length ? `<div class="skills-preview-section"><div class="skills-preview-label">${t('skills.tags')}</div><div class="skills-store-tags">${tags.slice(0, 10).map(tag => `<span>${esc(tag)}</span>`).join('')}</div></div>` : ''}
+    ${labels.length ? `<div class="skills-preview-section"><div class="skills-preview-label">${t('skills.requirements')}</div><div class="skills-label-grid">${labels.slice(0, 8).map(([k, v]) => `<div><span>${esc(k)}</span><code>${esc(v)}</code></div>`).join('')}</div></div>` : ''}
+  `
+}
+
 async function handleStoreSearch(page) {
   const input = page.querySelector('#skill-store-search')
   const results = page.querySelector('#store-results')
+  const meta = page.querySelector('#skill-store-meta')
   if (!input || !results) return
-  const q = input.value.trim().toLowerCase()
+  const q = input.value.trim()
   if (!q && _storeIndex) {
+    _selectedStoreSlug = _storeIndex[0]?.slug || null
+    if (meta) meta.textContent = t('skills.featuredMeta', { count: _storeIndex.length })
     renderStoreItems(results, _storeIndex)
+    renderStorePreview(page)
     return
   }
   if (!q) return
-  // 客户端过滤已有索引
-  if (_storeIndex) {
-    const filtered = _storeIndex.filter(item => {
-      const slug = (item.slug || '').toLowerCase()
-      const name = (item.display_name || item.displayName || '').toLowerCase()
-      const desc = (item.summary || item.description || '').toLowerCase()
-      const tags = (item.tags || []).join(' ').toLowerCase()
-      return slug.includes(q) || name.includes(q) || desc.includes(q) || tags.includes(q)
-    })
-    renderStoreItems(results, filtered)
-    return
-  }
-  // 没有索引时走服务端搜索（优先 Gateway RPC，回退 Tauri）
   results.innerHTML = `<div class="form-hint" style="padding:var(--space-sm)">${t('skills.searching')}</div>`
+  if (meta) meta.textContent = t('skills.searching')
   try {
     let items
     if (wsClient.connected && wsClient.gatewayReady) {
       try {
-        const res = await wsClient.skillsSearch(input.value.trim(), 30)
+        const res = await wsClient.skillsSearch(q, 60)
         items = res?.results || []
       } catch {
-        items = await api.skillhubSearch(input.value.trim())
+        items = await api.skillhubSearch(q, 60)
       }
     } else {
-      items = await api.skillhubSearch(input.value.trim())
+      items = await api.skillhubSearch(q, 60)
     }
+    _selectedStoreSlug = items?.[0]?.slug || null
+    if (meta) meta.textContent = t('skills.searchMeta', { count: items?.length || 0, query: q })
     renderStoreItems(results, items)
+    renderStorePreview(page)
   } catch (e) {
     results.innerHTML = `<div style="color:var(--error);padding:var(--space-sm)">${t('skills.searchFailed')}: ${esc(e?.message || e)}</div>`
+    renderStorePreview(page, null)
   }
 }
 
@@ -413,13 +555,55 @@ async function handleStoreInstall(page, btn) {
     btn.textContent = t('skills.installed')
     btn.classList.remove('btn-primary')
     btn.classList.add('btn-secondary')
-    _installedNames.add(slug)
+    _installedNames.add(skillKey(slug))
+    const item = _storeItems.find(i => i.slug === slug)
+    if (item) [item.name, item.display_name, item.displayName].forEach(v => { if (v) _installedNames.add(skillKey(v)) })
+    const storeResults = page.querySelector('#store-results')
+    if (storeResults) renderStoreItems(storeResults, _storeItems)
+    renderStorePreview(page)
     loadSkills(page).catch(() => {})
   } catch (e) {
     toast(humanizeError(e, t('skills.installFailed')), 'error')
     btn.disabled = false
     btn.textContent = t('skills.install')
   }
+}
+
+async function handleInstallZip(page) {
+  const input = page.querySelector('#skill-zip-input')
+  if (!input) return
+  input.value = ''
+  input.onchange = async () => {
+    const file = input.files?.[0]
+    if (!file) return
+    if (!/\.zip$/i.test(file.name)) {
+      toast(t('skills.zipOnly'), 'warning')
+      return
+    }
+    try {
+      const dataUrl = await readFileAsDataUrl(file)
+      await api.skillsInstallZip(file.name, dataUrl, _selectedAgentId)
+      const name = file.name.replace(/\.zip$/i, '')
+      toast(t('skills.zipInstalled', { name }), 'success')
+      _installedNames.add(skillKey(name))
+      await loadSkills(page)
+      const storeResults = page.querySelector('#store-results')
+      if (storeResults && _storeIndex) renderStoreItems(storeResults, _storeIndex)
+      renderStorePreview(page)
+    } catch (e) {
+      toast(humanizeError(e, t('skills.installFailed')), 'error')
+    }
+  }
+  input.click()
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(reader.error || new Error('read failed'))
+    reader.readAsDataURL(file)
+  })
 }
 
 async function handleSkillUninstall(page, btn) {
@@ -457,6 +641,7 @@ function bindEvents(page) {
   page.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-action]')
     if (!btn) return
+    if (btn.dataset.action !== 'store-select') e.stopPropagation()
     switch (btn.dataset.action) {
       case 'skill-retry':
         await loadSkills(page)
@@ -468,10 +653,25 @@ function bindEvents(page) {
         await handleInstallDep(page, btn)
         break
       case 'store-search':
+        page.querySelectorAll('.skills-chip').forEach(chip => chip.classList.remove('active'))
         await handleStoreSearch(page)
+        break
+      case 'store-query':
+        page.querySelectorAll('.skills-chip').forEach(chip => chip.classList.toggle('active', chip === btn))
+        page.querySelector('#skill-store-search').value = btn.dataset.query || ''
+        await handleStoreSearch(page)
+        break
+      case 'store-select':
+      case 'store-preview':
+        _selectedStoreSlug = btn.dataset.slug
+        renderStoreItems(page.querySelector('#store-results'), _storeItems)
+        renderStorePreview(page)
         break
       case 'store-install':
         await handleStoreInstall(page, btn)
+        break
+      case 'skill-install-zip':
+        await handleInstallZip(page)
         break
       case 'skill-uninstall':
         await handleSkillUninstall(page, btn)
@@ -489,7 +689,14 @@ function bindEvents(page) {
   page.addEventListener('keydown', async (e) => {
     if (e.key === 'Enter' && e.target?.id === 'skill-store-search') {
       e.preventDefault()
+      page.querySelectorAll('.skills-chip').forEach(chip => chip.classList.remove('active'))
       await handleStoreSearch(page)
+    }
+  })
+
+  page.addEventListener('change', (e) => {
+    if (e.target?.id === 'skill-store-source') {
+      updateStoreSourceUi(page)
     }
   })
 }

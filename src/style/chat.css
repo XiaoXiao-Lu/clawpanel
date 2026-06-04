@@ -786,17 +786,17 @@
 
 /* 输入区域 */
 .chat-input-area {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
   background: var(--bg-primary);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: end;
+  gap: var(--space-sm);
 }
 
 .chat-input-wrapper {
-  flex: 1;
   min-width: 0;
 }
 
@@ -827,8 +827,10 @@
 
 /* 发送按钮 */
 .chat-send-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: var(--radius-md, 8px);
   border: none;
   background: var(--accent);

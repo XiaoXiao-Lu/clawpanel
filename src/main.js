@@ -580,15 +580,17 @@ async function autoConnectWebSocket() {
     const rawPassword = config?.gateway?.auth?.password
     const password = (typeof rawPassword === 'string') ? rawPassword : ''
 
-    // 启动前先确保设备已配对 + allowedOrigins 已写入，无需用户手动操作
+    // 启动前先确保设备已配对 + allowedOrigins 已写入，无需用户手动操作。
+    // Web/headless 反代场景里 reload_gateway 会主动断开当前 /ws，容易和浏览器重连形成循环；
+    // 所以仅桌面本机模式自动 reload，Web 模式等用户显式保存/重启时生效。
     let needReload = false
     try {
       const pairResult = await api.autoPairDevice()
       console.log('[main] 设备配对 + origins 已就绪:', pairResult)
       // 仅在配置实际变更时才需要 reload（dev-api 返回 {changed}，Tauri 返回字符串）
-      if (typeof pairResult === 'object' && pairResult.changed) {
+      if (isTauriRuntime() && typeof pairResult === 'object' && pairResult.changed) {
         needReload = true
-      } else if (typeof pairResult === 'string' && pairResult !== '设备已配对') {
+      } else if (isTauriRuntime() && typeof pairResult === 'string' && pairResult !== '设备已配对') {
         needReload = true
       }
     } catch (pairErr) {
@@ -600,7 +602,7 @@ async function autoConnectWebSocket() {
       const patched = await api.patchModelVision()
       if (patched) {
         console.log('[main] 已为模型添加 vision 支持')
-        needReload = true
+        if (isTauriRuntime()) needReload = true
       }
     } catch (visionErr) {
       console.warn('[main] patchModelVision 失败（非致命）:', visionErr)

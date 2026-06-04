@@ -160,24 +160,22 @@ function normalizeDefaultModelMap(config, validModels, primary, fallbacks) {
   const defaults = config?.agents?.defaults
   if (!defaults) return false
   const current = defaults.models && typeof defaults.models === 'object' && !Array.isArray(defaults.models) ? defaults.models : {}
-  const next = {}
-  if (primary) next[primary] = current[primary] && typeof current[primary] === 'object' && !Array.isArray(current[primary]) ? current[primary] : {}
+  const next = { ...current }
+  if (primary && (!next[primary] || typeof next[primary] !== 'object' || Array.isArray(next[primary]))) next[primary] = {}
   for (const f of fallbacks || []) {
-    if (validModels.has(f) && !next[f]) next[f] = current[f] && typeof current[f] === 'object' && !Array.isArray(current[f]) ? current[f] : {}
-  }
-  for (const [key, value] of Object.entries(current)) {
-    if (validModels.has(key) && !next[key]) next[key] = value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+    if (f && (!next[f] || typeof next[f] !== 'object' || Array.isArray(next[f]))) next[f] = {}
   }
   const changed = JSON.stringify(current) !== JSON.stringify(next)
   defaults.models = next
   return changed
 }
 
-function dedupeValidFallbacks(fallbacks, validModels, primary) {
+function dedupeFallbacks(fallbacks, primary) {
   const seen = new Set()
   if (primary) seen.add(primary)
   return (Array.isArray(fallbacks) ? fallbacks : [])
-    .filter(f => validModels.has(f))
+    .map(f => typeof f === 'string' ? f.trim() : '')
+    .filter(Boolean)
     .filter(f => {
       if (seen.has(f)) return false
       seen.add(f)
@@ -185,31 +183,28 @@ function dedupeValidFallbacks(fallbacks, validModels, primary) {
     })
 }
 
-function normalizeDefaultModelSelection(config) {
+export function normalizeDefaultModelSelection(config) {
   const allModels = collectAllModels(config)
   const validModels = new Set(allModels.map(m => m.full))
   const modelConfig = ensureConfigDefaultModelConfig(config)
   let changed = false
   if (!allModels.length) {
-    if (modelConfig.primary) {
-      modelConfig.primary = ''
+    const nextFallbacks = dedupeFallbacks(modelConfig.fallbacks, modelConfig.primary || '')
+    if (JSON.stringify(nextFallbacks) !== JSON.stringify(modelConfig.fallbacks)) {
+      modelConfig.fallbacks = nextFallbacks
       changed = true
     }
-    if (modelConfig.fallbacks.length) {
-      modelConfig.fallbacks = []
-      changed = true
-    }
-    changed = normalizeDefaultModelMap(config, validModels, '', []) || changed
-    return { changed, primary: '' }
+    changed = normalizeDefaultModelMap(config, validModels, modelConfig.primary || '', modelConfig.fallbacks) || changed
+    return { changed, primary: modelConfig.primary || '' }
   }
   let primary = modelConfig.primary || ''
-  if (!validModels.has(primary)) {
+  if (!primary) {
     const fallbackPrimary = modelConfig.fallbacks.find(f => validModels.has(f))
     primary = fallbackPrimary || allModels[0].full
     modelConfig.primary = primary
     changed = true
   }
-  const nextFallbacks = dedupeValidFallbacks(modelConfig.fallbacks, validModels, primary)
+  const nextFallbacks = dedupeFallbacks(modelConfig.fallbacks, primary)
   if (JSON.stringify(nextFallbacks) !== JSON.stringify(modelConfig.fallbacks)) {
     modelConfig.fallbacks = nextFallbacks
     changed = true
@@ -1113,14 +1108,13 @@ function setPrimary(state, full) {
 }
 
 // 处理主模型变更后，备选链的数据流转
-function rotateFallbackChain(state, oldPrimary, newPrimary) {
+export function rotateFallbackChain(state, oldPrimary, newPrimary) {
   const modelConfig = ensureDefaultModelConfig(state)
-  const validModels = new Set(collectAllModels(state.config).map(m => m.full))
   const seen = new Set()
 
   // 从备选链中移除新上位的主模型
   const newFallbacks = (modelConfig.fallbacks || [])
-    .filter(f => f !== newPrimary && validModels.has(f))
+    .filter(f => f !== newPrimary)
     .filter(f => {
       if (seen.has(f)) return false
       seen.add(f)
@@ -1128,7 +1122,7 @@ function rotateFallbackChain(state, oldPrimary, newPrimary) {
     })
 
   // 将原主模型降级放入备选链
-  if (oldPrimary && oldPrimary !== newPrimary && validModels.has(oldPrimary) && !seen.has(oldPrimary)) {
+  if (oldPrimary && oldPrimary !== newPrimary && !seen.has(oldPrimary)) {
     newFallbacks.push(oldPrimary)
   }
 

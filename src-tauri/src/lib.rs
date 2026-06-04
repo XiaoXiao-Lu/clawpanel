@@ -219,6 +219,7 @@ pub fn run() {
             skills::skills_info,
             skills::skills_check,
             skills::skills_install_dep,
+            skills::skills_install_zip,
             skills::skills_uninstall,
             skills::skills_validate,
             // SkillHub SDK（内置 HTTP，不依赖 CLI）

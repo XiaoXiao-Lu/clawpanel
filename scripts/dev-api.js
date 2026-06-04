@@ -11435,6 +11435,21 @@ const handlers = {
     const installedPath = await skillhubSdk.install(slug, skillsDir)
     return { success: true, slug, path: installedPath }
   },
+  async skills_install_zip({ name, zip_base64, agent_id } = {}) {
+    const rawName = String(name || '').trim()
+    if (!rawName) throw new Error('Skill zip 文件名不能为空')
+    if (!zip_base64) throw new Error('Skill zip 内容不能为空')
+    const agentDir = resolveAgentSkillsDir(agent_id)
+    const skillsDir = agentDir || path.join(OPENCLAW_DIR, 'skills')
+    if (!fs.existsSync(skillsDir)) fs.mkdirSync(skillsDir, { recursive: true })
+    const payload = String(zip_base64).includes(',')
+      ? String(zip_base64).split(',').pop()
+      : String(zip_base64)
+    const zipBuf = Buffer.from(payload, 'base64')
+    if (!zipBuf.length) throw new Error('Skill zip 内容为空')
+    const installedPath = await skillhubSdk.installZip(zipBuf, rawName, skillsDir)
+    return { success: true, name: rawName.replace(/\.zip$/i, ''), path: installedPath }
+  },
 
   // 设备配对 + Gateway 握手
   auto_pair_device() {

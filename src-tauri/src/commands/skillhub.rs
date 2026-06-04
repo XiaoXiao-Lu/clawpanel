@@ -26,7 +26,13 @@ pub struct SkillHubItem {
     #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
+    pub description_zh: Option<String>,
+    #[serde(default)]
     pub author: Option<String>,
+    #[serde(default)]
+    pub owner_name: Option<String>,
+    #[serde(default)]
+    pub category: Option<String>,
     #[serde(default)]
     pub tags: Option<Vec<String>>,
     #[serde(default)]
@@ -36,7 +42,13 @@ pub struct SkillHubItem {
     #[serde(default)]
     pub downloads: Option<u64>,
     #[serde(default)]
+    pub installs: Option<u64>,
+    #[serde(default)]
     pub stars: Option<u64>,
+    #[serde(default)]
+    pub labels: Option<serde_json::Value>,
+    #[serde(default)]
+    pub updated_at: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -162,6 +174,14 @@ pub async fn install(slug: &str, skills_dir: &Path) -> Result<PathBuf, String> {
     Ok(target_dir)
 }
 
+/// 安装用户上传的 Skill zip
+pub fn install_zip(zip_bytes: &[u8], name: &str, skills_dir: &Path) -> Result<PathBuf, String> {
+    let slug = normalize_install_name(name)?;
+    let target_dir = skills_dir.join(slug);
+    extract_zip(zip_bytes, &target_dir)?;
+    Ok(target_dir)
+}
+
 // ── 内部工具 ──────────────────────────────────────────────
 
 /// 校验 slug 安全性
@@ -173,6 +193,24 @@ fn validate_slug(slug: &str) -> Result<(), String> {
         return Err(format!("无效的 Skill slug: {slug}"));
     }
     Ok(())
+}
+
+fn normalize_install_name(name: &str) -> Result<String, String> {
+    let without_zip = name.trim().trim_end_matches(".zip").trim_end_matches(".ZIP");
+    let slug = without_zip
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '_' || ch == '.' || ch == '-' {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string();
+    validate_slug(&slug)?;
+    Ok(slug)
 }
 
 /// 将 zip 字节解压到目标目录

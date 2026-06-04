@@ -11,23 +11,34 @@ import { t } from '../lib/i18n.js'
 import { wsClient } from '../lib/ws-client.js'
 import { attachCliConflictBanner } from '../components/cli-conflict-banner.js'
 import { icon } from '../lib/icons.js'
+import { countMcpServers } from '../lib/mcp-config.js'
 
 let _unsubGw = null
 let _dashboardLoadChain = Promise.resolve()
 let _lastGwChangeLoad = 0
 let _detachCliConflict = null
+let _unsubWsStatus = null
+let _unsubWsReady = null
+let _lastDashboardViewContext = null
+
+function actionLabel(iconName, key, size = 15) {
+  return `${icon(iconName, size)} <span>${t(key)}</span>`
+}
 
 export async function render() {
   const page = document.createElement('div')
-  page.className = 'page'
+  page.className = 'page dashboard-page'
 
   page.innerHTML = `
-    <div class="page-header">
-      <h1 class="page-title">${t('dashboard.title')}</h1>
-      <p class="page-desc">${t('dashboard.desc')}</p>
+    <div class="page-header dashboard-header">
+      <div>
+        <h1 class="page-title">${t('dashboard.title')}</h1>
+        <p class="page-desc">${t('dashboard.desc')}</p>
+      </div>
     </div>
     <div id="cli-conflict-mount"></div>
     <div id="onboarding-mount"></div>
+    <div id="dashboard-command-center" class="dashboard-command-center loading-placeholder"></div>
     <div class="stat-cards" id="stat-cards">
       <div class="stat-card loading-placeholder"></div>
       <div class="stat-card loading-placeholder"></div>
@@ -38,9 +49,9 @@ export async function render() {
     </div>
     <div id="dashboard-overview-container"></div>
     <div class="quick-actions">
-      <button class="btn btn-secondary" id="btn-restart-gw">${t('dashboard.restartGw')}</button>
-      <button class="btn btn-secondary" id="btn-check-update">${t('dashboard.checkUpdate')}</button>
-      <button class="btn btn-secondary" id="btn-create-backup">${t('dashboard.createBackup')}</button>
+      <button class="btn btn-secondary" id="btn-restart-gw">${actionLabel('refresh-cw', 'dashboard.restartGw')}</button>
+      <button class="btn btn-secondary" id="btn-check-update">${actionLabel('search', 'dashboard.checkUpdate')}</button>
+      <button class="btn btn-secondary" id="btn-create-backup">${actionLabel('download', 'dashboard.createBackup')}</button>
       <button class="btn btn-ghost" id="btn-open-glossary">${icon('scroll', 16)} ${t('glossary.title')}</button>
     </div>
     <div class="config-section">
@@ -85,6 +96,16 @@ export async function render() {
     _lastGwChangeLoad = now
     loadDashboardData(page)
   })
+  if (_unsubWsStatus) _unsubWsStatus()
+  if (_unsubWsReady) _unsubWsReady()
+  const refreshWsView = () => {
+    if (!page.isConnected || !_lastDashboardViewContext) return
+    const { services, version, agents, config, statusSummary, channels } = _lastDashboardViewContext
+    renderCommandCenter(page, services, version, agents, config, statusSummary, channels)
+    renderOverview(page, services, _lastDashboardViewContext.mcpConfig, _lastDashboardViewContext.backups, config, agents, statusSummary, channels)
+  }
+  _unsubWsStatus = wsClient.onStatusChange(refreshWsView)
+  _unsubWsReady = wsClient.onReady(refreshWsView)
 
   return page
 }
@@ -92,6 +113,9 @@ export async function render() {
 export function cleanup() {
   if (_unsubGw) { _unsubGw(); _unsubGw = null }
   if (_detachCliConflict) { try { _detachCliConflict() } catch (_) {} _detachCliConflict = null }
+  if (_unsubWsStatus) { try { _unsubWsStatus() } catch (_) {} _unsubWsStatus = null }
+  if (_unsubWsReady) { try { _unsubWsReady() } catch (_) {} _unsubWsReady = null }
+  _lastDashboardViewContext = null
 }
 
 function openclawInstallationIdentity(installation) {
@@ -300,6 +324,8 @@ async function _loadDashboardDataInner(page, fullRefresh, loadSeq) {
   }
 
   if (loadSeq !== _dashboardLoadSeq || !page.isConnected) return
+  _lastDashboardViewContext = { services, version, agents: [], config, statusSummary: null, channels: [], mcpConfig: null, backups: [] }
+  renderCommandCenter(page, services, version, [], config, null, [])
   renderStatCards(page, services, version, [], config, panelConfig)
   renderLogs(page, '')
   if (gw) {
@@ -356,6 +382,8 @@ async function _loadDashboardDataInner(page, fullRefresh, loadSeq) {
     }
   }
 
+  _lastDashboardViewContext = { services, version, agents, config, statusSummary, channels, mcpConfig, backups }
+  renderCommandCenter(page, services, version, agents, config, statusSummary, channels)
   renderStatCards(page, services, version, agents, config, panelConfig)
   renderOverview(page, services, mcpConfig, backups, config, agents, statusSummary, channels)
   renderOnboarding(page, { gw, config, agents, channels })
@@ -377,6 +405,116 @@ async function openGatewayConflict(page, error = null, reason = null) {
     reason,
     onRefresh: async () => loadDashboardData(page, true),
   })
+}
+
+function renderCommandCenter(page, services, version, agents, config, statusSummary, channels) {
+  const mount = page.querySelector('#dashboard-command-center')
+  if (!mount) return
+  mount.classList.remove('loading-placeholder')
+
+  const gw = services.find(s => s.label === 'ai.openclaw.gateway')
+  const foreignGateway = isForeignGatewayService(gw)
+  const runningCount = services.filter(s => s.running).length
+  const serviceCount = services.length
+  const providers = config?.models?.providers || {}
+  const providerCount = Object.keys(providers).length
+  const modelCount = Object.values(providers).reduce((acc, p) => acc + (p.models?.length || 0), 0)
+  const sessions = statusSummary?.sessions?.count || 0
+  const channelCount = Array.isArray(channels) ? channels.length : 0
+  const wsReady = wsClient.gatewayReady
+  const hasVersionRisk = !!(version?.ahead_of_recommended || version?.latest_update_available)
+
+  const healthItems = [
+    { ok: !!gw?.running && !foreignGateway, weight: 30 },
+    { ok: modelCount > 0, weight: 25 },
+    { ok: serviceCount > 0 && runningCount >= Math.max(1, Math.ceil(serviceCount * 0.6)), weight: 20 },
+    { ok: !!gw?.running && wsReady, weight: 15 },
+    { ok: !hasVersionRisk, weight: 10 },
+  ]
+  const healthScore = healthItems.reduce((sum, item) => sum + (item.ok ? item.weight : 0), 0)
+  const tone = foreignGateway || !gw?.running || healthScore < 45 ? 'danger' : healthScore < 75 ? 'warning' : 'good'
+  const statusLabel = foreignGateway
+    ? t('dashboard.healthExternal')
+    : !gw?.running
+      ? t('dashboard.healthCritical')
+    : healthScore >= 75
+      ? t('dashboard.healthGood')
+      : healthScore >= 45
+        ? t('dashboard.healthNeedsAttention')
+        : t('dashboard.healthCritical')
+
+  const nextStep = (() => {
+    if (foreignGateway) return { text: t('dashboard.nextResolveGateway'), action: 'resolve-foreign-gateway', iconName: 'alert-triangle' }
+    if (!gw?.running) return { text: t('dashboard.nextStartGateway'), action: 'start-gw', iconName: 'rocket' }
+    if (!modelCount) return { text: t('dashboard.nextAddModel'), route: '/models', iconName: 'plus-circle' }
+    if (!agents.length) return { text: t('dashboard.nextCreateAgent'), route: '/agents', iconName: 'users' }
+    if (!wsReady) return { text: t('dashboard.nextCheckConnection'), route: '/diagnose', iconName: 'radio' }
+    if (hasVersionRisk) return { text: t('dashboard.nextReviewVersion'), action: 'check-update', iconName: 'search' }
+    return { text: t('dashboard.nextOpenChat'), route: '/chat', iconName: 'message-circle' }
+  })()
+
+  mount.innerHTML = `
+    <section class="dashboard-health-card dashboard-health-card--${tone}">
+      <div class="dashboard-health-main">
+        <div class="dashboard-health-score" aria-label="${escapeHtml(t('dashboard.healthScore'))}">
+          <svg viewBox="0 0 120 120" role="img" aria-hidden="true">
+            <circle class="dashboard-health-ring-bg" cx="60" cy="60" r="48"></circle>
+            <circle class="dashboard-health-ring" cx="60" cy="60" r="48" style="stroke-dasharray:${Math.round(healthScore * 3.016)} 302"></circle>
+          </svg>
+          <div class="dashboard-health-score-text">
+            <strong>${healthScore}</strong>
+            <span>${t('dashboard.healthScore')}</span>
+          </div>
+        </div>
+        <div class="dashboard-health-copy">
+          <div class="dashboard-health-kicker">${t('dashboard.commandCenter')}</div>
+          <h2>${statusLabel}</h2>
+          <p>${getHealthSummary({ gw, foreignGateway, modelCount, serviceCount, runningCount, wsReady, hasVersionRisk })}</p>
+          <div class="dashboard-health-chips">
+            <span>${icon(gw?.running ? 'check-circle' : 'x-circle', 14)} ${gw?.running ? t('common.running') : t('common.stopped')}</span>
+            <span>${icon('box', 14)} ${modelCount} ${t('dashboard.modelsShort')}</span>
+            <span>${icon('plug', 14)} ${runningCount}/${serviceCount || 0}</span>
+            <span>${icon(wsReady ? 'radio' : 'alert-circle', 14)} ${wsReady ? t('dashboard.wsConnected') : t('dashboard.wsDisconnected')}</span>
+          </div>
+        </div>
+      </div>
+      <div class="dashboard-health-side">
+        <button class="dashboard-next-action" ${nextStep.route ? `data-route="${nextStep.route}"` : `data-action="${nextStep.action}"`}>
+          ${icon(nextStep.iconName, 17)}
+          <span>${nextStep.text}</span>
+        </button>
+        <div class="dashboard-health-metrics">
+          <div>
+            <span>${sessions}</span>
+            <small>${t('dashboard.sessionsShort')}</small>
+          </div>
+          <div>
+            <span>${channelCount}</span>
+            <small>${t('dashboard.channelsShort')}</small>
+          </div>
+          <div>
+            <span>${providerCount}</span>
+            <small>${t('dashboard.providersShort')}</small>
+          </div>
+        </div>
+      </div>
+    </section>
+  `
+
+  mount.querySelector('[data-route]')?.addEventListener('click', (e) => {
+    const route = e.currentTarget.dataset.route
+    if (route) navigate(route)
+  })
+}
+
+function getHealthSummary({ gw, foreignGateway, modelCount, serviceCount, runningCount, wsReady, hasVersionRisk }) {
+  if (foreignGateway) return t('dashboard.healthSummaryExternal')
+  if (!gw?.running) return t('dashboard.healthSummaryGatewayDown')
+  if (!modelCount) return t('dashboard.healthSummaryNoModel')
+  if (serviceCount && runningCount < serviceCount) return t('dashboard.healthSummaryPartialServices')
+  if (!wsReady) return t('dashboard.healthSummaryWsPending')
+  if (hasVersionRisk) return t('dashboard.healthSummaryVersion')
+  return t('dashboard.healthSummaryGood')
 }
 
 function renderStatCards(page, services, version, agents, config, panelConfig) {
@@ -469,7 +607,7 @@ function renderOverview(page, services, mcpConfig, backups, config, agents, stat
   const containerEl = page.querySelector('#dashboard-overview-container')
   const gw = services.find(s => s.label === 'ai.openclaw.gateway')
   const foreignGateway = isForeignGatewayService(gw)
-  const mcpCount = mcpConfig?.mcpServers ? Object.keys(mcpConfig.mcpServers).length : 0
+  const mcpCount = countMcpServers(mcpConfig)
 
   const formatDate = (timestamp) => {
     if (!timestamp) return '——'
@@ -772,6 +910,11 @@ function bindActions(page) {
       return
     }
 
+    if (action === 'check-update') {
+      page.querySelector('#btn-check-update')?.click()
+      return
+    }
+
     if (action === 'start-gw') {
       actionBtn.disabled = true; actionBtn.textContent = t('dashboard.starting')
       try {
@@ -818,7 +961,7 @@ function bindActions(page) {
       await handleGatewayStartError(page, e, t('dashboard.restartFail'))
       btnRestart.disabled = false
       btnRestart.classList.remove('btn-loading')
-      btnRestart.textContent = t('dashboard.restartGw')
+      btnRestart.innerHTML = actionLabel('refresh-cw', 'dashboard.restartGw')
       return
     }
     // 轮询等待实际重启完成
@@ -831,7 +974,7 @@ function bindActions(page) {
           toast(t('dashboard.gwRestarted', { pid: gw.pid }), 'success')
           btnRestart.disabled = false
           btnRestart.classList.remove('btn-loading')
-          btnRestart.textContent = t('dashboard.restartGw')
+          btnRestart.innerHTML = actionLabel('refresh-cw', 'dashboard.restartGw')
           loadDashboardData(page)
           return
         }
@@ -843,7 +986,7 @@ function bindActions(page) {
     toast(t('dashboard.restartTimeout'), 'warning')
     btnRestart.disabled = false
     btnRestart.classList.remove('btn-loading')
-    btnRestart.textContent = t('dashboard.restartGw')
+    btnRestart.innerHTML = actionLabel('refresh-cw', 'dashboard.restartGw')
     loadDashboardData(page)
   })
 
@@ -866,7 +1009,7 @@ function bindActions(page) {
       toast(humanizeError(e, t('dashboard.checkUpdateFail')), 'error')
     } finally {
       btnUpdate.disabled = false
-      btnUpdate.textContent = t('dashboard.checkUpdate')
+      btnUpdate.innerHTML = actionLabel('search', 'dashboard.checkUpdate')
     }
   })
 
@@ -881,7 +1024,7 @@ function bindActions(page) {
       toast(humanizeError(e, t('dashboard.backupFail')), 'error')
     } finally {
       btnCreateBackup.disabled = false
-      btnCreateBackup.textContent = t('dashboard.createBackup')
+      btnCreateBackup.innerHTML = actionLabel('download', 'dashboard.createBackup')
     }
   })
 }
