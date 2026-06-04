@@ -18,9 +18,14 @@ function escapeHtml(str) {
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
+function cssEscape(value) {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') return CSS.escape(String(value))
+  return String(value).replace(/["\\]/g, '\\$&')
+}
+
 export async function render() {
   const page = document.createElement('div')
-  page.className = 'page'
+  page.className = 'page models-page'
 
   page.innerHTML = `
     <div class="page-header">
@@ -35,7 +40,7 @@ export async function render() {
     <div class="form-hint" style="margin-bottom:var(--space-md)">
       ${t('models.providerHint')}
     </div>
-    <div id="qtcool-promo" style="margin-bottom:var(--space-md);border-radius:var(--radius-lg);border:1px solid var(--border-primary);border-left:3px solid var(--primary);background:var(--bg-secondary);padding:16px 20px">
+    <div id="qtcool-promo" class="models-qtcool-promo">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:12px">
         <div style="flex:1;min-width:200px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
@@ -58,8 +63,11 @@ export async function render() {
       </div>
     </div>
     <div id="default-model-bar"></div>
-    <div style="margin-bottom:var(--space-md)">
-      <input class="form-input" id="model-search" placeholder="${t('models.searchPlaceholder')}" style="max-width:360px">
+    <div class="models-toolbar">
+      <div class="models-search-wrap">
+        ${icon('search', 15)}
+        <input class="form-input" id="model-search" placeholder="${t('models.searchPlaceholder')}">
+      </div>
     </div>
     <div id="providers-list">
       <div class="config-section"><div class="stat-card loading-placeholder" style="height:120px"></div></div>
@@ -217,49 +225,134 @@ function getApiTypeLabel(apiType) {
   return API_TYPES.find(at => at.value === apiType)?.label || apiType || t('common.unknown')
 }
 
+function getModelObject(config, full) {
+  if (!full || !full.includes('/')) return null
+  const slash = full.indexOf('/')
+  const providerKey = full.slice(0, slash)
+  const modelId = full.slice(slash + 1)
+  const provider = config?.models?.providers?.[providerKey]
+  if (!provider) return null
+  const model = (provider.models || []).find(m => (typeof m === 'string' ? m : m.id) === modelId)
+  if (!model) return null
+  return { providerKey, provider, modelId, model }
+}
+
+function modelDisplayName(entry) {
+  if (!entry) return ''
+  const model = entry.model
+  if (model && typeof model === 'object' && model.name && model.name !== entry.modelId) return model.name
+  return entry.modelId
+}
+
+function modelStatusHtml(model) {
+  if (!model || typeof model !== 'object') return `<span class="models-status neutral">${t('models.notTested')}</span>`
+  if (model.testStatus === 'fail') return `<span class="models-status error" title="${escapeHtml(model.testError || '')}">${t('models.unavailable')}</span>`
+  if (model.latency != null) {
+    const tone = model.latency < 3000 ? 'ok' : model.latency < 8000 ? 'warn' : 'error'
+    return `<span class="models-status ${tone}">${(model.latency / 1000).toFixed(1)}s</span>`
+  }
+  return `<span class="models-status neutral">${t('models.notTested')}</span>`
+}
+
+function modelMetaLine(entry) {
+  if (!entry) return ''
+  const model = entry.model
+  const meta = [entry.providerKey]
+  if (model && typeof model === 'object') {
+    if (model.contextWindow) meta.push((model.contextWindow / 1000) + 'K ' + t('models.context'))
+    if (model.reasoning) meta.push(t('models.reasoning'))
+    if (model.lastTestAt) meta.push(formatTestTime(model.lastTestAt))
+  }
+  return meta.join(' · ')
+}
+
 // 渲染当前主模型状态栏
 function renderDefaultBar(page, state) {
   const bar = page.querySelector('#default-model-bar')
   const primary = getCurrentPrimary(state.config)
   const fallbacks = state.config?.agents?.defaults?.model?.fallbacks || []
+  const allModels = collectAllModels(state.config)
+  const primaryEntry = getModelObject(state.config, primary)
   const visibleFallbacks = fallbacks.slice(0, 8)
   const overflowFallbackCount = Math.max(0, fallbacks.length - visibleFallbacks.length)
   const collapsed = !state.showFallbackEditor
   const chevron = collapsed ? '▸' : '▾'
+  const validFallbacks = fallbacks.filter(f => getModelObject(state.config, f))
+  const invalidFallbackCount = Math.max(0, fallbacks.length - validFallbacks.length)
+  const providerCount = Object.keys(state.config?.models?.providers || {}).length
+  const switchOptions = allModels.map(m => `<option value="${escapeHtml(m.full)}" ${m.full === primary ? 'selected' : ''}>${escapeHtml(m.full)}</option>`).join('')
 
   bar.innerHTML = `
-    <div class="config-section" style="margin-bottom:var(--space-lg); transition: all 0.3s ease;">
-      <div class="config-section-title" id="system-model-title" style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; cursor:pointer; user-select:none;">
-        <div style="display:flex; align-items:flex-start; gap:8px; min-width:0; flex:1">
-          <span style="display:inline-block;width:16px;font-size:12px;color:var(--text-tertiary);flex-shrink:0">${chevron}</span>
-          <span>${t('models.systemModelTitle')}</span>
-          <div style="display:flex; gap:8px; margin-left:12px; align-items:baseline; flex-wrap:wrap; min-width:0">
-            <span style="color:var(--success); font-family:var(--font-mono); font-size:0.9em; font-weight:500; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(primary || '')}">${primary || t('models.notConfigured')}</span>
-            <span style="font-size:11px; color:var(--text-tertiary); font-weight:normal; white-space:nowrap;">${t('models.nFallbacks', { count: fallbacks.length })}</span>
+    <div class="models-control-console">
+      <div class="models-console-main">
+        <div class="models-console-kicker">${t('models.systemModelTitle')}</div>
+        <div class="models-console-head">
+          <div class="models-primary-icon">${icon('crown', 20)}</div>
+          <div class="models-primary-copy">
+            <div class="models-primary-label">${t('models.primaryModel')}</div>
+            <div class="models-primary-name" title="${escapeHtml(primary || '')}">${primary ? escapeHtml(modelDisplayName(primaryEntry) || primary) : t('models.notConfigured')}</div>
+            <div class="models-primary-meta" title="${escapeHtml(primary || '')}">${primary ? escapeHtml(modelMetaLine(primaryEntry) || primary) : t('models.noProvider')}</div>
           </div>
+          ${modelStatusHtml(primaryEntry?.model)}
+        </div>
+        <div class="models-switch-row">
+          <select class="form-input models-primary-select" id="models-primary-select" ${allModels.length ? '' : 'disabled'}>
+            ${switchOptions || `<option>${t('models.notConfigured')}</option>`}
+          </select>
+          <button class="btn btn-primary btn-sm" id="models-test-primary" ${primaryEntry ? '' : 'disabled'}>${icon('radio', 14)} ${t('models.testPrimary')}</button>
+          <button class="btn btn-secondary btn-sm" id="models-locate-primary" ${primaryEntry ? '' : 'disabled'}>${icon('target', 14)} ${t('models.locateModel')}</button>
+          <button class="btn btn-secondary btn-sm" id="models-toggle-fallbacks">${chevron} ${collapsed ? t('models.manageFallbacks') : t('models.collapseFallbacks')}</button>
         </div>
       </div>
-
-      ${collapsed && fallbacks.length > 0 ? `
-      <div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding-left:24px; max-height:56px; overflow:hidden;">
-        ${visibleFallbacks.map(f => `<span style="background:var(--bg-tertiary); border:1px solid var(--border-color); padding:2px 8px; border-radius:12px; font-size:11px; font-family:var(--font-mono); color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px;" title="${escapeHtml(f)}">${escapeHtml(f)}</span>`).join('<span style="color:var(--text-tertiary); font-size:10px; flex-shrink:0;">→</span>')}
-        ${overflowFallbackCount ? `<span style="background:var(--bg-tertiary); border:1px solid var(--border-color); padding:2px 8px; border-radius:12px; font-size:11px; color:var(--text-tertiary)">+${overflowFallbackCount}</span>` : ''}
+      <div class="models-console-side">
+        <div class="models-health-grid">
+          <div><strong>${allModels.length}</strong><span>${t('models.totalModels')}</span></div>
+          <div><strong>${providerCount}</strong><span>${t('models.totalProviders')}</span></div>
+          <div><strong>${fallbacks.length}</strong><span>${t('models.fallbackShort')}</span></div>
+          <div><strong>${invalidFallbackCount}</strong><span>${t('models.invalidRefs')}</span></div>
+        </div>
+        <div class="models-fallback-strip">
+          ${visibleFallbacks.length ? visibleFallbacks.map((f, i) => `
+            <button class="models-fallback-pill" data-action="locate-fallback" data-full="${escapeHtml(f)}" title="${escapeHtml(f)}">
+              <span>${i + 1}</span>${escapeHtml(f)}
+            </button>
+          `).join('') : `<span class="models-empty-fallback">${t('models.fallbackNone')}</span>`}
+          ${overflowFallbackCount ? `<span class="models-fallback-more">+${overflowFallbackCount}</span>` : ''}
+        </div>
       </div>
-      ` : ''}
+    </div>
 
-      <div id="fallback-waterfall-container" style="display:${state.showFallbackEditor ? 'block' : 'none'}; margin-top: 8px;">
+    <div class="config-section models-fallback-section" style="display:${state.showFallbackEditor ? 'block' : 'none'}">
+      <div class="config-section-title">${t('models.activeChainTitle')}</div>
+      <div id="fallback-waterfall-container">
         ${renderFallbackWaterfall(state)}
       </div>
-
-      ${collapsed ? '' : `<div class="form-hint" style="margin-top:8px">${t('models.fallbackHint')}</div>`}
+      <div class="form-hint" style="margin-top:8px">${t('models.fallbackHint')}</div>
     </div>
   `
 
-  // 绑定标题点击折叠/展开
-  bar.querySelector('#system-model-title').onclick = () => {
+  const primarySelect = bar.querySelector('#models-primary-select')
+  if (primarySelect) {
+    primarySelect.onchange = () => {
+      if (!primarySelect.value || primarySelect.value === primary) return
+      pushUndo(state)
+      setPrimary(state, primarySelect.value)
+      renderDefaultBar(page, state)
+      renderProviders(page, state)
+      updateUndoBtn(page, state)
+      autoSave(state)
+      toast(t('models.setAsPrimarySuccess', { model: primarySelect.value }), 'success')
+    }
+  }
+  bar.querySelector('#models-toggle-fallbacks').onclick = () => {
     state.showFallbackEditor = !state.showFallbackEditor
     renderDefaultBar(page, state)
   }
+  bar.querySelector('#models-locate-primary')?.addEventListener('click', () => locateModel(page, primary))
+  bar.querySelector('#models-test-primary')?.addEventListener('click', (e) => testFullModel(e.currentTarget, state, primary))
+  bar.querySelectorAll('[data-action="locate-fallback"]').forEach(btn => {
+    btn.onclick = () => locateModel(page, btn.dataset.full)
+  })
 
   if (state.showFallbackEditor) {
     bindWaterfallActions(page, state)
@@ -509,6 +602,62 @@ function bindWaterfallActions(page, state) {
   }
 }
 
+function locateModel(page, full) {
+  const slash = full ? full.indexOf('/') : -1
+  if (slash <= 0) return
+  const providerKey = full.slice(0, slash)
+  const modelId = full.slice(slash + 1)
+  const section = page.querySelector(`[data-provider="${cssEscape(providerKey)}"]`)
+  if (!section) return
+  const collapsed = section.querySelector('.provider-body')?.style.display === 'none'
+  if (collapsed) {
+    const toggle = section.querySelector('[data-action="toggle-provider"]')
+    toggle?.click()
+  }
+  requestAnimationFrame(() => {
+    const card = page.querySelector(`[data-provider="${cssEscape(providerKey)}"] .model-card[data-model-id="${cssEscape(modelId)}"]`)
+    if (!card) return
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    card.classList.add('model-card-highlight')
+    setTimeout(() => card.classList.remove('model-card-highlight'), 1800)
+  })
+}
+
+function toggleFallbackModel(state, full) {
+  const modelConfig = ensureDefaultModelConfig(state)
+  if (!full || full === modelConfig.primary) return false
+  const exists = modelConfig.fallbacks.includes(full)
+  modelConfig.fallbacks = exists
+    ? modelConfig.fallbacks.filter(f => f !== full)
+    : [...modelConfig.fallbacks, full]
+  return !exists
+}
+
+function chooseFirstAvailableModel(config) {
+  return collectAllModels(config)[0]?.full || ''
+}
+
+function removeModelReferences(state, shouldRemove) {
+  const modelConfig = ensureDefaultModelConfig(state)
+  const oldPrimary = modelConfig.primary || ''
+  modelConfig.fallbacks = (modelConfig.fallbacks || []).filter(f => !shouldRemove(f))
+  if (oldPrimary && shouldRemove(oldPrimary)) {
+    modelConfig.primary = chooseFirstAvailableModel(state.config)
+  }
+  modelConfig.fallbacks = dedupeFallbacks(modelConfig.fallbacks, modelConfig.primary || '')
+}
+
+export function cleanupDeletedModelReferences(state, deletedFulls = []) {
+  const deleted = new Set(deletedFulls.filter(Boolean))
+  removeModelReferences(state, full => deleted.has(full))
+}
+
+export function cleanupDeletedProviderReferences(state, providerKey) {
+  const prefix = providerKey ? `${providerKey}/` : ''
+  if (!prefix) return
+  removeModelReferences(state, full => full.startsWith(prefix))
+}
+
 // 排序模型列表
 function sortModels(models, sortBy) {
   if (!sortBy || sortBy === 'default') return models
@@ -626,7 +775,7 @@ function renderProviders(page, state) {
           </div>
         </div>` : ''}
         <div class="provider-models">
-          ${renderModelCards(key, sorted, primary, search)}
+          ${renderModelCards(key, sorted, primary, search, fallbackSet)}
           ${hiddenCount > 0 ? `<div style="font-size:var(--font-size-xs);color:var(--text-tertiary);padding:4px 0">${t('models.hiddenModels', { count: hiddenCount })}</div>` : ''}
         </div>
         </div>
@@ -639,7 +788,7 @@ function renderProviders(page, state) {
 }
 
 // 渲染模型卡片(支持搜索高亮和批量选择 checkbox)
-function renderModelCards(providerKey, models, primary, search) {
+function renderModelCards(providerKey, models, primary, search, fallbackSet = new Set()) {
   if (!models.length) {
     return `<div style="color:var(--text-tertiary);font-size:var(--font-size-sm);padding:8px 0">${t('models.noModel')}</div>`
   }
@@ -648,6 +797,7 @@ function renderModelCards(providerKey, models, primary, search) {
     const name = m.name || id
     const full = `${providerKey}/${id}`
     const isPrimary = full === primary
+    const isFallback = !isPrimary && fallbackSet.has(full)
     const borderColor = isPrimary ? 'var(--success)' : 'var(--border-primary)'
     const bgColor = isPrimary ? 'var(--success-muted)' : 'var(--bg-tertiary)'
     const meta = []
@@ -674,6 +824,7 @@ function renderModelCards(providerKey, models, primary, search) {
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0">
             <span style="font-family:var(--font-mono);font-size:var(--font-size-sm);min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(id)}">${escapeHtml(id)}</span>
             ${isPrimary ? `<span style="font-size:var(--font-size-xs);background:var(--success);color:var(--text-inverse);padding:1px 6px;border-radius:var(--radius-sm)">${t('models.primaryModel')}</span>` : ''}
+            ${isFallback ? `<span style="font-size:var(--font-size-xs);background:var(--info-muted);color:var(--info);padding:1px 6px;border-radius:var(--radius-sm)">${t('models.fallbackShort')}</span>` : ''}
             ${m.reasoning ? `<span style="font-size:var(--font-size-xs);background:var(--accent-muted);color:var(--accent);padding:1px 6px;border-radius:var(--radius-sm)">${t('models.reasoning')}</span>` : ''}
             ${latencyTag}
           </div>
@@ -682,6 +833,7 @@ function renderModelCards(providerKey, models, primary, search) {
         <div style="display:flex;gap:6px;flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end;margin-left:auto">
           <button class="btn btn-sm btn-secondary" data-action="test-model">${t('models.testBtn')}</button>
           ${!isPrimary ? `<button class="btn btn-sm btn-secondary" data-action="set-primary">${t('models.setPrimary')}</button>` : ''}
+          ${!isPrimary ? `<button class="btn btn-sm btn-secondary" data-action="toggle-fallback">${isFallback ? t('models.removeFallback') : t('models.addFallback')}</button>` : ''}
           <button class="btn btn-sm btn-secondary" data-action="edit-model">${t('models.editModel')}</button>
           <button class="btn btn-sm btn-danger" data-action="delete-model">${t('models.deleteModel')}</button>
         </div>
@@ -1038,6 +1190,7 @@ async function handleAction(action, btn, card, section, providerKey, provider, p
       if (!yes) return
       pushUndo(state)
       delete state.config.models.providers[providerKey]
+      cleanupDeletedProviderReferences(state, providerKey)
       renderProviders(page, state)
       renderDefaultBar(page, state)
       updateUndoBtn(page, state)
@@ -1062,6 +1215,7 @@ async function handleAction(action, btn, card, section, providerKey, provider, p
       pushUndo(state)
       const idx = findModelIdx(provider, modelId)
       if (idx >= 0) provider.models.splice(idx, 1)
+      cleanupDeletedModelReferences(state, [`${providerKey}/${modelId}`])
       renderProviders(page, state)
       renderDefaultBar(page, state)
       updateUndoBtn(page, state)
@@ -1084,6 +1238,17 @@ async function handleAction(action, btn, card, section, providerKey, provider, p
       updateUndoBtn(page, state)
       autoSave(state)
       toast(t('models.setPrimaryDone'), 'success')
+      break
+    }
+    case 'toggle-fallback': {
+      if (!card) return
+      pushUndo(state)
+      const added = toggleFallbackModel(state, card.dataset.full)
+      renderDefaultBar(page, state)
+      renderProviders(page, state)
+      updateUndoBtn(page, state)
+      autoSave(state)
+      toast(added ? t('models.fallbackAdded') : t('models.fallbackRemoved'), 'success')
       break
     }
     case 'test-model': {
@@ -1724,6 +1889,7 @@ async function handleBatchDelete(section, page, state, providerKey) {
     const mid = typeof m === 'string' ? m : m.id
     return !ids.includes(mid)
   })
+  cleanupDeletedModelReferences(state, ids.map(id => `${providerKey}/${id}`))
   renderProviders(page, state)
   renderDefaultBar(page, state)
   updateUndoBtn(page, state)
@@ -1984,4 +2150,11 @@ async function testModel(btn, state, providerKey, idx) {
     // 持久化测试结果(仅保存,不重启 Gateway)
     saveConfigOnly(state)
   }
+}
+
+async function testFullModel(btn, state, full) {
+  const entry = getModelObject(state.config, full)
+  if (!entry) return
+  const idx = findModelIdx(entry.provider, entry.modelId)
+  if (idx >= 0) await testModel(btn, state, entry.providerKey, idx)
 }

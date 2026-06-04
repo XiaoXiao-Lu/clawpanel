@@ -2,6 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
+  cleanupDeletedModelReferences,
+  cleanupDeletedProviderReferences,
   normalizeDefaultModelSelection,
   rotateFallbackChain,
 } from '../src/pages/models.js'
@@ -69,4 +71,54 @@ test('OpenClaw model page keeps unknown fallbacks when changing primary model', 
     'manual-provider/manual-fallback',
     'old-provider/old-main',
   ])
+})
+
+test('OpenClaw model page removes deleted model references and promotes a remaining model', () => {
+  const state = {
+    config: {
+      models: {
+        providers: {
+          qtcool: { models: [{ id: 'backup' }] },
+        },
+      },
+      agents: {
+        defaults: {
+          model: {
+            primary: 'qtcool/main',
+            fallbacks: ['qtcool/backup', 'qtcool/main'],
+          },
+        },
+      },
+    },
+  }
+
+  cleanupDeletedModelReferences(state, ['qtcool/main'])
+
+  assert.equal(state.config.agents.defaults.model.primary, 'qtcool/backup')
+  assert.deepEqual(state.config.agents.defaults.model.fallbacks, [])
+})
+
+test('OpenClaw model page removes deleted provider references', () => {
+  const state = {
+    config: {
+      models: {
+        providers: {
+          openai: { models: [{ id: 'gpt-4o' }] },
+        },
+      },
+      agents: {
+        defaults: {
+          model: {
+            primary: 'qtcool/main',
+            fallbacks: ['qtcool/backup', 'openai/gpt-4o'],
+          },
+        },
+      },
+    },
+  }
+
+  cleanupDeletedProviderReferences(state, 'qtcool')
+
+  assert.equal(state.config.agents.defaults.model.primary, 'openai/gpt-4o')
+  assert.deepEqual(state.config.agents.defaults.model.fallbacks, [])
 })
