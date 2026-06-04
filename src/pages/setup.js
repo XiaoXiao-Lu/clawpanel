@@ -11,6 +11,8 @@ import { diagnoseInstallError } from '../lib/error-diagnosis.js'
 import { icon, statusIcon } from '../lib/icons.js'
 import { t } from '../lib/i18n.js'
 
+let _cleanupSetupListeners = null
+
 function escapeHtml(str) {
   if (str == null) return ''
   return String(str)
@@ -75,6 +77,7 @@ function renderStatusCard(title, ok, meta) {
 }
 
 export async function render() {
+  cleanup()
   const page = document.createElement('div')
   page.className = 'page'
 
@@ -129,9 +132,18 @@ export async function render() {
   }
   document.addEventListener('visibilitychange', onVisibilityChange)
   window.addEventListener('focus', onVisibilityChange)
+  _cleanupSetupListeners = () => {
+    document.removeEventListener('visibilitychange', onVisibilityChange)
+    window.removeEventListener('focus', onVisibilityChange)
+    _cleanupSetupListeners = null
+  }
 
   runDetect(page)
   return page
+}
+
+export function cleanup() {
+  if (_cleanupSetupListeners) _cleanupSetupListeners()
 }
 
 async function maybeRefreshGatewayServiceBinding() {
@@ -1103,4 +1115,3 @@ function bindEvents(page, nodeOk, detectState) {
     }
   })
 }
-
