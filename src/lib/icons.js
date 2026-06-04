@@ -14,6 +14,8 @@ const PATHS = {
   // 简单指示符
   'check': '<polyline points="20 6 9 17 4 12"/>',
   'x': '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  'chevron-up': '<polyline points="18 15 12 9 6 15"/>',
+  'chevron-down': '<polyline points="6 9 12 15 18 9"/>',
 
   // 操作图标
   'search': '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',

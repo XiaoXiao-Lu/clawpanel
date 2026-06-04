@@ -18,6 +18,7 @@ const STORAGE_MODEL_KEY = 'clawpanel-chat-selected-model'
 const STORAGE_SIDEBAR_KEY = 'clawpanel-chat-sidebar-open'
 const STORAGE_SESSION_NAMES_KEY = 'clawpanel-chat-session-names'
 const STORAGE_WORKSPACE_PANEL_KEY = 'clawpanel-chat-workspace-open'
+const STORAGE_SESSION_PINS_KEY = 'clawpanel-chat-session-pins'
 
 const COMMANDS = [
   { title: 'chat.cmdSession', commands: [
@@ -61,6 +62,7 @@ let _sessionKey = null, _page = null, _messagesEl = null, _textarea = null
 let _sendBtn = null, _statusDot = null, _typingEl = null, _scrollBtn = null
 let _sessionListEl = null, _cmdPanelEl = null, _attachPreviewEl = null, _fileInputEl = null
 let _modelSelectEl = null
+let _sessionSearchEl = null, _sessionAgentFilterEl = null, _sessionBulkBarEl = null, _messageSearchEl = null, _messageSearchCountEl = null
 let _currentAiBubble = null, _currentAiText = '', _currentAiImages = [], _currentAiVideos = [], _currentAiAudios = [], _currentAiFiles = [], _currentAiTools = [], _currentRunId = null
 let _isStreaming = false, _isSending = false, _messageQueue = [], _streamStartTime = 0
 let _lastRenderTime = 0, _renderPending = false, _lastHistoryHash = ''
@@ -117,6 +119,9 @@ let _workspaceInfo = null, _workspaceCoreFiles = [], _workspaceTreeCache = new M
 let _workspaceCurrentAgentId = 'main', _workspaceCurrentFile = null, _workspacePreviewMode = false, _workspaceDirty = false
 let _workspaceLoadedContent = '', _workspaceLoading = false
 let _workspaceLoadSeq = 0, _workspaceOpenSeq = 0
+let _lastSessions = [], _sessionSearch = '', _sessionAgentFilter = '__all__'
+let _selectedSessions = new Set(), _pinnedSessions = new Set(loadSessionPins())
+let _messageSearch = '', _messageMatches = [], _messageMatchIndex = -1
 
 export async function render() {
   const page = document.createElement('div')
@@ -137,6 +142,16 @@ export async function render() {
         </button>
         </div>
       </div>
+      <div class="chat-session-tools">
+        <label class="chat-session-search">
+          ${svgIcon('search', 14)}
+          <input id="chat-session-search" type="search" placeholder="${t('chat.sessionSearchPlaceholder')}">
+        </label>
+        <select class="chat-session-filter" id="chat-session-agent-filter" title="${t('chat.sessionAllAgents')}">
+          <option value="__all__">${t('chat.sessionAllAgents')}</option>
+        </select>
+      </div>
+      <div class="chat-session-bulk-bar" id="chat-session-bulk-bar" style="display:none"></div>
       <div class="chat-session-list" id="chat-session-list"></div>
     </div>
     <div class="chat-main">
@@ -149,6 +164,14 @@ export async function render() {
           <span class="chat-title" id="chat-title">${t('chat.chatTitle')}</span>
         </div>
         <div class="chat-header-actions">
+          <div class="chat-message-search">
+            ${svgIcon('search', 14)}
+            <input id="chat-message-search" type="search" placeholder="${t('chat.messageSearchPlaceholder')}">
+            <span id="chat-message-search-count" class="chat-message-search-count"></span>
+            <button class="chat-message-search-btn" id="chat-message-search-prev" title="${t('chat.messageSearchPrev')}">${svgIcon('chevron-up', 13)}</button>
+            <button class="chat-message-search-btn" id="chat-message-search-next" title="${t('chat.messageSearchNext')}">${svgIcon('chevron-down', 13)}</button>
+            <button class="chat-message-search-btn" id="chat-message-search-clear" title="${t('chat.messageSearchClear')}">${svgIcon('x', 13)}</button>
+          </div>
           <div class="chat-model-group">
             <select class="form-input" id="chat-model-select" style="width:200px;max-width:28vw;padding:6px 10px;font-size:var(--font-size-xs)">
               <option value="">${t('chat.loadingModels')}</option>
@@ -300,6 +323,11 @@ export async function render() {
   _typingEl = page.querySelector('#typing-indicator')
   _scrollBtn = page.querySelector('#chat-scroll-btn')
   _sessionListEl = page.querySelector('#chat-session-list')
+  _sessionSearchEl = page.querySelector('#chat-session-search')
+  _sessionAgentFilterEl = page.querySelector('#chat-session-agent-filter')
+  _sessionBulkBarEl = page.querySelector('#chat-session-bulk-bar')
+  _messageSearchEl = page.querySelector('#chat-message-search')
+  _messageSearchCountEl = page.querySelector('#chat-message-search-count')
   _cmdPanelEl = page.querySelector('#chat-cmd-panel')
   _attachPreviewEl = page.querySelector('#chat-attachments-preview')
   _fileInputEl = page.querySelector('#chat-file-input')
@@ -433,6 +461,25 @@ function bindEvents(page) {
   page.querySelector('#btn-cmd').addEventListener('click', () => toggleCmdPanel())
   page.querySelector('#btn-reset-session').addEventListener('click', () => resetCurrentSession())
   page.querySelector('#btn-refresh-models')?.addEventListener('click', () => loadModelOptions(true))
+  _sessionSearchEl?.addEventListener('input', () => {
+    _sessionSearch = _sessionSearchEl.value || ''
+    renderSessionList(_lastSessions)
+  })
+  _sessionAgentFilterEl?.addEventListener('change', () => {
+    _sessionAgentFilter = _sessionAgentFilterEl.value || '__all__'
+    renderSessionList(_lastSessions)
+  })
+  _messageSearchEl?.addEventListener('input', () => {
+    _messageSearch = _messageSearchEl.value || ''
+    updateMessageSearch()
+  })
+  page.querySelector('#chat-message-search-prev')?.addEventListener('click', () => jumpMessageSearch(-1))
+  page.querySelector('#chat-message-search-next')?.addEventListener('click', () => jumpMessageSearch(1))
+  page.querySelector('#chat-message-search-clear')?.addEventListener('click', () => {
+    if (_messageSearchEl) _messageSearchEl.value = ''
+    _messageSearch = ''
+    updateMessageSearch()
+  })
   _workspaceBtn?.addEventListener('click', async (e) => {
     e.stopPropagation()
     if (getWorkspacePanelOpen() && _workspaceDirty) {
@@ -1273,40 +1320,129 @@ async function refreshSessionList() {
   }
 }
 
+function loadSessionPins() {
+  try {
+    const raw = localStorage.getItem(STORAGE_SESSION_PINS_KEY)
+    const list = raw ? JSON.parse(raw) : []
+    return Array.isArray(list) ? list.filter(Boolean) : []
+  } catch {
+    return []
+  }
+}
+
+function saveSessionPins() {
+  try { localStorage.setItem(STORAGE_SESSION_PINS_KEY, JSON.stringify([..._pinnedSessions])) } catch {}
+}
+
+function normalizeSessionRow(s) {
+  const key = s.sessionKey || s.key || ''
+  const label = parseSessionLabel(key)
+  const ts = s.updatedAt || s.lastActivity || s.createdAt || 0
+  const agentId = parseSessionAgent(key) || 'main'
+  return {
+    raw: s,
+    key,
+    label,
+    displayLabel: getDisplayLabel(key) || label,
+    ts,
+    timeStr: ts ? formatSessionTime(ts) : '',
+    msgCount: s.messageCount || s.messages || 0,
+    agentId,
+    cpCount: s.compactionCheckpointCount || 0,
+    pinned: _pinnedSessions.has(key),
+  }
+}
+
+function getVisibleSessionRows() {
+  const q = (_sessionSearch || '').trim().toLowerCase()
+  return _lastSessions
+    .map(normalizeSessionRow)
+    .filter(row => row.key)
+    .filter(row => _sessionAgentFilter === '__all__' || row.agentId === _sessionAgentFilter)
+    .filter(row => {
+      if (!q) return true
+      const hay = [row.key, row.displayLabel, row.label, row.agentId].join('\n').toLowerCase()
+      return hay.includes(q)
+    })
+    .sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
+      return (b.ts || 0) - (a.ts || 0)
+    })
+}
+
+function renderSessionFilters(rows) {
+  if (!_sessionAgentFilterEl) return
+  const agents = Array.from(new Set(rows.map(r => r.agentId).filter(Boolean))).sort((a, b) => a.localeCompare(b))
+  if (_sessionAgentFilter !== '__all__' && !agents.includes(_sessionAgentFilter)) _sessionAgentFilter = '__all__'
+  _sessionAgentFilterEl.innerHTML = `<option value="__all__">${t('chat.sessionAllAgents')}</option>` +
+    agents.map(agent => `<option value="${escapeAttr(agent)}" ${agent === _sessionAgentFilter ? 'selected' : ''}>${escapeAttr(agent)}</option>`).join('')
+}
+
+function renderSessionBulkBar(rows) {
+  if (!_sessionBulkBarEl) return
+  const selected = [..._selectedSessions].filter(key => rows.some(r => r.key === key))
+  _selectedSessions = new Set(selected)
+  if (!selected.length) {
+    _sessionBulkBarEl.style.display = 'none'
+    _sessionBulkBarEl.innerHTML = ''
+    return
+  }
+  _sessionBulkBarEl.style.display = 'flex'
+  _sessionBulkBarEl.innerHTML = `
+    <span>${t('chat.sessionSelectedCount', { count: selected.length })}</span>
+    <button type="button" data-session-bulk="clear">${t('common.cancel')}</button>
+    <button type="button" data-session-bulk="delete" class="danger">${svgIcon('trash', 12)} ${t('chat.sessionDeleteSelected')}</button>
+  `
+  _sessionBulkBarEl.onclick = (e) => {
+    const action = e.target.closest('[data-session-bulk]')?.dataset.sessionBulk
+    if (!action) return
+    if (action === 'clear') {
+      _selectedSessions.clear()
+      renderSessionList(_lastSessions)
+    } else if (action === 'delete') {
+      void deleteSelectedSessions()
+    }
+  }
+}
+
 function renderSessionList(sessions) {
   if (!_sessionListEl) return
-  if (!sessions.length) {
+  _lastSessions = Array.isArray(sessions) ? sessions.slice() : []
+  const rows = _lastSessions.map(normalizeSessionRow).filter(r => r.key)
+  renderSessionFilters(rows)
+  const visibleRows = getVisibleSessionRows()
+  renderSessionBulkBar(visibleRows)
+  if (!visibleRows.length) {
     _sessionListEl.innerHTML = `<div class="chat-session-empty">${t('chat.noSessions')}</div>`
     return
   }
-  sessions.sort((a, b) => (b.updatedAt || b.lastActivity || 0) - (a.updatedAt || a.lastActivity || 0))
-  _sessionListEl.innerHTML = sessions.map(s => {
-    const key = s.sessionKey || s.key || ''
-    const active = key === _sessionKey ? ' active' : ''
-    const label = parseSessionLabel(key)
-    const ts = s.updatedAt || s.lastActivity || s.createdAt || 0
-    const timeStr = ts ? formatSessionTime(ts) : ''
-    const msgCount = s.messageCount || s.messages || 0
-    const agentId = parseSessionAgent(key)
-    const displayLabel = getDisplayLabel(key) || label
-    const cpCount = s.compactionCheckpointCount || 0
-    return `<div class="chat-session-card${active}" data-key="${escapeAttr(key)}">
+  _sessionListEl.innerHTML = visibleRows.map(row => {
+    const active = row.key === _sessionKey ? ' active' : ''
+    const selected = _selectedSessions.has(row.key) ? ' selected' : ''
+    const pinned = row.pinned ? ' pinned' : ''
+    return `<div class="chat-session-card${active}${selected}${pinned}" data-key="${escapeAttr(row.key)}">
       <div class="chat-session-card-header">
-        <span class="chat-session-label" title="${t('chat.doubleClickRename')}">${escapeAttr(displayLabel)}</span>
-        <div style="display:flex;gap:2px;align-items:center">
-          ${cpCount > 0 ? `<button class="chat-session-del" data-compaction="${escapeAttr(key)}" title="${t('chat.compactionHistory')}" style="color:var(--text-tertiary);font-size:11px">⟳${cpCount}</button>` : ''}
-          <button class="chat-session-del" data-del="${escapeAttr(key)}" title="${t('common.delete')}">×</button>
+        <button class="chat-session-select" data-select="${escapeAttr(row.key)}" title="${t('chat.sessionSelect')}">${svgIcon(_selectedSessions.has(row.key) ? 'check-circle' : 'circle', 14)}</button>
+        <span class="chat-session-label" title="${t('chat.doubleClickRename')}">${escapeAttr(row.displayLabel)}</span>
+        <div class="chat-session-actions">
+          <button class="chat-session-del chat-session-pin" data-pin="${escapeAttr(row.key)}" title="${row.pinned ? t('chat.sessionUnpin') : t('chat.sessionPin')}">${svgIcon(row.pinned ? 'crown' : 'target', 12)}</button>
+          ${row.cpCount > 0 ? `<button class="chat-session-del" data-compaction="${escapeAttr(row.key)}" title="${t('chat.compactionHistory')}">⟳${row.cpCount}</button>` : ''}
+          <button class="chat-session-del" data-del="${escapeAttr(row.key)}" title="${t('common.delete')}">${svgIcon('x', 12)}</button>
         </div>
       </div>
       <div class="chat-session-card-meta">
-        ${agentId && agentId !== 'main' ? `<span class="chat-session-agent">${escapeAttr(agentId)}</span>` : ''}
-        ${msgCount > 0 ? `<span>${msgCount} msgs</span>` : ''}
-        ${timeStr ? `<span>${timeStr}</span>` : ''}
+        ${row.agentId && row.agentId !== 'main' ? `<span class="chat-session-agent">${escapeAttr(row.agentId)}</span>` : ''}
+        ${row.msgCount > 0 ? `<span>${t('chat.messagesShort', { count: row.msgCount })}</span>` : ''}
+        ${row.timeStr ? `<span>${row.timeStr}</span>` : ''}
       </div>
     </div>`
   }).join('')
 
   _sessionListEl.onclick = (e) => {
+    const selectBtn = e.target.closest('[data-select]')
+    if (selectBtn) { e.stopPropagation(); toggleSessionSelected(selectBtn.dataset.select); return }
+    const pinBtn = e.target.closest('[data-pin]')
+    if (pinBtn) { e.stopPropagation(); toggleSessionPin(pinBtn.dataset.pin); return }
     const cpBtn = e.target.closest('[data-compaction]')
     if (cpBtn) { e.stopPropagation(); showCompactionHistory(cpBtn.dataset.compaction); return }
     const delBtn = e.target.closest('[data-del]')
@@ -1322,6 +1458,62 @@ function renderSessionList(sessions) {
     e.stopPropagation()
     renameSession(card.dataset.key, labelEl)
   }
+}
+
+function toggleSessionSelected(key) {
+  if (!key) return
+  if (_selectedSessions.has(key)) _selectedSessions.delete(key)
+  else _selectedSessions.add(key)
+  renderSessionList(_lastSessions)
+}
+
+function toggleSessionPin(key) {
+  if (!key) return
+  if (_pinnedSessions.has(key)) {
+    _pinnedSessions.delete(key)
+    toast(t('chat.sessionUnpinned'), 'success')
+  } else {
+    _pinnedSessions.add(key)
+    toast(t('chat.sessionPinned'), 'success')
+  }
+  saveSessionPins()
+  renderSessionList(_lastSessions)
+}
+
+async function deleteSelectedSessions() {
+  const mainKey = wsClient.snapshot?.sessionDefaults?.mainSessionKey || 'agent:main:main'
+  const keys = [..._selectedSessions].filter(key => key && key !== mainKey)
+  if (!keys.length) {
+    toast(t('chat.cannotDeleteMain'), 'warning')
+    return
+  }
+  const yes = await showConfirm({
+    title: t('chat.sessionBulkDeleteTitle', { count: keys.length }),
+    message: t('chat.sessionBulkDeleteConfirm', { count: keys.length }),
+    impact: [
+      t('chat.deleteSessionImpactHistory'),
+      t('chat.deleteSessionImpactCannotUndo'),
+    ],
+    confirmText: t('chat.sessionDeleteSelected'),
+    cancelText: t('chat.deleteSessionCancel'),
+  })
+  if (!yes) return
+  let ok = 0
+  let fail = 0
+  for (const key of keys) {
+    try {
+      await wsClient.sessionsDelete(key)
+      _selectedSessions.delete(key)
+      _pinnedSessions.delete(key)
+      ok++
+    } catch {
+      fail++
+    }
+  }
+  saveSessionPins()
+  toast(fail ? t('chat.sessionBulkDeletePartial', { ok, fail }) : t('chat.sessionBulkDeleted', { count: ok }), fail ? 'warning' : 'success')
+  if (keys.includes(_sessionKey)) void switchSession(mainKey, { forceWorkspace: true })
+  else refreshSessionList()
 }
 
 function formatSessionTime(ts) {
@@ -1440,6 +1632,9 @@ async function deleteSession(key) {
   if (!yes) return
   try {
     await wsClient.sessionsDelete(key)
+    _selectedSessions.delete(key)
+    _pinnedSessions.delete(key)
+    saveSessionPins()
     toast(t('chat.sessionDeleted'), 'success')
     if (key === _sessionKey) void switchSession(mainKey, { forceWorkspace: true })
     else refreshSessionList()
@@ -1596,12 +1791,64 @@ function renameSession(key, labelEl) {
     labelEl.textContent = getDisplayLabel(key)
     // 如果是当前会话，同步更新顶部标题
     if (key === _sessionKey) updateSessionTitle()
+    renderSessionList(_lastSessions)
   }
   input.addEventListener('blur', finish)
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); input.blur() }
     if (e.key === 'Escape') { input.value = originalText; input.blur() }
   })
+}
+
+function updateMessageSearch() {
+  if (!_messagesEl) return
+  _messagesEl.querySelectorAll('.msg.search-match, .msg.search-current').forEach(node => {
+    node.classList.remove('search-match', 'search-current')
+  })
+  const q = (_messageSearch || '').trim().toLowerCase()
+  if (!q) {
+    _messageMatches = []
+    _messageMatchIndex = -1
+    updateMessageSearchCount()
+    return
+  }
+  _messageMatches = Array.from(_messagesEl.querySelectorAll('.msg')).filter(node => {
+    const text = (node.innerText || node.textContent || '').toLowerCase()
+    return text.includes(q)
+  })
+  _messageMatches.forEach(node => node.classList.add('search-match'))
+  _messageMatchIndex = _messageMatches.length ? 0 : -1
+  focusMessageMatch(false)
+  updateMessageSearchCount()
+}
+
+function updateMessageSearchCount() {
+  if (!_messageSearchCountEl) return
+  if (!_messageSearch) {
+    _messageSearchCountEl.textContent = ''
+    return
+  }
+  _messageSearchCountEl.textContent = _messageMatches.length
+    ? `${_messageMatchIndex + 1}/${_messageMatches.length}`
+    : t('chat.messageSearchNoResult')
+}
+
+function focusMessageMatch(scroll = true) {
+  _messagesEl?.querySelectorAll('.msg.search-current').forEach(node => node.classList.remove('search-current'))
+  const node = _messageMatches[_messageMatchIndex]
+  if (!node) return
+  node.classList.add('search-current')
+  if (scroll) node.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
+function jumpMessageSearch(delta) {
+  if (!_messageMatches.length) {
+    updateMessageSearch()
+    return
+  }
+  _messageMatchIndex = (_messageMatchIndex + delta + _messageMatches.length) % _messageMatches.length
+  focusMessageMatch(true)
+  updateMessageSearchCount()
 }
 
 // ── 快捷指令面板 ──
@@ -2242,6 +2489,7 @@ function doRender() {
   _lastRenderTime = performance.now()
   if (_currentAiBubble && _currentAiText) {
     _currentAiBubble.innerHTML = renderMarkdown(_currentAiText)
+    if (_messageSearch) updateMessageSearch()
     scrollToBottom()
   }
 }
@@ -2354,6 +2602,7 @@ function resetStreamState() {
     appendAudiosToEl(_currentAiBubble, _currentAiAudios)
     appendFilesToEl(_currentAiBubble, _currentAiFiles)
     appendToolsToEl(_currentAiBubble, _currentAiTools)
+    if (_messageSearch) updateMessageSearch()
   }
   _renderPending = false
   _lastRenderTime = 0
@@ -2864,12 +3113,16 @@ function insertMessageNode(wrap) {
   if (!_messagesEl || !_messagesEl.isConnected) return
   if (_typingEl && _typingEl.parentNode === _messagesEl) _messagesEl.insertBefore(wrap, _typingEl)
   else _messagesEl.appendChild(wrap)
+  if (_messageSearch) updateMessageSearch()
   scrollToBottom()
 }
 
 function clearMessages() {
   if (!_messagesEl) return
   _messagesEl.querySelectorAll('.msg').forEach(m => m.remove())
+  _messageMatches = []
+  _messageMatchIndex = -1
+  updateMessageSearchCount()
   _autoScrollEnabled = true
   _lastScrollTop = 0
 }
@@ -3136,6 +3389,8 @@ function stopHostedAgent() {
   if (!_hostedSessionConfig) return
   const boundSessionKey = getHostedBoundSessionKey() || getHostedSessionKey()
   if (_hostedAbort) { _hostedAbort.abort(); _hostedAbort = null }
+  clearTimeout(_hostedAutoStopTimer)
+  _hostedAutoStopTimer = null
   clearTimeout(_hostedAutoStopTimer); _hostedAutoStopTimer = null
   clearInterval(_countdownInterval); _countdownInterval = null
   _hostedBusy = false
@@ -3424,7 +3679,19 @@ export function cleanup() {
   _typingEl = null
   _scrollBtn = null
   _sessionListEl = null
+  _sessionSearchEl = null
+  _sessionAgentFilterEl = null
+  _sessionBulkBarEl = null
+  _messageSearchEl = null
+  _messageSearchCountEl = null
   _cmdPanelEl = null
+  _lastSessions = []
+  _sessionSearch = ''
+  _sessionAgentFilter = '__all__'
+  _selectedSessions = new Set()
+  _messageSearch = ''
+  _messageMatches = []
+  _messageMatchIndex = -1
   _currentAiBubble = null
   _currentAiText = ''
   _currentAiImages = []
@@ -3441,17 +3708,16 @@ export function cleanup() {
   _hostedPanelEl = null
   _hostedBadgeEl = null
   _hostedPromptEl = null
-  _hostedEnableEl = null
   _hostedMaxStepsEl = null
   _hostedStepDelayEl = null
   _hostedRetryLimitEl = null
+  _hostedAutoStopEl = null
   _hostedSaveBtn = null
-  _hostedPauseBtn = null
   _hostedStopBtn = null
   _hostedCloseBtn = null
-  _hostedGlobalSyncEl = null
   _hostedSessionConfig = null
   _hostedDefaults = null
+  _hostedBoundSessionKey = null
   _hostedRuntime = { ...HOSTED_RUNTIME_DEFAULT }
   _hostedBusy = false
   _workspaceBtn = null
