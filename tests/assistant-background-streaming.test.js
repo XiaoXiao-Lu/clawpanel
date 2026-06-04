@@ -69,3 +69,40 @@ test('assistant removes remount-scoped event listeners on cleanup', () => {
   assert.match(render, /window\.addEventListener\('assistant-error-injected',\s*handleAssistantErrorInjected\)/)
   assert.match(cleanup, /window\.removeEventListener\('assistant-error-injected',\s*handleAssistantErrorInjected\)/)
 })
+
+test('assistant model selector exposes a real auto routing mode', () => {
+  assert.match(assistantJs, /const\s+AUTO_MODEL_VALUE\s*=\s*'__auto__'/)
+  assert.match(assistantJs, /modelSelectionMode\s*=\s*'auto'/)
+  assert.match(assistantJs, /value="\$\{AUTO_MODEL_VALUE\}"/)
+  assert.match(assistantJs, /function\s+buildAutoSlots\s*\(messages\)/)
+  assert.match(assistantJs, /id="ast-auto-model-reason"/)
+  assert.match(assistantJs, /_lastAutoModelReason/)
+  assert.match(assistantJs, /_modelSelectSlotMap\.set\(value,\s*slot\)/)
+  assert.match(assistantJs, /const\s+value\s*=\s*`slot-\$\{index\}`/)
+  assert.doesNotMatch(assistantJs, /<option value="\$\{escHtml\([^}]*baseUrl/)
+  assert.doesNotMatch(assistantJs, /<option value="\$\{escHtml\([^}]*apiKey/)
+
+  const switchActiveModel = functionBody('switchActiveModel')
+  assert.match(switchActiveModel, /value\s*===\s*AUTO_MODEL_VALUE/)
+  assert.match(switchActiveModel, /_config\.modelSelectionMode\s*=\s*'auto'/)
+  assert.doesNotMatch(
+    switchActiveModel.slice(
+      switchActiveModel.indexOf("value === AUTO_MODEL_VALUE"),
+      switchActiveModel.indexOf('const slot =')
+    ),
+    /_config\.model\s*=/,
+    'Auto mode should not overwrite the saved manual primary model'
+  )
+})
+
+test('assistant auto mode routes each request through scored model slots', () => {
+  const callAI = functionBody('callAI')
+  assert.match(callAI, /isAutoModelMode\(\)\s*\?\s*buildAutoSlots\(messages\)\s*:\s*buildActiveSlots\(\)/)
+
+  const buildAutoSlots = functionBody('buildAutoSlots')
+  assert.match(buildAutoSlots, /classifyModelTask\(messages\)/)
+  assert.match(buildAutoSlots, /scoreModelSlot\(slot,\s*task\)/)
+  assert.match(buildAutoSlots, /autoReason:\s*autoModelReason\(item\.slot,\s*task\)/)
+  assert.match(buildAutoSlots, /scored\.sort/)
+  assert.match(buildAutoSlots, /return\s+scored\.map/)
+})

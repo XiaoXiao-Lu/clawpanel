@@ -81,6 +81,7 @@ let _ultimateTimer = null, _sendTimestamp = 0
 let _attachments = []
 let _hasEverConnected = false
 let _availableModels = []
+let _modelOptionMap = new Map()
 let _primaryModel = ''
 let _selectedModel = ''
 let _isApplyingModel = false
@@ -173,9 +174,10 @@ export async function render() {
             <button class="chat-message-search-btn" id="chat-message-search-clear" title="${t('chat.messageSearchClear')}">${svgIcon('x', 13)}</button>
           </div>
           <div class="chat-model-group">
-            <select class="form-input" id="chat-model-select" style="width:200px;max-width:28vw;padding:6px 10px;font-size:var(--font-size-xs)">
+            <select class="chat-model-select" id="chat-model-select">
               <option value="">${t('chat.loadingModels')}</option>
             </select>
+            <span class="chat-model-status" id="chat-model-status"></span>
             <button class="btn btn-sm btn-ghost" id="btn-refresh-models" title="${t('chat.refreshModels')}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
             </button>
@@ -407,7 +409,7 @@ function showPageGuide(container) {
 function bindEvents(page) {
   if (_modelSelectEl) {
     _modelSelectEl.addEventListener('change', () => {
-      _selectedModel = _modelSelectEl.value
+      _selectedModel = _modelOptionMap.get(_modelSelectEl.value) || ''
       if (_selectedModel) localStorage.setItem(STORAGE_MODEL_KEY, _selectedModel)
       else localStorage.removeItem(STORAGE_MODEL_KEY)
       applySelectedModel()
@@ -649,22 +651,46 @@ async function loadModelOptions(showToast = false) {
 
 function renderModelSelect(errorText = '') {
   if (!_modelSelectEl) return
+  const statusEl = _page?.querySelector('#chat-model-status')
+  _modelOptionMap = new Map()
   if (!_availableModels.length) {
     _modelSelectEl.innerHTML = `<option value="">${escapeAttr(errorText || t('chat.loadingModels'))}</option>`
     _modelSelectEl.disabled = true
     _modelSelectEl.title = errorText || ''
+    if (statusEl) {
+      statusEl.textContent = errorText || ''
+      statusEl.title = errorText || ''
+    }
     return
   }
   _modelSelectEl.disabled = _isApplyingModel
-  _modelSelectEl.innerHTML = _availableModels.map(full => {
+  _modelSelectEl.innerHTML = _availableModels.map((full, index) => {
+    const value = `model-${index}`
+    _modelOptionMap.set(value, full)
+    const label = formatChatModelLabel(full)
     const suffix = full === _primaryModel ? ` ${t('chat.defaultSuffix')}` : ''
-    return `<option value="${escapeAttr(full)}" ${full === _selectedModel ? 'selected' : ''}>${full}${suffix}</option>`
+    return `<option value="${value}" ${full === _selectedModel ? 'selected' : ''}>${escapeAttr(label)}${escapeAttr(suffix)}</option>`
   }).join('')
+  const selectedLabel = formatChatModelLabel(_selectedModel)
+  const status = _isApplyingModel
+    ? `正在切换：${selectedLabel}`
+    : (_selectedModel ? `当前会话模型：${selectedLabel}` : '')
   _modelSelectEl.title = _selectedModel || ''
+  if (statusEl) {
+    statusEl.textContent = status
+    statusEl.title = status
+  }
 }
 
 function escapeAttr(str) {
   return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function formatChatModelLabel(full) {
+  const text = String(full || '')
+  const slash = text.indexOf('/')
+  if (slash <= 0) return text
+  return `${text.slice(0, slash)} · ${text.slice(slash + 1)}`
 }
 
 /** 本地会话别名缓存 */

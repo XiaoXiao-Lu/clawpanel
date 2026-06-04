@@ -22,6 +22,7 @@ const STORAGE_KEY = 'clawpanel-assistant'
 const SESSIONS_KEY = 'clawpanel-assistant-sessions'
 const MAX_SESSIONS = 50
 const MAX_CONTEXT_TOKENS = 30 // 最近 N 条消息作为上下文
+const AUTO_MODEL_VALUE = '__auto__'
 
 // ── 图片文件存储（通过 Tauri 后端持久化到 ~/.openclaw/clawpanel/images/）──
 async function saveImageToFile(id, dataUrl) {
@@ -1104,76 +1105,13 @@ function positionModeSlider(page, modeKey) {
   slider.style.opacity = '1'
 }
 
-const MODE_COLORS = {
-  chat: { primary: '#6b7280', rgb: '107,114,128' },
-  plan: { primary: '#3b82f6', rgb: '59,130,246' },
-  execute: { primary: '#8b5cf6', rgb: '139,92,246' },
-  unlimited: { primary: '#f59e0b', rgb: '245,158,11' },
-}
-
 function playModeTransition(page, modeKey) {
-  const main = page?.querySelector('.ast-main')
-  const header = page?.querySelector('.ast-header')
   const selector = page?.querySelector('#ast-mode-selector')
-  if (!main || !header) return
-
-  const mc = MODE_COLORS[modeKey] || MODE_COLORS.execute
-  const m = MODES[modeKey]
-
-  // ① 全屏涟漪扩散
-  const ripple = document.createElement('div')
-  ripple.className = 'ast-mode-ripple'
-  // 从模式选择器位置发射
-  if (selector) {
-    const sRect = selector.getBoundingClientRect()
-    const mRect = main.getBoundingClientRect()
-    ripple.style.setProperty('--ripple-x', (sRect.left + sRect.width / 2 - mRect.left) + 'px')
-    ripple.style.setProperty('--ripple-y', (sRect.top + sRect.height / 2 - mRect.top) + 'px')
-  }
-  ripple.style.setProperty('--ripple-color', mc.primary)
-  main.appendChild(ripple)
-  setTimeout(() => ripple.remove(), 800)
-
-  // ② 粒子爆发
-  if (selector) {
-    const sRect = selector.getBoundingClientRect()
-    const mRect = main.getBoundingClientRect()
-    const cx = sRect.left + sRect.width / 2 - mRect.left
-    const cy = sRect.top + sRect.height / 2 - mRect.top
-    for (let i = 0; i < 24; i++) {
-      const p = document.createElement('div')
-      p.className = 'ast-mode-particle'
-      const angle = (Math.PI * 2 * i) / 24 + (Math.random() - 0.5) * 0.5
-      const dist = 60 + Math.random() * 120
-      const size = 3 + Math.random() * 4
-      p.style.setProperty('--px', cx + 'px')
-      p.style.setProperty('--py', cy + 'px')
-      p.style.setProperty('--dx', (Math.cos(angle) * dist) + 'px')
-      p.style.setProperty('--dy', (Math.sin(angle) * dist - 30) + 'px')
-      p.style.setProperty('--size', size + 'px')
-      p.style.setProperty('--color', mc.primary)
-      p.style.setProperty('--delay', (Math.random() * 0.1) + 's')
-      p.style.setProperty('--duration', (0.5 + Math.random() * 0.4) + 's')
-      main.appendChild(p)
-      setTimeout(() => p.remove(), 1000)
-    }
-  }
-
-  // ③ Header 脉冲
-  header.classList.remove('ast-mode-pulse')
-  void header.offsetWidth
-  header.classList.add('ast-mode-pulse')
-
-  // ④ 模式简介浮现
-  const existing = page.querySelector('.ast-mode-toast')
-  if (existing) existing.remove()
-  if (!m) return
-  const tip = document.createElement('div')
-  tip.className = `ast-mode-toast mode-${modeKey}`
-  tip.innerHTML = `<span class="ast-mode-toast-icon">${MODE_ICONS[modeKey]}</span><span class="ast-mode-toast-label">${m.label}</span><span class="ast-mode-toast-desc">${m.desc}</span>`
-  main.appendChild(tip)
-  setTimeout(() => tip.classList.add('show'), 10)
-  setTimeout(() => { tip.classList.remove('show'); setTimeout(() => tip.remove(), 300) }, 2000)
+  if (!selector || !MODES[modeKey]) return
+  selector.classList.remove('mode-updated')
+  void selector.offsetWidth
+  selector.classList.add('mode-updated')
+  setTimeout(() => selector.classList.remove('mode-updated'), 220)
 }
 
 function buildSystemPrompt() {
@@ -2093,6 +2031,10 @@ let _streamRefreshTimer = null // 后台流式刷新定时器
 let _pendingImages = [] // [{ id, dataUrl, name, size }] 待发送图片
 let _errorContext = null // 待处理的错误上下文 { scene, title, hint, error, ts }
 let _soulCache = null // 灵魂移植缓存 { identity, soul, user, agents, tools, memory, recentMemories[] }
+let _modelPoolSlots = []
+let _modelSelectSlotMap = new Map()
+let _lastAutoModelLabel = ''
+let _lastAutoModelReason = ''
 
 // ── 节流保存 ──
 function throttledSave() {
@@ -2412,6 +2354,7 @@ function loadConfig() {
   if (!_config.tools) _config.tools = { terminal: false, fileOps: false, webSearch: false }
   if (!_config.mode) _config.mode = DEFAULT_MODE
   _config.apiType = normalizeApiType(_config.apiType)
+  if (!['manual', 'auto'].includes(_config.modelSelectionMode)) _config.modelSelectionMode = 'manual'
   if (_config.autoRounds === undefined) _config.autoRounds = 8
   if (!Array.isArray(_config.knowledgeFiles)) _config.knowledgeFiles = []
   // #Compat-3 备用模型组：主模型失败时自动切换
@@ -2515,7 +2458,7 @@ function cleanBaseUrl(raw, apiType) {
     if (!base.endsWith('/v1')) base += '/v1'
     return base
   }
-  if (type === 'google-gemini') {
+  if (type === 'google-generative-ai') {
     // Gemini: https://generativelanguage.googleapis.com/v1beta
     return base
   }
@@ -2580,6 +2523,251 @@ function buildActiveSlots() {
   return slots
 }
 
+function buildModelSlotsFromOpenClawConfig(config) {
+  const providers = config?.models?.providers || {}
+  const primary = config?.agents?.defaults?.model?.primary || ''
+  const slots = []
+  for (const [providerKey, provider] of Object.entries(providers)) {
+    const models = providerModels(provider)
+    for (const model of models) {
+      const fullName = `${providerKey}/${model}`
+      slots.push({
+        label: providerKey,
+        baseUrl: provider?.baseUrl || '',
+        apiKey: provider?.apiKey || '',
+        model,
+        apiType: normalizeApiType(provider?.api),
+        isPrimary: fullName === primary,
+        provider: providerKey,
+      })
+    }
+  }
+  return slots
+}
+
+async function refreshModelPoolOptions() {
+  try {
+    const config = await api.readOpenclawConfig()
+    _modelPoolSlots = buildModelSlotsFromOpenClawConfig(config)
+  } catch {
+    _modelPoolSlots = []
+  }
+  renderModelSelectOptions()
+}
+
+function modelSelectSlots() {
+  const merged = []
+  const seen = new Set()
+  for (const slot of [...buildActiveSlots(), ..._modelPoolSlots]) {
+    const key = modelSlotInternalKey(slot)
+    if (seen.has(key)) continue
+    seen.add(key)
+    merged.push(slot)
+  }
+  return merged
+}
+
+function modelSlotInternalKey(slot) {
+  return [
+    slot.baseUrl || '',
+    slot.model || '',
+    normalizeApiType(slot.apiType),
+    slot.apiKey || '',
+  ].join('||')
+}
+
+function modelSlotIdentity(slot) {
+  return [
+    slot.baseUrl || '',
+    slot.model || '',
+    normalizeApiType(slot.apiType),
+    slot.apiKey || '',
+  ].join('||')
+}
+
+function modelSlotLabel(slot) {
+  const prefix = slot.isPrimary ? t('assistant.slotPrimary') : (slot.provider || slot.label || 'Model')
+  return `${prefix} · ${slot.model}`
+}
+
+function isAutoModelMode() {
+  return _config?.modelSelectionMode === 'auto'
+}
+
+function messageText(content) {
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content
+    .filter(part => part?.type === 'text')
+    .map(part => part.text || '')
+    .join('\n')
+}
+
+function messageHasImage(content) {
+  if (!Array.isArray(content)) return false
+  return content.some(part => part?.type === 'image_url' || part?.type === 'input_image' || part?.image_url)
+}
+
+function classifyModelTask(messages) {
+  const userMessages = messages.filter(m => m.role === 'user')
+  const latestUser = userMessages[userMessages.length - 1] || {}
+  const text = messageText(latestUser.content)
+  const allText = userMessages.map(m => messageText(m.content)).join('\n')
+  const lower = `${text}\n${allText}`.toLowerCase()
+  const charCount = allText.length
+  const hasImages = messages.some(m => messageHasImage(m.content) || m._images?.length)
+  const coding = /代码|报错|错误|修复|重构|函数|组件|接口|日志|堆栈|终端|命令|测试|bug|stack|trace|error|exception|debug|fix|patch|refactor|terminal|shell|typescript|javascript|python|rust|react|vue|css|html/.test(lower)
+  const reasoning = /分析|规划|方案|架构|设计|权衡|复杂|推理|为什么|怎么实现|详细|清晰|review|architecture|design|reason|analy[sz]e|plan|tradeoff|complex/.test(lower)
+  const simple = charCount < 220 && !hasImages && !coding && !reasoning
+  return {
+    text,
+    charCount,
+    hasImages,
+    coding,
+    reasoning,
+    simple,
+    longContext: charCount > 4000,
+  }
+}
+
+function scoreModelSlot(slot, task) {
+  const haystack = `${slot.provider || ''} ${slot.label || ''} ${slot.model || ''}`.toLowerCase()
+  let score = slot.isPrimary ? 12 : 0
+
+  const isReasoningModel = /gpt-5|gpt-4|o[34]\b|claude|sonnet|opus|deepseek[-_/]?(r1|reasoner)|qwq|reason|thinking|gemini.*pro|qwen.*max|qwen.*coder|codex/.test(haystack)
+  const isVisionModel = /vision|qwen[-_/]?vl|vl\b|gpt-4o|4o\b|omni|multimodal|gemini|claude/.test(haystack)
+  const isFastModel = /mini|flash|haiku|mimo|turbo|lite|small|qwen|deepseek-chat|glm/.test(haystack)
+  const isCoderModel = /coder|code|codex|deepseek|qwen.*coder|claude|sonnet|gpt-4|gpt-5/.test(haystack)
+  const isLargeContext = /128k|200k|1m|long|context|gpt-4\.1|gemini|claude|sonnet/.test(haystack)
+
+  if (task.hasImages) score += isVisionModel ? 90 : -120
+  if (task.coding) score += isCoderModel ? 48 : 0
+  if (task.reasoning) score += isReasoningModel ? 44 : 0
+  if (task.longContext) score += isLargeContext ? 32 : 0
+  if (task.simple) {
+    score += isFastModel ? 38 : 0
+    score -= isReasoningModel ? 8 : 0
+  }
+  if (!task.simple && !task.hasImages && !task.coding && !task.reasoning) {
+    score += isFastModel ? 14 : 0
+  }
+
+  return score
+}
+
+function autoModelReason(slot, task) {
+  const model = slot?.model || '当前模型'
+  if (task.hasImages) return `检测到图片输入，优先选择支持视觉的模型：${model}`
+  if (task.coding && task.reasoning) return `检测到代码/排错和复杂分析，优先选择代码与推理能力更强的模型：${model}`
+  if (task.coding) return `检测到代码、日志或报错任务，优先选择代码能力更强的模型：${model}`
+  if (task.reasoning) return `检测到分析/规划类任务，优先选择推理能力更强的模型：${model}`
+  if (task.longContext) return `检测到较长上下文，优先选择长上下文表现更稳的模型：${model}`
+  if (task.simple) return `检测到短问题，优先选择响应更快的模型：${model}`
+  return `按当前任务特征和模型能力综合选择：${model}`
+}
+
+function compactAutoModelReason(reason) {
+  const text = String(reason || '')
+  if (!text) return '自动路由'
+  if (text.includes('图片')) return '图片任务'
+  if (text.includes('代码') || text.includes('排错') || text.includes('报错') || text.includes('日志')) return '代码/排错'
+  if (text.includes('分析') || text.includes('规划') || text.includes('推理')) return '分析任务'
+  if (text.includes('长上下文')) return '长上下文'
+  if (text.includes('短问题')) return '快速响应'
+  return '自动路由'
+}
+
+function usableModelSlots(slots) {
+  const merged = []
+  const seen = new Set()
+  for (const slot of slots) {
+    if (!slot?.baseUrl || !slot?.model) continue
+    const apiType = normalizeApiType(slot.apiType)
+    if (requiresApiKey(apiType) && !slot.apiKey) continue
+    const key = modelSlotIdentity(slot)
+    if (seen.has(key)) continue
+    seen.add(key)
+    merged.push({ ...slot, apiType })
+  }
+  return merged
+}
+
+function buildAutoSlots(messages) {
+  const slots = usableModelSlots(modelSelectSlots())
+  if (slots.length === 0) return buildActiveSlots()
+  const task = classifyModelTask(messages)
+  const scored = slots.map((slot, index) => ({
+    slot,
+    index,
+    score: scoreModelSlot(slot, task),
+  }))
+  scored.sort((a, b) => (b.score - a.score) || (a.index - b.index))
+  return scored.map(item => ({
+    ...item.slot,
+    label: `Auto · ${modelSlotLabel(item.slot)}`,
+    autoScore: item.score,
+    autoReason: autoModelReason(item.slot, task),
+  }))
+}
+
+function renderModelSelectOptions() {
+  const select = _page?.querySelector('#ast-model-select')
+  if (!select) return
+  const slots = modelSelectSlots()
+  _modelSelectSlotMap = new Map()
+  if (slots.length === 0) {
+    select.innerHTML = `<option value="">${t('assistant.notConfigured')}</option>`
+    select.disabled = true
+    return
+  }
+
+  select.disabled = false
+  const primaryKey = modelSlotInternalKey({
+    baseUrl: _config.baseUrl,
+    apiKey: _config.apiKey || '',
+    model: _config.model,
+    apiType: _config.apiType,
+  })
+  const currentSlotIndex = slots.findIndex(slot => modelSlotInternalKey(slot) === primaryKey)
+  const currentValue = isAutoModelMode()
+    ? AUTO_MODEL_VALUE
+    : (currentSlotIndex >= 0 ? `slot-${currentSlotIndex}` : '')
+  const autoLabel = _lastAutoModelLabel
+    ? `Auto · 自动选择（上次 ${_lastAutoModelLabel}）`
+    : 'Auto · 自动选择'
+  const options = [`<option value="${AUTO_MODEL_VALUE}" ${currentValue === AUTO_MODEL_VALUE ? 'selected' : ''}>${escHtml(autoLabel)}</option>`]
+  options.push(...slots.map((slot, index) => {
+    const label = modelSlotLabel(slot)
+    const value = `slot-${index}`
+    _modelSelectSlotMap.set(value, slot)
+    return `<option value="${value}" ${value === currentValue ? 'selected' : ''}>${escHtml(label)}</option>`
+  }))
+  select.innerHTML = options.join('')
+}
+
+function switchActiveModel(value) {
+  if (value === AUTO_MODEL_VALUE) {
+    _config.modelSelectionMode = 'auto'
+    _lastAutoModelReason = '发送时会根据图片、代码/排错、复杂度和上下文长度自动选择模型'
+    saveConfig()
+    updateModelBadge()
+    renderModelSelectOptions()
+    resetCircuit()
+    return
+  }
+  const slot = _modelSelectSlotMap.get(value)
+  if (!slot) return
+  _config.modelSelectionMode = 'manual'
+  _config.baseUrl = slot.baseUrl
+  _config.apiKey = slot.apiKey || ''
+  _config.model = slot.model
+  _config.apiType = normalizeApiType(slot.apiType)
+  saveConfig()
+  updateModelBadge()
+  renderModelSelectOptions()
+  resetCircuit()
+}
+
 // #Compat-3: 判断错误是否应该触发 failover 切换到下一个槽位
 // - AbortError（用户手动中止）→ 不切
 // - 鉴权错误 401/403 → 不切（key 错了，切了也白切）
@@ -2595,7 +2783,7 @@ function isFailoverableError(err) {
 }
 
 async function callAI(messages, onChunk) {
-  const slots = buildActiveSlots()
+  const slots = isAutoModelMode() ? buildAutoSlots(messages) : buildActiveSlots()
   if (slots.length === 0) {
     throw new Error(t('assistant.errConfigFirst'))
   }
@@ -2604,6 +2792,11 @@ async function callAI(messages, onChunk) {
   for (let i = 0; i < slots.length; i++) {
     const slot = slots[i]
     try {
+      if (isAutoModelMode() && i === 0) {
+        _lastAutoModelLabel = modelSlotLabel(slot).replace(/^Auto · /, '')
+        _lastAutoModelReason = slot.autoReason || ''
+        updateModelBadge()
+      }
       await callAIWithSlot(slot, messages, onChunk)
       if (i > 0) {
         console.log(`[assistant] Failover 成功：已切换到备用模型「${slot.label}」`)
@@ -2665,7 +2858,7 @@ async function _callAIOnce(messages, onChunk) {
       return
     }
 
-    if (apiType === 'google-gemini') {
+    if (apiType === 'google-generative-ai') {
       await callGeminiGenerate(base, allMessages, onChunk)
       return
     }
@@ -3350,7 +3543,7 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
     }
 
     // ── Gemini 工具调用 ──
-    if (apiType === 'google-gemini') {
+    if (apiType === 'google-generative-ai') {
       const systemMsg = currentMessages.find(m => m.role === 'system')?.content || ''
       const chatMsgs = currentMessages.filter(m => m.role !== 'system')
       const contents = chatMsgs.map(m => ({
@@ -5052,14 +5245,29 @@ function showSettings() {
 function updateModelBadge() {
   const badge = _page?.querySelector('#ast-model-badge')
   if (badge) {
-    if (_config.model) {
+    if (isAutoModelMode()) {
+      badge.textContent = _lastAutoModelLabel ? `Auto · ${_lastAutoModelLabel}` : 'Auto · 自动选择'
+      badge.title = _lastAutoModelReason || '发送时会根据任务自动选择模型'
+      badge.className = 'ast-model-badge configured auto'
+    } else if (_config.model) {
       badge.textContent = _config.model
+      badge.title = _config.model
       badge.className = 'ast-model-badge configured'
     } else {
       badge.textContent = t('assistant.notConfigured')
+      badge.title = t('assistant.notConfigured')
       badge.className = 'ast-model-badge unconfigured'
     }
   }
+  const reasonEl = _page?.querySelector('#ast-auto-model-reason')
+  if (reasonEl) {
+    const showReason = isAutoModelMode()
+    const reason = _lastAutoModelReason || '发送时会根据图片、代码/排错、复杂度和上下文长度自动选择模型'
+    reasonEl.textContent = showReason ? compactAutoModelReason(reason) : ''
+    reasonEl.title = reason
+    reasonEl.hidden = !showReason
+  }
+  renderModelSelectOptions()
 }
 
 // ── 发送消息 ──
@@ -5541,10 +5749,6 @@ export async function render() {
           <span class="ast-model-badge ${_config.model ? 'configured' : 'unconfigured'}" id="ast-model-badge">${_config.model || t('assistant.notConfigured')}</span>
         </div>
         <div class="ast-header-actions">
-          <div class="ast-mode-selector" id="ast-mode-selector">
-            <div class="ast-mode-slider" id="ast-mode-slider"></div>
-            ${Object.entries(MODES).map(([key, m]) => `<button class="ast-mode-btn ${currentMode() === key ? 'active' : ''}" data-mode="${key}" title="${m.desc}">${MODE_ICONS[key]} ${m.label}</button>`).join('')}
-          </div>
           <button class="btn btn-sm btn-ghost" id="ast-btn-settings" title="${t('assistant.settingsTitle')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
             ${t('common.settings')}
@@ -5556,14 +5760,33 @@ export async function render() {
       <div class="ast-input-area">
         <div class="ast-image-preview" id="ast-image-preview"></div>
         <div class="ast-input-wrap">
-          <button class="ast-attach-btn" id="ast-btn-attach" title="${t('assistant.uploadImage')}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          </button>
-          <input type="file" id="ast-file-input" accept="image/*" multiple style="display:none"/>
           <textarea class="ast-textarea" id="ast-textarea" placeholder="${t('assistant.inputPlaceholder')}" rows="1"></textarea>
-          <button class="ast-send-btn" id="ast-send-btn" title="${t('assistant.send')}">${sendIcon()}</button>
+          <div class="ast-input-toolbar">
+            <div class="ast-input-tools">
+              <button class="ast-attach-btn" id="ast-btn-attach" title="${t('assistant.uploadImage')}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </button>
+              <input type="file" id="ast-file-input" accept="image/*" multiple style="display:none"/>
+              <div class="ast-model-cluster">
+                <label class="ast-model-switcher" title="${t('assistant.model')}">
+                  <span>${t('assistant.model')}</span>
+                  <select class="ast-model-select" id="ast-model-select"></select>
+                </label>
+                <span class="ast-auto-model-reason" id="ast-auto-model-reason" hidden></span>
+                <button class="ast-model-config-btn" id="ast-model-config-btn" title="${t('assistant.settingsTitle')}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+                </button>
+              </div>
+              <div class="ast-mode-selector" id="ast-mode-selector">
+                <div class="ast-mode-slider" id="ast-mode-slider"></div>
+                ${Object.entries(MODES).map(([key, m]) => `<button class="ast-mode-btn ${currentMode() === key ? 'active' : ''}" data-mode="${key}" title="${m.desc}">${MODE_ICONS[key]} ${m.label}</button>`).join('')}
+              </div>
+            </div>
+            <div class="ast-input-actions">
+              <button class="ast-send-btn" id="ast-send-btn" title="${t('assistant.send')}">${sendIcon()}</button>
+            </div>
+          </div>
         </div>
-        <div class="ast-input-hint">${t('assistant.inputHint')}</div>
       </div>
     </div>
   `
@@ -5580,6 +5803,9 @@ export async function render() {
   renderMessages()
   renderQueue()
   applyModeStyle(page, currentMode())
+  updateModelBadge()
+  renderModelSelectOptions()
+  refreshModelPoolOptions()
   // 滑块需要等 DOM 绘制完毕才能获取正确位置
   requestAnimationFrame(() => positionModeSlider(page, currentMode()))
 
@@ -5800,6 +6026,11 @@ export async function render() {
     applyModeStyle(page, modeKey)
     playModeTransition(page, modeKey)
   })
+
+  page.querySelector('#ast-model-select')?.addEventListener('change', (e) => {
+    switchActiveModel(e.target.value)
+  })
+  page.querySelector('#ast-model-config-btn')?.addEventListener('click', showSettings)
 
   // 设置
   page.querySelector('#ast-btn-settings').addEventListener('click', showSettings)

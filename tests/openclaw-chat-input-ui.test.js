@@ -46,6 +46,21 @@ test('OpenClaw chat exposes message search controls', () => {
   assert.match(css, /\.msg\.search-current/)
 })
 
+test('OpenClaw chat model switcher uses safe option ids and visible status', () => {
+  assert.match(chatPage, /id="chat-model-select"/)
+  assert.match(chatPage, /id="chat-model-status"/)
+  assert.match(chatPage, /let _modelOptionMap = new Map\(\)/)
+  assert.match(chatPage, /const value = `model-\$\{index\}`/)
+  assert.match(chatPage, /_modelOptionMap\.set\(value,\s*full\)/)
+  assert.match(chatPage, /_selectedModel = _modelOptionMap\.get\(_modelSelectEl\.value\) \|\| ''/)
+  assert.match(chatPage, /function formatChatModelLabel/)
+  assert.doesNotMatch(chatPage, /<option value="\$\{escapeAttr\(full\)\}"/)
+
+  assert.match(cssBlock('.chat-model-group'), /border:\s*1px solid var\(--border-primary\)/)
+  assert.match(cssBlock('.chat-model-select'), /font-family:\s*var\(--font-mono\)/)
+  assert.match(cssBlock('.chat-model-status'), /text-overflow:\s*ellipsis/)
+})
+
 test('OpenClaw chat management translations and icons are present', () => {
   for (const key of ['sessionSearchPlaceholder', 'sessionDeleteSelected', 'messageSearchPlaceholder', 'messageSearchNoResult']) {
     assert.match(chatLocale, new RegExp(`${key}:\\s*_\\(`), `${key} should be translated`)
