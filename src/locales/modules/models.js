@@ -166,6 +166,7 @@ export default {
   testing: _('测试中...', 'Testing...', '測試中...', 'テスト中...', '테스트 중...', 'Đang kiểm tra...', 'Probando...', 'Testando...', 'Проверка...', 'Test en cours...', 'Test läuft...'),
   testOk: _('{model} 连通正常 ({time}s): "{reply}"', '{model} OK ({time}s): "{reply}"', '{model} 連通正常 ({time}s): "{reply}"'),
   testFail: _('{model} 不可用 ({time}s): {error}', '{model} unavailable ({time}s): {error}'),
+  fetchModels: _('获取列表', 'Fetch List', '取得列表'),
   remoteListTitle: _('远程模型列表 — {provider} ({count} 个)', 'Remote Models — {provider} ({count})', '遠程模型列表 — {provider} ({count} 個)'),
   remoteSearch: _('搜索模型...', 'Search models...', '搜尋模型...'),
   remoteSelected: _('已选 {count} 个', '{count} selected', '已選 {count} 個'),

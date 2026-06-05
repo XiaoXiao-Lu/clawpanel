@@ -7,6 +7,31 @@ import { escapeAttr } from '../lib/utils.js'
 
 
 /**
+ * 给 overlay 绑定"点击遮罩关闭"事件（带拖拽防误触）
+ * 点击拖动内容（如滚动、选词）时不会误关闭弹窗
+ * @param {HTMLElement} overlay
+ * @param {Function} [onClose] 关闭时的回调（如 showConfirm 需要 resolve promise）
+ */
+function bindOverlayClose(overlay, onClose) {
+  let pStart = null
+  overlay.addEventListener('pointerdown', (e) => {
+    pStart = e.target === overlay ? { x: e.clientX, y: e.clientY } : null
+  })
+  overlay.addEventListener('pointerup', (e) => {
+    if (pStart && e.target === overlay) {
+      const dx = e.clientX - pStart.x
+      const dy = e.clientY - pStart.y
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) {
+        if (onClose) onClose()
+        else overlay.remove()
+      }
+    }
+    pStart = null
+  })
+}
+
+
+/**
  * 自定义确认弹窗，替代原生 confirm()
  * Tauri WebView 不支持原生 confirm/alert，必须用自定义弹窗
  *
@@ -67,9 +92,7 @@ export function showConfirm(message, options = {}) {
       resolve(result)
     }
 
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close(false)
-    })
+    bindOverlayClose(overlay, () => close(false))
     overlay.querySelector('[data-action="cancel"]').onclick = () => close(false)
     overlay.querySelector('[data-action="confirm"]').onclick = () => close(true)
     overlay.addEventListener('keydown', (e) => {
@@ -127,10 +150,8 @@ export function showModal({ title, fields, onConfirm }) {
 
   document.body.appendChild(overlay)
 
-  // 点击遮罩关闭
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) overlay.remove()
-  })
+  // 点击遮罩关闭（带拖拽防误触）
+  bindOverlayClose(overlay)
 
   overlay.querySelector('[data-action="cancel"]').onclick = () => overlay.remove()
 
@@ -194,9 +215,7 @@ export function showContentModal({ title, content, buttons = [], width = 480 }) 
 
   overlay.close = () => overlay.remove()
 
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) overlay.remove()
-  })
+  bindOverlayClose(overlay)
   overlay.querySelector('[data-action="cancel"]').onclick = () => overlay.remove()
   overlay.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') overlay.remove()

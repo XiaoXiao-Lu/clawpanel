@@ -923,6 +923,7 @@ function renderProviders(page, state) {
             <span class="models-provider-count">${models.length}</span>
           </span>
           <div class="models-provider-actions">
+            <button class="btn btn-sm btn-secondary" data-action="fetch-models">${t('models.fetchModels')}</button>
             <button class="btn btn-sm btn-secondary" data-action="add-model">+ 模型</button>
             <button class="btn btn-sm btn-secondary" data-action="edit-provider">···</button>
           </div>
@@ -1648,7 +1649,19 @@ async function importClientConfigs(page, state) {
     </div>
   `
   document.body.appendChild(overlay)
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove() })
+  // 点击遮罩关闭（带拖拽防误触）
+  let _pStart = null
+  overlay.addEventListener('pointerdown', e => {
+    _pStart = e.target === overlay ? { x: e.clientX, y: e.clientY } : null
+  })
+  overlay.addEventListener('pointerup', e => {
+    if (_pStart && e.target === overlay) {
+      const dx = e.clientX - _pStart.x
+      const dy = e.clientY - _pStart.y
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) overlay.remove()
+    }
+    _pStart = null
+  })
   overlay.querySelector('[data-action="cancel"]').onclick = () => overlay.remove()
   overlay.querySelector('[data-action="import"]').onclick = () => {
     const selected = [...overlay.querySelectorAll('input[type="checkbox"]:checked')]
@@ -1763,7 +1776,19 @@ function addProvider(page, state) {
     }
   })
 
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove() })
+  // 点击遮罩关闭（带拖拽防误触）
+  let _pStart = null
+  overlay.addEventListener('pointerdown', e => {
+    _pStart = e.target === overlay ? { x: e.clientX, y: e.clientY } : null
+  })
+  overlay.addEventListener('pointerup', e => {
+    if (_pStart && e.target === overlay) {
+      const dx = e.clientX - _pStart.x
+      const dy = e.clientY - _pStart.y
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) overlay.remove()
+    }
+    _pStart = null
+  })
   overlay.querySelector('[data-action="cancel"]').onclick = () => overlay.remove()
 
   overlay.querySelector('[data-action="confirm"]').onclick = () => {
@@ -1932,7 +1957,19 @@ function buildFieldsHtml(fields) {
 
 // 绑定自定义弹窗的通用事件
 function bindModalEvents(overlay, fields, onConfirm) {
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove() })
+  // 点击遮罩关闭（带拖拽防误触）
+  let _pStart = null
+  overlay.addEventListener('pointerdown', e => {
+    _pStart = e.target === overlay ? { x: e.clientX, y: e.clientY } : null
+  })
+  overlay.addEventListener('pointerup', e => {
+    if (_pStart && e.target === overlay) {
+      const dx = e.clientX - _pStart.x
+      const dy = e.clientY - _pStart.y
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) overlay.remove()
+    }
+    _pStart = null
+  })
   overlay.querySelector('[data-action="cancel"]').onclick = () => overlay.remove()
   overlay.querySelector('[data-action="confirm"]').onclick = () => {
     const result = {}
@@ -2184,7 +2221,19 @@ async function fetchRemoteModels(btn, page, state, providerKey) {
       updateCount()
     }
 
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove() })
+    // 点击遮罩关闭（带拖拽防误触）
+  let _pStart = null
+  overlay.addEventListener('pointerdown', e => {
+    _pStart = e.target === overlay ? { x: e.clientX, y: e.clientY } : null
+  })
+  overlay.addEventListener('pointerup', e => {
+    if (_pStart && e.target === overlay) {
+      const dx = e.clientX - _pStart.x
+      const dy = e.clientY - _pStart.y
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) overlay.remove()
+    }
+    _pStart = null
+  })
     overlay.querySelector('[data-action="cancel"]').onclick = () => overlay.remove()
     overlay.querySelector('[data-action="confirm"]').onclick = () => {
       const selected = [...listEl.querySelectorAll('.remote-cb:checked')].map(cb => cb.dataset.id)

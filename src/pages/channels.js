@@ -2227,6 +2227,10 @@ async function openConfigDialog(pid, page, state, accountId) {
   const reg = PLATFORM_REGISTRY[pid]
   if (!reg) { toast(t('channels.unknownPlatform'), 'error'); return }
 
+  // 插件状态缓存：同一次弹窗对话中只检查/安装一次，避免重复保存时反复触发
+  let _pluginChecked = false
+  let _pluginInstalled = false
+
   if (reg.panelSupport === 'docs-only') {
     const docsOnlyContent = `
       ${reg.guide?.length ? `
@@ -2974,13 +2978,15 @@ async function openConfigDialog(pid, page, state, accountId) {
     btnSave.textContent = t('channels.saving')
 
     try {
-      // 如果需要安装插件，先安装并显示日志
-      if (reg.pluginRequired) {
+      // 如果需要安装插件，先安装并显示日志（同一弹窗只检查一次）
+      if (reg.pluginRequired && !_pluginChecked) {
+        _pluginChecked = true
         const pluginPackage = reg.pluginRequired
         const pluginId = reg.pluginId || pid
         const pluginStatus = await api.getChannelPluginStatus(pluginId)
         // 跳过安装：插件已安装或已内置
-        if (!pluginStatus?.installed && !pluginStatus?.builtin) {
+        _pluginInstalled = pluginStatus?.installed || pluginStatus?.builtin || false
+        if (!_pluginInstalled) {
           btnSave.textContent = t('channels.installingPlugin')
           resultEl.innerHTML = `
             <div style="background:var(--bg-tertiary);border-radius:var(--radius-md);padding:12px;margin-top:var(--space-sm)">
@@ -3038,6 +3044,7 @@ async function openConfigDialog(pid, page, state, accountId) {
           }
           if (unlistenLog) unlistenLog()
           if (unlistenProgress) unlistenProgress()
+          _pluginInstalled = true
         } else {
           resultEl.innerHTML = `
             <div style="background:var(--accent-muted);color:var(--accent);padding:10px 14px;border-radius:var(--radius-md);font-size:var(--font-size-sm)">
