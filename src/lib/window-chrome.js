@@ -51,7 +51,8 @@ export function initDesktopWindowChrome() {
   }
 
   titlebar.querySelectorAll('[data-window-action]').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation()
       runWindowAction(btn.dataset.windowAction).catch(err => {
         console.warn('[window-chrome] action failed:', err)
       })
@@ -61,4 +62,9 @@ export function initDesktopWindowChrome() {
   titlebar.querySelector('.desktop-titlebar-drag')?.addEventListener('dblclick', () => {
     runWindowAction('toggle-maximize').catch(() => {})
   })
+
+  // 确保标题栏按钮在 Tauri 加载完成后可用
+  if (window.__TAURI_INTERNALS__ || window.__TAURI__) {
+    console.log('[window-chrome] Tauri detected, window controls active')
+  }
 }
