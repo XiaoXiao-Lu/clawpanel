@@ -985,6 +985,14 @@ export class WsClient {
     if (messages.length > this._cacheSize) {
       messages.splice(0, messages.length - this._cacheSize)
     }
+
+    // 总大小限制：超过 5MB 时移除最早消息
+    try {
+      const totalSize = JSON.stringify(messages).length
+      while (totalSize > 5 * 1024 * 1024 && messages.length > 1) {
+        messages.shift()
+      }
+    } catch {}
   }
 
   /**

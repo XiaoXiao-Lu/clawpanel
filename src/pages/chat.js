@@ -13,6 +13,7 @@ import { icon as svgIcon } from '../lib/icons.js'
 import { t } from '../lib/i18n.js'
 
 const RENDER_THROTTLE = 30
+const MAX_VISIBLE_MESSAGES = 150  // 最大可见消息 DOM 节点数
 const STORAGE_SESSION_KEY = 'clawpanel-last-session'
 const STORAGE_MODEL_KEY = 'clawpanel-chat-selected-model'
 const STORAGE_SIDEBAR_KEY = 'clawpanel-chat-sidebar-open'
@@ -1183,6 +1184,36 @@ async function handleFileSelect(e) {
 async function handlePaste(e) {
   const items = Array.from(e.clipboardData?.items || [])
   const imageItems = items.filter(item => item.type.startsWith('image/'))
+
+  // 文本粘贴长度保护
+  const textItems = items.filter(item => item.kind === 'string' && item.type === 'text/plain')
+  if (!imageItems.length && textItems.length) {
+    // 获取粘贴文本检查长度
+    const text = e.clipboardData.getData('text/plain')
+    if (text && text.length > 50000) {
+      e.preventDefault()
+      import('../components/modal.js').then(({ showConfirm }) => {
+        showConfirm({
+          message: t('chat.pasteLargeText', { length: text.length }),
+          title: t('chat.pasteWarning'),
+          confirmText: t('common.confirm'),
+          cancelText: t('common.cancel'),
+        }).then(confirmed => {
+          if (confirmed) {
+            // 允许粘贴：直接插入到 textarea
+            const ta = e.target
+            const start = ta.selectionStart
+            const end = ta.selectionEnd
+            ta.value = ta.value.slice(0, start) + text + ta.value.slice(end)
+            ta.selectionStart = ta.selectionEnd = start + text.length
+            ta.dispatchEvent(new Event('input', { bubbles: true }))
+          }
+        })
+      })
+      return
+    }
+  }
+
   if (!imageItems.length) return
   e.preventDefault()
   for (const item of imageItems) {
@@ -3139,6 +3170,36 @@ function appendSystemMessage(text) {
 
 function insertMessageNode(wrap) {
   if (!_messagesEl || !_messagesEl.isConnected) return
+
+  // 消息数量限制：超过 MAX_VISIBLE_MESSAGES 时移除最早的消息 DOM
+  const existingMessages = _messagesEl.querySelectorAll('.msg')
+  if (existingMessages.length >= MAX_VISIBLE_MESSAGES) {
+    // 移除最早的消息节点，保留 typing indicator 和 system messages
+    const toRemove = existingMessages.length - MAX_VISIBLE_MESSAGES + 1
+    for (let i = 0; i < toRemove && i < existingMessages.length; i++) {
+      const msg = existingMessages[i]
+      if (!msg.classList.contains('msg-system') || i > 10) {
+        msg.remove()
+      }
+    }
+    // 在顶部插入"加载更多"提示（如果还没有）
+    if (!_messagesEl.querySelector('.msg-load-more')) {
+      const loadMore = document.createElement('div')
+      loadMore.className = 'msg msg-system msg-load-more'
+      loadMore.textContent = t('chat.loadMoreHint') || '↑ 向上滚动加载更多'
+      loadMore.style.cssText = 'cursor:pointer'
+      loadMore.addEventListener('click', () => {
+        loadMore.remove()
+        // 清除限制标记让后续消息正常显示
+      })
+      if (_messagesEl.firstChild) {
+        _messagesEl.insertBefore(loadMore, _messagesEl.firstChild)
+      } else {
+        _messagesEl.appendChild(loadMore)
+      }
+    }
+  }
+
   if (_typingEl && _typingEl.parentNode === _messagesEl) _messagesEl.insertBefore(wrap, _typingEl)
   else _messagesEl.appendChild(wrap)
   if (_messageSearch) updateMessageSearch()

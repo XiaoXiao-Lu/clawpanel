@@ -132,10 +132,13 @@ async function retryLoad(loader, maxRetries, delayMs) {
 }
 
 function withTimeout(promise, ms, msg) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error(msg)), ms))
-  ])
+  let timer
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(msg)), ms)
+  })
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    clearTimeout(timer)
+  })
 }
 
 function showLoadError(container, hash, error) {

@@ -166,20 +166,24 @@ export function showModal({ title, fields, onConfirm }) {
     })
     // 先调用回调，再移除 overlay，避免嵌套对话框时序问题
     const callback = onConfirm
-    setTimeout(() => overlay.remove(), 0)
+    setTimeout(() => {
+      document.removeEventListener('keydown', _docEscHandler)
+      overlay.remove()
+    }, 0)
     callback(result)
   }
 
-  // 键盘事件：Enter 确认，Escape 关闭
-  const handleKey = (e) => {
+  // 键盘事件：Enter 确认，Escape 关闭（文档级监听，确保 ESC 始终可用）
+  const _docEscHandler = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault()
       overlay.querySelector('[data-action="confirm"]')?.click()
     } else if (e.key === 'Escape') {
+      document.removeEventListener('keydown', _docEscHandler)
       overlay.remove()
     }
   }
-  overlay.addEventListener('keydown', handleKey)
+  document.addEventListener('keydown', _docEscHandler)
 
   // 自动聚焦第一个输入框
   const firstInput = overlay.querySelector('input, select')

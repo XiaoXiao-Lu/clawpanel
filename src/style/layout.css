@@ -16,6 +16,7 @@ body.has-desktop-chrome .desktop-titlebar {
   align-items: center;
   height: 36px;
   padding-left: 10px;
+  background: var(--surface-raised);  /* fallback */
   background: color-mix(in srgb, var(--surface-raised) 94%, var(--bg-primary));
   border-bottom: 1px solid var(--border-secondary);
   user-select: none;
@@ -92,6 +93,7 @@ body.has-desktop-chrome .desktop-titlebar {
 #sidebar {
   width: var(--sidebar-width);
   height: 100vh;
+  background: var(--bg-secondary);  /* fallback */
   background: color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary));
   border-right: 1px solid var(--border-primary);
   display: flex;
@@ -305,6 +307,7 @@ body.has-desktop-chrome #main-col {
 .sidebar-footer {
   padding: var(--space-sm);
   border-top: 1px solid var(--border-secondary);
+  background: var(--bg-secondary);  /* fallback */
   background: color-mix(in srgb, var(--bg-secondary) 86%, var(--bg-primary));
 }
 
@@ -316,6 +319,7 @@ body.has-desktop-chrome #main-col {
   margin: 8px var(--space-sm);
   padding: 10px 12px;
   border-radius: var(--radius-md);
+  background: var(--accent-muted);  /* fallback */
   background: color-mix(in srgb, var(--accent) 9%, var(--bg-secondary));
   border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--border-primary));
   cursor: pointer;
@@ -576,7 +580,7 @@ body.has-desktop-chrome #main-col {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 36px;
+  min-height: 44px;
   padding: 8px 12px;
   border-radius: var(--radius-md);
   color: var(--text-secondary);
@@ -595,6 +599,7 @@ body.has-desktop-chrome #main-col {
 }
 
 .nav-item.active {
+  background: var(--bg-secondary);  /* fallback */
   background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 14%, var(--bg-secondary)) 0%, color-mix(in srgb, var(--accent) 6%, var(--bg-secondary)) 100%);
   color: var(--accent);
   font-weight: 600;
@@ -1019,5 +1024,14 @@ body.has-desktop-chrome #main-col {
 @media (max-width: 480px) {
   .page {
     padding: var(--space-md) var(--space-md);
+  }
+}
+
+/* === 无障碍：减少动画 === */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

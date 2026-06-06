@@ -1374,7 +1374,9 @@
     "hostedModelNotConfigured": "托管 Agent 未設定模型（請在 AI 助手頁面設定）",
     "hostedApiError": "API 錯誤 {code}",
     "hostedPrefix": "[托管 Agent] ",
-    "hostedContextSummary": "[上下文摘要 - 已壓縮 {n} 條歷史]"
+    "hostedContextSummary": "[上下文摘要 - 已壓縮 {n} 條歷史]",
+    "pasteWarning": "貼上大文本",
+    "pasteLargeText": "你正在貼上 {length} 個字元的文本，這可能會導致效能問題。確認繼續嗎？"
   },
   "chatDebug": {
     "title": "系統诊斷",

@@ -23,6 +23,7 @@ import { showConfirm } from './modal.js'
 
 
 let _delegated = false
+let _sidebarRendered = false  // 首次渲染标记
 
 
 function _closeEngineDropdown() {
@@ -63,6 +64,13 @@ function _setDesktopSidebarCollapsed(collapsed) {
 
 export function renderSidebar(el) {
   const current = getCurrentRoute()
+
+  // 增量更新路径：非首次渲染时，只更新变化的部分
+  if (_sidebarRendered) {
+    _updateSidebarIncremental(el, current)
+    return
+  }
+  _sidebarRendered = true
 
   const collapsed = _isDesktopSidebarCollapsed()
   let html = `
@@ -299,6 +307,66 @@ export function renderSidebar(el) {
 }
 
 
+
+// === 移动端侧边栏 ===
+
+/**
+ * 增量更新侧边栏：只更新变化的部分，避免全量 innerHTML 重绘
+ */
+function _updateSidebarIncremental(el, current) {
+  // 1. 更新导航激活状态
+  const navItems = el.querySelectorAll('.nav-item[data-route]')
+  navItems.forEach(item => {
+    item.classList.toggle('active', item.dataset.route === current)
+  })
+
+  // 2. 更新主题按钮
+  const themeBtn = el.querySelector('#btn-theme-toggle')
+  if (themeBtn) {
+    const isDark = getTheme() === 'dark'
+    const sunIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
+    const moonIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
+    themeBtn.innerHTML = `${isDark ? sunIcon : moonIcon}<span>${isDark ? t('sidebar.themeLight') : t('sidebar.themeDark')}</span>`
+  }
+
+  // 3. 更新语言切换器文字
+  const langTrigger = el.querySelector('#btn-lang-toggle span')
+  if (langTrigger) {
+    const langCode = getLang()
+    const langs = getAvailableLangs()
+    const currentLang = langs.find(l => l.code === langCode) || langs[0]
+    langTrigger.textContent = currentLang.label
+  }
+
+  // 4. 更新引擎切换器
+  const engineSwitcher = el.querySelector('.engine-switcher')
+  if (engineSwitcher) {
+    const newSwitcher = renderEngineSwitcher()
+    const temp = document.createElement('div')
+    temp.innerHTML = newSwitcher
+    const newEl = temp.firstElementChild
+    if (newEl) engineSwitcher.replaceWith(newEl)
+  }
+
+  // 5. 更新内核升级提示
+  const existingHint = el.querySelector('#kernel-upgrade-hint')
+  const newHintHtml = renderKernelUpgradeHint()
+  const tempHint = document.createElement('div')
+  tempHint.innerHTML = newHintHtml
+  const newHint = tempHint.firstElementChild
+  if (newHint && !existingHint) {
+    // 新增提示卡：插到 sidebar-footer 之前
+    const footer = el.querySelector('.sidebar-footer')
+    if (footer) footer.before(newHint)
+  } else if (!newHint && existingHint) {
+    existingHint.remove()
+  } else if (newHint && existingHint) {
+    existingHint.replaceWith(newHint)
+  }
+
+  // 6. 应用折叠态
+  _setDesktopSidebarCollapsed(_isDesktopSidebarCollapsed())
+}
 
 // === 移动端侧边栏 ===
 function _closeMobileSidebar() {

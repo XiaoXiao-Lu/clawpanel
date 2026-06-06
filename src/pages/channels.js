@@ -940,7 +940,11 @@ function bindChannelTabs(page) {
   })
 }
 
-export function cleanup() {}
+export function cleanup() {
+  // 清除可能残留的超时和间隔定时器
+  // 模块内没有全局 timer，但清理页面引用以防内存泄漏
+  _page = null
+}
 
 // ── 数据加载 ──
 

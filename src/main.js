@@ -313,7 +313,25 @@ function showLoginOverlay(defaultPw) {
 window.__clawpanel_show_login = async function() {
   if (document.getElementById('login-overlay')) return
   await showLoginOverlay()
-  location.reload()
+  // 不强制全页面 reload，改为关闭登录遮罩后触发 WS 重连
+  const overlay = document.getElementById('login-overlay')
+  if (overlay) {
+    overlay.classList.add('hide')
+    setTimeout(() => overlay.remove(), 400)
+  }
+  // 主动触发 WebSocket 重连
+  try {
+    const { wsClient } = await import('./lib/ws-client.js')
+    const { isGatewayRunning } = await import('./lib/app-state.js')
+    if (isGatewayRunning()) {
+      wsClient.reconnect()
+    }
+  } catch {}
+  // 刷新当前路由页面内容
+  try {
+    const { reloadCurrentRoute } = await import('./router.js')
+    reloadCurrentRoute()
+  } catch {}
 }
 
 const sidebar = document.getElementById('sidebar')
@@ -536,6 +554,14 @@ async function boot() {
 
       // Gateway 横幅（所有引擎均注册，update() 内部按引擎判断显隐）
       setupGatewayBanner()
+
+      // 主动刷新 Gateway 横幅：WebSocket 状态变化时立即更新，避免 15s 轮询延迟
+      wsClient.onReady(() => setupGatewayBanner())
+      wsClient.onStatusChange((status) => {
+        if (status === 'ready' || status === 'disconnected' || status === 'error') {
+          setupGatewayBanner()
+        }
+      })
 
       // === OpenClaw 专属逻辑（WebSocket、Guardian 守护等） ===
       if (getActiveEngineId() === 'openclaw') {

@@ -32,6 +32,9 @@ export async function render() {
 
 export function cleanup() {
   _page = null
+  _scanning = false
+  _fixing = false
+  _results = null
 }
 
 function renderPage(page) {

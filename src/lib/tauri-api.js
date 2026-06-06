@@ -55,7 +55,8 @@ async function getTauriInvoke() {
 // 简单缓存：避免页面切换时重复请求后端
 const _cache = new Map()
 const _inflight = new Map() // in-flight 请求去重，防止缓存过期后同一命令并发 spawn 多个进程
-const CACHE_TTL = 15000 // 15秒
+const CACHE_TTL = 60000 // 60秒
+const LONG_CACHE_TTL = 300000 // 5分钟（安装状态等低频数据）
 
 // 网络请求日志（用于调试）
 const _requestLogs = []
@@ -387,16 +388,16 @@ export const api = {
   testProxy: (url) => invoke('test_proxy', { url: url || null }),
 
   // 安装/部署
-  checkInstallation: () => cachedInvoke('check_installation', {}, 60000),
+  checkInstallation: () => cachedInvoke('check_installation', {}, LONG_CACHE_TTL),
   initOpenclawConfig: () => { invalidate('check_installation'); return invoke('init_openclaw_config') },
-  checkNode: () => cachedInvoke('check_node', {}, 60000),
+  checkNode: () => cachedInvoke('check_node', {}, LONG_CACHE_TTL),
   checkNodeAtPath: (nodeDir) => invoke('check_node_at_path', { nodeDir }),
   checkOpenclawAtPath: (cliPath) => invoke('check_openclaw_at_path', { cliPath }),
   scanNodePaths: () => invoke('scan_node_paths'),
   scanOpenclawPaths: () => invoke('scan_openclaw_paths'),
   saveCustomNodePath: (nodeDir) => invoke('save_custom_node_path', { nodeDir }).then(r => { invalidate('check_node', 'get_services_status'); invoke('invalidate_path_cache').catch(() => {}); return r }),
   invalidatePathCache: () => invoke('invalidate_path_cache'),
-  checkGit: () => cachedInvoke('check_git', {}, 60000),
+  checkGit: () => cachedInvoke('check_git', {}, LONG_CACHE_TTL),
   scanGitPaths: () => invoke('scan_git_paths'),
   autoInstallGit: () => invoke('auto_install_git'),
   configureGitHttps: () => invoke('configure_git_https'),
@@ -481,7 +482,7 @@ export const api = {
   deleteImage: (id) => invoke('assistant_delete_image', { id }),
 
   // Hermes Agent 管理
-  checkPython: () => cachedInvoke('check_python', {}, 60000),
+  checkPython: () => cachedInvoke('check_python', {}, LONG_CACHE_TTL),
   checkHermes: () => cachedInvoke('check_hermes', {}, 30000),
   installHermes: (method = 'uv-tool', extras = []) => invoke('install_hermes', { method, extras }),
   configureHermes: (provider, apiKey, model, baseUrl) => invoke('configure_hermes', { provider, apiKey, model: model || null, baseUrl: baseUrl || null }),

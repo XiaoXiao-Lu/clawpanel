@@ -1373,7 +1373,9 @@
     "hostedModelNotConfigured": "Hosted Agent model not configured (please configure in AI Assistant page)",
     "hostedApiError": "API Error {code}",
     "hostedPrefix": "[Hosted Agent] ",
-    "hostedContextSummary": "[Context Summary - compressed {n} history entries]"
+    "hostedContextSummary": "[Context Summary - compressed {n} history entries]",
+    "pasteWarning": "Pegar texto grande",
+    "pasteLargeText": "Estás pegando {length} caracteres de texto. Esto puede causar problemas de rendimiento. ¿Continuar?"
   },
   "chatDebug": {
     "title": "Diagnóstico del sistema",

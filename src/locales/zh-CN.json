@@ -1597,7 +1597,9 @@
     "hostedModelNotConfigured": "托管 Agent 未配置模型（请在 AI 助手页面配置）",
     "hostedApiError": "API 错误 {code}",
     "hostedPrefix": "[托管 Agent] ",
-    "hostedContextSummary": "[上下文摘要 - 已压缩 {n} 条历史]"
+    "hostedContextSummary": "[上下文摘要 - 已压缩 {n} 条历史]",
+    "pasteWarning": "粘贴大文本",
+    "pasteLargeText": "你正在粘贴 {length} 个字符的文本，这可能会导致性能问题。确认继续吗？"
   },
   "chatDebug": {
     "title": "系统诊断",
