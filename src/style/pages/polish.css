@@ -1,3 +1,6 @@
+/* === Visual Polish Layer (absorbed from prototype-polish.css) === */
+/* Loaded after all domain page styles to override with brand polish */
+
 /*
  * UI prototype consolidation layer.
  * Visual-only overrides loaded last so existing routes and workflows keep their DOM/JS.
@@ -17,35 +20,7 @@
     linear-gradient(180deg, #080a0e 0%, #0a0d12 100%);
 }
 
-[data-theme="light"] #sidebar {
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #e8edf4;
-  --bg-card: #ffffff;
-  --bg-card-hover: #f6f8fb;
-  --bg-hover: rgba(15, 23, 42, 0.055);
-  --surface-raised: #ffffff;
-  --surface-sunken: #f0f4f8;
-  --border-primary: rgba(15, 23, 42, 0.11);
-  --border-secondary: rgba(15, 23, 42, 0.07);
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --text-tertiary: #667085;
-  --accent: var(--brand-indigo);
-  background:
-    radial-gradient(circle at -80px -100px, rgba(79, 70, 229, 0.12), transparent 260px),
-    radial-gradient(circle at 170px 100%, rgba(249, 115, 22, 0.08), transparent 320px),
-    linear-gradient(180deg, #ffffff 0%, #f4f7fb 100%);
-  border-right-color: var(--border-secondary);
-}
-
-[data-theme="light"] .sidebar-header,
-[data-theme="light"] .engine-switcher {
-  background: rgba(255, 255, 255, 0.72);
-}
-
-[data-theme="light"] .sidebar-footer {
-  background: rgba(255, 255, 255, 0.76);
-}
+/* Sidebar light theme overrides — MOVED to layout.css (T03) */
 
 .page:not([data-engine="hermes"]):not([data-engine="xintian"]) {
   max-width: 1500px;
@@ -221,7 +196,7 @@
 .hm-chat-send-btn,
 .hm-gc-msg--user .hm-gc-msg-bubble {
   background: linear-gradient(135deg, var(--brand-indigo), color-mix(in srgb, var(--brand-indigo) 62%, var(--brand-orange))) !important;
-  color: #fff !important;
+  color: var(--text-inverse) !important;
   box-shadow: 0 10px 24px color-mix(in srgb, var(--brand-indigo) 28%, transparent);
 }
 
@@ -278,7 +253,7 @@ select,
 .hm-chat-source-badge,
 .hm-chat-usage-pill {
   border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .log-viewer,
@@ -391,7 +366,7 @@ select,
   place-items: center;
   border-radius: var(--radius-lg);
   background: linear-gradient(135deg, var(--brand-indigo), var(--brand-orange));
-  color: #fff;
+  color: var(--text-inverse);
   box-shadow: 0 18px 42px color-mix(in srgb, var(--brand-indigo) 24%, transparent);
   opacity: 1;
 }
@@ -422,7 +397,7 @@ select,
 
 .ast-tab.active,
 .ast-mode-btn.active {
-  color: #fff;
+  color: var(--text-inverse);
   background: linear-gradient(135deg, var(--brand-indigo), color-mix(in srgb, var(--brand-indigo) 70%, var(--brand-orange)));
   border-radius: var(--radius-sm);
 }
@@ -492,7 +467,7 @@ select,
 .skills-tab-btn.active,
 .connectors-segment button.active {
   background: linear-gradient(135deg, var(--brand-indigo), color-mix(in srgb, var(--brand-indigo) 72%, var(--brand-orange)));
-  color: #fff;
+  color: var(--text-inverse);
   box-shadow: 0 8px 22px color-mix(in srgb, var(--brand-indigo) 22%, transparent);
 }
 
@@ -656,7 +631,8 @@ select,
 
 .services-workbench {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 410px);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: var(--space-xl);
   align-items: start;
 }
 
@@ -665,9 +641,9 @@ select,
 }
 
 .services-maintenance-column {
-  max-height: calc(100vh - 116px);
+  max-height: calc(100vh - 140px);
   overflow-y: auto;
-  padding-right: 2px;
+  padding-right: 4px;
 }
 
 .services-page .page-header {
@@ -827,19 +803,52 @@ select,
   .models-workbench .models-control-console {
     grid-template-columns: 1fr;
   }
-}
 
-@media (max-width: 768px) {
-  .chat-page,
   .ast-page {
     display: flex;
     padding: 0 !important;
     gap: 0;
+    height: 100% !important;
+    overflow: hidden;
   }
 
-  .chat-main,
+  .ast-sidebar.open {
+    position: fixed;
+    left: var(--sidebar-width, 220px);
+    top: 0;
+    z-index: 850;
+    width: min(280px, calc(100vw - var(--sidebar-width, 220px) - 16px));
+    min-width: 0;
+    height: 100vh;
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  }
+
   .ast-main {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100% !important;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 768px) {
+  .chat-page {
+    display: flex;
+    padding: 0 !important;
+    gap: 0;
+    height: 100% !important; /* 关键：撑满视口 */
+    overflow: hidden;
+  }
+
+  .chat-main {
     border-radius: 0;
     border: none;
+    height: 100% !important;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 }

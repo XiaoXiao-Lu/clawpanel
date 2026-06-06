@@ -1300,6 +1300,7 @@ function applyModeStyle(page, modeKey) {
   const main = page.querySelector('.ast-main') || page
   main.dataset.mode = modeKey
   positionModeSlider(page, modeKey)
+  updateModePicker(page, modeKey)
 }
 
 function positionModeSlider(page, modeKey) {
@@ -1322,6 +1323,37 @@ function playModeTransition(page, modeKey) {
   void selector.offsetWidth
   selector.classList.add('mode-updated')
   setTimeout(() => selector.classList.remove('mode-updated'), 220)
+}
+
+function updateModePicker(page = _page, modeKey = currentMode()) {
+  const mode = MODES[modeKey]
+  if (!page || !mode) return
+  const trigger = page.querySelector('#ast-mode-trigger')
+  const label = page.querySelector('#ast-mode-trigger-label')
+  const iconWrap = page.querySelector('#ast-mode-trigger-icon')
+  if (label) label.textContent = mode.label
+  if (iconWrap) iconWrap.innerHTML = MODE_ICONS[modeKey] || ''
+  if (trigger) {
+    trigger.title = mode.desc || mode.label
+    trigger.dataset.mode = modeKey
+  }
+  page.querySelectorAll('.ast-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === modeKey))
+}
+
+function closeModePicker() {
+  const selector = _page?.querySelector('#ast-mode-selector')
+  const trigger = _page?.querySelector('#ast-mode-trigger')
+  selector?.classList.remove('open')
+  trigger?.setAttribute('aria-expanded', 'false')
+}
+
+function toggleModePicker() {
+  const selector = _page?.querySelector('#ast-mode-selector')
+  const trigger = _page?.querySelector('#ast-mode-trigger')
+  if (!selector || !trigger) return
+  const willOpen = !selector.classList.contains('open')
+  selector.classList.toggle('open', willOpen)
+  trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false')
 }
 
 function buildSystemPrompt() {
@@ -2806,6 +2838,20 @@ function modelSlotLabel(slot) {
   return `${prefix} · ${slot.model}`
 }
 
+function modelPickerMeta(slot) {
+  if (slot.isPrimary) return t('assistant.slotPrimary')
+  if (slot.provider || slot.label) return slot.provider || slot.label
+  const apiType = normalizeApiType(slot.apiType)
+  const typeLabels = {
+    openai: 'OpenAI',
+    'openai-completion': 'OpenAI',
+    anthropic: 'Claude',
+    gemini: 'Gemini',
+    ollama: 'Ollama',
+  }
+  return typeLabels[apiType] || 'Model'
+}
+
 function isAutoModelMode() {
   return _config?.modelSelectionMode === 'auto'
 }
@@ -2928,16 +2974,25 @@ function buildAutoSlots(messages) {
 
 function renderModelSelectOptions() {
   const select = _page?.querySelector('#ast-model-select')
+  const trigger = _page?.querySelector('#ast-model-trigger')
+  const triggerValue = _page?.querySelector('#ast-model-trigger-value')
+  const triggerMeta = _page?.querySelector('#ast-model-trigger-meta')
+  const menu = _page?.querySelector('#ast-model-menu')
   if (!select) return
   const slots = modelSelectSlots()
   _modelSelectSlotMap = new Map()
   if (slots.length === 0) {
     select.innerHTML = `<option value="">${t('assistant.notConfigured')}</option>`
     select.disabled = true
+    if (trigger) trigger.disabled = true
+    if (triggerValue) triggerValue.textContent = t('assistant.notConfigured')
+    if (triggerMeta) triggerMeta.textContent = t('assistant.model')
+    if (menu) menu.innerHTML = ''
     return
   }
 
   select.disabled = false
+  if (trigger) trigger.disabled = false
   const primaryKey = modelSlotInternalKey({
     baseUrl: _config.baseUrl,
     apiKey: _config.apiKey || '',
@@ -2951,14 +3006,67 @@ function renderModelSelectOptions() {
   const autoLabel = _lastAutoModelLabel
     ? `Auto · 自动选择（上次 ${_lastAutoModelLabel}）`
     : 'Auto · 自动选择'
+  const pickerItems = [{
+    value: AUTO_MODEL_VALUE,
+    label: autoLabel,
+    meta: 'Auto',
+    detail: _lastAutoModelReason || '发送时自动选择最合适的模型',
+  }]
   const options = [`<option value="${AUTO_MODEL_VALUE}" ${currentValue === AUTO_MODEL_VALUE ? 'selected' : ''}>${escHtml(autoLabel)}</option>`]
   options.push(...slots.map((slot, index) => {
     const label = modelSlotLabel(slot)
     const value = `slot-${index}`
     _modelSelectSlotMap.set(value, slot)
+    pickerItems.push({
+      value,
+      label,
+      meta: modelPickerMeta(slot),
+      detail: slot.baseUrl || slot.provider || '',
+    })
     return `<option value="${value}" ${value === currentValue ? 'selected' : ''}>${escHtml(label)}</option>`
   }))
   select.innerHTML = options.join('')
+  const selectedItem = pickerItems.find(item => item.value === currentValue) || pickerItems[0]
+  const splitLabel = selectedItem.label.split(' · ')
+  const displayLabel = splitLabel.slice(1).join(' · ') || selectedItem.label
+  if (triggerValue) {
+    triggerValue.textContent = displayLabel
+    triggerValue.title = selectedItem.label
+  }
+  if (triggerMeta) triggerMeta.textContent = selectedItem.meta || splitLabel[0] || t('assistant.model')
+  if (menu) {
+    menu.innerHTML = pickerItems.map(item => {
+      const active = item.value === currentValue
+      const itemLabel = item.label.split(' · ')
+      const title = itemLabel.slice(1).join(' · ') || item.label
+      const meta = item.meta || itemLabel[0] || ''
+      return `
+        <button class="ast-model-menu-item ${active ? 'active' : ''}" type="button" role="option" aria-selected="${active ? 'true' : 'false'}" data-model-value="${escHtml(item.value)}">
+          <span class="ast-model-menu-meta">${escHtml(meta)}</span>
+          <span class="ast-model-menu-copy">
+            <strong>${escHtml(title)}</strong>
+            <small>${escHtml(item.detail || item.label)}</small>
+          </span>
+        </button>
+      `
+    }).join('')
+  }
+}
+
+function closeModelPicker() {
+  const picker = _page?.querySelector('#ast-model-picker')
+  const trigger = _page?.querySelector('#ast-model-trigger')
+  picker?.classList.remove('open')
+  trigger?.setAttribute('aria-expanded', 'false')
+}
+
+function toggleModelPicker() {
+  const picker = _page?.querySelector('#ast-model-picker')
+  const trigger = _page?.querySelector('#ast-model-trigger')
+  if (!picker || !trigger || trigger.disabled) return
+  const willOpen = !picker.classList.contains('open')
+  picker.classList.toggle('open', willOpen)
+  trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false')
 }
 
 function switchActiveModel(value) {
@@ -2968,6 +3076,7 @@ function switchActiveModel(value) {
     saveConfig()
     updateModelBadge()
     renderModelSelectOptions()
+    closeModelPicker()
     resetCircuit()
     return
   }
@@ -2981,6 +3090,7 @@ function switchActiveModel(value) {
   saveConfig()
   updateModelBadge()
   renderModelSelectOptions()
+  closeModelPicker()
   resetCircuit()
 }
 
@@ -4124,7 +4234,7 @@ function renderErrorBanner() {
     if (currentMode() === 'chat') {
       _config.mode = 'execute'
       saveConfig()
-      _page?.querySelectorAll('.ast-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'execute'))
+      applyModeStyle(_page, 'execute')
     }
 
     clearErrorContext()
@@ -5966,8 +6076,13 @@ export async function render() {
   page.className = 'page ast-page'
   _page = page
 
+  // 从 localStorage 获取侧边栏的持久化状态，如果不存在，窄屏（≤980px）默认关闭，宽屏默认开启
+  const savedState = localStorage.getItem('clawpanel-assistant-sidebar')
+  const isSidebarOpen = savedState !== null ? savedState === 'true' : !(window.matchMedia?.('(max-width: 980px)')?.matches)
+  const sidebarOpenClass = isSidebarOpen ? ' open' : ''
+
   page.innerHTML = `
-    <div class="ast-sidebar open" id="ast-sidebar">
+    <div class="ast-sidebar${sidebarOpenClass}" id="ast-sidebar">
       <div class="ast-sidebar-header">
         <span>${t('assistant.sessionList')}</span>
         <button class="ast-sidebar-btn" id="ast-btn-new" title="${t('assistant.newSession')}">
@@ -6005,18 +6120,26 @@ export async function render() {
               </button>
               <input type="file" id="ast-file-input" accept="image/*" multiple style="display:none"/>
               <div class="ast-model-cluster">
-                <label class="ast-model-switcher" title="${t('assistant.model')}">
-                  <span>${t('assistant.model')}</span>
-                  <select class="ast-model-select" id="ast-model-select"></select>
-                </label>
+                <div class="ast-model-switcher" id="ast-model-picker" title="${t('assistant.model')}">
+                  <select class="ast-model-select" id="ast-model-select" tabindex="-1" aria-hidden="true"></select>
+                  <button class="ast-model-trigger" id="ast-model-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="ast-model-trigger-meta" id="ast-model-trigger-meta">${t('assistant.model')}</span>
+                    <span class="ast-model-trigger-value" id="ast-model-trigger-value">${t('assistant.notConfigured')}</span>
+                    <svg class="ast-model-trigger-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  <div class="ast-model-menu" id="ast-model-menu" role="listbox"></div>
+                </div>
                 <span class="ast-auto-model-reason" id="ast-auto-model-reason" hidden></span>
-                <button class="ast-model-config-btn" id="ast-model-config-btn" title="${t('assistant.settingsTitle')}">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-                </button>
               </div>
               <div class="ast-mode-selector" id="ast-mode-selector">
-                <div class="ast-mode-slider" id="ast-mode-slider"></div>
-                ${Object.entries(MODES).map(([key, m]) => `<button class="ast-mode-btn ${currentMode() === key ? 'active' : ''}" data-mode="${key}" title="${m.desc}">${MODE_ICONS[key]} ${m.label}</button>`).join('')}
+                <button class="ast-mode-trigger" id="ast-mode-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" title="${MODES[currentMode()]?.desc || ''}">
+                  <span class="ast-mode-trigger-icon" id="ast-mode-trigger-icon">${MODE_ICONS[currentMode()] || ''}</span>
+                  <span class="ast-mode-trigger-label" id="ast-mode-trigger-label">${MODES[currentMode()]?.label || ''}</span>
+                  <svg class="ast-mode-trigger-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="ast-mode-menu" id="ast-mode-menu" role="listbox">
+                  ${Object.entries(MODES).map(([key, m]) => `<button class="ast-mode-btn ${currentMode() === key ? 'active' : ''}" type="button" role="option" aria-selected="${currentMode() === key ? 'true' : 'false'}" data-mode="${key}" title="${m.desc}">${MODE_ICONS[key]}<span>${m.label}</span><small>${m.desc}</small></button>`).join('')}
+                </div>
               </div>
             </div>
             <div class="ast-input-actions">
@@ -6060,7 +6183,7 @@ export async function render() {
     if (currentMode() === 'chat') {
       _config.mode = 'execute'
       saveConfig()
-      page.querySelectorAll('.ast-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'execute'))
+      applyModeStyle(page, 'execute')
     }
     // 延迟发送，确保页面渲染完成
     setTimeout(() => sendMessage(autoPrompt), 300)
@@ -6241,7 +6364,9 @@ export async function render() {
 
   // 侧边栏切换
   page.querySelector('#ast-btn-toggle').addEventListener('click', () => {
-    page.querySelector('#ast-sidebar').classList.toggle('open')
+    const sidebar = page.querySelector('#ast-sidebar')
+    const isOpen = sidebar.classList.toggle('open')
+    localStorage.setItem('clawpanel-assistant-sidebar', isOpen ? 'true' : 'false')
   })
 
   // 新建会话
@@ -6252,23 +6377,53 @@ export async function render() {
   })
 
   // 模式切换
-  page.querySelector('#ast-mode-selector').addEventListener('click', (e) => {
+  page.querySelector('#ast-mode-trigger')?.addEventListener('click', (e) => {
+    e.stopPropagation()
+    toggleModePicker()
+  })
+  page.querySelector('#ast-mode-menu')?.addEventListener('click', (e) => {
     const btn = e.target.closest('.ast-mode-btn')
     if (!btn) return
+    e.stopPropagation()
     const modeKey = btn.dataset.mode
-    if (!MODES[modeKey] || modeKey === currentMode()) return
+    if (!MODES[modeKey]) return
+    if (modeKey === currentMode()) {
+      closeModePicker()
+      return
+    }
     _config.mode = modeKey
     saveConfig()
-    page.querySelectorAll('.ast-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === modeKey))
     applyModeStyle(page, modeKey)
     playModeTransition(page, modeKey)
+    closeModePicker()
   })
 
   page.querySelector('#ast-model-select')?.addEventListener('change', (e) => {
     switchActiveModel(e.target.value)
   })
-  page.querySelector('#ast-model-config-btn')?.addEventListener('click', showSettings)
-
+  page.querySelector('#ast-model-trigger')?.addEventListener('click', (e) => {
+    e.stopPropagation()
+    toggleModelPicker()
+  })
+  page.querySelector('#ast-model-menu')?.addEventListener('click', (e) => {
+    const item = e.target.closest('[data-model-value]')
+    if (!item) return
+    e.stopPropagation()
+    const value = item.dataset.modelValue
+    const select = page.querySelector('#ast-model-select')
+    if (select) select.value = value
+    switchActiveModel(value)
+  })
+  page.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeModelPicker()
+      closeModePicker()
+    }
+  })
+  page.addEventListener('click', (e) => {
+    if (!e.target.closest('#ast-model-picker')) closeModelPicker()
+    if (!e.target.closest('#ast-mode-selector')) closeModePicker()
+  })
   // 设置
   page.querySelector('#ast-btn-settings').addEventListener('click', showSettings)
 
@@ -6311,7 +6466,7 @@ export async function render() {
       if (skill.tools.length > 0 && currentMode() === 'chat') {
         _config.mode = 'execute'
         saveConfig()
-        page.querySelectorAll('.ast-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'execute'))
+        applyModeStyle(page, 'execute')
         toast(t('assistant.autoSwitchExecute'), 'info')
       }
 

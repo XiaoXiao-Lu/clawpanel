@@ -1,0 +1,3054 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClawPanel — OpenClaw 管理面板</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================================
+       ClawPanel UI Design System v2.0
+       Brand: Indigo (#4f46e5) + Lobster Orange (#f97316)
+       Aesthetic: Deep space glassmorphism, high information density
+       ============================================================ */
+
+    /* ---- Design Tokens ---- */
+    :root, [data-theme="dark"] {
+      /* Brand Colors */
+      --brand-indigo: oklch(55% 0.22 270);
+      --brand-indigo-light: oklch(65% 0.18 270);
+      --brand-indigo-muted: oklch(55% 0.22 270 / 0.12);
+      --brand-orange: oklch(65% 0.18 55);
+      --brand-orange-muted: oklch(65% 0.18 55 / 0.15);
+
+      /* Backgrounds — deep space layers */
+      --bg-base: #080a0e;
+      --bg-surface: #0e1218;
+      --bg-surface-raised: #141922;
+      --bg-surface-sunken: #0a0d12;
+      --bg-card: #111520;
+      --bg-card-hover: #181d2a;
+      --bg-glass: rgba(20, 25, 40, 0.6);
+      --bg-glass-hover: rgba(30, 38, 58, 0.7);
+      --bg-hover: rgba(255, 255, 255, 0.04);
+
+      /* Borders */
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --border-medium: rgba(255, 255, 255, 0.1);
+      --border-strong: rgba(255, 255, 255, 0.14);
+      --border-focus: oklch(65% 0.18 270 / 0.5);
+
+      /* Text */
+      --text-primary: #e8ecf4;
+      --text-secondary: #8b95a8;
+      --text-tertiary: #5c6578;
+      --text-inverse: #080a0e;
+
+      /* Semantic */
+      --success: #34d399;
+      --success-muted: rgba(52, 211, 153, 0.12);
+      --warning: #fbbf24;
+      --warning-muted: rgba(251, 191, 36, 0.12);
+      --error: #f87171;
+      --error-muted: rgba(248, 113, 113, 0.12);
+      --info: #60a5fa;
+      --info-muted: rgba(96, 165, 250, 0.12);
+
+      /* Shadows */
+      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.5);
+      --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.6);
+      --shadow-glow: 0 0 0 3px oklch(55% 0.22 270 / 0.2);
+      --shadow-glow-orange: 0 0 0 3px oklch(65% 0.18 55 / 0.2);
+
+      /* Spacing — 4pt base */
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-8: 32px;
+      --space-10: 40px;
+      --space-12: 48px;
+      --space-16: 64px;
+
+      /* Radius */
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 20px;
+      --radius-full: 9999px;
+
+      /* Typography */
+      --font-display: 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, sans-serif;
+      --font-body: 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+
+      --text-xs: 11px;
+      --text-sm: 13px;
+      --text-base: 14px;
+      --text-md: 15px;
+      --text-lg: 17px;
+      --text-xl: 20px;
+      --text-2xl: 26px;
+      --text-3xl: 34px;
+
+      /* Transitions */
+      --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+      --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+      --t-fast: 150ms;
+      --t-normal: 250ms;
+      --t-slow: 400ms;
+
+      /* Layout */
+      --sidebar-width: 240px;
+      --header-height: 56px;
+    }
+
+    /* Light theme */
+    [data-theme="light"] {
+      --bg-base: #f0f2f7;
+      --bg-surface: #ffffff;
+      --bg-surface-raised: #f8f9fc;
+      --bg-surface-sunken: #ebedf3;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f5f7fa;
+      --bg-glass: rgba(255, 255, 255, 0.7);
+      --bg-glass-hover: rgba(255, 255, 255, 0.85);
+      --bg-hover: rgba(15, 23, 42, 0.04);
+
+      --border-subtle: rgba(15, 23, 42, 0.06);
+      --border-medium: rgba(15, 23, 42, 0.1);
+      --border-strong: rgba(15, 23, 42, 0.14);
+
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-tertiary: #94a3b8;
+
+      --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08);
+      --shadow-md: 0 8px 32px rgba(15, 23, 42, 0.1);
+      --shadow-lg: 0 24px 64px rgba(15, 23, 42, 0.12);
+    }
+
+    /* ---- Reset & Base ---- */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: var(--font-body);
+      font-size: var(--text-base);
+      line-height: 1.55;
+      color: var(--text-primary);
+      background: var(--bg-base);
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    /* ---- App Layout ---- */
+    #app {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ---- Sidebar ---- */
+    #sidebar {
+      width: var(--sidebar-width);
+      height: 100vh;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Sidebar ambient glow */
+    #sidebar::before {
+      content: '';
+      position: absolute;
+      top: -100px;
+      left: -100px;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, oklch(55% 0.15 270 / 0.08) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .sidebar-header {
+      padding: var(--space-4) var(--space-5);
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      border-bottom: 1px solid var(--border-subtle);
+      height: var(--header-height);
+      position: relative;
+      z-index: 1;
+    }
+
+    .sidebar-logo {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--brand-indigo), var(--brand-orange));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px oklch(55% 0.22 270 / 0.3);
+    }
+
+    .sidebar-logo svg {
+      width: 20px;
+      height: 20px;
+      fill: white;
+    }
+
+    .sidebar-brand {
+      flex: 1;
+    }
+
+    .sidebar-title {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .sidebar-subtitle {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* Engine Switcher */
+    .engine-switcher {
+      padding: var(--space-3) var(--space-4);
+      border-bottom: 1px solid var(--border-subtle);
+      position: relative;
+      z-index: 1;
+    }
+
+    .engine-current {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-md);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--t-fast) var(--ease-out-quart);
+    }
+
+    .engine-current:hover {
+      border-color: var(--brand-indigo);
+      background: var(--bg-card-hover);
+    }
+
+    .engine-badge {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--radius-full);
+      background: var(--success);
+      box-shadow: 0 0 6px var(--success);
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--success); }
+      50% { opacity: 0.6; box-shadow: 0 0 2px var(--success); }
+    }
+
+    .engine-name {
+      flex: 1;
+    }
+
+    .engine-chevron {
+      opacity: 0.5;
+      transition: transform var(--t-fast);
+    }
+
+    /* Navigation */
+    .sidebar-nav {
+      flex: 1;
+      padding: var(--space-3) var(--space-3);
+      overflow-y: auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    .nav-section {
+      margin-bottom: var(--space-2);
+    }
+
+    .nav-section-title {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: var(--space-2) var(--space-3) var(--space-1);
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 40px;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      font-size: var(--text-sm);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--t-fast) var(--ease-out-quart);
+      user-select: none;
+      position: relative;
+      margin: 1px 0;
+    }
+
+    .nav-item:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .nav-item.active {
+      background: linear-gradient(90deg, oklch(55% 0.22 270 / 0.12) 0%, oklch(55% 0.22 270 / 0.04) 100%);
+      color: oklch(70% 0.12 270);
+      font-weight: 600;
+    }
+
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 20px;
+      background: var(--brand-indigo);
+      border-radius: 0 3px 3px 0;
+      box-shadow: 0 0 8px oklch(55% 0.22 270 / 0.5);
+    }
+
+    .nav-item svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      opacity: 0.7;
+      transition: all var(--t-fast);
+    }
+
+    .nav-item:hover svg {
+      opacity: 1;
+      transform: scale(1.08);
+    }
+
+    .nav-item.active svg {
+      opacity: 1;
+      color: var(--brand-indigo-light);
+    }
+
+    /* Morandi color accents for nav icons */
+    .nav-item[data-nav-icon="dashboard"] svg { color: #6ba3d6; }
+    .nav-item[data-nav-icon="assistant"] svg { color: #b894c4; }
+    .nav-item[data-nav-icon="chat"] svg { color: #e89b8d; }
+    .nav-item[data-nav-icon="services"] svg { color: #d4a85c; }
+    .nav-item[data-nav-icon="logs"] svg { color: #7ea3c8; }
+    .nav-item[data-nav-icon="models"] svg { color: #c4858a; }
+    .nav-item[data-nav-icon="agents"] svg { color: #8e92c2; }
+    .nav-item[data-nav-icon="gateway"] svg { color: #5caab4; }
+    .nav-item[data-nav-icon="channels"] svg { color: #6fb56f; }
+    .nav-item[data-nav-icon="memory"] svg { color: #c9916a; }
+    .nav-item[data-nav-icon="skills"] svg { color: #c97a5e; }
+    .nav-item[data-nav-icon="usage"] svg { color: #d4725a; }
+
+    /* Sidebar Footer */
+    .sidebar-footer {
+      padding: var(--space-3);
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      position: relative;
+      z-index: 1;
+    }
+
+    .sidebar-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--space-2) var(--space-3);
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    .theme-toggle {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      font-size: var(--text-sm);
+      cursor: pointer;
+      transition: all var(--t-fast);
+      border: none;
+      background: none;
+      width: 100%;
+      font-family: inherit;
+    }
+
+    .theme-toggle:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    /* ---- Main Content ---- */
+    #main-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Ambient background effect */
+    #main-col::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle at top right, oklch(55% 0.12 270 / 0.06) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    #content {
+      flex: 1;
+      overflow-y: auto;
+      position: relative;
+      z-index: 1;
+      scroll-behavior: smooth;
+    }
+
+    .page {
+      padding: var(--space-8) clamp(var(--space-6), 3vw, var(--space-12));
+      width: 100%;
+      max-width: 1440px;
+      margin: 0 auto;
+      animation: pageIn 350ms var(--ease-out-expo) forwards;
+    }
+
+    @keyframes pageIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .page-header {
+      margin-bottom: var(--space-6);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-4);
+    }
+
+    .page-title-group {
+      flex: 1;
+    }
+
+    .page-title {
+      font-family: var(--font-display);
+      font-size: var(--text-2xl);
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      margin-bottom: var(--space-1);
+    }
+
+    .page-desc {
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+      line-height: 1.6;
+      max-width: 560px;
+    }
+
+    .page-actions {
+      display: flex;
+      gap: var(--space-2);
+      flex-shrink: 0;
+    }
+
+    /* ---- Buttons ---- */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: var(--radius-md);
+      font-family: inherit;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      line-height: 1.4;
+      cursor: pointer;
+      transition: all var(--t-fast) var(--ease-out-quart);
+      border: 1px solid transparent;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: var(--shadow-glow);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--brand-indigo), oklch(50% 0.2 280));
+      color: white;
+      border-color: transparent;
+      box-shadow: 0 2px 12px oklch(55% 0.22 270 / 0.3);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px oklch(55% 0.22 270 / 0.4);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border-color: var(--border-medium);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-strong);
+      transform: translateY(-1px);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border-color: transparent;
+    }
+
+    .btn-ghost:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: var(--text-xs);
+    }
+
+    .btn-icon {
+      padding: 8px;
+      width: 36px;
+      height: 36px;
+    }
+
+    /* ---- Cards ---- */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      box-shadow: var(--shadow-sm);
+      transition: all var(--t-fast) var(--ease-out-quart);
+    }
+
+    .card:hover {
+      border-color: var(--border-medium);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-1px);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-4);
+    }
+
+    .card-title {
+      font-family: var(--font-display);
+      font-size: var(--text-md);
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    .card-subtitle {
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+
+    /* Glass card variant */
+    .card-glass {
+      background: var(--bg-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-color: var(--border-subtle);
+    }
+
+    .card-glass:hover {
+      background: var(--bg-glass-hover);
+    }
+
+    /* ---- Stat Cards ---- */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: var(--space-4);
+      margin-bottom: var(--space-8);
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      position: relative;
+      overflow: hidden;
+      transition: all var(--t-fast) var(--ease-out-quart);
+      cursor: pointer;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--brand-indigo), var(--brand-orange));
+      opacity: 0;
+      transition: opacity var(--t-fast);
+    }
+
+    .stat-card:hover::before {
+      opacity: 1;
+    }
+
+    .stat-card:hover {
+      border-color: var(--border-medium);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+
+    .stat-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-3);
+    }
+
+    .stat-card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--brand-indigo-muted);
+      color: var(--brand-indigo-light);
+    }
+
+    .stat-card-icon svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .stat-card-label {
+      font-size: var(--text-xs);
+      color: var(--text-tertiary);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: var(--space-1);
+    }
+
+    .stat-card-value {
+      font-family: var(--font-display);
+      font-size: var(--text-2xl);
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+    }
+
+    .stat-card-delta {
+      font-size: var(--text-xs);
+      font-weight: 600;
+      margin-top: var(--space-1);
+    }
+
+    .stat-card-delta.positive { color: var(--success); }
+    .stat-card-delta.negative { color: var(--error); }
+
+    /* ---- Status Indicators ---- */
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: var(--radius-full);
+      display: inline-block;
+      position: relative;
+    }
+
+    .status-dot.running {
+      background: var(--success);
+      box-shadow: 0 0 6px var(--success);
+    }
+
+    .status-dot.stopped {
+      background: var(--text-tertiary);
+    }
+
+    .status-dot.warning {
+      background: var(--warning);
+      box-shadow: 0 0 6px var(--warning);
+    }
+
+    .status-dot.running::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: var(--radius-full);
+      border: 1px solid var(--success);
+      animation: status-pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes status-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.5); opacity: 0; }
+    }
+
+    /* ---- Badges ---- */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .badge-primary {
+      background: var(--brand-indigo-muted);
+      color: oklch(70% 0.12 270);
+    }
+
+    .badge-success {
+      background: var(--success-muted);
+      color: var(--success);
+    }
+
+    .badge-warning {
+      background: var(--warning-muted);
+      color: var(--warning);
+    }
+
+    .badge-error {
+      background: var(--error-muted);
+      color: var(--error);
+    }
+
+    /* ---- Tables ---- */
+    .data-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: var(--text-sm);
+    }
+
+    .data-table th {
+      text-align: left;
+      padding: 10px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+    }
+
+    .data-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      transition: background var(--t-fast);
+    }
+
+    .data-table tbody tr:hover td {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    /* ---- Forms ---- */
+    .form-group {
+      margin-bottom: var(--space-4);
+    }
+
+    .form-label {
+      display: block;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: var(--space-2);
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface-sunken);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: var(--text-sm);
+      transition: all var(--t-fast);
+      outline: none;
+    }
+
+    .form-input:focus {
+      border-color: var(--brand-indigo);
+      box-shadow: var(--shadow-glow);
+    }
+
+    .form-input::placeholder {
+      color: var(--text-tertiary);
+    }
+
+    /* ---- Tabs ---- */
+    .tab-bar {
+      display: flex;
+      gap: var(--space-1);
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: var(--space-6);
+    }
+
+    .tab {
+      padding: 10px 16px;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--text-tertiary);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      cursor: pointer;
+      transition: all var(--t-fast);
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+      font-family: inherit;
+    }
+
+    .tab:hover {
+      color: var(--text-secondary);
+    }
+
+    .tab.active {
+      color: var(--brand-indigo-light);
+      border-bottom-color: var(--brand-indigo);
+    }
+
+    /* ---- Skill Cards (AI Assistant) ---- */
+    .skill-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: var(--space-4);
+    }
+
+    .skill-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      cursor: pointer;
+      transition: all var(--t-fast) var(--ease-out-quart);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .skill-card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 0;
+      background: linear-gradient(90deg, var(--brand-indigo), var(--brand-orange));
+      transition: height var(--t-fast);
+    }
+
+    .skill-card:hover::after {
+      height: 2px;
+    }
+
+    .skill-card:hover {
+      border-color: var(--border-medium);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+
+    .skill-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: var(--space-3);
+      font-size: 18px;
+    }
+
+    .skill-title {
+      font-family: var(--font-display);
+      font-size: var(--text-md);
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .skill-desc {
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* ---- Mode Selector ---- */
+    .mode-selector {
+      display: inline-flex;
+      background: var(--bg-surface-sunken);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .mode-btn {
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      transition: all var(--t-fast);
+      border: none;
+      background: none;
+      font-family: inherit;
+    }
+
+    .mode-btn:hover {
+      color: var(--text-secondary);
+    }
+
+    .mode-btn.active {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .mode-btn.chat.active { color: #6ba3d6; }
+    .mode-btn.plan.active { color: #d4a85c; }
+    .mode-btn.execute.active { color: var(--brand-indigo-light); }
+    .mode-btn.infinite.active { color: var(--brand-orange); }
+
+    /* ---- Chat Interface ---- */
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - var(--header-height) - var(--space-8) * 2);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      background: var(--bg-card);
+    }
+
+    .chat-header {
+      padding: var(--space-4) var(--space-5);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--space-5);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+
+    .chat-message {
+      display: flex;
+      gap: var(--space-3);
+      max-width: 85%;
+      animation: messageIn 300ms var(--ease-out-expo) forwards;
+    }
+
+    .chat-message.user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }
+
+    @keyframes messageIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .chat-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .chat-avatar.ai {
+      background: linear-gradient(135deg, var(--brand-indigo), var(--brand-orange));
+      color: white;
+    }
+
+    .chat-avatar.user {
+      background: var(--bg-surface-raised);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .chat-bubble {
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-lg);
+      font-size: var(--text-sm);
+      line-height: 1.6;
+    }
+
+    .chat-message.ai .chat-bubble {
+      background: var(--bg-surface-raised);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      border-top-left-radius: var(--radius-sm);
+    }
+
+    .chat-message.user .chat-bubble {
+      background: linear-gradient(135deg, var(--brand-indigo), oklch(50% 0.2 280));
+      color: white;
+      border-top-right-radius: var(--radius-sm);
+    }
+
+    .chat-input-area {
+      padding: var(--space-4) var(--space-5);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      gap: var(--space-3);
+      align-items: flex-end;
+    }
+
+    .chat-input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-lg);
+      background: var(--bg-surface-sunken);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: var(--text-sm);
+      resize: none;
+      outline: none;
+      min-height: 44px;
+      max-height: 120px;
+      transition: all var(--t-fast);
+    }
+
+    .chat-input:focus {
+      border-color: var(--brand-indigo);
+      box-shadow: var(--shadow-glow);
+    }
+
+    /* ---- Progress Bars ---- */
+    .progress-bar {
+      height: 6px;
+      background: var(--bg-surface-sunken);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: var(--radius-full);
+      background: linear-gradient(90deg, var(--brand-indigo), var(--brand-orange));
+      transition: width 500ms var(--ease-out-expo);
+    }
+
+    /* ---- Charts (CSS-only bars) ---- */
+    .bar-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      height: 120px;
+      padding-bottom: var(--space-2);
+    }
+
+    .bar-chart-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .bar-chart-bar {
+      width: 100%;
+      max-width: 32px;
+      background: linear-gradient(180deg, var(--brand-indigo), oklch(55% 0.22 270 / 0.3));
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      transition: all var(--t-slow) var(--ease-out-expo);
+      min-height: 4px;
+    }
+
+    .bar-chart-bar:hover {
+      background: linear-gradient(180deg, var(--brand-indigo-light), var(--brand-indigo));
+    }
+
+    .bar-chart-label {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      font-weight: 500;
+    }
+
+    /* ---- Toggle Switch ---- */
+    .toggle {
+      width: 40px;
+      height: 22px;
+      background: var(--bg-surface-sunken);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-full);
+      position: relative;
+      cursor: pointer;
+      transition: all var(--t-fast);
+      flex-shrink: 0;
+    }
+
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      background: var(--text-tertiary);
+      border-radius: var(--radius-full);
+      transition: all var(--t-fast) var(--ease-out-quart);
+    }
+
+    .toggle.on {
+      background: var(--brand-indigo);
+      border-color: var(--brand-indigo);
+    }
+
+    .toggle.on::after {
+      left: 20px;
+      background: white;
+    }
+
+    /* ---- Empty State ---- */
+    .empty-state {
+      text-align: center;
+      padding: var(--space-12) var(--space-6);
+      color: var(--text-tertiary);
+    }
+
+    .empty-state-icon {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto var(--space-4);
+      border-radius: var(--radius-lg);
+      background: var(--bg-surface-raised);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    .empty-state-title {
+      font-family: var(--font-display);
+      font-size: var(--text-lg);
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-1);
+    }
+
+    .empty-state-desc {
+      font-size: var(--text-sm);
+      max-width: 320px;
+      margin: 0 auto;
+    }
+
+    /* ---- Toast ---- */
+    .toast-container {
+      position: fixed;
+      top: var(--space-4);
+      right: var(--space-4);
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .toast {
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface-raised);
+      border: 1px solid var(--border-medium);
+      box-shadow: var(--shadow-lg);
+      font-size: var(--text-sm);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      animation: toastIn 300ms var(--ease-out-expo);
+      max-width: 360px;
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .toast.success { border-left: 3px solid var(--success); }
+    .toast.error { border-left: 3px solid var(--error); }
+    .toast.warning { border-left: 3px solid var(--warning); }
+    .toast.info { border-left: 3px solid var(--info); }
+
+    /* ---- Modal ---- */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fadeIn 200ms ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lg);
+      max-width: 480px;
+      width: 90%;
+      animation: modalIn 300ms var(--ease-out-expo);
+      overflow: hidden;
+    }
+
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.96) translateY(8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .modal-header {
+      padding: var(--space-5) var(--space-5) var(--space-3);
+    }
+
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: var(--text-xl);
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .modal-body {
+      padding: 0 var(--space-5) var(--space-4);
+      color: var(--text-secondary);
+      font-size: var(--text-sm);
+      line-height: 1.6;
+    }
+
+    .modal-footer {
+      padding: var(--space-3) var(--space-5) var(--space-5);
+      display: flex;
+      justify-content: flex-end;
+      gap: var(--space-2);
+    }
+
+    /* ---- Skeleton Loading ---- */
+    .skeleton {
+      background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-surface-raised) 50%, var(--bg-card) 75%);
+      background-size: 200% 100%;
+      animation: skeleton-shine 1.4s ease infinite;
+      border-radius: var(--radius-sm);
+    }
+
+    @keyframes skeleton-shine {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ---- Scrollbar ---- */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-medium);
+      border-radius: var(--radius-full);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--border-strong);
+    }
+
+    /* ---- Section Divider ---- */
+    .section-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border-medium), transparent);
+      margin: var(--space-8) 0;
+    }
+
+    /* ---- Grid Layouts ---- */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-4);
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-4);
+    }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 768px) {
+      #sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        z-index: 900;
+        transform: translateX(-100%);
+        transition: transform var(--t-normal) var(--ease-out-expo);
+      }
+
+      #sidebar.open {
+        transform: translateX(0);
+      }
+
+      .mobile-topbar {
+        display: flex !important;
+      }
+
+      .page {
+        padding: var(--space-4) var(--space-4);
+      }
+
+      .grid-2, .grid-3 {
+        grid-template-columns: 1fr;
+      }
+
+      .stat-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .page-header {
+        flex-direction: column;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .stat-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Mobile topbar (hidden on desktop) */
+    .mobile-topbar {
+      display: none;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      height: var(--header-height);
+    }
+
+    .mobile-menu-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      background: none;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    /* ---- Reduced Motion ---- */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* ---- Utility ---- */
+    .text-primary { color: var(--text-primary); }
+    .text-secondary { color: var(--text-secondary); }
+    .text-tertiary { color: var(--text-tertiary); }
+    .text-success { color: var(--success); }
+    .text-warning { color: var(--warning); }
+    .text-error { color: var(--error); }
+    .font-mono { font-family: var(--font-mono); }
+    .font-display { font-family: var(--font-display); }
+
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .gap-1 { gap: var(--space-1); }
+    .gap-2 { gap: var(--space-2); }
+    .gap-3 { gap: var(--space-3); }
+    .gap-4 { gap: var(--space-4); }
+
+    .mt-2 { margin-top: var(--space-2); }
+    .mt-4 { margin-top: var(--space-4); }
+    .mb-2 { margin-bottom: var(--space-2); }
+    .mb-4 { margin-bottom: var(--space-4); }
+
+    .hidden { display: none !important; }
+
+    /* Page-specific styles */
+    .dashboard-command-center {
+      background: linear-gradient(135deg, oklch(55% 0.22 270 / 0.08), oklch(65% 0.18 55 / 0.04));
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      margin-bottom: var(--space-6);
+    }
+
+    .quick-actions {
+      display: flex;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+      margin-top: var(--space-6);
+    }
+
+    .config-section {
+      margin-top: var(--space-8);
+    }
+
+    .config-section-title {
+      font-family: var(--font-display);
+      font-size: var(--text-md);
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: var(--space-4);
+      letter-spacing: -0.01em;
+    }
+
+    .log-viewer {
+      background: var(--bg-surface-sunken);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      line-height: 1.7;
+      color: var(--text-secondary);
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .log-line {
+      padding: 2px 0;
+    }
+
+    .log-time { color: var(--text-tertiary); }
+    .log-info { color: var(--info); }
+    .log-warn { color: var(--warning); }
+    .log-error { color: var(--error); }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+        </div>
+        <div class="sidebar-brand">
+          <div class="sidebar-title">ClawPanel</div>
+          <div class="sidebar-subtitle">OpenClaw 管理面板</div>
+        </div>
+      </div>
+
+      <div class="engine-switcher">
+        <div class="engine-current" id="engine-toggle">
+          <div class="engine-badge"></div>
+          <span class="engine-name">OpenClaw</span>
+          <svg class="engine-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <div class="nav-section-title">监控</div>
+          <div class="nav-item active" data-route="dashboard" data-nav-icon="dashboard" onclick="showPage('dashboard')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            <span>仪表盘</span>
+          </div>
+          <div class="nav-item" data-route="assistant" data-nav-icon="assistant" onclick="showPage('assistant')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            <span>AI 助手</span>
+          </div>
+          <div class="nav-item" data-route="chat" data-nav-icon="chat" onclick="showPage('chat')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            <span>实时聊天</span>
+          </div>
+          <div class="nav-item" data-route="services" data-nav-icon="services" onclick="showPage('services')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            <span>服务管理</span>
+          </div>
+          <div class="nav-item" data-route="logs" data-nav-icon="logs" onclick="showPage('logs')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
+            <span>日志查看</span>
+          </div>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-title">配置</div>
+          <div class="nav-item" data-route="models" data-nav-icon="models" onclick="showPage('models')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            <span>模型配置</span>
+          </div>
+          <div class="nav-item" data-route="agents" data-nav-icon="agents" onclick="showPage('agents')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span>Agent 管理</span>
+          </div>
+          <div class="nav-item" data-route="gateway" data-nav-icon="gateway" onclick="showPage('gateway')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <span>网关配置</span>
+          </div>
+          <div class="nav-item" data-route="channels" data-nav-icon="channels" onclick="showPage('channels')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+            <span>消息渠道</span>
+          </div>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-title">数据</div>
+          <div class="nav-item" data-route="memory" data-nav-icon="memory" onclick="showPage('memory')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+            <span>记忆管理</span>
+          </div>
+          <div class="nav-item" data-route="usage" data-nav-icon="usage" onclick="showPage('usage')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            <span>使用情况</span>
+          </div>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-title">扩展</div>
+          <div class="nav-item" data-route="skills" data-nav-icon="skills" onclick="showPage('skills')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <span>技能管理</span>
+          </div>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          <span>切换主题</span>
+        </button>
+        <div class="sidebar-meta">
+          <span>claw.qt.cool</span>
+          <span>v2.0.0</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div id="main-col">
+      <!-- Mobile Topbar -->
+      <div class="mobile-topbar">
+        <button class="mobile-menu-btn" onclick="toggleSidebar()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <span class="page-title" style="font-size:16px;margin:0;">ClawPanel</span>
+      </div>
+
+      <div id="content">
+        <!-- ====== DASHBOARD PAGE ====== -->
+        <div id="page-dashboard" class="page">
+          <div class="page-header">
+            <div class="page-title-group">
+              <h1 class="page-title">仪表盘</h1>
+              <p class="page-desc">系统概览，实时监控服务状态与关键指标</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-secondary btn-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+                刷新
+              </button>
+            </div>
+          </div>
+
+          <div class="dashboard-command-center">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-3);">
+              <div style="display:flex;align-items:center;gap:var(--space-3);">
+                <div style="width:40px;height:40px;border-radius:var(--radius-md);background:var(--success-muted);display:flex;align-items:center;justify-content:center;color:var(--success);">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+                </div>
+                <div>
+                  <div style="font-weight:700;color:var(--text-primary);">Gateway 运行正常</div>
+                  <div style="font-size:var(--text-xs);color:var(--text-tertiary);">已运行 3 天 14 小时 · 18789 端口</div>
+                </div>
+              </div>
+              <div class="mode-selector">
+                <button class="mode-btn chat active">聊天</button>
+                <button class="mode-btn plan">规划</button>
+                <button class="mode-btn execute">执行</button>
+                <button class="mode-btn infinite">无限</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <div class="stat-card-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                </div>
+                <span class="badge badge-success">运行中</span>
+              </div>
+              <div class="stat-card-label">Gateway 状态</div>
+              <div class="stat-card-value">在线</div>
+              <div class="stat-card-delta positive">↑ 99.9% 可用性</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <div class="stat-card-icon" style="background:var(--brand-orange-muted);color:var(--brand-orange);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                </div>
+              </div>
+              <div class="stat-card-label">已配置模型</div>
+              <div class="stat-card-value">12</div>
+              <div class="stat-card-delta positive">+3 本月新增</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <div class="stat-card-icon" style="background:var(--info-muted);color:var(--info);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+              </div>
+              <div class="stat-card-label">Agent 数量</div>
+              <div class="stat-card-value">5</div>
+              <div class="stat-card-delta">2 个活跃中</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <div class="stat-card-icon" style="background:var(--warning-muted);color:var(--warning);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                </div>
+              </div>
+              <div class="stat-card-label">今日 Token</div>
+              <div class="stat-card-value">1.2M</div>
+              <div class="stat-card-delta positive">↓ 15% 较昨日</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <div class="stat-card-icon" style="background:var(--error-muted);color:var(--error);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                </div>
+              </div>
+              <div class="stat-card-label">消息渠道</div>
+              <div class="stat-card-value">3</div>
+              <div class="stat-card-delta">飞书 / Telegram / QQ</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <div class="stat-card-icon" style="background:var(--success-muted);color:var(--success);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                </div>
+              </div>
+              <div class="stat-card-label">MCP 服务</div>
+              <div class="stat-card-value">7</div>
+              <div class="stat-card-delta positive">全部正常</div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">每日用量趋势</div>
+                  <div class="card-subtitle">过去 7 天 Token 消耗</div>
+                </div>
+                <span class="badge badge-primary">本周</span>
+              </div>
+              <div class="bar-chart">
+                <div class="bar-chart-item">
+                  <div class="bar-chart-bar" style="height:45%"></div>
+                  <div class="bar-chart-label">周一</div>
+                </div>
+                <div class="bar-chart-item">
+                  <div class="bar-chart-bar" style="height:62%"></div>
+                  <div class="bar-chart-label">周二</div>
+                </div>
+                <div class="bar-chart-item">
+                  <div class="bar-chart-bar" style="height:38%"></div>
+                  <div class="bar-chart-label">周三</div>
+                </div>
+                <div class="bar-chart-item">
+                  <div class="bar-chart-bar" style="height:85%"></div>
+                  <div class="bar-chart-label">周四</div>
+                </div>
+                <div class="bar-chart-item">
+                  <div class="bar-chart-bar" style="height:55%"></div>
+                  <div class="bar-chart-label">周五</div>
+                </div>
+                <div class="bar-chart-item">
+                  <div class="bar-chart-bar" style="height:72%"></div>
+                  <div class="bar-chart-label">周六</div>
+                </div>
+                <div class="bar-chart-item">
+                  <div class="bar-chart-bar" style="height:48%"></div>
+                  <div class="bar-chart-label">周日</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">系统健康度</div>
+                  <div class="card-subtitle">各组件运行状态</div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:var(--space-3);">
+                <div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-1);">
+                    <span style="font-size:var(--text-sm);color:var(--text-secondary);">Gateway 服务</span>
+                    <span style="font-size:var(--text-xs);color:var(--success);font-weight:600;">98%</span>
+                  </div>
+                  <div class="progress-bar"><div class="progress-fill" style="width:98%"></div></div>
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-1);">
+                    <span style="font-size:var(--text-sm);color:var(--text-secondary);">WebSocket 连接</span>
+                    <span style="font-size:var(--text-xs);color:var(--success);font-weight:600;">100%</span>
+                  </div>
+                  <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-1);">
+                    <span style="font-size:var(--text-sm);color:var(--text-secondary);">内存使用</span>
+                    <span style="font-size:var(--text-xs);color:var(--warning);font-weight:600;">72%</span>
+                  </div>
+                  <div class="progress-bar"><div class="progress-fill" style="width:72%"></div></div>
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-1);">
+                    <span style="font-size:var(--text-sm);color:var(--text-secondary);">磁盘空间</span>
+                    <span style="font-size:var(--text-xs);color:var(--success);font-weight:600;">45%</span>
+                  </div>
+                  <div class="progress-bar"><div class="progress-fill" style="width:45%"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="quick-actions">
+            <button class="btn btn-secondary btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+              重启 Gateway
+            </button>
+            <button class="btn btn-secondary btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              检查更新
+            </button>
+            <button class="btn btn-secondary btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+              创建备份
+            </button>
+            <button class="btn btn-ghost btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
+              术语表
+            </button>
+          </div>
+
+          <div class="config-section">
+            <div class="config-section-title">最近日志</div>
+            <div class="log-viewer">
+              <div class="log-line"><span class="log-time">15:42:18</span> <span class="log-info">[INFO]</span> Gateway 连接已建立 · 延迟 23ms</div>
+              <div class="log-line"><span class="log-time">15:40:05</span> <span class="log-info">[INFO]</span> 模型 deepseek-chat 连接测试通过</div>
+              <div class="log-line"><span class="log-time">15:38:22</span> <span class="log-warn">[WARN]</span> 飞书渠道心跳超时，正在重连...</div>
+              <div class="log-line"><span class="log-time">15:35:10</span> <span class="log-info">[INFO]</span> Agent "助手-A" 已加载，模型: gpt-4o</div>
+              <div class="log-line"><span class="log-time">15:30:00</span> <span class="log-info">[INFO]</span> 定时任务执行完成: 每日报告生成</div>
+              <div class="log-line"><span class="log-time">15:28:45</span> <span class="log-error">[ERROR]</span> MCP 服务 "tavily" 连接失败: 超时</div>
+              <div class="log-line"><span class="log-time">15:25:33</span> <span class="log-info">[INFO]</span> 内存清理完成，释放 128MB</div>
+              <div class="log-line"><span class="log-time">15:20:11</span> <span class="log-info">[INFO]</span> 用户登录: admin · IP: 192.168.1.100</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====== AI ASSISTANT PAGE ====== -->
+        <div id="page-assistant" class="page hidden">
+          <div class="page-header">
+            <div class="page-title-group">
+              <h1 class="page-title">AI 助手</h1>
+              <p class="page-desc">内置智能 AI 助手，一键诊断、自动修复、提交 PR</p>
+            </div>
+            <div class="page-actions">
+              <div class="mode-selector">
+                <button class="mode-btn chat active">聊天</button>
+                <button class="mode-btn plan">规划</button>
+                <button class="mode-btn execute">执行</button>
+                <button class="mode-btn infinite">无限</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:var(--space-6);background:linear-gradient(135deg,oklch(55% 0.22 270/0.06),oklch(65% 0.18 55/0.03));">
+            <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-3);">
+              <div style="width:36px;height:36px;border-radius:var(--radius-md);background:linear-gradient(135deg,var(--brand-indigo),var(--brand-orange));display:flex;align-items:center;justify-content:center;color:white;font-size:18px;">AI</div>
+              <div>
+                <div style="font-weight:700;color:var(--text-primary);">当前模式: 聊天</div>
+                <div style="font-size:var(--text-xs);color:var(--text-tertiary);">纯问答，不触碰系统 · 工具: 关闭 · 写文件: 关闭</div>
+              </div>
+            </div>
+            <div style="font-size:var(--text-sm);color:var(--text-secondary);line-height:1.6;">
+              AI 助手可以直接操作系统，帮你诊断、修复、甚至提交 PR。切换模式以启用不同权限级别。
+            </div>
+          </div>
+
+          <div class="config-section-title">技能卡片</div>
+          <div class="skill-grid">
+            <div class="skill-card">
+              <div class="skill-icon" style="background:var(--info-muted);color:var(--info);">&#128295;</div>
+              <div class="skill-title">检查配置</div>
+              <div class="skill-desc">读取并分析 openclaw.json，检测配置问题</div>
+            </div>
+            <div class="skill-card">
+              <div class="skill-icon" style="background:var(--success-muted);color:var(--success);">&#127973;</div>
+              <div class="skill-title">诊断 Gateway</div>
+              <div class="skill-desc">检查进程、端口、日志，定位服务异常</div>
+            </div>
+            <div class="skill-card">
+              <div class="skill-icon" style="background:var(--warning-muted);color:var(--warning);">&#128194;</div>
+              <div class="skill-title">浏览目录</div>
+              <div class="skill-desc">查看 .openclaw 目录结构，管理文件</div>
+            </div>
+            <div class="skill-card">
+              <div class="skill-icon" style="background:var(--brand-indigo-muted);color:var(--brand-indigo-light);">&#128187;</div>
+              <div class="skill-title">检查环境</div>
+              <div class="skill-desc">Node.js、npm 版本检测，环境诊断</div>
+            </div>
+            <div class="skill-card">
+              <div class="skill-icon" style="background:var(--error-muted);color:var(--error);">&#128203;</div>
+              <div class="skill-title">分析日志</div>
+              <div class="skill-desc">搜索 ERROR/WARN 关键词，定位问题</div>
+            </div>
+            <div class="skill-card">
+              <div class="skill-icon" style="background:var(--success-muted);color:var(--success);">&#128296;</div>
+              <div class="skill-title">一键排障</div>
+              <div class="skill-desc">自动检测并修复常见问题</div>
+            </div>
+            <div class="skill-card">
+              <div class="skill-icon" style="background:var(--error-muted);color:var(--error);">&#128030;</div>
+              <div class="skill-title">提交 Bug</div>
+              <div class="skill-desc">整理 Issue 提交到 GitHub</div>
+            </div>
+            <div class="skill-card">
+              <div class="skill-icon" style="background:var(--brand-orange-muted);color:var(--brand-orange);">&#128260;</div>
+              <div class="skill-title">PR 助手</div>
+              <div class="skill-desc">定位 Bug 并生成修复 PR</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====== CHAT PAGE ====== -->
+        <div id="page-chat" class="page hidden">
+          <div class="page-header">
+            <div class="page-title-group">
+              <h1 class="page-title">实时聊天</h1>
+              <p class="page-desc">与 AI Agent 进行流式对话，支持多模态图片识别</p>
+            </div>
+            <div class="page-actions">
+              <select class="form-input" style="width:180px;">
+                <option>deepseek-chat</option>
+                <option>gpt-4o</option>
+                <option>claude-3-sonnet</option>
+                <option>gemini-pro</option>
+              </select>
+              <button class="btn btn-secondary btn-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="chat-container" style="height:calc(100vh - 200px);">
+            <div class="chat-header">
+              <div style="display:flex;align-items:center;gap:var(--space-3);">
+                <div class="chat-avatar ai">AI</div>
+                <div>
+                  <div style="font-weight:700;color:var(--text-primary);">OpenClaw Assistant</div>
+                  <div style="font-size:var(--text-xs);color:var(--text-tertiary);display:flex;align-items:center;gap:4px;">
+                    <span class="status-dot running"></span> 在线 · 模型: deepseek-chat
+                  </div>
+                </div>
+              </div>
+              <button class="btn btn-ghost btn-sm">清空对话</button>
+            </div>
+
+            <div class="chat-messages">
+              <div class="chat-message ai">
+                <div class="chat-avatar ai">AI</div>
+                <div class="chat-bubble">
+                  你好！我是 OpenClaw 智能助手。我可以帮你管理 Agent、诊断系统问题、配置模型，或者只是聊聊天。今天有什么我可以帮你的吗？
+                </div>
+              </div>
+              <div class="chat-message user">
+                <div class="chat-avatar user">U</div>
+                <div class="chat-bubble">帮我检查一下 Gateway 的运行状态</div>
+              </div>
+              <div class="chat-message ai">
+                <div class="chat-avatar ai">AI</div>
+                <div class="chat-bubble">
+                  <div style="margin-bottom:var(--space-2);">正在检查 Gateway 状态...</div>
+                  <div style="background:var(--bg-surface-sunken);border-radius:var(--radius-md);padding:var(--space-3);font-family:var(--font-mono);font-size:var(--text-xs);line-height:1.7;">
+                    <div style="color:var(--success);">&#10003; 进程运行中 (PID: 28471)</div>
+                    <div style="color:var(--success);">&#10003; 端口 18789 监听正常</div>
+                    <div style="color:var(--success);">&#10003; WebSocket 连接正常 (23ms)</div>
+                    <div style="color:var(--warning);">&#9888; 内存使用较高 (78%)</div>
+                  </div>
+                  <div style="margin-top:var(--space-2);">Gateway 运行正常！不过内存使用率略高，建议适时重启服务。</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="chat-input-area">
+              <button class="btn btn-ghost btn-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+              </button>
+              <textarea class="chat-input" rows="1" placeholder="输入消息... 支持 /fast /think /verbose /reasoning"></textarea>
+              <button class="btn btn-primary btn-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====== SERVICES PAGE ====== -->
+        <div id="page-services" class="page hidden">
+          <div class="page-header">
+            <div class="page-title-group">
+              <h1 class="page-title">服务管理</h1>
+              <p class="page-desc">OpenClaw / Hermes Gateway 启停控制、版本检测与一键升级</p>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-header">
+                <div style="display:flex;align-items:center;gap:var(--space-3);">
+                  <div class="chat-avatar ai" style="width:36px;height:36px;font-size:14px;">OC</div>
+                  <div>
+                    <div class="card-title">OpenClaw Gateway</div>
+                    <div class="card-subtitle">核心 AI 对话服务</div>
+                  </div>
+                </div>
+                <span class="badge badge-success" style="display:flex;align-items:center;gap:4px;"><span class="status-dot running"></span> 运行中</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:var(--space-3);margin-bottom:var(--space-4);">
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);">
+                  <span style="color:var(--text-secondary);">版本</span>
+                  <span style="color:var(--text-primary);font-weight:600;">v0.8.5</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);">
+                  <span style="color:var(--text-secondary);">端口</span>
+                  <span style="color:var(--text-primary);font-weight:600;font-family:var(--font-mono);">18789</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);">
+                  <span style="color:var(--text-secondary);">运行时间</span>
+                  <span style="color:var(--text-primary);font-weight:600;">3 天 14 小时</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);">
+                  <span style="color:var(--text-secondary);">PID</span>
+                  <span style="color:var(--text-primary);font-weight:600;font-family:var(--font-mono);">28471</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:var(--space-2);">
+                <button class="btn btn-danger btn-sm" style="background:var(--error-muted);color:var(--error);border-color:var(--error-muted);">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                  停止
+                </button>
+                <button class="btn btn-secondary btn-sm">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+                  重启
+                </button>
+                <button class="btn btn-primary btn-sm">一键升级</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div style="display:flex;align-items:center;gap:var(--space-3);">
+                  <div class="chat-avatar ai" style="width:36px;height:36px;font-size:14px;background:var(--warning-muted);color:var(--warning);">HM</div>
+                  <div>
+                    <div class="card-title">Hermes Gateway</div>
+                    <div class="card-subtitle">第二引擎服务</div>
+                  </div>
+                </div>
+                <span class="badge badge-error" style="display:flex;align-items:center;gap:4px;"><span class="status-dot stopped"></span> 已停止</span>
+              </div>
+              <div class="empty-state" style="padding:var(--space-8) var(--space-4);">
+                <div class="empty-state-icon">&#128012;</div>
+                <div class="empty-state-title">服务未运行</div>
+                <div class="empty-state-desc">启动 Hermes Gateway 以启用第二引擎功能</div>
+              </div>
+              <div style="display:flex;gap:var(--space-2);">
+                <button class="btn btn-primary btn-sm">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  启动
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <div class="config-section-title">配置备份</div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--space-3);">
+                <div>
+                  <div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">自动备份</div>
+                  <div style="font-size:var(--text-sm);color:var(--text-secondary);">每日自动备份配置文件到本地</div>
+                </div>
+                <div class="toggle on"></div>
+              </div>
+              <div class="section-divider" style="margin:var(--space-4) 0;"></div>
+              <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;">
+                <button class="btn btn-secondary btn-sm">立即备份</button>
+                <button class="btn btn-ghost btn-sm">查看备份列表</button>
+                <button class="btn btn-ghost btn-sm">从备份恢复</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====== MODELS PAGE ====== -->
+        <div id="page-models" class="page hidden">
+          <div class="page-header">
+            <div class="page-title-group">
+              <h1 class="page-title">模型配置</h1>
+              <p class="page-desc">多服务商统一管理，批量连通性测试，拖拽排序</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-primary btn-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                添加模型
+              </button>
+            </div>
+          </div>
+
+          <div class="tab-bar">
+            <button class="tab active">全部</button>
+            <button class="tab">OpenAI</button>
+            <button class="tab">DeepSeek</button>
+            <button class="tab">Ollama</button>
+            <button class="tab">其他</button>
+          </div>
+
+          <div class="card" style="padding:0;overflow:hidden;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>模型名称</th>
+                  <th>服务商</th>
+                  <th>状态</th>
+                  <th>延迟</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:var(--space-2);">
+                      <div style="width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 6px var(--success);"></div>
+                      <span style="font-weight:600;color:var(--text-primary);">deepseek-chat</span>
+                      <span class="badge badge-primary">主模型</span>
+                    </div>
+                  </td>
+                  <td>DeepSeek</td>
+                  <td><span class="badge badge-success">正常</span></td>
+                  <td style="font-family:var(--font-mono);">23ms</td>
+                  <td>
+                    <button class="btn btn-ghost btn-sm">测试</button>
+                    <button class="btn btn-ghost btn-sm">编辑</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:var(--space-2);">
+                      <div style="width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 6px var(--success);"></div>
+                      <span style="font-weight:600;color:var(--text-primary);">gpt-4o</span>
+                    </div>
+                  </td>
+                  <td>OpenAI</td>
+                  <td><span class="badge badge-success">正常</span></td>
+                  <td style="font-family:var(--font-mono);">156ms</td>
+                  <td>
+                    <button class="btn btn-ghost btn-sm">测试</button>
+                    <button class="btn btn-ghost btn-sm">编辑</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:var(--space-2);">
+                      <div style="width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 6px var(--success);"></div>
+                      <span style="font-weight:600;color:var(--text-primary);">claude-3-sonnet</span>
+                    </div>
+                  </td>
+                  <td>Anthropic</td>
+                  <td><span class="badge badge-success">正常</span></td>
+                  <td style="font-family:var(--font-mono);">89ms</td>
+                  <td>
+                    <button class="btn btn-ghost btn-sm">测试</button>
+                    <button class="btn btn-ghost btn-sm">编辑</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:var(--space-2);">
+                      <div style="width:8px;height:8px;border-radius:50%;background:var(--error);"></div>
+                      <span style="font-weight:600;color:var(--text-primary);">llama3.1</span>
+                    </div>
+                  </td>
+                  <td>Ollama</td>
+                  <td><span class="badge badge-error">离线</span></td>
+                  <td style="font-family:var(--font-mono);color:var(--text-tertiary);">--</td>
+                  <td>
+                    <button class="btn btn-ghost btn-sm">测试</button>
+                    <button class="btn btn-ghost btn-sm">编辑</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:var(--space-2);">
+                      <div style="width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 6px var(--success);"></div>
+                      <span style="font-weight:600;color:var(--text-primary);">gemini-pro</span>
+                    </div>
+                  </td>
+                  <td>Google</td>
+                  <td><span class="badge badge-success">正常</span></td>
+                  <td style="font-family:var(--font-mono);">112ms</td>
+                  <td>
+                    <button class="btn btn-ghost btn-sm">测试</button>
+                    <button class="btn btn-ghost btn-sm">编辑</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="display:flex;gap:var(--space-2);margin-top:var(--space-4);">
+            <button class="btn btn-secondary btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+              批量测试
+            </button>
+            <button class="btn btn-ghost btn-sm">导出配置</button>
+            <button class="btn btn-ghost btn-sm">导入配置</button>
+          </div>
+        </div>
+
+        <!-- ====== AGENTS PAGE ====== -->
+        <div id="page-agents" class="page hidden">
+          <div class="page-header">
+            <div class="page-title-group">
+              <h1 class="page-title">Agent 管理</h1>
+              <p class="page-desc">创建、配置和管理你的 AI Agent，自定义身份与工作区</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-primary btn-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                新建 Agent
+              </button>
+            </div>
+          </div>
+
+          <div class="grid-3">
+            <div class="card" style="position:relative;overflow:hidden;">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--brand-indigo),var(--brand-orange));"></div>
+              <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4);">
+                <div style="width:48px;height:48px;border-radius:var(--radius-lg);background:linear-gradient(135deg,var(--brand-indigo),oklch(50% 0.2 280));display:flex;align-items:center;justify-content:center;color:white;font-size:20px;font-weight:700;">A</div>
+                <div>
+                  <div style="font-weight:700;color:var(--text-primary);font-size:var(--text-md);">助手-Alpha</div>
+                  <div style="font-size:var(--text-xs);color:var(--text-tertiary);">通用助手 · 工作区: default</div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:var(--space-2);margin-bottom:var(--space-4);">
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);">
+                  <span style="color:var(--text-tertiary);">模型</span>
+                  <span style="color:var(--text-secondary);font-weight:500;">deepseek-chat</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);">
+                  <span style="color:var(--text-tertiary);">记忆</span>
+                  <span style="color:var(--text-secondary);font-weight:500;">12 条</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);">
+                  <span style="color:var(--text-tertiary);">渠道</span>
+                  <span style="color:var(--text-secondary);font-weight:500;">飞书, Telegram</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:var(--space-2);">
+                <button class="btn btn-secondary btn-sm" style="flex:1;">编辑</button>
+                <button class="btn btn-ghost btn-sm">聊天</button>
+              </div>
+            </div>
+
+            <div class="card" style="position:relative;overflow:hidden;">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--success),var(--info));"></div>
+              <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4);">
+                <div style="width:48px;height:48px;border-radius:var(--radius-lg);background:linear-gradient(135deg,var(--success),var(--info));display:flex;align-items:center;justify-content:center;color:white;font-size:20px;font-weight:700;">B</div>
+                <div>
+                  <div style="font-weight:700;color:var(--text-primary);font-size:var(--text-md);">助手-Beta</div>
+                  <div style="font-size:var(--text-xs);color:var(--text-tertiary);">代码专家 · 工作区: dev</div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:var(--space-2);margin-bottom:var(--space-4);">
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);">
+                  <span style="color:var(--text-tertiary);">模型</span>
+                  <span style="color:var(--text-secondary);font-weight:500;">gpt-4o</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);">
+                  <span style="color:var(--text-tertiary);">记忆</span>
+                  <span style="color:var(--text-secondary);font-weight:500;">8 条</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);">
+                  <span style="color:var(--text-tertiary);">渠道</span>
+                  <span style="color:var(--text-secondary);font-weight:500;">Discord</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:var(--space-2);">
+                <button class="btn btn-secondary btn-sm" style="flex:1;">编辑</button>
+                <button class="btn btn-ghost btn-sm">聊天</button>
+              </div>
+            </div>
+
+            <div class="card" style="position:relative;overflow:hidden;">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--warning),var(--error));"></div>
+              <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4);">
+                <div style="width:48px;height:48px;border-radius:var(--radius-lg);background:linear-gradient(135deg,var(--warning),var(--error));display:flex;align-items:center;justify-content:center;color:white;font-size:20px;font-weight:700;">C</div>
+                <div>
+                  <div style="font-weight:700;color:var(--text-primary);font-size:var(--text-md);">助手-Gamma</div>
+                  <div style="font-size:var(--text-xs);color:var(--text-tertiary);">数据分析师 · 工作区: analytics</div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:var(--space-2);margin-bottom:var(--space-4);">
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);">
+                  <span style="color:var(--text-tertiary);">模型</span>
+                  <span style="color:var(--text-secondary);font-weight:500;">claude-3-sonnet</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);">
+                  <span style="color:var(--text-tertiary);">记忆</span>
+                  <span style="color:var(--text-secondary);font-weight:500;">24 条</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);">
+                  <span style="color:var(--text-tertiary);">渠道</span>
+                  <span style="color:var(--text-secondary);font-weight:500;">QQ, 钉钉</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:var(--space-2);">
+                <button class="btn btn-secondary btn-sm" style="flex:1;">编辑</button>
+                <button class="btn btn-ghost btn-sm">聊天</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====== MEMORY PAGE ====== -->
+        <div id="page-memory" class="page hidden">
+          <div class="page-header">
+            <div class="page-title-group">
+              <h1 class="page-title">记忆管理</h1>
+              <p class="page-desc">查看、编辑和管理 Agent 的长期记忆文件</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-secondary btn-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+                导出 ZIP
+              </button>
+            </div>
+          </div>
+
+          <div class="tab-bar">
+            <button class="tab active">工作记忆</button>
+            <button class="tab">记忆归档</button>
+            <button class="tab">核心文件</button>
+          </div>
+
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">SOUL.md</div>
+                  <div class="card-subtitle">Agent 人格与灵魂定义</div>
+                </div>
+                <span class="badge badge-success">已加载</span>
+              </div>
+              <div style="background:var(--bg-surface-sunken);border-radius:var(--radius-md);padding:var(--space-3);font-family:var(--font-mono);font-size:var(--text-xs);line-height:1.7;color:var(--text-secondary);max-height:200px;overflow-y:auto;">
+                <div style="color:var(--text-tertiary);"># Agent 灵魂定义</div>
+                <div style="color:var(--text-tertiary);">## 身份</div>
+                <div>你是一个乐于助人的 AI 助手...</div>
+                <div style="color:var(--text-tertiary);">## 价值观</div>
+                <div>- 诚实透明</div>
+                <div>- 尊重用户隐私</div>
+                <div style="color:var(--text-tertiary);">## 表达风格</div>
+                <div>友好、专业、简洁...</div>
+              </div>
+              <div style="display:flex;gap:var(--space-2);margin-top:var(--space-3);">
+                <button class="btn btn-secondary btn-sm" style="flex:1;">编辑</button>
+                <button class="btn btn-ghost btn-sm">预览</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">USER.md</div>
+                  <div class="card-subtitle">用户画像与偏好</div>
+                </div>
+                <span class="badge badge-success">已加载</span>
+              </div>
+              <div style="background:var(--bg-surface-sunken);border-radius:var(--radius-md);padding:var(--space-3);font-family:var(--font-mono);font-size:var(--text-xs);line-height:1.7;color:var(--text-secondary);max-height:200px;overflow-y:auto;">
+                <div style="color:var(--text-tertiary);"># 用户画像</div>
+                <div style="color:var(--text-tertiary);">## 基本信息</div>
+                <div>- 语言偏好: 中文</div>
+                <div>- 技术背景: 开发者</div>
+                <div style="color:var(--text-tertiary);">## 偏好设置</div>
+                <div>- 回复风格: 详细</div>
+                <div>- 代码格式: 带注释</div>
+              </div>
+              <div style="display:flex;gap:var(--space-2);margin-top:var(--space-3);">
+                <button class="btn btn-secondary btn-sm" style="flex:1;">编辑</button>
+                <button class="btn btn-ghost btn-sm">预览</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">NOTES.md</div>
+                  <div class="card-subtitle">工作笔记与上下文</div>
+                </div>
+                <span class="badge badge-warning">有更新</span>
+              </div>
+              <div style="background:var(--bg-surface-sunken);border-radius:var(--radius-md);padding:var(--space-3);font-family:var(--font-mono);font-size:var(--text-xs);line-height:1.7;color:var(--text-secondary);max-height:200px;overflow-y:auto;">
+                <div style="color:var(--text-tertiary);"># 工作笔记</div>
+                <div style="color:var(--text-tertiary);">## 2024-06-06</div>
+                <div>- 完成了 Gateway 配置优化</div>
+                <div>- 添加了 DeepSeek 模型支持</div>
+                <div style="color:var(--text-tertiary);">## 待办事项</div>
+                <div>- [ ] 配置 Tailscale 组网</div>
+                <div>- [ ] 测试多 Agent 并发</div>
+              </div>
+              <div style="display:flex;gap:var(--space-2);margin-top:var(--space-3);">
+                <button class="btn btn-secondary btn-sm" style="flex:1;">编辑</button>
+                <button class="btn btn-ghost btn-sm">预览</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">AGENTS.json</div>
+                  <div class="card-subtitle">Agent 配置清单</div>
+                </div>
+                <span class="badge badge-success">已加载</span>
+              </div>
+              <div style="background:var(--bg-surface-sunken);border-radius:var(--radius-md);padding:var(--space-3);font-family:var(--font-mono);font-size:var(--text-xs);line-height:1.7;color:var(--text-secondary);max-height:200px;overflow-y:auto;">
+                <div>{</div>
+                <div style="padding-left:var(--space-3);">"agents": [</div>
+                <div style="padding-left:var(--space-4);">{</div>
+                <div style="padding-left:var(--space-5);">"id": "alpha",</div>
+                <div style="padding-left:var(--space-5);">"name": "助手-Alpha",</div>
+                <div style="padding-left:var(--space-5);">"model": "deepseek-chat"</div>
+                <div style="padding-left:var(--space-4);">}</div>
+                <div style="padding-left:var(--space-3);">]</div>
+                <div>}</div>
+              </div>
+              <div style="display:flex;gap:var(--space-2);margin-top:var(--space-3);">
+                <button class="btn btn-secondary btn-sm" style="flex:1;">编辑</button>
+                <button class="btn btn-ghost btn-sm">预览</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====== USAGE PAGE ====== -->
+        <div id="page-usage" class="page hidden">
+          <div class="page-header">
+            <div class="page-title-group">
+              <h1 class="page-title">使用情况</h1>
+              <p class="page-desc">Token 用量、API 费用、热门模型排行与每日用量图表</p>
+            </div>
+            <div class="page-actions">
+              <select class="form-input" style="width:120px;">
+                <option>最近 7 天</option>
+                <option>最近 30 天</option>
+                <option>本月</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);">
+            <div class="stat-card">
+              <div class="stat-card-label">总 Token 数</div>
+              <div class="stat-card-value">8.4M</div>
+              <div class="stat-card-delta positive">+12% 较上周</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-label">API 费用</div>
+              <div class="stat-card-value">$23.50</div>
+              <div class="stat-card-delta positive">-5% 较上周</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-label">对话次数</div>
+              <div class="stat-card-value">1,247</div>
+              <div class="stat-card-delta positive">+8% 较上周</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-label">平均延迟</div>
+              <div class="stat-card-value">89ms</div>
+              <div class="stat-card-delta">稳定</div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">每日 Token 用量</div>
+                  <div class="card-subtitle">过去 7 天趋势</div>
+                </div>
+              </div>
+              <div class="bar-chart" style="height:160px;">
+                <div class="bar-chart-item"><div class="bar-chart-bar" style="height:55%"></div><div class="bar-chart-label">一</div></div>
+                <div class="bar-chart-item"><div class="bar-chart-bar" style="height:72%"></div><div class="bar-chart-label">二</div></div>
+                <div class="bar-chart-item"><div class="bar-chart-bar" style="height:48%"></div><div class="bar-chart-label">三</div></div>
+                <div class="bar-chart-item"><div class="bar-chart-bar" style="height:90%"></div><div class="bar-chart-label">四</div></div>
+                <div class="bar-chart-item"><div class="bar-chart-bar" style="height:65%"></div><div class="bar-chart-label">五</div></div>
+                <div class="bar-chart-item"><div class="bar-chart-bar" style="height:78%"></div><div class="bar-chart-label">六</div></div>
+                <div class="bar-chart-item"><div class="bar-chart-bar" style="height:60%"></div><div class="bar-chart-label">日</div></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">热门模型排行</div>
+                  <div class="card-subtitle">按 Token 消耗量排序</div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:var(--space-3);">
+                <div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-1);">
+                    <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);">deepseek-chat</span>
+                    <span style="font-size:var(--text-xs);color:var(--text-secondary);">45%</span>
+                  </div>
+                  <div class="progress-bar"><div class="progress-fill" style="width:45%"></div></div>
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-1);">
+                    <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);">gpt-4o</span>
+                    <span style="font-size:var(--text-xs);color:var(--text-secondary);">32%</span>
+                  </div>
+                  <div class="progress-bar"><div class="progress-fill" style="width:32%"></div></div>
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-1);">
+                    <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);">claude-3-sonnet</span>
+                    <span style="font-size:var(--text-xs);color:var(--text-secondary);">18%</span>
+                  </div>
+                  <div class="progress-bar"><div class="progress-fill" style="width:18%"></div></div>
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-1);">
+                    <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary);">gemini-pro</span>
+                    <span style="font-size:var(--text-xs);color:var(--text-secondary);">5%</span>
+                  </div>
+                  <div class="progress-bar"><div class="progress-fill" style="width:5%"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====== LOGS PAGE ====== -->
+        <div id="page-logs" class="page hidden">
+          <div class="page-header">
+            <div class="page-title-group">
+              <h1 class="page-title">日志查看</h1>
+              <p class="page-desc">多日志源实时查看与关键词搜索</p>
+            </div>
+            <div class="page-actions">
+              <div class="form-group" style="margin:0;">
+                <input type="text" class="form-input" placeholder="搜索日志..." style="width:240px;">
+              </div>
+              <button class="btn btn-secondary btn-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+                导出
+              </button>
+            </div>
+          </div>
+
+          <div class="tab-bar">
+            <button class="tab active">Gateway</button>
+            <button class="tab">OpenClaw</button>
+            <button class="tab">System</button>
+            <button class="tab">Error</button>
+          </div>
+
+          <div class="card" style="padding:0;">
+            <div class="log-viewer" style="max-height:calc(100vh - 280px);border:none;border-radius:0;">
+              <div class="log-line"><span class="log-time">2024-06-06 15:42:18</span> <span class="log-info">[INFO]</span> Gateway 连接已建立 · 客户端: 192.168.1.100 · 延迟: 23ms</div>
+              <div class="log-line"><span class="log-time">2024-06-06 15:40:05</span> <span class="log-info">[INFO]</span> 模型 deepseek-chat 连接测试通过 · 响应时间: 156ms</div>
+              <div class="log-line"><span class="log-time">2024-06-06 15:38:22</span> <span class="log-warn">[WARN]</span> 飞书渠道心跳超时 (3000ms)，正在执行第 2 次重连...</div>
+              <div class="log-line"><span class="log-time">2024-06-06 15:38:25</span> <span class="log-info">[INFO]</span> 飞书渠道重连成功 · 耗时: 2.8s</div>
+              <div class="log-line"><span class="log-time">2024-06-06 15:35:10</span> <span class="log-info">[INFO]</span> Agent "助手-Alpha" 已加载 · 模型: gpt-4o · 记忆: 12 条</div>
+              <div class="log-line"><span class="log-time">2024-06-06 15:30:00</span> <span class="log-info">[INFO]</span> 定时任务执行完成: 每日报告生成 · 耗时: 4.2s</div>
+              <div class="log-line"><span class="log-time">2024-06-06 15:28:45</span> <span class="log-error">[ERROR]</span> MCP 服务 "tavily" 连接失败: ETIMEDOUT · 将在 30s 后重试</div>
+              <div class="log-line"><span class="log-time">2024-06-06 15:28:46</span> <span class="log-warn">[WARN]</span> 模型 gpt-4o 响应较慢 (4.5s)，已切换至备选模型 deepseek-chat</div>
+              <div class="log-line"><span class="log-time">2024-06-06 15:25:33</span> <span class="log-info">[INFO]</span> 内存清理完成 · 释放: 128MB · 当前使用: 1.2GB</div>
+              <div class="log-line"><span class="log-time">2024-06-06 15:20:11</span> <span class="log-info">[INFO]</span> 用户登录: admin · IP: 192.168.1.100 · User-Agent: Chrome/125.0</div>
+              <div class="log-line"><span class="log-time">2024-06-06 15:15:00</span> <span class="log-info">[INFO]</span> WebSocket 客户端连接: 3 个活跃会话</div>
+              <div class="log-line"><span class="log-time">2024-06-06 15:10:42</span> <span class="log-warn">[WARN]</span> 磁盘空间使用超过 70% · 当前: 72% · 建议清理日志</div>
+              <div class="log-line"><span class="log-time">2024-06-06 15:05:18</span> <span class="log-info">[INFO]</span> 配置自动保存完成 · 文件: openclaw.json</div>
+              <div class="log-line"><span class="log-time">2024-06-06 15:00:00</span> <span class="log-info">[INFO]</span> 系统健康检查通过 · 所有组件运行正常</div>
+              <div class="log-line"><span class="log-time">2024-06-06 14:55:33</span> <span class="log-error">[ERROR]</span> 模型 claude-3-sonnet API 调用失败: Rate limit exceeded · 将在 60s 后重试</div>
+              <div class="log-line"><span class="log-time">2024-06-06 14:50:00</span> <span class="log-info">[INFO]</span> 定时任务启动: 每小时健康检查</div>
+              <div class="log-line"><span class="log-time">2024-06-06 14:45:18</span> <span class="log-info">[INFO]</span> Telegram Bot 收到消息 · 用户: @user123 · 类型: 文本</div>
+              <div class="log-line"><span class="log-time">2024-06-06 14:42:05</span> <span class="log-warn">[WARN]</span> 模型 deepseek-chat 响应时间异常: 8.2s · 超过阈值 5s</div>
+              <div class="log-line"><span class="log-time">2024-06-06 14:40:00</span> <span class="log-info">[INFO]</span> 系统负载: CPU 45% · 内存 1.2GB · 网络 I/O 正常</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====== SKILLS PAGE ====== -->
+        <div id="page-skills" class="page hidden">
+          <div class="page-header">
+            <div class="page-title-group">
+              <h1 class="page-title">技能管理</h1>
+              <p class="page-desc">管理 Agent 技能插件，扩展 AI 能力边界</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-primary btn-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                安装技能
+              </button>
+            </div>
+          </div>
+
+          <div class="skill-grid">
+            <div class="card" style="cursor:default;">
+              <div class="card-header">
+                <div style="display:flex;align-items:center;gap:var(--space-3);">
+                  <div style="width:40px;height:40px;border-radius:var(--radius-md);background:var(--success-muted);display:flex;align-items:center;justify-content:center;color:var(--success);font-size:18px;">&#128295;</div>
+                  <div>
+                    <div class="card-title">系统诊断</div>
+                    <div class="card-subtitle">v1.2.0 · 已启用</div>
+                  </div>
+                </div>
+                <div class="toggle on"></div>
+              </div>
+              <div style="font-size:var(--text-sm);color:var(--text-secondary);line-height:1.6;margin-bottom:var(--space-3);">
+                全面的系统健康检测，包括 Gateway 状态、WebSocket 连接、端口占用、进程检查等。
+              </div>
+              <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;">
+                <span class="badge badge-success">系统</span>
+                <span class="badge badge-primary">诊断</span>
+              </div>
+            </div>
+
+            <div class="card" style="cursor:default;">
+              <div class="card-header">
+                <div style="display:flex;align-items:center;gap:var(--space-3);">
+                  <div style="width:40px;height:40px;border-radius:var(--radius-md);background:var(--info-muted);display:flex;align-items:center;justify-content:center;color:var(--info);font-size:18px;">&#127760;</div>
+                  <div>
+                    <div class="card-title">网页搜索</div>
+                    <div class="card-subtitle">v2.1.0 · 已启用</div>
+                  </div>
+                </div>
+                <div class="toggle on"></div>
+              </div>
+              <div style="font-size:var(--text-sm);color:var(--text-secondary);line-height:1.6;margin-bottom:var(--space-3);">
+                集成 Tavily 搜索 API，让 Agent 能够实时搜索网络信息并回答时效性问题。
+              </div>
+              <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;">
+                <span class="badge badge-info">搜索</span>
+                <span class="badge badge-primary">网络</span>
+              </div>
+            </div>
+
+            <div class="card" style="cursor:default;">
+              <div class="card-header">
+                <div style="display:flex;align-items:center;gap:var(--space-3);">
+                  <div style="width:40px;height:40px;border-radius:var(--radius-md);background:var(--warning-muted);display:flex;align-items:center;justify-content:center;color:var(--warning);font-size:18px;">&#128200;</div>
+                  <div>
+                    <div class="card-title">数据分析</div>
+                    <div class="card-subtitle">v1.0.5 · 已启用</div>
+                  </div>
+                </div>
+                <div class="toggle on"></div>
+              </div>
+              <div style="font-size:var(--text-sm);color:var(--text-secondary);line-height:1.6;margin-bottom:var(--space-3);">
+                提供数据可视化、统计分析、图表生成能力，支持 CSV/JSON 数据处理。
+              </div>
+              <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;">
+                <span class="badge badge-warning">数据</span>
+                <span class="badge badge-primary">分析</span>
+              </div>
+            </div>
+
+            <div class="card" style="cursor:default;">
+              <div class="card-header">
+                <div style="display:flex;align-items:center;gap:var(--space-3);">
+                  <div style="width:40px;height:40px;border-radius:var(--radius-md);background:var(--error-muted);display:flex;align-items:center;justify-content:center;color:var(--error);font-size:18px;">&#128190;</div>
+                  <div>
+                    <div class="card-title">文件管理</div>
+                    <div class="card-subtitle">v1.3.2 · 已禁用</div>
+                  </div>
+                </div>
+                <div class="toggle"></div>
+              </div>
+              <div style="font-size:var(--text-sm);color:var(--text-secondary);line-height:1.6;margin-bottom:var(--space-3);">
+                允许 Agent 读取、写入和管理本地文件系统，支持多种文件格式。
+              </div>
+              <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;">
+                <span class="badge badge-error">文件</span>
+                <span class="badge badge-primary">系统</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====== GATEWAY PAGE ====== -->
+        <div id="page-gateway" class="page hidden">
+          <div class="page-header">
+            <div class="page-title-group">
+              <h1 class="page-title">网关配置</h1>
+              <p class="page-desc">配置 Gateway 端口、访问权限、认证 Token 和 Tailscale 组网</p>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">基础设置</div>
+                  <div class="card-subtitle">Gateway 核心配置</div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">监听端口</label>
+                <input type="text" class="form-input" value="18789" style="font-family:var(--font-mono);">
+              </div>
+              <div class="form-group">
+                <label class="form-label">访问范围</label>
+                <select class="form-input">
+                  <option>本机访问 (127.0.0.1)</option>
+                  <option selected>局域网 (0.0.0.0)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">认证 Token</label>
+                <div style="display:flex;gap:var(--space-2);">
+                  <input type="password" class="form-input" value="sk-xxxxxxxxxxxxxxxx" style="font-family:var(--font-mono);flex:1;">
+                  <button class="btn btn-secondary btn-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div style="display:flex;gap:var(--space-2);margin-top:var(--space-4);">
+                <button class="btn btn-primary">保存配置</button>
+                <button class="btn btn-secondary">重置</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title">Tailscale 组网</div>
+                  <div class="card-subtitle">安全的私有网络连接</div>
+                </div>
+                <div class="toggle on"></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:var(--space-3);">
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);">
+                  <span style="color:var(--text-secondary);">状态</span>
+                  <span style="color:var(--success);font-weight:600;">已连接</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);">
+                  <span style="color:var(--text-secondary);">Tailscale IP</span>
+                  <span style="color:var(--text-primary);font-weight:600;font-family:var(--font-mono);">100.64.0.1</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);">
+                  <span style="color:var(--text-secondary);">设备名</span>
+                  <span style="color:var(--text-primary);font-weight:600;">clawpanel-server</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);">
+                  <span style="color:var(--text-secondary);">网络</span>
+                  <span style="color:var(--text-primary);font-weight:600;">qingchen-vpn</span>
+                </div>
+              </div>
+              <div class="section-divider" style="margin:var(--space-4) 0;"></div>
+              <div style="display:flex;gap:var(--space-2);">
+                <button class="btn btn-secondary btn-sm">重新认证</button>
+                <button class="btn btn-ghost btn-sm">查看网络</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====== CHANNELS PAGE ====== -->
+        <div id="page-channels" class="page hidden">
+          <div class="page-header">
+            <div class="page-title-group">
+              <h1 class="page-title">消息渠道</h1>
+              <p class="page-desc">统一管理 Telegram、Discord、飞书、钉钉、QQ 等消息接入</p>
+            </div>
+            <div class="page-actions">
+              <button class="btn btn-primary btn-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                添加渠道
+              </button>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="card" style="position:relative;overflow:hidden;">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#00b578,#00d68f);"></div>
+              <div class="card-header">
+                <div style="display:flex;align-items:center;gap:var(--space-3);">
+                  <div style="width:40px;height:40px;border-radius:var(--radius-md);background:rgba(0,181,120,0.12);display:flex;align-items:center;justify-content:center;color:#00b578;font-size:20px;">&#128172;</div>
+                  <div>
+                    <div class="card-title">飞书</div>
+                    <div class="card-subtitle">企业自建应用</div>
+                  </div>
+                </div>
+                <span class="badge badge-success">已连接</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:var(--space-2);margin-bottom:var(--space-4);">
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);">
+                  <span style="color:var(--text-secondary);">App ID</span>
+                  <span style="color:var(--text-primary);font-family:var(--font-mono);">cli_xxxxxxxx</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);">
+                  <span style="color:var(--text-secondary);">绑定 Agent</span>
+                  <span style="color:var(--text-primary);">助手-Alpha</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);">
+                  <span style="color:var(--text-secondary);">消息模式</span>
+                  <span style="color:var(--text-primary);">Stream</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:var(--space-2);">
+                <button class="btn btn-secondary btn-sm" style="flex:1;">编辑</button>
+                <button class="btn btn-ghost btn-sm">测试</button>
+              </div>
+            </div>
+
+            <div class="card" style="position:relative;overflow:hidden;">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#0088cc,#00a8e8);"></div>
+              <div class="card-header">
+                <div style="display:flex;align-items:center;gap:var(--space-3);">
+                  <div style="width:40px;height:40px;border-radius:var(--radius-md);background:rgba(0,136,204,0.12);display:flex;align-items:center;justify-content:center;color:#0088cc;font-size:20px;">&#9992;</div>
+                  <div>
+                    <div class="card-title">Telegram</div>
+                    <div class="card-subtitle">Bot 模式</div>
+                  </div>
+                </div>
+                <span class="badge badge-success">已连接</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:var(--space-2);margin-bottom:var(--space-4);">
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);">
+                  <span style="color:var(--text-secondary);">Bot 名称</span>
+                  <span style="color:var(--text-primary);">@OpenClawBot</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);">
+                  <span style="color:var(--text-secondary);">绑定 Agent</span>
+                  <span style="color:var(--text-primary);">助手-Beta</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);">
+                  <span style="color:var(--text-secondary);">Webhook</span>
+                  <span style="color:var(--success);">已启用</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:var(--space-2);">
+                <button class="btn btn-secondary btn-sm" style="flex:1;">编辑</button>
+                <button class="btn btn-ghost btn-sm">测试</button>
+              </div>
+            </div>
+
+            <div class="card" style="position:relative;overflow:hidden;">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#5865f2,#7289da);"></div>
+              <div class="card-header">
+                <div style="display:flex;align-items:center;gap:var(--space-3);">
+                  <div style="width:40px;height:40px;border-radius:var(--radius-md);background:rgba(88,101,242,0.12);display:flex;align-items:center;justify-content:center;color:#5865f2;font-size:20px;">&#127918;</div>
+                  <div>
+                    <div class="card-title">Discord</div>
+                    <div class="card-subtitle">Bot 应用</div>
+                  </div>
+                </div>
+                <span class="badge badge-error">未配置</span>
+              </div>
+              <div class="empty-state" style="padding:var(--space-6) var(--space-4);">
+                <div class="empty-state-icon">&#128295;</div>
+                <div class="empty-state-title">尚未配置</div>
+                <div class="empty-state-desc">添加 Discord Bot Token 以启用消息接入</div>
+              </div>
+              <div style="display:flex;gap:var(--space-2);">
+                <button class="btn btn-primary btn-sm" style="flex:1;">立即配置</button>
+              </div>
+            </div>
+
+            <div class="card" style="position:relative;overflow:hidden;">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#ff6b35,#ff8c5a);"></div>
+              <div class="card-header">
+                <div style="display:flex;align-items:center;gap:var(--space-3);">
+                  <div style="width:40px;height:40px;border-radius:var(--radius-md);background:rgba(255,107,53,0.12);display:flex;align-items:center;justify-content:center;color:#ff6b35;font-size:20px;">&#128241;</div>
+                  <div>
+                    <div class="card-title">QQ 机器人</div>
+                    <div class="card-subtitle">官方 Bot</div>
+                  </div>
+                </div>
+                <span class="badge badge-warning">配置中</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:var(--space-2);margin-bottom:var(--space-4);">
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);">
+                  <span style="color:var(--text-secondary);">App ID</span>
+                  <span style="color:var(--text-primary);font-family:var(--font-mono);">1024xxxx</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:var(--text-sm);">
+                  <span style="color:var(--text-secondary);">状态</span>
+                  <span style="color:var(--warning);">等待审批</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:var(--space-2);">
+                <button class="btn btn-secondary btn-sm" style="flex:1;">编辑</button>
+                <button class="btn btn-ghost btn-sm">查看文档</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script>
+    // ---- Page Navigation ----
+    function showPage(pageId) {
+      // Hide all pages
+      document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+      // Show target page
+      const target = document.getElementById('page-' + pageId);
+      if (target) {
+        target.classList.remove('hidden');
+        // Re-trigger animation
+        target.style.animation = 'none';
+        target.offsetHeight; // force reflow
+        target.style.animation = '';
+      }
+
+      // Update nav active state
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.route === pageId);
+      });
+
+      // Close mobile sidebar
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar) sidebar.classList.remove('open');
+    }
+
+    // ---- Theme Toggle ----
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.dataset.theme;
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.dataset.theme = next;
+      localStorage.setItem('clawpanel-theme', next);
+
+      const btn = document.getElementById('theme-toggle');
+      if (btn) {
+        const sunIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>';
+        const moonIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>';
+        btn.innerHTML = (next === 'dark' ? sunIcon : moonIcon) + '<span>切换主题</span>';
+      }
+    }
+
+    // Load saved theme
+    (function() {
+      const saved = localStorage.getItem('clawpanel-theme');
+      if (saved) {
+        document.documentElement.dataset.theme = saved;
+      }
+    })();
+
+    // ---- Mobile Sidebar ----
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar) sidebar.classList.toggle('open');
+    }
+
+    // ---- Toast ----
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast ' + type;
+      toast.innerHTML = message;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(20px)';
+        toast.style.transition = 'all 200ms ease';
+        setTimeout(() => toast.remove(), 200);
+      }, 4000);
+    }
+
+    // ---- Mode Selector ----
+    document.querySelectorAll('.mode-selector').forEach(selector => {
+      selector.addEventListener('click', (e) => {
+        const btn = e.target.closest('.mode-btn');
+        if (!btn) return;
+        selector.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+
+    // ---- Tab Bar ----
+    document.querySelectorAll('.tab-bar').forEach(bar => {
+      bar.addEventListener('click', (e) => {
+        const tab = e.target.closest('.tab');
+        if (!tab) return;
+        bar.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+      });
+    });
+
+    // ---- Toggle Switch ----
+    document.querySelectorAll('.toggle').forEach(toggle => {
+      toggle.addEventListener('click', () => {
+        toggle.classList.toggle('on');
+      });
+    });
+
+    // ---- Chat Input Auto-resize ----
+    const chatInput = document.querySelector('.chat-input');
+    if (chatInput) {
+      chatInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+      });
+    }
+
+    // ---- Demo: Animate progress bars on page load ----
+    window.addEventListener('load', () => {
+      document.querySelectorAll('.progress-fill').forEach((bar, i) => {
+        const width = bar.style.width;
+        bar.style.width = '0';
+        setTimeout(() => {
+          bar.style.width = width;
+        }, 200 + i * 100);
+      });
+    });
+
+    // ---- Demo: Animate bar chart on scroll ----
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.querySelectorAll('.bar-chart-bar').forEach((bar, i) => {
+            const height = bar.style.height;
+            bar.style.height = '0';
+            setTimeout(() => {
+              bar.style.height = height;
+            }, i * 80);
+          });
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.3 });
+
+    document.querySelectorAll('.bar-chart').forEach(chart => observer.observe(chart));
+  </script>
+</body>
+</html>

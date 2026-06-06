@@ -359,7 +359,7 @@
 .agent-file-status {
   font-size: var(--font-size-xs);
   padding: 1px 8px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 .agent-file-status.file-exists {
   background: var(--success-muted);
@@ -524,5 +524,5 @@
   color: var(--warning);
   background: var(--warning-muted);
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }

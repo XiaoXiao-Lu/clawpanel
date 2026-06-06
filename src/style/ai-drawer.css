@@ -9,7 +9,7 @@
   height: 48px;
   border-radius: 50%;
   background: var(--accent);
-  color: #fff;
+  color: var(--text-inverse);
   border: none;
   cursor: pointer;
   display: flex;
@@ -94,7 +94,7 @@
 }
 .ast-error-banner-actions button {
   padding: 3px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
   font-size: 11px;
   cursor: pointer;
@@ -102,7 +102,7 @@
 }
 .ast-error-banner .btn-analyze {
   background: var(--error, #ef4444);
-  color: #fff;
+  color: var(--text-inverse);
   border-color: var(--error, #ef4444);
 }
 .ast-error-banner .btn-analyze:hover {
@@ -132,7 +132,7 @@
   margin: 0;
   padding: 8px 10px;
   background: var(--bg-tertiary);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 11px;
   line-height: 1.5;
   white-space: pre-wrap;
@@ -162,10 +162,10 @@
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.75);
-  color: #fff;
+  color: var(--text-inverse);
   font-size: 11px;
   padding: 4px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   white-space: nowrap;
   pointer-events: none;
   animation: fab-hint-fade 4s ease forwards;

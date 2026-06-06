@@ -205,4 +205,8 @@ export default {
   // 协议版本徽章 (Gateway 卡片 + 诊断页)
   protocolBadge: _('协议 v{proto}', 'Proto v{proto}', '協議 v{proto}'),
   protocolBadgeTitle: _('当前 Gateway 与 ClawPanel 协商出的 WebSocket 握手协议版本 (与设备签名 payload 的 v3 格式无关)', 'WebSocket handshake protocol version negotiated with Gateway (independent of the device signature payload v3 format)', '當前 Gateway 與 ClawPanel 協商出的 WebSocket 握手協議版本 (與設備簽名 payload 的 v3 格式無關)'),
+  // Tab labels
+  tabRunning: _('运行服务', 'Running Services', '運行服務'),
+  tabConfig: _('配置文件', 'Config File', '配置文件'),
+  tabBackup: _('备份管理', 'Backups', '備份管理'),
 }

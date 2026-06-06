@@ -33,9 +33,14 @@ export async function render() {
         <h1 class="page-title">${t('services.title')}</h1>
         <p class="page-desc">${t('services.desc')}</p>
       </div>
+      <div class="services-tabs-nav">
+        <button class="tab-nav-btn active" data-tab="running">${t('services.tabRunning')}</button>
+        <button class="tab-nav-btn" data-tab="config">${t('services.tabConfig')}</button>
+        <button class="tab-nav-btn" data-tab="backup">${t('services.tabBackup')}</button>
+      </div>
     </div>
-    <div class="services-workbench">
-      <section class="services-ops-column">
+    <div class="services-tab-content active" data-tab-content="running">
+      <div class="services-ops-column">
         <div id="version-bar"><div class="stat-card loading-placeholder" style="height:80px;margin-bottom:var(--space-lg)"></div></div>
         <div id="services-list"><div class="stat-card loading-placeholder" style="height:64px"></div></div>
         ${isTauriRuntime() ? '' : `
@@ -44,8 +49,10 @@ export async function render() {
           <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.dockerManagerHint')}</div>
           <div id="docker-manager-bar"><div class="stat-card loading-placeholder" style="height:96px"></div></div>
         </div>`}
-      </section>
-      <section class="services-maintenance-column">
+      </div>
+    </div>
+    <div class="services-tab-content" data-tab-content="config">
+      <div class="services-maintenance-column">
         <div class="config-section" id="config-editor-section" style="display:none">
           <div class="config-section-title">${t('services.configEditor')}</div>
           <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.configEditorHint')}</div>
@@ -55,7 +62,7 @@ export async function render() {
             <button class="btn btn-secondary btn-sm" data-action="reload-config">${t('services.reloadConfig')}</button>
           </div>
           <div id="config-editor-status" style="font-size:var(--font-size-xs);margin-bottom:6px;min-height:18px"></div>
-          <textarea id="config-editor-area" class="form-input" style="font-family:var(--font-mono);font-size:12px;min-height:320px;resize:vertical;tab-size:2;white-space:pre;overflow-x:auto" spellcheck="false" disabled></textarea>
+          <textarea id="config-editor-area" class="form-input" style="font-family:var(--font-mono);font-size:12px;min-height:380px;resize:vertical;tab-size:2;white-space:pre;overflow-x:auto" spellcheck="false" disabled></textarea>
         </div>
         <div class="config-section" id="config-calibration-section">
           <div class="config-section-title">${t('services.configCalibration')}</div>
@@ -70,6 +77,10 @@ export async function render() {
           </div>
           <div id="config-calibration-status" style="font-size:var(--font-size-xs);min-height:18px;color:var(--text-tertiary)"></div>
         </div>
+      </div>
+    </div>
+    <div class="services-tab-content" data-tab-content="backup">
+      <div class="services-maintenance-column">
         <div class="config-section" id="backup-section">
           <div class="config-section-title">${t('services.configBackup')}</div>
           <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.configBackupHint')}</div>
@@ -78,7 +89,7 @@ export async function render() {
           </div>
           <div id="backup-list"><div class="stat-card loading-placeholder" style="height:48px"></div></div>
         </div>
-      </section>
+      </div>
     </div>
   `
 
@@ -590,6 +601,21 @@ function renderBackups(container, backups) {
 // ===== 事件绑定（事件委托） =====
 
 function bindEvents(page) {
+  // Tab 切换事件
+  page.querySelector('.services-tabs-nav')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab-nav-btn')
+    if (!btn) return
+    const tabName = btn.dataset.tab
+    
+    // 激活 Nav 按钮
+    page.querySelectorAll('.tab-nav-btn').forEach(b => b.classList.toggle('active', b === btn))
+    
+    // 激活 Content 区域
+    page.querySelectorAll('.services-tab-content').forEach(c => {
+      c.classList.toggle('active', c.dataset.tabContent === tabName)
+    })
+  })
+
   page.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-action]')
     if (!btn) return

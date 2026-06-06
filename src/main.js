@@ -28,22 +28,34 @@ import { initCommandPalette, registerCommands } from './components/command-palet
 import hermesEngine from './engines/hermes/index.js'
 import xintianEngine from './engines/xintian/index.js'
 
-// 样式
+// 样式 — Layer 1: Variables
 import './style/variables.css'
+// Layer 2: Reset
 import './style/reset.css'
+// Layer 3: Layout
 import './style/layout.css'
+// Layer 4: Components
 import './style/components.css'
-import './style/pages.css'
+// Layer 5: Pages (by domain, split from pages.css)
+import './style/pages/dashboard.css'
+import './style/pages/services.css'
+import './style/pages/models.css'
+import './style/pages/channels.css'
+import './style/pages/settings.css'
+import './style/pages/memory.css'
+import './style/pages/misc.css'
+// Layer 6: Chat & Assistant
 import './style/chat.css'
 import './style/agents.css'
 import './style/debug.css'
 import './style/assistant.css'
 import './components/command-palette.css'
 import './style/ai-drawer.css'
-// 引擎专属样式（scope 到 [data-engine="<id>"] 子树，不影响其他引擎）
+// Layer 7: Engine-specific (scoped to [data-engine="<id>"])
 import './engines/hermes/style/hermes.css'
 import './engines/xintian/style/xintian.css'
-import './style/prototype-polish.css'
+// Layer 8: Visual polish layer (absorbed from prototype-polish.css, loaded last for cascade priority)
+import './style/pages/polish.css'
 
 // 初始化主题 + 国际化
 initTheme()
@@ -461,13 +473,16 @@ async function boot() {
   if (sessionStorage.getItem('clawpanel_must_change_pw') === '1') {
     const banner = document.createElement('div')
     banner.id = 'pw-change-banner'
-    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:13px;font-weight:500;box-shadow:0 2px 8px rgba(0,0,0,0.15)'
+    banner.style.cssText = 'position:sticky;top:0;z-index:80;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:8px 16px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:13px;font-weight:500;box-shadow:0 2px 8px rgba(0,0,0,0.15);min-height:52px;flex-shrink:0'
     banner.innerHTML = `
       <span>${statusIcon('warn', 14)} ${t('common.defaultPasswordBanner')}</span>
       <a href="#/security" style="color:#fff;background:rgba(255,255,255,0.2);min-height:44px;padding:0 14px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center" onclick="document.getElementById('pw-change-banner').remove();sessionStorage.removeItem('clawpanel_must_change_pw')">${t('common.goSecurity')}</a>
       <button aria-label="${t('common.close')}" title="${t('common.close')}" onclick="this.parentElement.remove()" style="width:44px;height:44px;flex:0 0 44px;display:inline-flex;align-items:center;justify-content:center;background:none;border:none;border-radius:8px;color:rgba(255,255,255,0.7);cursor:pointer;font-size:16px;padding:0;margin-left:0">✕</button>
     `
-    document.body.prepend(banner)
+    const mainColForBanner = document.getElementById('main-col')
+    const insertBefore = document.getElementById('update-banner') || mainColForBanner?.firstChild
+    if (mainColForBanner) mainColForBanner.insertBefore(banner, insertBefore)
+    else document.body.prepend(banner)
   }
 
   // Tauri 模式：确保 web session 存在（页面刷新后 cookie 可能丢失），然后加载实例和检测状态

@@ -460,6 +460,17 @@ function bindEvents(page) {
   }
   page.querySelector('#btn-toggle-sidebar')?.addEventListener('click', toggleSidebar)
   page.querySelector('#btn-toggle-sidebar-main')?.addEventListener('click', toggleSidebar)
+  // 浮层模式：点击聊天区域关闭侧边栏
+  page.querySelector('.chat-main')?.addEventListener('click', (e) => {
+    const sidebar = page.querySelector('#chat-sidebar')
+    if (!sidebar || !sidebar.classList.contains('open')) return
+    // 只在浮层模式下（≤1200px）才响应
+    if (window.innerWidth > 1200) return
+    // 如果点击的是 toggle 按钮本身，交给 toggleSidebar 处理
+    if (e.target.closest('#btn-toggle-sidebar') || e.target.closest('#btn-toggle-sidebar-main')) return
+    sidebar.classList.remove('open')
+    setSidebarOpen(false)
+  })
   page.querySelector('#btn-new-session').addEventListener('click', () => showNewSessionDialog())
   page.querySelector('#btn-cmd').addEventListener('click', () => toggleCmdPanel())
   page.querySelector('#btn-reset-session').addEventListener('click', () => resetCurrentSession())

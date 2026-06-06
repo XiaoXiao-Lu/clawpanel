@@ -8,6 +8,7 @@ import { humanizeError } from '../../../lib/humanize-error.js'
 import { CONFIG_GROUPS, getGroupByPanelId } from '../lib/config-groups.js'
 import { panelStateBus } from '../lib/panel-state-bus.js'
 import { renderSidebar, initSidebarScrollSpy, initSearchFilter } from '../lib/config-sidebar.js'
+import { createModelCombobox } from '../lib/model-combobox.js'
 
 const SESSION_RUNTIME_DEFAULTS = {
   sessionResetMode: 'both',
@@ -504,6 +505,80 @@ export function render() {
   let loading = true
   let saving = false
   let error = null
+
+  /** @type {ReturnType<typeof createModelCombobox> | null} */
+  let comboInstance = null
+
+  /**
+   * Replace the #hm-model-default plain input with a model combobox.
+   * Called after each draw() so the combobox stays in sync with the DOM.
+   * Fetches model list from catalog API if available.
+   */
+  function initModelCombobox() {
+    const defaultInput = el.querySelector('#hm-model-default')
+    if (!defaultInput) return
+
+    const container = defaultInput.parentElement
+    if (!container) return
+
+    // Preserve current value before replacing
+    const currentValue = defaultInput.value || modelValues.modelDefault || ''
+    const placeholder = defaultInput.placeholder || ''
+    const disabled = defaultInput.disabled
+
+    // Destroy previous combobox instance to prevent DOM/memory leaks on re-draw
+    if (comboInstance) {
+      comboInstance.destroy()
+      comboInstance = null
+    }
+
+    // Remove the original input
+    defaultInput.remove()
+
+    // Create the combobox
+    comboInstance = createModelCombobox(container, {
+      placeholder,
+      initialValue: currentValue,
+      onSelect(_value) { /* value is stored in combo input, read on save */ },
+      onInput(_value) { /* live typing, no action needed */ },
+    })
+
+    // Mirror disabled state
+    if (disabled && comboInstance) {
+      const comboInput = container.querySelector('.hm-combo__input')
+      if (comboInput) comboInput.disabled = true
+    }
+
+    // Give the combobox input the same id so saveModelConfig can read from it
+    const comboInput = container.querySelector('.hm-combo__input')
+    if (comboInput) comboInput.id = 'hm-model-default'
+
+    // Fetch model list from catalog API
+    fetchModelList()
+  }
+
+  /**
+   * Fetch the model list from the catalog API and populate the combobox.
+   * If catalog is disabled or fetch fails, the combobox gracefully degrades
+   * to a plain text input (no dropdown shown).
+   */
+  async function fetchModelList() {
+    if (!comboInstance) return
+
+    // Only fetch if model catalog is enabled
+    if (!modelCatalogValues.modelCatalogEnabled) return
+
+    try {
+      const baseUrl = modelValues.modelBaseUrl || ''
+      const result = await api.hermesFetchModels(baseUrl, null, null, modelValues.modelProvider || 'auto')
+      const models = result?.models || []
+      if (models.length && comboInstance) {
+        comboInstance.setModels(models)
+      }
+    } catch (_err) {
+      // Silently degrade — combobox works as plain input when models list is empty
+    }
+  }
 
   function esc(value) {
     return String(value ?? '')
@@ -1160,7 +1235,7 @@ export function render() {
   function renderModelConfigPanel() {
     const disabled = isBusy()
     return `
-      <div class="hm-panel hm-config-runtime-panel hm-config-model-panel">
+      <div class="hm-panel hm-panel--allow-overflow hm-config-runtime-panel hm-config-model-panel">
         <div class="hm-panel-header">
           <div>
             <div class="hm-panel-title">${t('engine.hermesModelConfigTitle')}</div>
@@ -2819,15 +2894,27 @@ export function render() {
       'provider-overrides': renderProviderOverridesConfigPanel,
     }
 
-    return CONFIG_GROUPS.map(group => `
-      <section class="hm-config-group" id="cfg-group-\${group.id}">
-        <h2 class="hm-config-group__title">\${t('engine.' + group.titleKey)}</h2>
+    const MODEL_PANEL_IDS = ['model-config', 'model-catalog', 'x-search', 'context-config', 'model-aliases']
+
+    return CONFIG_GROUPS.map(group => {
+      const isModelGroup = group.id === 'models'
+      const anyModelSaving = MODEL_PANEL_IDS.some(id => panelStateBus.getState(id)?.saving)
+      const clusterHeader = isModelGroup ? `
+        <div class="hm-model-cluster__header">
+          <h2 class="hm-model-cluster__title">\${t('engine.' + group.titleKey)}</h2>
+          <button class="hm-btn hm-btn--cta hm-btn--sm" id="hm-model-cluster-save" \${anyModelSaving || isBusy() ? 'disabled' : ''}>\${t('engine.configSaveAllModels')}</button>
+        </div>
+      ` : ''
+
+      return `
+      <section class="hm-config-group \${isModelGroup ? 'hm-model-cluster' : ''}" id="cfg-group-\${group.id}">
+        \${isModelGroup ? clusterHeader : \`<h2 class="hm-config-group__title">\${t('engine.' + group.titleKey)}</h2>\`}
         \${group.panels.map(p => {
           const renderer = renderers[p.id]
           return renderer ? renderer() : ''
         }).join('')}
       </section>
-    `).join('')
+    `}).join('')
   }
 
   function draw() {
@@ -2919,9 +3006,15 @@ export function render() {
     el.querySelector('#hm-tts-voice-save')?.addEventListener('click', saveTtsVoiceConfig)
     el.querySelector('#hm-terminal-save')?.addEventListener('click', saveTerminal)
 
+    // Save all model configs button
+    el.querySelector('#hm-model-cluster-save')?.addEventListener('click', saveAllModels)
+
     // Init sidebar scroll spy and search filter
     initSidebarScrollSpy(CONFIG_GROUPS, el.querySelector('#hm-config-content'))
     initSearchFilter(el.querySelector('#hm-config-search'), el.querySelector('#hm-config-content'))
+
+    // Replace default model input with combobox
+    initModelCombobox()
   }
 
   
@@ -4229,6 +4322,114 @@ export function render() {
     } finally {
       panelStateBus.setSaving('model-aliases', false)
       draw()
+    }
+  }
+
+  /**
+   * Save all 5 model-related panels in parallel.
+   * Collects current form values from each panel, fires all 5 save API calls
+   * concurrently, then reports aggregated results via toast.
+   */
+  async function saveAllModels() {
+    const MODEL_PANEL_IDS = ['model-config', 'model-catalog', 'x-search', 'context-config', 'model-aliases']
+    // Collect form values before marking as saving (draw() clears the DOM)
+    const modelConfigForm = {
+      modelDefault: el.querySelector('#hm-model-default')?.value || '',
+      modelProvider: el.querySelector('#hm-model-provider')?.value || 'auto',
+      modelBaseUrl: el.querySelector('#hm-model-base-url')?.value || '',
+      modelContextLength: el.querySelector('#hm-model-context-length')?.value || '',
+      modelMaxTokens: el.querySelector('#hm-model-max-tokens')?.value || '',
+    }
+    const modelCatalogForm = {
+      modelCatalogEnabled: !!el.querySelector('#hm-model-catalog-enabled')?.checked,
+      modelCatalogUrl: el.querySelector('#hm-model-catalog-url')?.value || MODEL_CATALOG_DEFAULTS.modelCatalogUrl,
+      modelCatalogTtlHours: el.querySelector('#hm-model-catalog-ttl-hours')?.value || '24',
+      modelCatalogProvidersJson: el.querySelector('#hm-model-catalog-providers-json')?.value || '{}',
+    }
+    const xSearchForm = {
+      xSearchModel: el.querySelector('#hm-x-search-model')?.value || X_SEARCH_DEFAULTS.xSearchModel,
+      xSearchTimeoutSeconds: el.querySelector('#hm-x-search-timeout-seconds')?.value || String(X_SEARCH_DEFAULTS.xSearchTimeoutSeconds),
+      xSearchRetries: el.querySelector('#hm-x-search-retries')?.value || String(X_SEARCH_DEFAULTS.xSearchRetries),
+    }
+    const contextForm = {
+      contextEngine: el.querySelector('#hm-context-engine')?.value || CONTEXT_DEFAULTS.contextEngine,
+    }
+    const modelAliasesForm = {
+      modelAliasesJson: el.querySelector('#hm-model-aliases-json')?.value || '{}',
+    }
+
+    // Mark all model panels as saving
+    for (const id of MODEL_PANEL_IDS) {
+      panelStateBus.setSaving(id, true)
+      panelStateBus.setError(id, null)
+    }
+    draw()
+
+    // Fire all 5 save calls in parallel
+    const results = await Promise.allSettled([
+      api.hermesModelConfigSave(modelConfigForm),
+      api.hermesModelCatalogConfigSave(modelCatalogForm),
+      api.hermesXSearchConfigSave(xSearchForm),
+      api.hermesContextConfigSave(contextForm),
+      api.hermesModelAliasesConfigSave(modelAliasesForm),
+    ])
+
+    const apiLabels = MODEL_PANEL_IDS
+    let successCount = 0
+    let failCount = 0
+
+    results.forEach((result, idx) => {
+      const panelId = apiLabels[idx]
+      if (result.status === 'fulfilled') {
+        successCount++
+        // Update local values from server response
+        const resp = result.value
+        switch (panelId) {
+          case 'model-config':
+            modelValues = { ...MODEL_DEFAULTS, ...(resp?.values || modelConfigForm) }
+            break
+          case 'model-catalog':
+            modelCatalogValues = { ...MODEL_CATALOG_DEFAULTS, ...(resp?.values || modelCatalogForm) }
+            break
+          case 'x-search':
+            xSearchValues = { ...X_SEARCH_DEFAULTS, ...(resp?.values || xSearchForm) }
+            break
+          case 'context-config':
+            contextValues = { ...CONTEXT_DEFAULTS, ...(resp?.values || contextForm) }
+            break
+          case 'model-aliases':
+            modelAliasesValues = { ...MODEL_ALIASES_DEFAULTS, ...(resp?.values || modelAliasesForm) }
+            break
+        }
+      } else {
+        failCount++
+        const err = result.reason
+        const errorMessages = {
+          'model-config': t('engine.hermesModelConfigSaveFailed') || 'Save model config failed',
+          'model-catalog': t('engine.hermesModelCatalogConfigSaveFailed') || 'Save model catalog config failed',
+          'x-search': t('engine.hermesXSearchConfigSaveFailed') || 'Save X search config failed',
+          'context-config': t('engine.hermesContextConfigSaveFailed') || 'Save context config failed',
+          'model-aliases': t('engine.hermesModelAliasesConfigSaveFailed') || 'Save model aliases config failed',
+        }
+        panelStateBus.setError(panelId, humanizeError(err, errorMessages[panelId]))
+      }
+      panelStateBus.setSaving(panelId, false)
+    })
+
+    // Refresh raw YAML from backend
+    try {
+      await refreshRawAfterStructuredSave()
+    } catch (_) { /* non-critical */ }
+
+    draw()
+
+    // Show aggregated toast
+    if (failCount === 0) {
+      toast({ message: t('engine.configSaveAllModelsSuccess') }, 'success')
+    } else {
+      toast({
+        message: t('engine.configSaveAllModelsPartial', { n: String(successCount), m: String(failCount) }),
+      }, 'error')
     }
   }
 

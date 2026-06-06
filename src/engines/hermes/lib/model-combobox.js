@@ -10,18 +10,15 @@
  *   .hm-combo__dropdown      — suggestion list container
  *   .hm-combo__option        — individual suggestion item
  *   .hm-combo__option--active — keyboard-highlighted option
- *
- * Usage:
- *   import { createModelCombobox } from './model-combobox.js'
- *   const combo = createModelCombobox(container, {
- *     placeholder: 'Select model…',
- *     initialValue: 'gpt-4',
- *     onSelect(value) { console.log('selected:', value) },
- *     onInput(value) { console.log('input:', value) },
- *   })
- *   combo.setModels(['gpt-4', 'gpt-4o', 'claude-3.5-sonnet'])
- *   combo.setValue('claude-3.5-sonnet')
- *   // Later: combo.destroy()
+ *   .hm-combo__group-header  — non-clickable provider group headers
+ */
+
+/**
+ * @typedef {Object} ComboboxItem
+ * @property {string} value - The actual value, e.g. "openai/gpt-4o"
+ * @property {string} label - The display label, e.g. "gpt-4o"
+ * @property {string} [group] - Group name, e.g. "openai"
+ * @property {string[]} [pinyin] - Pinyin alias list, e.g. ["openai", "gpt4o"]
  */
 
 /**
@@ -35,9 +32,10 @@
  *   onInput?: (value: string) => void,
  * }} [options]
  * @returns {{
- *   setModels: (models: string[]) => void,
+ *   setModels: (models: (string | ComboboxItem)[]) => void,
  *   getValue: () => string,
  *   setValue: (value: string) => void,
+ *   setDisabled: (disabled: boolean) => void,
  *   destroy: () => void,
  * }}
  */
@@ -49,10 +47,12 @@ export function createModelCombobox(container, options = {}) {
     onInput,
   } = options
 
-  /** @type {string[]} */
+  /** @type {ComboboxItem[]} */
   let models = []
   let activeIndex = -1
   let open = false
+  let currentValue = initialValue
+  let blurTimer = null
 
   // ---- DOM construction ----
 
@@ -87,12 +87,20 @@ export function createModelCombobox(container, options = {}) {
    */
   function renderDropdown(query) {
     const q = query.toLowerCase().trim()
-    /** @type {string[]} */
+    /** @type {ComboboxItem[]} */
     let filtered
     if (!q) {
       filtered = models.slice()
     } else {
-      filtered = models.filter(m => m.toLowerCase().includes(q))
+      filtered = models.filter(item => {
+        const valMatch = item.value.toLowerCase().includes(q)
+        const labelMatch = item.label.toLowerCase().includes(q)
+        let pinyinMatch = false
+        if (Array.isArray(item.pinyin)) {
+          pinyinMatch = item.pinyin.some(p => typeof p === 'string' && p.toLowerCase().includes(q))
+        }
+        return valMatch || labelMatch || pinyinMatch
+      })
     }
 
     dropdown.innerHTML = ''
@@ -103,50 +111,66 @@ export function createModelCombobox(container, options = {}) {
       return
     }
 
+    let lastGroup = null
+    let optionIdx = 0
     for (let idx = 0; idx < filtered.length; idx++) {
-      const m = filtered[idx]
+      const item = filtered[idx]
+      if (item.group !== undefined && item.group !== lastGroup) {
+        const header = document.createElement('div')
+        header.className = 'hm-combo__group-header'
+        header.textContent = item.group
+        dropdown.appendChild(header)
+        lastGroup = item.group
+      } else if (item.group === undefined) {
+        lastGroup = null
+      }
+
       const option = document.createElement('div')
       option.className = 'hm-combo__option'
-      if (idx === activeIndex) {
+      if (optionIdx === activeIndex) {
         option.classList.add('hm-combo__option--active')
       }
+
+      const textToDisplay = item.label || item.value
       // Highlight matching substring.
       if (q) {
-        const lower = m.toLowerCase()
+        const lower = textToDisplay.toLowerCase()
         const pos = lower.indexOf(q)
         if (pos !== -1) {
           option.innerHTML =
-            esc(m.slice(0, pos)) +
-            '<strong>' + esc(m.slice(pos, pos + q.length)) + '</strong>' +
-            esc(m.slice(pos + q.length))
+            esc(textToDisplay.slice(0, pos)) +
+            '<strong>' + esc(textToDisplay.slice(pos, pos + q.length)) + '</strong>' +
+            esc(textToDisplay.slice(pos + q.length))
         } else {
-          option.textContent = m
+          option.textContent = textToDisplay
         }
       } else {
-        option.textContent = m
+        option.textContent = textToDisplay
       }
-      option.dataset.value = m
+      option.dataset.value = item.value
       option.addEventListener('mousedown', (e) => {
         e.preventDefault() // prevent blur on input before click commits
-        selectOption(m)
+        selectOption(item)
       })
       dropdown.appendChild(option)
+      optionIdx++
     }
 
     dropdown.style.display = 'block'
     open = true
-    if (activeIndex >= filtered.length) {
-      activeIndex = Math.max(0, filtered.length - 1)
+    if (activeIndex >= optionIdx) {
+      activeIndex = Math.max(0, optionIdx - 1)
     }
   }
 
-  /** @param {string} value */
-  function selectOption(value) {
-    input.value = value
+  /** @param {ComboboxItem} item */
+  function selectOption(item) {
+    input.value = item.label
+    currentValue = item.value
     dropdown.style.display = 'none'
     open = false
     activeIndex = -1
-    if (onSelect) onSelect(value)
+    if (onSelect) onSelect(item.value)
   }
 
   /** Scroll the active option into view. */
@@ -171,19 +195,21 @@ export function createModelCombobox(container, options = {}) {
   // ---- event listeners ----
 
   input.addEventListener('focus', () => {
-    if (!models.length) return
+    if (!models.length || input.disabled) return
     activeIndex = -1
     renderDropdown(input.value)
   })
 
   input.addEventListener('input', () => {
+    if (input.disabled) return
     activeIndex = -1
+    currentValue = input.value
     renderDropdown(input.value)
     if (onInput) onInput(input.value)
   })
 
   input.addEventListener('keydown', (e) => {
-    if (!open || !models.length) return
+    if (!open || !models.length || input.disabled) return
 
     const options = dropdown.querySelectorAll('.hm-combo__option')
 
@@ -199,7 +225,13 @@ export function createModelCombobox(container, options = {}) {
       e.preventDefault()
       if (activeIndex >= 0 && activeIndex < options.length) {
         const opt = options[activeIndex]
-        selectOption(opt.dataset.value || opt.textContent || '')
+        const val = opt.dataset.value
+        const found = models.find(m => m.value === val)
+        if (found) {
+          selectOption(found)
+        } else {
+          selectOption({ value: val, label: val })
+        }
       }
     } else if (e.key === 'Escape') {
       dropdown.style.display = 'none'
@@ -210,23 +242,51 @@ export function createModelCombobox(container, options = {}) {
 
   // Close dropdown on blur (with a small delay so mousedown on option fires first).
   input.addEventListener('blur', () => {
-    setTimeout(() => {
+    blurTimer = setTimeout(() => {
       dropdown.style.display = 'none'
       open = false
       activeIndex = -1
     }, 150)
   })
 
+  // Close dropdown on outside click
+  function outsideClickHandler(e) {
+    if (!root.contains(e.target)) {
+      dropdown.style.display = 'none'
+      open = false
+      activeIndex = -1
+    }
+  }
+  document.addEventListener('click', outsideClickHandler)
+
   // ---- public API ----
 
   return {
     /**
      * Set the model data source.
-     * @param {string[]} newModels
+     * @param {(string | ComboboxItem)[]} newModels
      */
     setModels(newModels) {
-      models = Array.isArray(newModels) ? newModels.slice() : []
+      models = Array.isArray(newModels) ? newModels.map(m => {
+        if (typeof m === 'string') {
+          return { value: m, label: m }
+        }
+        return {
+          value: m.value || '',
+          label: m.label || m.value || '',
+          group: m.group,
+          pinyin: m.pinyin
+        }
+      }) : []
       activeIndex = -1
+
+      if (currentValue) {
+        const found = models.find(m => m.value === currentValue)
+        if (found) {
+          input.value = found.label
+        }
+      }
+
       if (open) {
         renderDropdown(input.value)
       }
@@ -234,16 +294,36 @@ export function createModelCombobox(container, options = {}) {
 
     /** @returns {string} */
     getValue() {
-      return input.value
+      return currentValue
     },
 
     /** @param {string} val */
     setValue(val) {
-      input.value = val
+      currentValue = val
+      const found = models.find(m => m.value === val)
+      if (found) {
+        input.value = found.label
+      } else {
+        input.value = val
+      }
+    },
+
+    /** @param {boolean} disabled */
+    setDisabled(disabled) {
+      input.disabled = !!disabled
+      if (disabled && open) {
+        dropdown.style.display = 'none'
+        open = false
+        activeIndex = -1
+      }
     },
 
     /** Remove the combobox from the DOM and clean up. */
     destroy() {
+      if (blurTimer) {
+        clearTimeout(blurTimer)
+      }
+      document.removeEventListener('click', outsideClickHandler)
       if (root.parentNode) {
         root.parentNode.removeChild(root)
       }

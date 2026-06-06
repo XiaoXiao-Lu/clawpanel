@@ -1968,6 +1968,8 @@ export default {
   configGroupAdvanced: _('高级', 'Advanced', '高級'),
   configSearchPlaceholder: _('搜索配置...', 'Search configuration...', '搜尋設定...'),
   configSaveAllModels: _('保存全部模型配置', 'Save All Model Configs', '儲存全部模型設定'),
+  configSaveAllModelsSuccess: _('模型配置已全部保存', 'All model configs saved', '模型設定已全部儲存'),
+  configSaveAllModelsPartial: _('{n} 项保存成功，{m} 项失败', '{n} saved, {m} failed', '{n} 項儲存成功，{m} 項失敗'),
   configNoResults: _('未找到匹配的配置项', 'No matching configuration found', '未找到符合的設定項目'),
   configSearching: _('搜索中...', 'Searching...', '搜尋中...'),
 }

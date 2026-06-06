@@ -63,6 +63,13 @@ input:focus, textarea:focus, select:focus {
 input::placeholder,
 textarea::placeholder {
   color: var(--text-tertiary);
+  opacity: 1;
+}
+
+/* 暗色主题 placeholder 对比度增强 */
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: color-mix(in srgb, var(--text-tertiary) 70%, var(--text-secondary));
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -70,7 +77,7 @@ textarea::placeholder {
 ::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--text-tertiary) 38%, transparent);
   border: 2px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {

@@ -7596,61 +7596,6 @@ body[data-active-engine="hermes"][data-theme="dark"] {
   margin-bottom: 24px;
 }
 
-/* ---- Combobox (model selector) ---- */
-
-[data-engine="hermes"] .hm-combo {
-  position: relative;
-  width: 100%;
-}
-
-[data-engine="hermes"] .hm-combo__input {
-  width: 100%;
-}
-
-[data-engine="hermes"] .hm-combo__dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  max-height: 220px;
-  overflow-y: auto;
-  background: var(--hm-surface-1);
-  border: 1px solid var(--hm-border);
-  border-radius: var(--hm-radius-md);
-  box-shadow: var(--hm-shadow-lg);
-  z-index: 20;
-  display: none;
-  padding: 4px 0;
-}
-
-[data-engine="hermes"] .hm-combo__dropdown--open {
-  display: block;
-}
-
-[data-engine="hermes"] .hm-combo__option {
-  padding: 7px 14px;
-  font-size: 13px;
-  font-family: var(--hm-font-mono);
-  color: var(--hm-text-primary);
-  cursor: pointer;
-  transition: background var(--hm-dur-fast) var(--hm-ease);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-[data-engine="hermes"] .hm-combo__option:hover,
-[data-engine="hermes"] .hm-combo__option--active {
-  background: var(--hm-surface-2);
-  color: var(--hm-accent);
-}
-
-[data-engine="hermes"] .hm-combo__option mark {
-  background: transparent;
-  color: var(--hm-accent);
-  font-weight: 600;
-}
-
 /* ---- Responsive: sidebar collapses on narrow screens ---- */
 
 @media (max-width: 900px) {
@@ -7687,7 +7632,134 @@ body[data-active-engine="hermes"][data-theme="dark"] {
     border-bottom-color: var(--hm-accent);
     border-left-color: transparent;
   }
+}
 
+/* ==========================================================================
+ * 16 · Model cluster — aggregated model section header + save-all
+ * ==========================================================================
+ */
+[data-engine="hermes"] .hm-model-cluster {
+  margin-bottom: 0;
+}
+
+[data-engine="hermes"] .hm-model-cluster__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hm-border-subtle);
+}
+
+[data-engine="hermes"] .hm-model-cluster__title {
+  font-family: var(--hm-font-serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--hm-text-primary);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+/* ==========================================================================
+ * 17 · Combobox (model selector) — enhanced autocomplete dropdown
+ * ==========================================================================
+ */
+
+[data-engine="hermes"] .hm-combo {
+  position: relative;
+  width: 100%;
+}
+
+[data-engine="hermes"] .hm-combo__input {
+  font-family: var(--hm-font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 10px 14px;
+  min-height: 44px;
+  height: 44px;
+  border: 1px solid var(--hm-border);
+  background: var(--hm-surface-0);
+  color: var(--hm-text-primary);
+  border-radius: var(--hm-radius-sm);
+  transition: border-color var(--hm-dur-fast) var(--hm-ease),
+              box-shadow var(--hm-dur-fast) var(--hm-ease),
+              background var(--hm-dur-fast) var(--hm-ease);
+  width: 100%;
+  outline: none;
+  box-sizing: border-box;
+}
+
+[data-engine="hermes"] .hm-combo__input:focus {
+  border-color: var(--hm-accent);
+  box-shadow: 0 0 0 3px var(--hm-accent-ring);
+  background: var(--hm-surface-1);
+}
+
+[data-engine="hermes"] .hm-combo__input::placeholder {
+  color: var(--hm-text-muted);
+  opacity: 0.7;
+}
+
+[data-engine="hermes"] .hm-combo__dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--hm-surface-1);
+  border: 1px solid var(--hm-border);
+  border-radius: var(--hm-radius-md);
+  box-shadow: var(--hm-shadow-lg);
+  z-index: 50;
+  padding: 4px 0;
+}
+
+[data-engine="hermes"] .hm-combo__option {
+  padding: 7px 14px;
+  font-size: 13px;
+  font-family: var(--hm-font-mono);
+  color: var(--hm-text-primary);
+  cursor: pointer;
+  transition: background var(--hm-dur-fast) var(--hm-ease),
+              color var(--hm-dur-fast) var(--hm-ease);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-engine="hermes"] .hm-combo__option:hover,
+[data-engine="hermes"] .hm-combo__option--active {
+  background: var(--hm-surface-2);
+  color: var(--hm-accent);
+}
+
+[data-engine="hermes"] .hm-combo__option strong {
+  background: transparent;
+  color: var(--hm-accent);
+  font-weight: 600;
+}
+
+/* Dark mode combobox adjustments */
+[data-theme="dark"] [data-engine="hermes"] .hm-combo__input {
+  background: var(--hm-surface-0);
+  color: var(--hm-text-primary);
+}
+
+[data-theme="dark"] [data-engine="hermes"] .hm-combo__dropdown {
+  background: var(--hm-surface-1);
+  border-color: var(--hm-border);
+}
+
+[data-theme="dark"] [data-engine="hermes"] .hm-combo__option:hover,
+[data-theme="dark"] [data-engine="hermes"] .hm-combo__option--active {
+  background: var(--hm-surface-2);
+  color: var(--hm-accent);
+}
+
+/* Dark mode combobox adjustments — continued inside responsive block */
+@media (max-width: 900px) {
   [data-engine="hermes"] .hm-config-content {
     padding-left: 0;
   }

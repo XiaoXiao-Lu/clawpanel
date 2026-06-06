@@ -35,7 +35,7 @@
   background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary, var(--bg-card-hover)) 50%, var(--bg-secondary) 75%);
   background-size: 200% 100%;
   animation: skeleton-shine 1.4s ease infinite;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 /* 卡片 */
@@ -71,12 +71,22 @@
   opacity: 1;
 }
 
+.card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.card:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
 /* 状态卡片 */
 .stat-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--space-lg);
-  margin-bottom: var(--space-xl);
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
 }
 
 .stat-card {
@@ -111,6 +121,11 @@
   opacity: 1;
 }
 
+.stat-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .stat-card-header {
   display: flex;
   align-items: center;
@@ -128,10 +143,11 @@
 
 .stat-card-value {
   font-family: var(--font-display);
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-xl);
   font-weight: 800;
   letter-spacing: 0;
-  line-height: 1.16;
+  line-height: 1.2;
+  color: var(--text-primary);
 }
 
 .stat-card-clickable {
@@ -184,7 +200,7 @@
 .btn-primary {
   background: linear-gradient(135deg, var(--brand-indigo), color-mix(in srgb, var(--brand-indigo) 82%, #111827));
   border-color: transparent;
-  color: #fff;
+  color: var(--text-inverse);
   box-shadow: 0 8px 20px color-mix(in srgb, var(--brand-indigo) 24%, transparent);
 }
 
@@ -280,6 +296,12 @@
   border-color: var(--border-focus);
   background: var(--surface-raised);
   box-shadow: var(--shadow-glow);
+}
+
+.input:focus-visible,
+.form-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 /* Toast 通知 */
@@ -433,7 +455,7 @@
   gap: 4px;
   min-height: 22px;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
   font-weight: 700;
   line-height: 1.4;
@@ -446,6 +468,13 @@
 .badge-error { background: var(--error-muted); color: var(--error); }
 .badge-info { background: var(--info-muted); color: var(--info); }
 
+/* Badge 暗色主题对比度增强 */
+[data-theme="dark"] .badge-primary { background: color-mix(in srgb, var(--accent) 18%, var(--bg-secondary)); }
+[data-theme="dark"] .badge-success { background: color-mix(in srgb, var(--success) 18%, var(--bg-secondary)); }
+[data-theme="dark"] .badge-warning { background: color-mix(in srgb, var(--warning) 18%, var(--bg-secondary)); }
+[data-theme="dark"] .badge-error { background: color-mix(in srgb, var(--error) 18%, var(--bg-secondary)); }
+[data-theme="dark"] .badge-info { background: color-mix(in srgb, var(--info) 18%, var(--bg-secondary)); }
+
 /* 配置操作栏 */
 .config-actions {
   display: flex;
@@ -455,9 +484,34 @@
 
 /* 按钮禁用状态 */
 .btn:disabled, .btn[disabled] {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
   pointer-events: none;
+}
+
+/* 按钮 Active 态 */
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--brand-indigo) 16%, transparent);
+}
+.btn-secondary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.btn-ghost:active:not(:disabled) {
+  transform: scale(0.98);
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-hover));
+}
+.btn-danger:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* 按钮 Focus-visible 态（键盘导航可见） */
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* 搜索高亮 */
@@ -465,7 +519,7 @@ mark {
   background: var(--warning-muted);
   color: var(--warning);
   padding: 0 2px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 
 /* Loading 占位动画 */
@@ -571,16 +625,19 @@ mark {
   font-size: 44px;
   line-height: 1;
   margin-bottom: var(--space-md);
-  opacity: 0.85;
+  opacity: 0.6;
   user-select: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--text-tertiary);
+  filter: grayscale(0.2);
 }
 .empty-state .empty-icon svg {
   width: 1em;
   height: 1em;
+  stroke: var(--text-tertiary);
+  fill: none;
 }
 
 .empty-state .empty-title {
@@ -1046,7 +1103,7 @@ body.has-desktop-chrome #backend-down-overlay {
   font-size: 14px; font-weight: 500;
   border: none; border-radius: var(--radius-md, 8px); cursor: pointer;
   background: var(--accent, #6366f1);
-  color: #fff; transition: opacity 0.2s;
+  color: var(--text-inverse); transition: opacity 0.2s;
 }
 .login-card .login-btn:hover { opacity: 0.9; }
 .login-card .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -1066,7 +1123,7 @@ body.has-desktop-chrome #backend-down-overlay {
 .toggle-switch input { opacity: 0; width: 0; height: 0; }
 .toggle-slider {
   position: absolute; inset: 0;
-  cursor: pointer; border-radius: 24px;
+  cursor: pointer; border-radius: var(--radius-pill);
   background: var(--border-primary, #d4d4d8);
   transition: background 0.25s;
 }
@@ -1083,6 +1140,20 @@ body.has-desktop-chrome #backend-down-overlay {
 }
 .toggle-switch input:checked + .toggle-slider::before {
   transform: translateX(20px);
+}
+
+/* Toggle focus-visible 态 */
+.toggle-switch input:focus-visible + .toggle-slider {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Toggle 暗色主题适配 */
+[data-theme="dark"] .toggle-slider {
+  background: var(--border-secondary);
+}
+[data-theme="dark"] .toggle-switch input:checked + .toggle-slider {
+  background: var(--accent);
 }
 
 /* === 社区引导弹窗 === */
@@ -1129,7 +1200,7 @@ body.has-desktop-chrome #backend-down-overlay {
   background: none;
   border: none;
   padding: 2px 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   line-height: 1;
   transition: all 150ms;
 }
@@ -1149,7 +1220,7 @@ body.has-desktop-chrome #backend-down-overlay {
   height: 48px;
   border-radius: var(--radius-lg);
   background: var(--error);
-  color: #fff;
+  color: var(--text-inverse);
   margin-bottom: 10px;
 }
 .engage-title {
@@ -1196,7 +1267,7 @@ body.has-desktop-chrome #backend-down-overlay {
   flex-shrink: 0;
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1253,9 +1324,9 @@ body.has-desktop-chrome #backend-down-overlay {
   width: 100%;
   max-width: 100px;
   aspect-ratio: 1;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-primary);
-  background: #fff;
+  background: var(--bg-primary);
   object-fit: cover;
   display: block;
 }
@@ -1331,7 +1402,7 @@ body.has-desktop-chrome #backend-down-overlay {
   .engage-qr-item img {
     width: 90px;
     height: 90px;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
   }
   .engage-qr-label {
     font-size: 10px;
@@ -1355,7 +1426,7 @@ body.has-desktop-chrome #backend-down-overlay {
 .cli-conflict-banner {
   background: var(--bg-card);
   border: 1px solid rgba(245, 158, 11, 0.45);
-  border-left: 3px solid #f59e0b;
+  border-left: 3px solid var(--warning, #f59e0b);
   border-radius: var(--radius-md);
   padding: var(--space-sm) var(--space-md);
   font-size: var(--font-size-sm);
@@ -1368,7 +1439,7 @@ body.has-desktop-chrome #backend-down-overlay {
 }
 .cli-conflict-banner-icon {
   font-size: 18px;
-  color: #f59e0b;
+  color: var(--warning, #f59e0b);
   flex-shrink: 0;
 }
 .cli-conflict-banner-text {
@@ -1492,7 +1563,7 @@ body.has-desktop-chrome #backend-down-overlay {
   line-height: 1;
   color: var(--text-tertiary);
   padding: 2px 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   opacity: 0;
   transition: opacity 0.15s;
 }
@@ -1501,4 +1572,20 @@ body.has-desktop-chrome #backend-down-overlay {
 }
 .toast.toast-structured .toast-close {
   top: 8px;
+}
+
+/* Toast 进度条倒计时 */
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  animation: toast-countdown var(--toast-duration, 4s) linear forwards;
+}
+
+@keyframes toast-countdown {
+  from { width: 100%; }
+  to { width: 0%; }
 }
