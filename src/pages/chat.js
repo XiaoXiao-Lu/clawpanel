@@ -2262,6 +2262,8 @@ function handleChatEvent(payload) {
     resetStreamState()
     _schedulePostFinalCheck()
     processMessageQueue()
+    // final 后刷新会话列表，让侧边栏最新消息预览即时更新
+    refreshSessionList()
     return
   }
 
