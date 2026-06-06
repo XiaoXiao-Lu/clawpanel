@@ -55,7 +55,7 @@
   border-radius: var(--radius-lg);
   background: var(--accent-muted);
   color: var(--accent);
-  font-size: 26px; flex-shrink: 0;
+  font-size: var(--font-size-2xl); flex-shrink: 0;
 }
 
 .skills-hero-title {
@@ -117,13 +117,13 @@
 /* ----- Tab 导航栏（Pill 风格） ----- */
 .skills-tab-nav {
   display: flex; gap: var(--space-xs); margin-bottom: var(--space-xl);
-  padding: 4px; background: var(--surface-sunken);
+  padding: var(--space-1); background: var(--surface-sunken);
   border-radius: var(--radius-lg); width: fit-content;
 }
 
 .skills-tab-btn {
   display: inline-flex; align-items: center; gap: 7px;
-  padding: 8px 20px; border: none; border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-5); border: none; border-radius: var(--radius-md);
   background: transparent; color: var(--text-secondary);
   font-size: var(--font-size-sm); font-weight: 600;
   cursor: pointer; transition: all var(--transition-fast); white-space: nowrap;
@@ -142,7 +142,7 @@
 .skills-tab-count {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 20px; height: 20px; padding: 0 6px;
-  border-radius: var(--radius-md); font-size: 11px; font-weight: 700;
+  border-radius: var(--radius-md); font-size: var(--font-size-sm); font-weight: 700;
   background: color-mix(in srgb, var(--text-tertiary) 15%, transparent);
   color: var(--text-tertiary);
 }
@@ -187,7 +187,7 @@
   border-bottom: 1px solid var(--border-secondary);
 }
 .clawhub-panel-title .panel-icon {
-  font-size: 16px; width: 28px; height: 28px;
+  font-size: var(--font-size-lg); width: 28px; height: 28px;
   display: grid; place-items: center; border-radius: var(--radius-sm);
 }
 .clawhub-panel-title .panel-count {
@@ -241,7 +241,7 @@
   color: var(--text-primary); line-height: 1.4;
   display: flex; align-items: center; gap: 6px;
 }
-.clawhub-item-title .skill-emoji { font-size: 18px; line-height: 1; }
+.clawhub-item-title .skill-emoji { font-size: var(--font-size-xl); line-height: 1; }
 
 .clawhub-item-meta {
   font-size: var(--font-size-xs); color: var(--text-tertiary);
@@ -293,7 +293,7 @@
 .skill-card-item .clawhub-item-actions {
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: var(--space-xs);
   margin-left: auto;
 }
 .skill-card-item .clawhub-item-actions .btn,
@@ -301,7 +301,7 @@
   min-width: 0; width: 28px; height: 28px; min-height: 28px;
   padding: 0; border-radius: var(--radius-sm);
   display: inline-grid; place-items: center;
-  font-size: 17px; font-weight: 700;
+  font-size: var(--font-size-xl); font-weight: 700;
   background: var(--surface-sunken);
   border-color: var(--border-secondary);
   color: var(--text-primary);
@@ -314,29 +314,29 @@
 }
 .skill-card-item .clawhub-badge,
 .clawhub-item.store-item .clawhub-badge {
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
-  font-size: 10px;
+  font-size: var(--font-size-xs);
 }
 
 .clawhub-item.store-item {
   cursor: default; border-left-color: transparent;
-  min-height: 82px; flex-direction: row; align-items: center;
-  gap: var(--space-sm); padding: 14px;
+  min-height: 88px; flex-direction: row; align-items: center;
+  gap: var(--space-sm); padding: var(--space-md);
   overflow: visible;
 }
 .clawhub-item.store-item:hover {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border-primary));
   border-left-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 4%, var(--surface-raised));
-  box-shadow: var(--shadow-md); transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 .skills-card-icon,
 .skills-store-card-icon,
 .skills-preview-modal-icon {
   width: 38px; height: 38px; border-radius: var(--radius-md);
   display: grid; place-items: center; flex: 0 0 auto;
-  color: white; font-weight: 800; font-size: 17px;
+  color: white; font-weight: 800; font-size: var(--font-size-xl);
   background: var(--accent);
   position: relative; overflow: hidden;
 }
@@ -382,7 +382,7 @@
 .clawhub-badge {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 3px 10px; border-radius: var(--radius-xl);
-  font-size: 11px; font-weight: 650; white-space: nowrap; letter-spacing: 0.01em;
+  font-size: var(--font-size-sm); font-weight: 650; white-space: nowrap; letter-spacing: 0.01em;
   transition: all var(--transition-fast);
 }
 .clawhub-badge::before {
@@ -466,7 +466,7 @@
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   padding: var(--space-3xl) var(--space-xl); text-align: center; color: var(--text-tertiary);
 }
-.skills-empty-icon { font-size: 48px; margin-bottom: var(--space-lg); opacity: 0.6; }
+.skills-empty-icon { font-size: var(--font-size-2xl); margin-bottom: var(--space-lg); opacity: 0.6; }
 .skills-empty-title {
   font-size: var(--font-size-lg); font-weight: 700;
   color: var(--text-primary); margin-bottom: var(--space-sm);
@@ -496,11 +496,11 @@
   width: 44px; height: 44px; display: grid; place-items: center;
   border-radius: var(--radius-lg);
   background: var(--accent);
-  color: white; font-size: 22px; flex-shrink: 0;
+  color: white; font-size: var(--font-size-xl); flex-shrink: 0;
 }
 
 .skills-store-title {
-  font-size: 18px; font-weight: 700; color: var(--text-primary);
+  font-size: var(--font-size-xl); font-weight: 700; color: var(--text-primary);
 }
 
 .skills-store-subtitle {
@@ -523,7 +523,7 @@
 }
 .skills-store-searchbar .clawhub-search-input:focus { box-shadow: none; }
 .skills-store-searchbar .btn {
-  min-height: 38px; border-radius: var(--radius-md); padding: 0 20px;
+  min-height: 38px; border-radius: var(--radius-md); padding: 0 var(--space-5);
 }
 
 .skills-store-filters {
@@ -532,7 +532,7 @@
 
 .skills-chip {
   display: inline-flex; align-items: center; gap: 6px;
-  min-height: 34px; padding: 0 16px;
+  min-height: 34px; padding: 0 var(--space-4);
   border: 1px solid var(--border-primary); border-radius: var(--radius-xl);
   background: var(--surface-raised); color: var(--text-secondary);
   font-size: var(--font-size-sm); font-weight: 600;
@@ -585,7 +585,7 @@
   max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   border: 1px solid var(--border-secondary); border-radius: var(--radius-lg);
   padding: 4px 10px; color: var(--text-tertiary);
-  font-size: 11px; font-weight: 500; background: var(--surface-sunken);
+  font-size: var(--font-size-sm); font-weight: 500; background: var(--surface-sunken);
   transition: all var(--transition-fast);
 }
 .skills-store-tags span:hover {
@@ -669,7 +669,7 @@
   width: 48px;
   height: 48px;
   border-radius: var(--radius-lg);
-  font-size: 18px;
+  font-size: var(--font-size-xl);
 }
 .skills-preview-modal-title {
   color: var(--text-primary);
@@ -703,7 +703,7 @@
 .skills-preview-stats span {
   display: block;
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   margin-bottom: 4px;
 }
 .skills-preview-stats strong {
@@ -741,7 +741,7 @@
 .skills-preview-requirements {
   display: grid;
   gap: 8px;
-  padding: 12px;
+  padding: var(--space-3);
   border: 1px solid var(--border-secondary);
   border-radius: var(--radius-md);
   background: var(--surface-sunken);
@@ -755,7 +755,7 @@
 }
 .skills-preview-requirements code {
   color: var(--success);
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   white-space: normal;
   text-align: right;
 }
@@ -801,7 +801,7 @@
   margin-bottom: var(--space-sm);
 }
 .plugin-card-icon {
-  font-size: 28px;
+  font-size: var(--font-size-2xl);
   line-height: 1;
   flex-shrink: 0;
 }
@@ -825,7 +825,7 @@
   flex-wrap: wrap;
 }
 .plugin-badge {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   padding: 1px 6px;
   border-radius: var(--radius-sm);
   white-space: nowrap;
@@ -918,7 +918,7 @@
 }
 .route-map-col-label {
   fill: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -939,19 +939,19 @@
 }
 .route-map-node-label {
   fill: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
 }
 .route-map-node-sub {
   fill: var(--text-tertiary);
-  font-size: 10px;
+  font-size: var(--font-size-xs);
 }
 .route-map-node-emoji {
   fill: var(--text-primary);
 }
 .route-map-edge-label {
   fill: var(--text-tertiary);
-  font-size: 9px;
+  font-size: var(--font-size-xs);
   pointer-events: none;
 }
 
@@ -973,7 +973,7 @@
   align-items: center;
   gap: 0;
   margin-bottom: 20px;
-  padding: 16px 0;
+  padding: var(--space-4) 0;
 }
 .hermes-phase {
   display: flex;
@@ -991,7 +991,7 @@
   border-radius: 50%;
   background: var(--bg-tertiary);
   color: var(--text-tertiary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 700;
   border: 2px solid var(--border-primary);
   transition: all 0.2s;
@@ -1006,7 +1006,7 @@
   border-color: var(--accent);
 }
 .hermes-phase-label {
-  font-size: 11px;
+  font-size: var(--font-size-sm);
   color: var(--text-tertiary);
   white-space: nowrap;
 }

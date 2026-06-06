@@ -244,7 +244,7 @@ select,
   box-shadow: var(--shadow-2);
 }
 .ai-fab:hover {
-  transform: translateY(-1px) scale(1.02);
+  transform: scale(1.02);
   box-shadow: var(--shadow-3);
 }
 

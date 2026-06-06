@@ -82,7 +82,7 @@
 .btn-xs {
   min-height: 24px;
   padding: 0 8px;
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   border-radius: var(--radius-sm);
 }
 
@@ -276,7 +276,7 @@ select.form-input, select.input {
   min-height: 20px;
   padding: 2px 8px;
   border-radius: var(--radius-full);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   line-height: 1.4;
   white-space: nowrap;
@@ -320,7 +320,7 @@ select.form-input, select.input {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 16px;
+  font-size: var(--font-size-lg);
   line-height: 1;
   color: var(--text-3);
   padding: 2px 4px;
@@ -409,7 +409,7 @@ select.form-input, select.input {
   color: var(--text-2);
 }
 .empty-state .empty-icon {
-  font-size: 40px;
+  font-size: var(--font-size-2xl);
   line-height: 1;
   margin-bottom: var(--space-3);
   opacity: 0.5;
@@ -460,7 +460,7 @@ select.form-input, select.input {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--bg-elevated);
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
   transition: transform var(--ease-fast);
 }
@@ -535,7 +535,7 @@ body.has-desktop-chrome #backend-down-overlay { top: 36px; }
   color: var(--brand);
 }
 .login-card .login-title {
-  font-size: 18px;
+  font-size: var(--font-size-xl);
   font-weight: 600;
   margin-bottom: 4px;
   color: var(--text-1);

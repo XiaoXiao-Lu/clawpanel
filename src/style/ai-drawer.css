@@ -15,7 +15,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+  box-shadow: var(--shadow-md);
   transition: transform 0.2s, box-shadow 0.2s;
   touch-action: none; /* 拖动时禁止浏览器默认手势 */
   user-select: none;
@@ -66,7 +66,7 @@
   background: var(--error-muted, rgba(239, 68, 68, 0.08));
   border: 1px solid var(--error-border, rgba(239, 68, 68, 0.25));
   border-radius: var(--radius-lg, 12px);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   line-height: 1.5;
   color: var(--text-secondary);
   position: relative;
@@ -79,13 +79,13 @@
 .ast-error-banner-icon {
   flex-shrink: 0;
   color: var(--error, #ef4444);
-  font-size: 16px;
+  font-size: var(--font-size-lg);
 }
 .ast-error-banner-title {
   flex: 1;
   font-weight: 600;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-sm);
 }
 .ast-error-banner-actions {
   display: flex;
@@ -96,7 +96,7 @@
   padding: 3px 10px;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -133,7 +133,7 @@
   padding: 8px 10px;
   background: var(--bg-tertiary);
   border-radius: var(--radius-sm);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all;
@@ -145,7 +145,7 @@
   background: none;
   border: none;
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   cursor: pointer;
   padding: 0;
   margin-top: 4px;
@@ -163,7 +163,7 @@
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.75);
   color: var(--text-inverse);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   padding: 4px 10px;
   border-radius: var(--radius-sm);
   white-space: nowrap;
