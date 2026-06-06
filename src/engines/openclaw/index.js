@@ -2,7 +2,7 @@
  * OpenClaw 引擎
  * 包装现有 OpenClaw 逻辑为统一的 Engine 接口，不改动原有代码
  */
-import { detectOpenclawStatus, isOpenclawReady, isGatewayRunning, isGatewayForeign,
+import { detectOpenclawStatus, isOpenclawReady, isOpenclawConfigured, isGatewayRunning, isGatewayForeign,
          onGatewayChange, startGatewayPoll, stopGatewayPoll, onReadyChange } from '../../lib/app-state.js'
 import { initFeatureGates, isFeatureAvailable } from '../../lib/feature-gates.js'
 import { t } from '../../lib/i18n.js'
@@ -33,23 +33,8 @@ export default {
 
   /** 侧边栏菜单项 */
   getNavItems() {
-    if (!isOpenclawReady()) {
-      return [{
-        section: '',
-        items: [
-          { route: '/setup', label: t('sidebar.setup'), icon: 'setup' },
-          { route: '/assistant', label: t('sidebar.assistant'), icon: 'assistant' },
-        ]
-      }, {
-        section: '',
-        items: [
-          { route: '/settings', label: t('sidebar.settings'), icon: 'settings' },
-          { route: '/chat-debug', label: t('sidebar.chatDebug'), icon: 'debug' },
-          { route: '/about', label: t('sidebar.about'), icon: 'about' },
-        ]
-      }]
-    }
-    return [{
+    const hasRuntimeSignal = isOpenclawReady() || isOpenclawConfigured() || isGatewayRunning() || isGatewayForeign()
+    const fullNavItems = [{
       section: t('sidebar.sectionMonitor'),
       items: [
         { route: '/dashboard', label: t('sidebar.dashboard'), icon: 'dashboard' },
@@ -94,6 +79,15 @@ export default {
         { route: '/about', label: t('sidebar.about'), icon: 'about' },
       ]
     }]
+    if (!hasRuntimeSignal) {
+      return [{
+        section: '',
+        items: [
+          { route: '/setup', label: t('sidebar.setup'), icon: 'setup' },
+        ]
+      }, ...fullNavItems]
+    }
+    return fullNavItems
   },
 
   /** 路由注册表 */
