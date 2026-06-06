@@ -151,7 +151,6 @@
   background: var(--bg-card-hover);
   border-color: color-mix(in srgb, var(--accent) 24%, var(--border-primary));
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
 }
 .platform-card.active {
   box-shadow: inset 3px 0 0 var(--success, #22c55e), var(--shadow-sm);
@@ -508,7 +507,6 @@
 }
 
 .setup-hero-site-link:hover {
-  transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border-primary));
   background: color-mix(in srgb, var(--accent) 12%, var(--bg-secondary));
 }

@@ -812,7 +812,7 @@ function locateModel(page, full) {
     toggle?.click()
   }
   requestAnimationFrame(() => {
-    const card = page.querySelector(`[data-provider="${cssEscape(providerKey)}"] .model-row[data-model-id="${cssEscape(modelId)}"]`)
+    const card = page.querySelector(`[data-provider="${cssEscape(providerKey)}"] .model-item[data-model-id="${cssEscape(modelId)}"]`)
     if (!card) return
     card.scrollIntoView({ behavior: 'smooth', block: 'center' })
     card.classList.add('model-row-highlight')
@@ -974,10 +974,10 @@ function renderProviders(page, state) {
   bindProviderButtons(listEl, page, state)
 }
 
-// 渲染模型行(紧凑单行样式)
+// 渲染模型列表项
 function renderModelRows(providerKey, models, primary, search, fallbackSet = new Set()) {
   if (!models.length) {
-    return `<div class="model-row model-row--empty">${t('models.noModel')}</div>`
+    return `<div class="model-item model-item--empty">${t('models.noModel')}</div>`
   }
   return models.map((m) => {
     const id = typeof m === 'string' ? m : m.id
@@ -986,40 +986,47 @@ function renderModelRows(providerKey, models, primary, search, fallbackSet = new
     const isPrimary = full === primary
     const isFallback = !isPrimary && fallbackSet.has(full)
 
-    // 元数据行
-    const metaParts = []
-    if (name !== id) metaParts.push(escapeHtml(name))
+    // meta 信息
+    const metaParts = [escapeHtml(providerKey)]
     if (m.contextWindow) metaParts.push((m.contextWindow / 1000) + 'K')
     const metaStr = metaParts.join(' · ')
 
-    // 延迟/状态标签
-    let statusLabel = ''
-    let statusClass = ''
+    // 延迟状态
+    let statusHtml = ''
     if (m.testStatus === 'fail') {
-      statusLabel = t('models.unavailable')
-      statusClass = 'model-status--error'
+      statusHtml = `<span class="model-latency model-latency--err">${t('models.unavailable')}</span>`
     } else if (m.latency != null) {
-      statusLabel = (m.latency / 1000).toFixed(1) + 's'
-      statusClass = m.latency < 3000 ? 'model-status--ok' : m.latency < 8000 ? 'model-status--warn' : 'model-status--error'
+      const cls = m.latency < 3000 ? 'model-latency--ok' : m.latency < 8000 ? 'model-latency--warn' : 'model-latency--err'
+      statusHtml = `<span class="model-latency ${cls}">${(m.latency / 1000).toFixed(1)}s</span>`
     }
 
-    const rowClass = `model-row${isPrimary ? ' model-row--primary' : ''}${isFallback ? ' model-row--fallback' : ''}`
+    // 角色标签
+    const badges = []
+    if (isPrimary) badges.push(`<span class="model-tag model-tag--primary">${t('models.primaryModel')}</span>`)
+    if (isFallback) badges.push(`<span class="model-tag model-tag--fb">${t('models.fallbackShort')}</span>`)
+    if (m.reasoning) badges.push(`<span class="model-tag model-tag--rz">推理</span>`)
+
+    const itemClass = `model-item${isPrimary ? ' model-item--primary' : ''}${isFallback ? ' model-item--fallback' : ''}`
 
     return `
-      <div class="${rowClass}" data-model-id="${escapeHtml(id)}" data-full="${escapeHtml(full)}">
-        <span class="model-row__drag">⋮⋮</span>
-        <input type="checkbox" class="model-row__cb" data-model-id="${escapeHtml(id)}">
-        <span class="model-row__name" title="${escapeHtml(id)}">${escapeHtml(id)}</span>
-        ${metaStr ? `<span class="model-row__meta">${metaStr}</span>` : ''}
-        ${statusLabel ? `<span class="model-status ${statusClass}">${statusLabel}</span>` : ''}
-        ${isPrimary ? `<span class="model-row__badge model-row__badge--primary">${t('models.primaryModel')}</span>` : ''}
-        ${isFallback ? `<span class="model-row__badge model-row__badge--fb">${t('models.fallbackShort')}</span>` : ''}
-        ${m.reasoning ? `<span class="model-row__badge model-row__badge--rz">R</span>` : ''}
-        <div class="model-row__actions">
-          <button class="btn btn-xs btn-secondary" data-action="test-model">${t('models.testBtn')}</button>
-          ${!isPrimary ? `<button class="btn btn-xs btn-secondary" data-action="set-primary">★</button>` : ''}
-          <button class="btn btn-xs btn-secondary" data-action="edit-model">${t('models.editModel')}</button>
-          <button class="btn btn-xs btn-danger" data-action="delete-model">${t('models.deleteModel')}</button>
+      <div class="${itemClass}" data-model-id="${escapeHtml(id)}" data-full="${escapeHtml(full)}">
+        <span class="model-item__drag">⋮⋮</span>
+        <input type="checkbox" class="model-item__cb" data-model-id="${escapeHtml(id)}">
+        <div class="model-item__body">
+          <div class="model-item__row">
+            <span class="model-item__name" title="${escapeHtml(id)}">${escapeHtml(id)}</span>
+            ${statusHtml}
+            <div class="model-item__actions">
+              ${!isPrimary ? `<button class="btn btn-sm btn-secondary" data-action="set-primary">${t('models.setPrimary')}</button>` : ''}
+              <button class="btn btn-sm btn-secondary" data-action="test-model">${t('models.testBtn')}</button>
+              <button class="btn btn-sm btn-secondary" data-action="edit-model">${t('models.editModel')}</button>
+              <button class="btn btn-sm btn-danger" data-action="delete-model">${t('models.deleteModel')}</button>
+            </div>
+          </div>
+          <div class="model-item__row">
+            <span class="model-item__meta">${metaStr}</span>
+            ${badges.length ? `<span class="model-item__tags">${badges.join('')}</span>` : ''}
+          </div>
         </div>
       </div>
     `
@@ -1217,9 +1224,9 @@ function bindProviderButtons(listEl, page, state) {
 
     // 仅从拖拽手柄启动
     container.addEventListener('pointerdown', e => {
-      const handle = e.target.closest('.model-row__drag')
+      const handle = e.target.closest('.model-item__drag')
       if (!handle) return
-      const card = handle.closest('.model-row')
+      const card = handle.closest('.model-item')
       if (!card) return
 
       e.preventDefault()
@@ -1255,7 +1262,7 @@ function bindProviderButtons(listEl, page, state) {
       startY = e.clientY
 
       // 查找目标位置
-      const siblings = [...container.querySelectorAll('.model-row:not([style*="position: fixed"])')].filter(c => c !== dragged)
+      const siblings = [...container.querySelectorAll('.model-item:not([style*="position: fixed"])')].filter(c => c !== dragged)
       for (const sibling of siblings) {
         const rect = sibling.getBoundingClientRect()
         const midY = rect.top + rect.height / 2
@@ -1291,7 +1298,7 @@ function bindProviderButtons(listEl, page, state) {
         const providerKey = section.dataset.provider
         const provider = state.config.models.providers[providerKey]
         if (provider) {
-          const newOrderIds = [...container.querySelectorAll('.model-row')].map(c => c.dataset.modelId)
+          const newOrderIds = [...container.querySelectorAll('.model-item')].map(c => c.dataset.modelId)
           pushUndo(state)
           const oldModels = [...provider.models]
           provider.models = newOrderIds.map(id => oldModels.find(m => (typeof m === 'string' ? m : m.id) === id))
@@ -1323,7 +1330,7 @@ function bindProviderButtons(listEl, page, state) {
     const providerKey = section.dataset.provider
     const provider = state.config.models.providers[providerKey]
     if (!provider) return
-    const card = btn.closest('.model-row')
+    const card = btn.closest('.model-item')
 
         // checkbox 改变时不需要阻止冒泡,由 handleAction 内部处理
     if (btn.type === 'checkbox') {
@@ -2053,7 +2060,7 @@ function editModel(page, state, providerKey, idx) {
 
 // 全选/取消全选
 function handleSelectAll(section) {
-  const boxes = section.querySelectorAll('.model-row__cb')
+  const boxes = section.querySelectorAll('.model-item__cb')
   const allChecked = [...boxes].every(cb => cb.checked)
   boxes.forEach(cb => { cb.checked = !allChecked })
   // 更新批量删除按钮状态
@@ -2124,7 +2131,7 @@ async function handleBatchTest(section, state, providerKey) {
 
     const model = (provider.models || []).find(m => (typeof m === 'string' ? m : m.id) === modelId)
     // 标记当前正在测试的卡片
-    const card = section.querySelector(`.model-row[data-model-id="${modelId}"]`)
+    const card = section.querySelector(`.model-item[data-model-id="${modelId}"]`)
     if (card) card.style.outline = '2px solid var(--accent)'
 
     const start = Date.now()

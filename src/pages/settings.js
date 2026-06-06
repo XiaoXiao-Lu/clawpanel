@@ -247,7 +247,7 @@ async function loadOpenclawDir(page) {
         <span class="form-hint">${t('settings.currentPath')}:</span>
         <strong style="font-size:var(--font-size-sm)">${escapeHtml(info.path)}</strong>
         <span style="margin-left:var(--space-xs);font-size:var(--font-size-xs)">${statusText}</span>
-        ${info.isCustom ? `<span class="clawhub-badge" style="margin-left:var(--space-xs);background:rgba(99,102,241,0.14);color:#6366f1;font-size:var(--font-size-xs)">${t('settings.customBadge')}</span>` : ''}
+        ${info.isCustom ? `<span class="clawhub-badge" style="margin-left:var(--space-xs);background:var(--accent-muted);color:var(--accent);font-size:var(--font-size-xs)">${t('settings.customBadge')}</span>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:var(--space-sm);flex-wrap:wrap">
         <input class="form-input" data-name="openclaw-dir" placeholder="${t('settings.dirPlaceholder')}" value="${escapeHtml(customValue)}" style="max-width:420px">
@@ -739,7 +739,7 @@ async function loadCliBinding(page) {
       html += `<div style="margin-bottom:var(--space-sm);font-size:var(--font-size-sm)">
         <span style="color:var(--text-secondary)">${t('settings.cliCurrent')}:</span>
         <code style="font-size:var(--font-size-xs)">${escapeHtml(currentPath)}</code>
-        ${boundPath ? `<span class="clawhub-badge" style="margin-left:var(--space-xs);background:rgba(99,102,241,0.14);color:#6366f1;font-size:var(--font-size-xs)">${t('settings.cliBound')}</span>` : ''}
+        ${boundPath ? `<span class="clawhub-badge" style="margin-left:var(--space-xs);background:var(--accent-muted);color:var(--accent);font-size:var(--font-size-xs)">${t('settings.cliBound')}</span>` : ''}
       </div>`
     }
 

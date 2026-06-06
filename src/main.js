@@ -202,7 +202,7 @@ function showLoginOverlay(defaultPw) {
       ${_logoSvg}
       <div class="login-title">ClawPanel</div>
       <div class="login-desc">${hasDefault
-        ? `${t('security.firstLoginHint')}<br><span style="font-size:12px;color:#6366f1;font-weight:600">${t('security.firstLoginChangeHint', { security: securityLabel })}</span>`
+        ? `${t('security.firstLoginHint')}<br><span style="font-size:12px;color:var(--accent);font-weight:600">${t('security.firstLoginChangeHint', { security: securityLabel })}</span>`
         : (isTauri ? t('security.appLocked') : t('security.loginPrompt'))}</div>
       <form id="login-form">
         <input class="login-input" type="${hasDefault ? 'text' : 'password'}" id="login-pw" placeholder="${t('security.accessPasswordPlaceholder')}" autocomplete="current-password" autofocus value="${hasDefault ? defaultPw : ''}" />
@@ -473,7 +473,7 @@ async function boot() {
   if (sessionStorage.getItem('clawpanel_must_change_pw') === '1') {
     const banner = document.createElement('div')
     banner.id = 'pw-change-banner'
-    banner.style.cssText = 'position:sticky;top:0;z-index:80;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:8px 16px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:13px;font-weight:500;box-shadow:0 2px 8px rgba(0,0,0,0.15);min-height:52px;flex-shrink:0'
+    banner.style.cssText = 'position:sticky;top:0;z-index:80;background:var(--accent);color:#fff;padding:8px 16px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:13px;font-weight:500;box-shadow:var(--shadow-md);min-height:52px;flex-shrink:0'
     banner.innerHTML = `
       <span>${statusIcon('warn', 14)} ${t('common.defaultPasswordBanner')}</span>
       <a href="#/security" style="color:#fff;background:rgba(255,255,255,0.2);min-height:44px;padding:0 14px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center" onclick="document.getElementById('pw-change-banner').remove();sessionStorage.removeItem('clawpanel_must_change_pw')">${t('common.goSecurity')}</a>
@@ -1057,8 +1057,8 @@ function startUpdateChecker() {
         <div style="font-size:48px;margin-bottom:16px">⚠️</div>
         <div style="font-size:18px;font-weight:600;margin-bottom:8px;color:#18181b">${t('common.pageLoadFailed')}</div>
         <div style="font-size:13px;color:#71717a;max-width:400px;line-height:1.6;margin-bottom:16px">${String(bootErr?.message || bootErr).replace(/</g,'&lt;')}</div>
-        <button onclick="location.reload()" style="padding:8px 20px;border-radius:8px;border:none;background:#6366f1;color:#fff;font-size:13px;cursor:pointer">${t('common.reloadRetry')}</button>
-        <div style="margin-top:24px;font-size:11px;color:#a1a1aa">${t('common.pageLoadFailedHint')}<br><a href="https://github.com/qingchencloud/clawpanel/issues" target="_blank" style="color:#6366f1">GitHub Issues</a></div>
+        <button onclick="location.reload()" style="padding:8px 20px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;cursor:pointer">${t('common.reloadRetry')}</button>
+        <div style="margin-top:24px;font-size:11px;color:#a1a1aa">${t('common.pageLoadFailedHint')}<br><a href="https://github.com/qingchencloud/clawpanel/issues" target="_blank" style="color:var(--accent)">GitHub Issues</a></div>
       </div>`
   }
   startUpdateChecker()

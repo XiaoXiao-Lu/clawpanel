@@ -192,7 +192,7 @@ function renderTopology(container, agents, bindings, platforms) {
     const cx2 = x2 - COL_GAP * 0.35
     const opacity = e.enabled ? 0.7 : 0.25
     const dash = e.implicit ? '6,4' : 'none'
-    const color = e.enabled ? (src.color || '#6366f1') : '#94a3b8'
+    const color = e.enabled ? (src.color || 'var(--accent)') : 'var(--text-tertiary)'
     svg += `<path d="M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}" fill="none" stroke="${color}" stroke-width="2" stroke-opacity="${opacity}" stroke-dasharray="${dash}"/>`
     // Arrow
     svg += `<circle cx="${x2 - 3}" cy="${y2}" r="3" fill="${color}" fill-opacity="${opacity}"/>`

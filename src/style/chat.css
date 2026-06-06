@@ -369,7 +369,6 @@
 
 .chat-workspace-core-item:hover,
 .chat-workspace-core-item.active {
-  transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--accent) 28%, var(--border-primary));
   background: color-mix(in srgb, var(--accent) 8%, var(--bg-primary));
 }
@@ -658,7 +657,7 @@
 }
 
 .msg-user .msg-bubble {
-  background: linear-gradient(135deg, var(--brand-indigo), color-mix(in srgb, var(--brand-indigo) 82%, #111827));
+  background: var(--accent);
   color: var(--text-inverse);
   border-bottom-right-radius: var(--radius-sm);
 }
@@ -1705,7 +1704,7 @@
   max-width: 90%;
   max-height: 90%;
   border-radius: var(--radius-md);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-lg);
   cursor: default;
   object-fit: contain;
 }
@@ -1850,7 +1849,7 @@
   background: var(--bg-secondary, #fff);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  box-shadow: var(--shadow-lg);
   z-index: 30;
   overflow: hidden;
 }

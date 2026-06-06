@@ -61,12 +61,12 @@
 }
 .hermes-progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 80%, #fff));
+  background: var(--accent);
   border-radius: var(--radius-sm);
   transition: width 0.4s ease;
 }
 .hermes-progress-bar.error {
-  background: linear-gradient(90deg, var(--error, #ef4444), color-mix(in srgb, var(--error, #ef4444) 80%, #fff));
+  background: var(--error, #ef4444);
 }
 
 /* === Hermes Setup — Log Panel === */
@@ -337,7 +337,7 @@
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
   z-index: 100;
-  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  box-shadow: var(--shadow-md);
   margin-top: 4px;
   padding: 4px;
 }

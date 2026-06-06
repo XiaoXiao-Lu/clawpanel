@@ -460,9 +460,9 @@ function renderViewTabs() {
 
 function renderDreamLane(title, subtitle, entries, accent) {
   const tones = {
-    violet: { dot: '#a855f7', border: 'var(--accent, #6366f1)' },
-    cyan: { dot: '#22d3ee', border: 'var(--success, #22c55e)' },
-    amber: { dot: '#fbbf24', border: 'var(--warning, #f59e0b)' },
+    violet: { dot: '#a855f7', border: 'var(--accent)' },
+    cyan: { dot: '#22d3ee', border: 'var(--success)' },
+    amber: { dot: '#fbbf24', border: 'var(--warning)' },
   }
   const tone = tones[accent] || tones.violet
   const items = entries.length

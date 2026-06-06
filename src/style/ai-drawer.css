@@ -22,12 +22,12 @@
 }
 .ai-fab:hover {
   transform: scale(1.08);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
+  box-shadow: var(--shadow-md);
 }
 .ai-fab.dragging {
   opacity: 0.85;
   transform: scale(1.12);
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.5);
+  box-shadow: var(--shadow-lg);
   cursor: grabbing;
 }
 .ai-fab svg {

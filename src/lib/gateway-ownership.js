@@ -169,7 +169,7 @@ export async function showGatewayConflictGuidance({ error = null, service = null
 
   const stepCard = (n, text) => `
     <div style="display:flex;gap:10px;align-items:flex-start">
-      <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--primary, #6366f1);color:#fff;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px">${n}</span>
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px">${n}</span>
       <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;flex:1">${escapeHtml(text)}</div>
     </div>`
 
@@ -271,7 +271,7 @@ export async function showInstallationCleanup({ onRefresh = null } = {}) {
 
     const badges = []
     if (isActive) badges.push(`<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(34,197,94,0.14);color:#16a34a">● ${t('services.cleanupActive')}</span>`)
-    if (isBound) badges.push(`<span style="display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(99,102,241,0.14);color:#6366f1">✓ ${t('services.cleanupBound')}</span>`)
+    if (isBound) badges.push(`<span style="display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--accent-muted);color:var(--accent)">✓ ${t('services.cleanupBound')}</span>`)
     if (inst.version) badges.push(`<span style="display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px;background:var(--bg-tertiary);color:var(--text-secondary)">${escapeHtml(inst.version)}</span>`)
     if (inst.source) badges.push(`<span style="display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px;background:var(--bg-tertiary);color:var(--text-tertiary)">${escapeHtml(sourceLabel(inst.source))}</span>`)
 

@@ -254,7 +254,7 @@
 }
 
 .ast-msg-bubble-user {
-  background: linear-gradient(135deg, var(--brand-indigo), color-mix(in srgb, var(--brand-indigo) 82%, #111827));
+  background: var(--accent);
   color: var(--text-inverse);
   border-bottom-right-radius: var(--radius-sm);
   white-space: pre-wrap;
@@ -429,7 +429,6 @@
 .ast-input-wrap:focus-within {
   border-color: var(--accent);
   box-shadow: 0 6px 20px rgba(79, 70, 229, 0.05), 0 0 0 3px var(--accent-muted);
-  transform: translateY(-1px);
 }
 
 .ast-textarea {
@@ -908,7 +907,6 @@
 .ast-skill-card:hover {
   border-color: var(--accent);
   background: var(--accent-muted);
-  transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
@@ -1274,15 +1272,15 @@
   opacity: 0;
 }
 .ast-main[data-mode="plan"] .ast-messages::before {
-  background: linear-gradient(180deg, rgba(59,130,246,0.06) 0%, transparent 100%);
+  background: var(--accent-muted);
   opacity: 1;
 }
 .ast-main[data-mode="execute"] .ast-messages::before {
-  background: linear-gradient(180deg, rgba(139,92,246,0.06) 0%, transparent 100%);
+  background: var(--accent-muted);
   opacity: 1;
 }
 .ast-main[data-mode="unlimited"] .ast-messages::before {
-  background: linear-gradient(180deg, rgba(245,158,11,0.06) 0%, transparent 100%);
+  background: var(--warning-muted);
   opacity: 1;
 }
 
@@ -1836,7 +1834,7 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-sm);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  box-shadow: var(--shadow-lg);
   padding: 4px 0;
   animation: msg-in 0.12s ease-out;
 }
@@ -1877,7 +1875,7 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.2);
+  box-shadow: var(--shadow-lg);
   width: min(640px, 90vw);
   max-height: 80vh;
   display: flex;
@@ -2135,7 +2133,6 @@
 .ast-preset-btn:hover {
   background: var(--accent-muted) !important;
   border-color: var(--accent) !important;
-  transform: translateY(-1px);
 }
 
 /* Settings form inputs: more breathing room */
@@ -2173,7 +2170,6 @@
 
 .ast-quick-btn:hover {
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
 }
 
 /* Skills grid: auto-fill instead of fixed 2 col */

@@ -149,7 +149,7 @@
 }
 
 .model-row--primary {
-  background: linear-gradient(90deg, var(--success-muted) 0%, transparent 60%);
+  background: var(--success-muted);
   border-left: 2px solid var(--success);
 }
 .model-row--fallback {
@@ -496,7 +496,6 @@
   border-color: color-mix(in srgb, var(--accent) 42%, var(--border-primary));
   background: var(--accent-muted);
   color: var(--accent);
-  transform: translateY(-1px);
 }
 
 .models-fallback-pill,
@@ -1442,6 +1441,140 @@
 .models-switch-row .hm-combo {
   flex: 1 1 320px;
   min-width: 200px;
+}
+
+/* ============================================================
+   Refactored model page styles (v2)
+   === Provider cards + Model items + Console layout ===
+   ============================================================ */
+
+/* --- Provider cards --- */
+.provider-card {
+  margin-bottom: var(--space-lg);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.provider-card__header {
+  display: flex; align-items: center; gap: var(--space-sm);
+  padding: 12px var(--space-md);
+  cursor: pointer; user-select: none;
+  border-bottom: 1px solid var(--border-secondary);
+  transition: background var(--transition-fast);
+}
+.provider-card__header:hover { background: var(--bg-hover); }
+.provider-card__chevron { font-size: 10px; color: var(--text-tertiary); width: 12px; text-align: center; flex-shrink: 0; }
+.provider-card__name {
+  font-family: var(--font-mono); font-size: var(--font-size-sm);
+  font-weight: 700; color: var(--text-primary);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.provider-card__count {
+  font-size: var(--font-size-xs); color: var(--text-tertiary);
+  font-weight: 500; white-space: nowrap;
+}
+.provider-card__actions { display: flex; gap: 4px; margin-left: auto; flex-shrink: 0; }
+.provider-card__body { padding: 0; }
+.provider-card__batch {
+  display: flex; gap: 6px; padding: 8px var(--space-md);
+  border-top: 1px solid var(--border-secondary);
+  background: var(--surface-sunken);
+}
+.provider-card__more { font-size: var(--font-size-xs); color: var(--text-tertiary); padding: 6px var(--space-md); }
+
+/* --- Model items --- */
+.model-item {
+  display: flex; align-items: stretch; gap: 10px;
+  padding: 12px var(--space-md);
+  border-bottom: 1px solid var(--border-secondary);
+  transition: background var(--transition-fast);
+}
+.model-item:hover { background: var(--bg-hover); }
+.model-item--primary { background: var(--success-muted); }
+.model-item--fallback { background: var(--info-muted); }
+.model-item--empty { color: var(--text-tertiary); font-size: var(--font-size-sm); justify-content: center; padding: 24px var(--space-md); }
+
+.model-item__drag {
+  display: flex; align-items: center;
+  color: var(--text-tertiary); cursor: grab;
+  font-size: 14px; padding: 2px 0; flex-shrink: 0;
+  opacity: 0.3; touch-action: none;
+  transition: opacity var(--transition-fast);
+}
+.model-item:hover .model-item__drag { opacity: 0.6; }
+
+.model-item__cb { align-self: center; flex-shrink: 0; margin: 0; cursor: pointer; accent-color: var(--accent); }
+
+.model-item__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.model-item__row { display: flex; align-items: center; gap: 10px; }
+
+.model-item__name {
+  font-family: var(--font-mono); font-size: 14px; font-weight: 650;
+  color: var(--text-primary); flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.model-item__meta {
+  font-size: 12px; color: var(--text-tertiary);
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.model-item__tags { display: flex; gap: 6px; flex-shrink: 0; }
+.model-item__actions { display: flex; gap: 6px; flex-shrink: 0; }
+.model-item__actions .btn-sm { min-height: 30px; padding: 0 12px; font-size: 12px; }
+
+/* Latency + state tags */
+.model-latency { font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: var(--radius-pill); white-space: nowrap; flex-shrink: 0; }
+.model-latency--ok  { background: var(--success-muted); color: var(--success); }
+.model-latency--warn { background: var(--warning-muted); color: var(--warning); }
+.model-latency--err  { background: var(--error-muted);  color: var(--error); }
+
+.model-tag { font-size: 11px; font-weight: 650; padding: 2px 8px; border-radius: var(--radius-pill); white-space: nowrap; }
+.model-tag--primary { background: var(--success); color: var(--text-inverse); }
+.model-tag--fb      { background: var(--info-muted);  color: var(--info); }
+.model-tag--rz      { background: var(--accent-muted); color: var(--accent); }
+
+/* --- Console layout (single column) --- */
+.models-console-header {
+  display: flex; align-items: center; gap: var(--space-md); min-width: 0;
+}
+.models-console-badges {
+  display: flex; gap: 6px; margin-left: auto; flex-shrink: 0;
+}
+.models-cb-badge {
+  font-size: 11px; font-weight: 600; color: var(--text-tertiary);
+  padding: 3px 12px; border-radius: var(--radius-pill);
+  border: 1px solid var(--border-secondary); background: var(--surface-sunken);
+  white-space: nowrap;
+}
+.models-console-footer {
+  display: flex; flex-direction: column; gap: var(--space-sm);
+  border-top: 1px solid var(--border-secondary); padding-top: var(--space-md);
+}
+.models-console-meta {
+  display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap;
+}
+.models-fallback-inline {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex: 1; min-width: 0;
+}
+.models-empty-fallback { color: var(--text-tertiary); font-weight: 400; font-size: var(--font-size-xs); }
+.btn-ghost {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 24px; padding: 0 8px; border: none; background: transparent;
+  color: var(--text-tertiary); font-size: var(--font-size-xs);
+  cursor: pointer; white-space: nowrap;
+  transition: color var(--transition-fast);
+}
+.btn-ghost:hover { color: var(--accent); }
+
+/* Combobox in model switch row */
+.models-switch-actions { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
+
+/* Highlight animation */
+@keyframes model-row-highlight {
+  0%, 100% { background: transparent; }
+  20%, 70% { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 }
 
 

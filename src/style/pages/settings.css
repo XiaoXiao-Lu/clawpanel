@@ -3,25 +3,12 @@
 
 /* 配置编辑区 */
 .config-section {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--brand-indigo) 4%, transparent), transparent 86px),
-    var(--surface-raised);
+  background: var(--surface-raised);
   border: 1px solid var(--border-secondary);
   border-radius: var(--radius-lg);
   padding: var(--space-xl);
   margin-bottom: var(--space-lg);
   box-shadow: var(--shadow-sm);
-  position: relative;
-  overflow: hidden;
-}
-
-.config-section::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 2px;
-  background: linear-gradient(90deg, var(--brand-indigo), var(--brand-orange));
-  opacity: 0.68;
 }
 
 .config-section-title {
@@ -66,7 +53,8 @@
   width: 52px; height: 52px;
   display: grid; place-items: center;
   border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, transparent), color-mix(in srgb, var(--accent) 4%, transparent));
+  background: var(--accent-muted);
+  color: var(--accent);
   font-size: 26px; flex-shrink: 0;
 }
 
@@ -239,7 +227,6 @@
 .clawhub-item[data-action] { cursor: pointer; }
 .clawhub-item:hover {
   border-color: var(--border-focus); box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
   z-index: 20;
 }
 .clawhub-item--eligible { border-left-color: var(--success); }
@@ -350,16 +337,15 @@
   width: 38px; height: 38px; border-radius: var(--radius-md);
   display: grid; place-items: center; flex: 0 0 auto;
   color: white; font-weight: 800; font-size: 17px;
-  background: linear-gradient(135deg, #2563eb, #14b8a6);
-  box-shadow: inset 0 -10px 18px color-mix(in srgb, #000 12%, transparent);
+  background: var(--accent);
   position: relative; overflow: hidden;
 }
-.clawhub-item.store-item:nth-child(4n + 2) .skills-store-card-icon { background: linear-gradient(135deg, #f97316, #facc15); }
-.clawhub-item.store-item:nth-child(4n + 3) .skills-store-card-icon { background: linear-gradient(135deg, #7c3aed, #ec4899); }
-.clawhub-item.store-item:nth-child(4n + 4) .skills-store-card-icon { background: linear-gradient(135deg, #0f766e, #22c55e); }
-.skill-card-item:nth-child(4n + 2) .skills-card-icon { background: linear-gradient(135deg, #f97316, #facc15); }
-.skill-card-item:nth-child(4n + 3) .skills-card-icon { background: linear-gradient(135deg, #7c3aed, #ec4899); }
-.skill-card-item:nth-child(4n + 4) .skills-card-icon { background: linear-gradient(135deg, #0f766e, #22c55e); }
+.clawhub-item.store-item:nth-child(4n + 2) .skills-store-card-icon { background: var(--accent); }
+.clawhub-item.store-item:nth-child(4n + 3) .skills-store-card-icon { background: var(--accent); }
+.clawhub-item.store-item:nth-child(4n + 4) .skills-store-card-icon { background: var(--accent); }
+.skill-card-item:nth-child(4n + 2) .skills-card-icon { background: var(--accent); }
+.skill-card-item:nth-child(4n + 3) .skills-card-icon { background: var(--accent); }
+.skill-card-item:nth-child(4n + 4) .skills-card-icon { background: var(--accent); }
 .skills-card-icon span,
 .skills-store-card-icon span,
 .skills-preview-modal-icon span {
@@ -498,7 +484,7 @@
   display: flex; justify-content: space-between; align-items: flex-start;
   gap: var(--space-xl); padding: var(--space-xl); margin-bottom: var(--space-lg);
   border: 1px solid var(--border-primary); border-radius: var(--radius-xl);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 5%, var(--surface-raised)), var(--surface-raised));
+  background: var(--surface-raised);
   box-shadow: var(--shadow-sm);
 }
 
@@ -509,7 +495,7 @@
 .skills-store-hero-icon {
   width: 44px; height: 44px; display: grid; place-items: center;
   border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #6366f1));
+  background: var(--accent);
   color: white; font-size: 22px; flex-shrink: 0;
 }
 
@@ -556,7 +542,6 @@
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border-primary));
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 6%, var(--surface-raised));
-  transform: translateY(-1px);
 }
 .skills-chip.active {
   border-color: var(--accent); color: white; background: var(--accent);

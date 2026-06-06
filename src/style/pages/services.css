@@ -7,34 +7,17 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-lg);
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--brand-indigo) 6%, transparent), transparent 46%),
-    var(--bg-card);
+  background: var(--bg-card);
   border: 1px solid var(--border-secondary);
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-md);
   box-shadow: var(--shadow-sm);
-  transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
-  position: relative;
-  overflow: hidden;
-}
-
-.service-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 3px;
-  background: linear-gradient(90deg, var(--brand-indigo), var(--brand-orange));
-  opacity: 0.82;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .service-card:hover {
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--brand-indigo) 9%, transparent), transparent 48%),
-    var(--bg-card-hover);
-  border-color: color-mix(in srgb, var(--accent) 20%, var(--border-primary));
+  border-color: var(--border-primary);
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
 }
 
 .service-info {
@@ -282,7 +265,6 @@
   background: var(--bg-card-hover);
   border-color: color-mix(in srgb, var(--accent) 28%, var(--border-primary));
   box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
 }
 
 .gw-option-card.selected {
@@ -305,7 +287,7 @@
 }
 
 .gw-option-card.selected .gw-option-icon {
-  background: linear-gradient(135deg, var(--brand-indigo), var(--brand-orange));
+  background: var(--accent);
   color: white;
 }
 
@@ -431,7 +413,7 @@
   max-width: 480px;
   max-height: 85vh;
   overflow-y: auto;
-  box-shadow: 0 24px 80px rgba(0,0,0,.35);
+  box-shadow: var(--shadow-lg);
 }
 [data-theme="dark"] .docker-dialog {
   background: var(--bg-card, #1e1e2e);

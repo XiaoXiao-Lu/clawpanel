@@ -1,171 +1,33 @@
-/* === Visual Polish Layer (absorbed from prototype-polish.css) === */
-/* Loaded after all domain page styles to override with brand polish */
+/* ============================================================
+   Polish — 视觉润色层（轻量、克制）
+   ============================================================
+   规则：
+   1. 不再用超大选择器列表覆盖所有组件
+   2. 不再用 !important
+   3. 不再强制给所有卡片加渐变顶边
+   4. 仅处理引擎特定的差异化样式和少量全局微调
+   ============================================================ */
 
-/*
- * UI prototype consolidation layer.
- * Visual-only overrides loaded last so existing routes and workflows keep their DOM/JS.
- */
-
+/* ─── 内容区背景微调 ─── */
 #content {
-  background:
-    radial-gradient(circle at 18% -8%, color-mix(in srgb, var(--brand-indigo) 14%, transparent), transparent 340px),
-    radial-gradient(circle at 92% 8%, color-mix(in srgb, var(--brand-orange) 12%, transparent), transparent 320px),
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-primary) 94%, #fff 6%) 0%, var(--bg-primary) 100%);
+  background: var(--bg-base);
 }
 
-[data-theme="dark"] #content {
-  background:
-    radial-gradient(circle at 14% -10%, rgba(109, 114, 255, 0.18), transparent 380px),
-    radial-gradient(circle at 94% 2%, rgba(251, 146, 60, 0.12), transparent 340px),
-    linear-gradient(180deg, #080a0e 0%, #0a0d12 100%);
-}
-
-/* Sidebar light theme overrides — MOVED to layout.css (T03) */
-
+/* ─── 页面最大宽度 ─── */
 .page:not([data-engine="hermes"]):not([data-engine="xintian"]) {
-  max-width: 1500px;
+  max-width: 1400px;
 }
 
-.page-header {
-  padding: 2px 0 10px;
-}
-
+/* ─── 标题字体统一 ─── */
 .page-title,
-.dashboard-health-copy h2,
 .config-section-title,
 .models-primary-name,
 .connectors-console-title,
 .skills-hero-title {
-  font-family: var(--font-display);
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
 }
 
-.card,
-.stat-card,
-.overview-card,
-.service-card,
-.config-section,
-.usage-top-card,
-.session-row,
-.memory-sidebar,
-.memory-editor,
-.fallback-editor-panel,
-.fallback-workbench-pane,
-.models-control-console,
-.model-card,
-.connectors-console,
-.connectors-list,
-.connectors-preview,
-.connectors-card,
-.connectors-editor-advanced,
-.platform-card,
-.platform-pick,
-.agent-binding-card,
-.plugin-card,
-.agent-card,
-.agent-section,
-.agent-file-card,
-.agent-skill-card,
-.skills-hero,
-.skills-agent-selector,
-.clawhub-item,
-.skill-card-item,
-.skills-store-panel,
-.skills-preview-modal,
-.skills-hover-preview,
-.gw-option-card,
-.gw-advanced-panel,
-.docker-dialog,
-.modal,
-.empty-state,
-.toast,
-.log-viewer,
-.hosted-agent-panel {
-  border-color: color-mix(in srgb, var(--border-primary) 78%, var(--brand-indigo) 22%);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 92%, var(--brand-indigo) 8%), var(--surface-raised)),
-    var(--surface-raised);
-  box-shadow: 0 10px 30px color-mix(in srgb, #0f172a 11%, transparent);
-}
-
-[data-theme="dark"] .card,
-[data-theme="dark"] .stat-card,
-[data-theme="dark"] .overview-card,
-[data-theme="dark"] .service-card,
-[data-theme="dark"] .config-section,
-[data-theme="dark"] .usage-top-card,
-[data-theme="dark"] .session-row,
-[data-theme="dark"] .memory-sidebar,
-[data-theme="dark"] .memory-editor,
-[data-theme="dark"] .fallback-editor-panel,
-[data-theme="dark"] .fallback-workbench-pane,
-[data-theme="dark"] .models-control-console,
-[data-theme="dark"] .model-card,
-[data-theme="dark"] .connectors-console,
-[data-theme="dark"] .connectors-list,
-[data-theme="dark"] .connectors-preview,
-[data-theme="dark"] .connectors-card,
-[data-theme="dark"] .connectors-editor-advanced,
-[data-theme="dark"] .platform-card,
-[data-theme="dark"] .platform-pick,
-[data-theme="dark"] .agent-binding-card,
-[data-theme="dark"] .plugin-card,
-[data-theme="dark"] .agent-card,
-[data-theme="dark"] .agent-section,
-[data-theme="dark"] .agent-file-card,
-[data-theme="dark"] .agent-skill-card,
-[data-theme="dark"] .skills-hero,
-[data-theme="dark"] .skills-agent-selector,
-[data-theme="dark"] .clawhub-item,
-[data-theme="dark"] .skill-card-item,
-[data-theme="dark"] .skills-store-panel,
-[data-theme="dark"] .skills-preview-modal,
-[data-theme="dark"] .skills-hover-preview,
-[data-theme="dark"] .gw-option-card,
-[data-theme="dark"] .gw-advanced-panel,
-[data-theme="dark"] .docker-dialog,
-[data-theme="dark"] .modal,
-[data-theme="dark"] .empty-state,
-[data-theme="dark"] .toast,
-[data-theme="dark"] .log-viewer,
-[data-theme="dark"] .hosted-agent-panel {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 86%, var(--brand-indigo) 14%), var(--surface-raised)),
-    var(--surface-raised);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
-}
-
-.card::before,
-.stat-card::before,
-.service-card::before,
-.config-section::before,
-.models-control-console::before,
-.connectors-console::before,
-.skills-hero::before,
-.agent-card::before,
-.agent-section::before,
-.plugin-card::before,
-.platform-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 3px;
-  background: linear-gradient(90deg, var(--brand-indigo), var(--brand-orange));
-  opacity: 0.72;
-  pointer-events: none;
-}
-
-.models-control-console,
-.connectors-console,
-.skills-hero,
-.agent-card,
-.agent-section,
-.plugin-card,
-.platform-card {
-  position: relative;
-  overflow: hidden;
-}
-
+/* ─── 卡片 hover 微升（可选）─── */
 .card:hover,
 .stat-card:hover,
 .overview-card:hover,
@@ -174,20 +36,16 @@
 .model-card:hover,
 .connectors-card:hover,
 .platform-card:hover,
-.platform-pick:hover,
 .agent-card:hover,
-.agent-file-card:hover,
-.agent-skill-card:hover,
 .plugin-card:hover,
 .clawhub-item:hover,
 .skill-card-item:hover,
 .gw-option-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--border-primary));
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent),
-    0 16px 40px color-mix(in srgb, #0f172a 14%, transparent);
+  border-color: var(--border-1);
+  box-shadow: var(--shadow-2);
 }
 
+/* ─── 主按钮统一样式 ─── */
 .btn-primary,
 .dashboard-next-action,
 .chat-send-btn,
@@ -195,11 +53,17 @@
 .hm-chat-send,
 .hm-chat-send-btn,
 .hm-gc-msg--user .hm-gc-msg-bubble {
-  background: linear-gradient(135deg, var(--brand-indigo), color-mix(in srgb, var(--brand-indigo) 62%, var(--brand-orange))) !important;
-  color: var(--text-inverse) !important;
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--brand-indigo) 28%, transparent);
+  background: var(--brand);
+  color: var(--text-inverse);
+  box-shadow: none;
+}
+.btn-primary:hover,
+.dashboard-next-action:hover {
+  background: var(--brand-light);
+  box-shadow: var(--shadow-2);
 }
 
+/* ─── 次级按钮统一样式 ─── */
 .btn-secondary,
 .btn-ghost,
 .models-preset-btn,
@@ -217,10 +81,11 @@
 .hm-chat-new-btn,
 .hm-chat-toggle-sidebar,
 .hm-btn:not(.hm-btn--cta) {
-  border-color: color-mix(in srgb, var(--border-primary) 78%, var(--brand-indigo) 22%);
-  background: color-mix(in srgb, var(--surface-sunken) 86%, var(--brand-indigo) 14%);
+  border-color: var(--border-1);
+  background: var(--bg-elevated);
 }
 
+/* ─── 输入框统一样式 ─── */
 .input,
 .form-input,
 input,
@@ -237,10 +102,11 @@ select,
 .hm-textarea,
 .hm-chat-input,
 .hm-gc-input {
-  border-color: color-mix(in srgb, var(--border-primary) 82%, var(--brand-indigo) 18%);
-  background: color-mix(in srgb, var(--surface-sunken) 90%, var(--brand-indigo) 10%);
+  border-color: var(--border-1);
+  background: var(--bg-base);
 }
 
+/* ─── Badge 统一 ─── */
 .badge,
 .models-status,
 .models-fallback-pill,
@@ -252,10 +118,12 @@ select,
 .ast-model-badge,
 .hm-chat-source-badge,
 .hm-chat-usage-pill {
-  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
-  border-radius: var(--radius-pill);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-full);
+  border-color: color-mix(in srgb, currentColor 15%, transparent);
 }
 
+/* ─── Code block 统一 ─── */
 .log-viewer,
 .connectors-raw pre,
 .page-inline-error-details pre,
@@ -265,33 +133,28 @@ select,
 .hm-chat-msg-bubble pre,
 .hm-skills-markdown pre,
 .hm-services-json {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-sunken) 92%, var(--brand-indigo) 8%), var(--surface-sunken));
-  border: 1px solid color-mix(in srgb, var(--border-primary) 82%, var(--brand-indigo) 18%);
+  background: var(--bg-base);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-md);
 }
 
-/* OpenClaw chat */
+/* ─── Chat 页面 ─── */
 .chat-page,
 .ast-page {
-  background:
-    radial-gradient(circle at 20% -12%, color-mix(in srgb, var(--brand-indigo) 13%, transparent), transparent 320px),
-    var(--bg-primary);
+  background: var(--bg-base);
 }
 
 .chat-header,
 .ast-header {
-  min-height: 56px;
-  background: color-mix(in srgb, var(--surface-raised) 86%, transparent);
-  border-bottom-color: color-mix(in srgb, var(--border-primary) 76%, var(--brand-indigo) 24%);
-  backdrop-filter: blur(12px);
+  min-height: 52px;
+  background: var(--bg-elevated);
+  border-bottom-color: var(--border-1);
 }
 
 .chat-sidebar.open,
 .ast-sidebar.open {
-  background:
-    radial-gradient(circle at -40px -60px, color-mix(in srgb, var(--brand-indigo) 24%, transparent), transparent 220px),
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 94%, var(--brand-indigo) 6%), var(--surface-sunken));
-  border-right-color: color-mix(in srgb, var(--border-primary) 78%, var(--brand-indigo) 22%);
+  background: var(--bg-elevated);
+  border-right-color: var(--border-1);
 }
 
 .chat-session-tools,
@@ -307,132 +170,97 @@ select,
 .ast-soul-card,
 .ast-debug-modal,
 .ast-ctx-menu {
-  border-color: color-mix(in srgb, var(--border-primary) 78%, var(--brand-indigo) 22%);
-  background: color-mix(in srgb, var(--surface-raised) 90%, var(--brand-indigo) 10%);
-  box-shadow: 0 12px 36px color-mix(in srgb, #0f172a 13%, transparent);
+  border-color: var(--border-1);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-1);
 }
 
 .chat-messages,
 .ast-messages {
-  background:
-    radial-gradient(circle at 55% 0%, color-mix(in srgb, var(--brand-indigo) 7%, transparent), transparent 380px),
-    transparent;
+  background: transparent;
 }
 
 .msg-ai .msg-bubble,
 .ast-msg-bubble-ai {
-  border: 1px solid color-mix(in srgb, var(--border-primary) 78%, var(--brand-indigo) 22%);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 92%, var(--brand-indigo) 8%), var(--surface-raised));
-  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-1);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-1);
 }
 
 .msg-user .msg-bubble,
 .ast-msg-bubble-user {
-  background: linear-gradient(135deg, var(--brand-indigo), color-mix(in srgb, var(--brand-indigo) 62%, var(--brand-orange)));
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--brand-indigo) 22%, transparent);
+  background: var(--brand);
+  color: var(--text-inverse);
+  box-shadow: none;
 }
 
 .chat-input-area,
 .ast-input-area {
-  background: color-mix(in srgb, var(--bg-primary) 86%, transparent);
-  border-top-color: color-mix(in srgb, var(--border-primary) 78%, var(--brand-indigo) 22%);
-  backdrop-filter: blur(16px);
+  background: var(--bg-base);
+  border-top-color: var(--border-1);
 }
 
-.chat-attach-btn,
-.ast-attach-btn,
-.chat-toggle-sidebar,
-.ast-toggle-sidebar,
-.chat-message-search-btn {
-  border-radius: var(--radius-md);
-}
-
-.chat-hosted-btn,
-.hosted-agent-advanced,
-.ha-timer-group {
-  border-color: color-mix(in srgb, var(--border-primary) 76%, var(--brand-orange) 24%);
-}
-
-/* Built-in assistant must stay prominent. */
-.ast-welcome {
-  justify-content: center;
-}
-
+/* ─── Assistant ─── */
+.ast-welcome { justify-content: center; }
 .ast-welcome-icon {
-  width: 58px;
-  height: 58px;
+  width: 52px;
+  height: 52px;
   display: grid;
   place-items: center;
   border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, var(--brand-indigo), var(--brand-orange));
+  background: var(--brand);
   color: var(--text-inverse);
-  box-shadow: 0 18px 42px color-mix(in srgb, var(--brand-indigo) 24%, transparent);
-  opacity: 1;
-}
-
-.ast-welcome h3 {
-  font-family: var(--font-display);
-  font-weight: 800;
 }
 
 .ast-skill-card {
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--brand-indigo) 8%, transparent), transparent 60%),
-    var(--surface-raised);
-  border-color: color-mix(in srgb, var(--border-primary) 78%, var(--brand-indigo) 22%);
+  background: var(--bg-elevated);
+  border-color: var(--border-1);
 }
 
 .ast-skill-icon {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--brand-indigo) 22%, transparent), color-mix(in srgb, var(--brand-orange) 14%, transparent));
+  background: var(--brand-muted);
+  color: var(--brand);
 }
 
 .ast-mode-selector,
 .ast-settings-tabs {
-  padding: 4px;
-  border: 1px solid color-mix(in srgb, var(--border-primary) 82%, var(--brand-indigo) 18%);
-  background: color-mix(in srgb, var(--surface-sunken) 90%, var(--brand-indigo) 10%);
+  padding: 3px;
+  border: 1px solid var(--border-1);
+  background: var(--bg-base);
   border-radius: var(--radius-md);
 }
 
 .ast-tab.active,
 .ast-mode-btn.active {
   color: var(--text-inverse);
-  background: linear-gradient(135deg, var(--brand-indigo), color-mix(in srgb, var(--brand-indigo) 70%, var(--brand-orange)));
+  background: var(--brand);
   border-radius: var(--radius-sm);
 }
 
-/* Global AI helper FAB */
+/* ─── FAB ─── */
 .ai-fab {
   border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, var(--brand-indigo), var(--brand-orange));
-  box-shadow:
-    0 12px 30px color-mix(in srgb, var(--brand-indigo) 34%, transparent),
-    0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+  background: var(--brand);
+  box-shadow: var(--shadow-2);
 }
-
 .ai-fab:hover {
-  transform: translateY(-2px) scale(1.04);
-  box-shadow:
-    0 16px 38px color-mix(in srgb, var(--brand-indigo) 42%, transparent),
-    0 0 0 1px rgba(255, 255, 255, 0.24) inset;
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: var(--shadow-3);
 }
 
+/* ─── Error banner ─── */
 .ast-error-banner {
-  border-color: color-mix(in srgb, var(--error) 34%, var(--border-primary));
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--error) 10%, transparent), transparent 72%),
-    var(--surface-raised);
+  border-color: rgba(220, 38, 38, 0.2);
+  background: var(--error-muted);
 }
 
-/* Agent, models, skills, connectors */
+/* ─── 控制台/ hero 区域 ─── */
 .models-control-console,
 .connectors-console,
 .skills-hero {
-  background:
-    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--brand-indigo) 14%, transparent), transparent 260px),
-    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--brand-orange) 10%, transparent), transparent 260px),
-    var(--surface-raised);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-lg);
 }
 
 .models-primary-icon,
@@ -444,33 +272,33 @@ select,
 .gw-option-icon,
 .skills-card-icon,
 .skills-store-card-icon {
-  border: 1px solid color-mix(in srgb, var(--brand-indigo) 24%, transparent);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--brand-indigo) 18%, transparent), color-mix(in srgb, var(--brand-orange) 12%, transparent));
-  color: var(--accent);
+  border: 1px solid var(--brand-muted);
+  background: var(--brand-faint);
+  color: var(--brand);
 }
 
+/* ─── 选中状态 ─── */
 .model-card--primary,
 .platform-card.active,
 .plugin-card:not(.plugin-card-inactive) {
-  border-color: color-mix(in srgb, var(--success) 42%, var(--border-primary));
+  border-color: var(--success);
 }
 
 .model-card--fallback,
 .gw-option-card.selected,
 .connectors-card.active {
-  border-color: color-mix(in srgb, var(--accent) 46%, var(--border-primary));
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--brand-indigo) 13%, transparent), transparent 64%),
-    var(--surface-raised);
+  border-color: var(--brand);
+  background: var(--brand-faint);
 }
 
 .skills-tab-btn.active,
 .connectors-segment button.active {
-  background: linear-gradient(135deg, var(--brand-indigo), color-mix(in srgb, var(--brand-indigo) 72%, var(--brand-orange)));
+  background: var(--brand);
   color: var(--text-inverse);
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--brand-indigo) 22%, transparent);
+  box-shadow: none;
 }
 
+/* ─── Grid 对齐 ─── */
 .skills-store-results,
 .skills-installed-grid,
 .clawhub-grid,
@@ -481,16 +309,13 @@ select,
   align-items: stretch;
 }
 
-/* Hermes keeps its identity, but uses the same stronger shell polish. */
+/* ─── Hermes 引擎 ─── */
 [data-engine="hermes"].page,
 [data-engine="hermes"].hm-usage-page,
 [data-engine="hermes"].hm-services-page,
 [data-engine="hermes"].hm-channels-page,
 [data-engine="hermes"].hermes-skills-page {
-  background:
-    radial-gradient(circle at 16% -8%, color-mix(in srgb, var(--brand-indigo) 11%, transparent), transparent 340px),
-    radial-gradient(circle at 94% 4%, color-mix(in srgb, var(--brand-orange) 12%, transparent), transparent 320px),
-    var(--hm-surface-0);
+  background: var(--bg-base);
 }
 
 [data-engine="hermes"] .hm-panel,
@@ -512,88 +337,26 @@ select,
 [data-engine="hermes"] .hm-channel-tab,
 [data-engine="hermes"] .hm-gc-side,
 [data-engine="hermes"] .hm-gc-main {
-  border-color: color-mix(in srgb, var(--hm-border) 70%, var(--brand-indigo) 30%);
-  box-shadow: 0 14px 34px rgba(28, 25, 23, 0.075);
-}
-
-[data-theme="dark"] [data-engine="hermes"] .hm-panel,
-[data-theme="dark"] [data-engine="hermes"] .hm-kpi-grid,
-[data-theme="dark"] [data-engine="hermes"] .hm-kpi,
-[data-theme="dark"] [data-engine="hermes"] .hm-logs-layout,
-[data-theme="dark"] [data-engine="hermes"] .hm-skills-layout,
-[data-theme="dark"] [data-engine="hermes"] .hm-chat-shell,
-[data-theme="dark"] [data-engine="hermes"] .hm-chat-sidebar,
-[data-theme="dark"] [data-engine="hermes"] .hm-chat-main,
-[data-theme="dark"] [data-engine="hermes"] .hm-chat-input-wrap,
-[data-theme="dark"] [data-engine="hermes"] .hm-chat-msg-bubble,
-[data-theme="dark"] [data-engine="hermes"] .hm-usage-stat-card,
-[data-theme="dark"] [data-engine="hermes"] .hm-usage-card,
-[data-theme="dark"] [data-engine="hermes"] .hm-services-env-card,
-[data-theme="dark"] [data-engine="hermes"] .hm-services-health-card,
-[data-theme="dark"] [data-engine="hermes"] .hm-services-mode,
-[data-theme="dark"] [data-engine="hermes"] .hm-channel-stat,
-[data-theme="dark"] [data-engine="hermes"] .hm-channel-tab,
-[data-theme="dark"] [data-engine="hermes"] .hm-gc-side,
-[data-theme="dark"] [data-engine="hermes"] .hm-gc-main {
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.36);
-}
-
-[data-engine="hermes"] .hm-panel,
-[data-engine="hermes"] .hm-usage-card,
-[data-engine="hermes"] .hm-services-env-card,
-[data-engine="hermes"] .hm-services-health-card,
-[data-engine="hermes"] .hm-services-mode,
-[data-engine="hermes"] .hm-chat-shell,
-[data-engine="hermes"] .hm-skills-layout,
-[data-engine="hermes"] .hm-logs-layout {
-  position: relative;
-  overflow: hidden;
-}
-
-[data-engine="hermes"] .hm-panel::before,
-[data-engine="hermes"] .hm-usage-card::before,
-[data-engine="hermes"] .hm-services-mode::before,
-[data-engine="hermes"] .hm-chat-shell::before,
-[data-engine="hermes"] .hm-skills-layout::before,
-[data-engine="hermes"] .hm-logs-layout::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 2px;
-  background: linear-gradient(90deg, var(--hm-accent), var(--brand-orange));
-  opacity: 0.62;
-  pointer-events: none;
+  border-color: var(--border-1);
+  box-shadow: var(--shadow-1);
 }
 
 [data-engine="hermes"] .hm-btn--cta,
 [data-engine="hermes"] .hm-chat-send-btn,
 [data-engine="hermes"] .hm-gc-msg--user .hm-gc-msg-bubble {
-  background: linear-gradient(135deg, var(--hm-accent), var(--brand-orange));
+  background: var(--brand);
   border-color: transparent;
-  color: #1c1917;
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--hm-accent) 28%, transparent);
+  color: var(--text-inverse);
+  box-shadow: none;
 }
 
 [data-engine="hermes"] .hm-chat-header,
 [data-engine="hermes"] .hm-skills-header,
 [data-engine="hermes"] .hm-logs-header {
-  background: color-mix(in srgb, var(--hm-surface-1) 86%, transparent);
-  backdrop-filter: blur(14px);
+  background: var(--bg-elevated);
 }
 
-@media (max-width: 768px) {
-  .page:not([data-engine="hermes"]):not([data-engine="xintian"]) {
-    padding: var(--space-lg);
-  }
-
-  .models-control-console,
-  .connectors-console,
-  .skills-hero {
-    padding: var(--space-lg);
-  }
-}
-
-/* === Layout refactor pass: prototype-style workbenches === */
+/* ─── Services / Models 工作台 ─── */
 .services-page,
 .models-page {
   max-width: none;
@@ -604,16 +367,22 @@ select,
 .models-workbench {
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  gap: var(--space-4);
 }
 
-.services-ops-column,
-.services-maintenance-column,
-.models-provider-workbench {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
+.services-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.services-maintenance-column {
+  position: sticky;
+  top: var(--space-4);
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .services-workbench #version-bar .stat-cards,
@@ -624,75 +393,24 @@ select,
   margin-bottom: 0 !important;
 }
 
-.services-maintenance-column {
-  position: sticky;
-  top: var(--space-lg);
-}
-
-.services-workbench {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-  gap: var(--space-xl);
-  align-items: start;
-}
-
-.services-ops-column {
-  gap: var(--space-md);
-}
-
-.services-maintenance-column {
-  max-height: calc(100vh - 140px);
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.services-page .page-header {
-  margin-bottom: var(--space-sm);
-}
-
-.services-page .page-desc {
-  max-width: 760px;
-}
-
-.services-workbench #version-bar .stat-card {
-  min-height: 154px;
-  padding: var(--space-xl);
-  background:
-    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--brand-indigo) 15%, transparent), transparent 260px),
-    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--brand-orange) 10%, transparent), transparent 260px),
-    var(--surface-raised);
-}
-
 .services-workbench #services-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-3);
 }
 
 .services-workbench .service-card {
   margin-bottom: 0;
-  min-height: 92px;
+  min-height: 88px;
   align-items: flex-start;
-  gap: var(--space-lg);
+  gap: var(--space-4);
 }
 
-.services-workbench #services-list > .service-card {
-  min-height: 118px;
-}
-
-.services-workbench .service-info {
-  min-width: 0;
-  align-items: flex-start;
-}
-
-.services-workbench .service-info > div {
-  min-width: 0;
-}
-
+.services-workbench #services-list > .service-card { min-height: 110px; }
+.services-workbench .service-info { min-width: 0; align-items: flex-start; }
+.services-workbench .service-info > div { min-width: 0; }
 .services-workbench .service-name,
-.services-workbench .service-desc {
-  overflow-wrap: anywhere;
-}
+.services-workbench .service-desc { overflow-wrap: anywhere; }
 
 .services-workbench .service-actions {
   justify-content: flex-end;
@@ -700,110 +418,76 @@ select,
   max-width: min(460px, 46%);
 }
 
-.services-maintenance-column .config-section {
-  padding: var(--space-lg);
-}
+.services-maintenance-column .config-section { padding: var(--space-4); }
+.services-maintenance-column textarea.form-input { min-height: 240px !important; }
 
-.services-maintenance-column textarea.form-input {
-  min-height: 260px !important;
-}
-
-.models-workbench .models-toolbar {
-  margin-bottom: 0;
-}
-
+.models-workbench .models-toolbar { margin-bottom: 0; }
 .models-workbench .models-control-console {
   grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
 }
-
 .models-workbench #providers-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(560px, 100%), 1fr));
-  gap: var(--space-md);
+  gap: var(--space-3);
 }
+.models-workbench .models-provider-section { padding: var(--space-4); }
 
-.models-workbench .models-provider-section {
-  padding: var(--space-lg);
-}
-
+/* ─── Chat layout ─── */
 .chat-page {
-  padding: var(--space-md) !important;
-  gap: var(--space-md);
+  padding: var(--space-3) !important;
+  gap: var(--space-3);
 }
-
 .chat-sidebar.open {
-  width: 300px;
-  min-width: 300px;
+  width: 280px;
+  min-width: 280px;
   border-radius: var(--radius-lg);
-  border: 1px solid color-mix(in srgb, var(--border-primary) 80%, var(--brand-indigo) 20%);
-  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-1);
+  box-shadow: var(--shadow-1);
 }
-
 .chat-main {
-  border: 1px solid color-mix(in srgb, var(--border-primary) 80%, var(--brand-indigo) 20%);
+  border: 1px solid var(--border-1);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
-  box-shadow: var(--shadow-md);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-1);
 }
-
-.chat-header {
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-}
+.chat-header { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 
 .ast-page {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  gap: var(--space-md);
-  padding: var(--space-md) !important;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3) !important;
 }
-
-.ast-page:has(.ast-sidebar:not(.open)) {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.ast-page:has(.ast-sidebar:not(.open)) .ast-sidebar {
-  display: none;
-}
+.ast-page:has(.ast-sidebar:not(.open)) { grid-template-columns: minmax(0, 1fr); }
+.ast-page:has(.ast-sidebar:not(.open)) .ast-sidebar { display: none; }
 
 .ast-sidebar.open {
   width: auto;
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--border-primary) 80%, var(--brand-indigo) 20%);
+  border: 1px solid var(--border-1);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-1);
 }
-
 .ast-main {
   min-width: 0;
   min-height: 0;
-  border: 1px solid color-mix(in srgb, var(--border-primary) 80%, var(--brand-indigo) 20%);
+  border: 1px solid var(--border-1);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
-  box-shadow: var(--shadow-md);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-1);
 }
 
+/* ─── Responsive ─── */
 @media (max-width: 1180px) {
-  .services-workbench {
-    grid-template-columns: 1fr;
-  }
-
-  .services-maintenance-column {
-    position: static;
-    max-height: none;
-  }
-
-  .ast-page {
-    grid-template-columns: 240px minmax(0, 1fr);
-  }
+  .services-workbench { grid-template-columns: 1fr; }
+  .services-maintenance-column { position: static; max-height: none; }
+  .ast-page { grid-template-columns: 220px minmax(0, 1fr); }
 }
 
 @media (max-width: 980px) {
-  .models-workbench .models-control-console {
-    grid-template-columns: 1fr;
-  }
-
+  .models-workbench .models-control-console { grid-template-columns: 1fr; }
   .ast-page {
     display: flex;
     padding: 0 !important;
@@ -811,18 +495,16 @@ select,
     height: 100% !important;
     overflow: hidden;
   }
-
   .ast-sidebar.open {
     position: fixed;
     left: var(--sidebar-width, 220px);
     top: 0;
     z-index: 850;
-    width: min(280px, calc(100vw - var(--sidebar-width, 220px) - 16px));
+    width: min(260px, calc(100vw - var(--sidebar-width, 220px) - 16px));
     min-width: 0;
     height: 100vh;
     border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
   }
-
   .ast-main {
     flex: 1 1 auto;
     width: 100%;
@@ -835,14 +517,18 @@ select,
 }
 
 @media (max-width: 768px) {
+  .page:not([data-engine="hermes"]):not([data-engine="xintian"]) { padding: var(--space-4); }
+  .models-control-console,
+  .connectors-console,
+  .skills-hero { padding: var(--space-4); }
+
   .chat-page {
     display: flex;
     padding: 0 !important;
     gap: 0;
-    height: 100% !important; /* 关键：撑满视口 */
+    height: 100% !important;
     overflow: hidden;
   }
-
   .chat-main {
     border-radius: 0;
     border: none;

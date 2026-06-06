@@ -276,7 +276,7 @@ async function loadDockerManager(page) {
                 <div class="service-info">
                   <span class="status-dot ${node.online ? 'running' : 'stopped'}"></span>
                   <div>
-                    <div class="service-name">${escapeHtml(node.name)}${node.id === 'local' ? ` <span class="clawhub-badge" style="margin-left:6px;background:rgba(99,102,241,0.14);color:#6366f1">${t('services.dockerLocalNode')}</span>` : ''}</div>
+                    <div class="service-name">${escapeHtml(node.name)}${node.id === 'local' ? ` <span class="clawhub-badge" style="margin-left:6px;background:var(--accent-muted);color:var(--accent)">${t('services.dockerLocalNode')}</span>` : ''}</div>
                     <div class="service-desc">${nodeMeta}</div>
                     <div class="service-desc">${node.online ? `${t('services.dockerContainersLabel')}: ${node.runningContainers || 0}/${node.totalContainers || containers.length}` : t('services.dockerOffline')}</div>
                   </div>
