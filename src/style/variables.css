@@ -1,18 +1,24 @@
 /* 亮色主题（默认） */
 :root, [data-theme="light"] {
-  --bg-primary: #f5f7fa;
+  --brand-indigo: #4f46e5;
+  --brand-indigo-light: #6366f1;
+  --brand-indigo-muted: rgba(79, 70, 229, 0.1);
+  --brand-orange: #f97316;
+  --brand-orange-muted: rgba(249, 115, 22, 0.12);
+
+  --bg-primary: #eef1f6;
   --bg-secondary: #ffffff;
-  --bg-tertiary: #eef2f6;
+  --bg-tertiary: #e8edf4;
   --bg-card: #ffffff;
-  --bg-card-hover: #f8fafc;
+  --bg-card-hover: #f6f8fb;
   --bg-glass: rgba(15, 23, 42, 0.035);
   --bg-glass-hover: rgba(15, 23, 42, 0.07);
   --bg-hover: rgba(15, 23, 42, 0.055);
   --surface-raised: #ffffff;
-  --surface-sunken: #f1f5f9;
+  --surface-sunken: #f0f4f8;
 
-  --border-primary: rgba(15, 23, 42, 0.1);
-  --border-secondary: rgba(15, 23, 42, 0.065);
+  --border-primary: rgba(15, 23, 42, 0.11);
+  --border-secondary: rgba(15, 23, 42, 0.07);
   --border-focus: rgba(79, 70, 229, 0.48);
   --border: var(--border-primary);
   --border-color: var(--border-primary);
@@ -22,9 +28,9 @@
   --text-tertiary: #667085;
   --text-inverse: #ffffff;
 
-  --accent: #4f46e5;
+  --accent: var(--brand-indigo);
   --accent-hover: #4338ca;
-  --accent-muted: rgba(79, 70, 229, 0.1);
+  --accent-muted: var(--brand-indigo-muted);
   --primary: var(--accent);
   --primary-hover: var(--accent-hover);
 
@@ -42,38 +48,44 @@
   --info-muted: rgba(15, 118, 110, 0.1);
 
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 20px 48px rgba(15, 23, 42, 0.14);
+  --shadow-md: 0 12px 32px rgba(15, 23, 42, 0.09);
+  --shadow-lg: 0 22px 56px rgba(15, 23, 42, 0.14);
   --shadow-glow: 0 0 0 3px rgba(79, 70, 229, 0.12);
 }
 
 /* 暗色主题 */
 [data-theme="dark"] {
-  --bg-primary: #0d0f12;
-  --bg-secondary: #15181d;
-  --bg-tertiary: #1d2229;
-  --bg-card: #15181d;
-  --bg-card-hover: #1b2027;
-  --bg-glass: rgba(255, 255, 255, 0.045);
-  --bg-glass-hover: rgba(255, 255, 255, 0.075);
-  --bg-hover: rgba(255, 255, 255, 0.06);
-  --surface-raised: #181c22;
-  --surface-sunken: #101317;
+  --brand-indigo: #6d72ff;
+  --brand-indigo-light: #8e94ff;
+  --brand-indigo-muted: rgba(109, 114, 255, 0.16);
+  --brand-orange: #fb923c;
+  --brand-orange-muted: rgba(251, 146, 60, 0.14);
 
-  --border-primary: rgba(255, 255, 255, 0.095);
-  --border-secondary: rgba(255, 255, 255, 0.055);
+  --bg-primary: #080a0e;
+  --bg-secondary: #0e1218;
+  --bg-tertiary: #141922;
+  --bg-card: #111722;
+  --bg-card-hover: #171d2a;
+  --bg-glass: rgba(255, 255, 255, 0.05);
+  --bg-glass-hover: rgba(255, 255, 255, 0.08);
+  --bg-hover: rgba(255, 255, 255, 0.055);
+  --surface-raised: #141a24;
+  --surface-sunken: #0a0d12;
+
+  --border-primary: rgba(255, 255, 255, 0.105);
+  --border-secondary: rgba(255, 255, 255, 0.06);
   --border-focus: rgba(129, 140, 248, 0.55);
   --border: var(--border-primary);
   --border-color: var(--border-primary);
 
-  --text-primary: #f3f4f6;
-  --text-secondary: #b2bac6;
-  --text-tertiary: #a8b3c2;
+  --text-primary: #e8ecf4;
+  --text-secondary: #a7b0c0;
+  --text-tertiary: #748096;
   --text-inverse: #ffffff;
 
-  --accent: #8b93ff;
-  --accent-hover: #a9b0ff;
-  --accent-muted: rgba(139, 147, 255, 0.16);
+  --accent: var(--brand-indigo-light);
+  --accent-hover: #a8adff;
+  --accent-muted: var(--brand-indigo-muted);
   --primary: var(--accent);
   --primary-hover: var(--accent-hover);
 
@@ -91,8 +103,8 @@
   --info-muted: rgba(45, 212, 191, 0.15);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.34);
-  --shadow-md: 0 12px 30px rgba(0, 0, 0, 0.36);
-  --shadow-lg: 0 24px 56px rgba(0, 0, 0, 0.48);
+  --shadow-md: 0 14px 36px rgba(0, 0, 0, 0.42);
+  --shadow-lg: 0 28px 68px rgba(0, 0, 0, 0.55);
   --shadow-glow: 0 0 0 3px rgba(139, 147, 255, 0.18);
 }
 
@@ -111,7 +123,8 @@
   --radius-lg: 8px;
   --radius-xl: 10px;
 
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans SC', sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans SC', sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
   --font-size-xs: 11px;
   --font-size-sm: 13px;

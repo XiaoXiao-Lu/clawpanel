@@ -710,7 +710,7 @@ function getDisplayLabel(key) {
 }
 
 function getSidebarOpen() {
-  return localStorage.getItem(STORAGE_SIDEBAR_KEY) === '1'
+  return localStorage.getItem(STORAGE_SIDEBAR_KEY) !== '0'
 }
 
 function setSidebarOpen(open) {

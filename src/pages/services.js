@@ -25,52 +25,60 @@ function escapeHtml(str) {
 
 export async function render() {
   const page = document.createElement('div')
-  page.className = 'page'
+  page.className = 'page services-page'
 
   page.innerHTML = `
     <div class="page-header">
-      <h1 class="page-title">${t('services.title')}</h1>
-      <p class="page-desc">${t('services.desc')}</p>
+      <div class="page-title-group">
+        <h1 class="page-title">${t('services.title')}</h1>
+        <p class="page-desc">${t('services.desc')}</p>
+      </div>
     </div>
-    <div id="version-bar"><div class="stat-card loading-placeholder" style="height:80px;margin-bottom:var(--space-lg)"></div></div>
-    <div id="services-list"><div class="stat-card loading-placeholder" style="height:64px"></div></div>
-    ${isTauriRuntime() ? '' : `
-    <div class="config-section" id="docker-manager-section">
-      <div class="config-section-title">${t('services.dockerManager')}</div>
-      <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.dockerManagerHint')}</div>
-      <div id="docker-manager-bar"><div class="stat-card loading-placeholder" style="height:96px"></div></div>
-    </div>`}
-    <div class="config-section" id="config-editor-section" style="display:none">
-      <div class="config-section-title">${t('services.configEditor')}</div>
-      <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.configEditorHint')}</div>
-      <div style="display:flex;gap:8px;margin-bottom:var(--space-sm)">
-        <button class="btn btn-primary btn-sm" data-action="save-config" disabled>${t('services.saveAndRestart')}</button>
-        <button class="btn btn-secondary btn-sm" data-action="save-config-only" disabled>${t('services.saveOnly')}</button>
-        <button class="btn btn-secondary btn-sm" data-action="reload-config">${t('services.reloadConfig')}</button>
-      </div>
-      <div id="config-editor-status" style="font-size:var(--font-size-xs);margin-bottom:6px;min-height:18px"></div>
-      <textarea id="config-editor-area" class="form-input" style="font-family:var(--font-mono);font-size:12px;min-height:320px;resize:vertical;tab-size:2;white-space:pre;overflow-x:auto" spellcheck="false" disabled></textarea>
-    </div>
-    <div class="config-section" id="config-calibration-section">
-      <div class="config-section-title">${t('services.configCalibration')}</div>
-      <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.configCalibrationHint')}</div>
-      <div style="display:flex;gap:var(--space-sm);flex-wrap:wrap;margin-bottom:var(--space-sm)">
-        <button class="btn btn-primary btn-sm" data-action="calibrate-config-inherit">${t('services.calibrateInherit')}</button>
-        <button class="btn btn-secondary btn-sm" data-action="calibrate-config-reset">${t('services.calibrateReset')}</button>
-      </div>
-      <div style="display:grid;gap:8px;margin-bottom:var(--space-sm)">
-        <div class="setup-inline-note">${t('services.calibrateInheritHint')}</div>
-        <div class="setup-inline-note">${t('services.calibrateResetHint')}</div>
-      </div>
-      <div id="config-calibration-status" style="font-size:var(--font-size-xs);min-height:18px;color:var(--text-tertiary)"></div>
-    </div>
-    <div class="config-section" id="backup-section">
-      <div class="config-section-title">${t('services.configBackup')}</div>
-      <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.configBackupHint')}</div>
-      <div id="backup-actions" style="margin-bottom:var(--space-md)">
-        <button class="btn btn-primary btn-sm" data-action="create-backup">${t('services.createBackup')}</button>
-      </div>
-      <div id="backup-list"><div class="stat-card loading-placeholder" style="height:48px"></div></div>
+    <div class="services-workbench">
+      <section class="services-ops-column">
+        <div id="version-bar"><div class="stat-card loading-placeholder" style="height:80px;margin-bottom:var(--space-lg)"></div></div>
+        <div id="services-list"><div class="stat-card loading-placeholder" style="height:64px"></div></div>
+        ${isTauriRuntime() ? '' : `
+        <div class="config-section" id="docker-manager-section">
+          <div class="config-section-title">${t('services.dockerManager')}</div>
+          <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.dockerManagerHint')}</div>
+          <div id="docker-manager-bar"><div class="stat-card loading-placeholder" style="height:96px"></div></div>
+        </div>`}
+      </section>
+      <section class="services-maintenance-column">
+        <div class="config-section" id="config-editor-section" style="display:none">
+          <div class="config-section-title">${t('services.configEditor')}</div>
+          <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.configEditorHint')}</div>
+          <div style="display:flex;gap:8px;margin-bottom:var(--space-sm)">
+            <button class="btn btn-primary btn-sm" data-action="save-config" disabled>${t('services.saveAndRestart')}</button>
+            <button class="btn btn-secondary btn-sm" data-action="save-config-only" disabled>${t('services.saveOnly')}</button>
+            <button class="btn btn-secondary btn-sm" data-action="reload-config">${t('services.reloadConfig')}</button>
+          </div>
+          <div id="config-editor-status" style="font-size:var(--font-size-xs);margin-bottom:6px;min-height:18px"></div>
+          <textarea id="config-editor-area" class="form-input" style="font-family:var(--font-mono);font-size:12px;min-height:320px;resize:vertical;tab-size:2;white-space:pre;overflow-x:auto" spellcheck="false" disabled></textarea>
+        </div>
+        <div class="config-section" id="config-calibration-section">
+          <div class="config-section-title">${t('services.configCalibration')}</div>
+          <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.configCalibrationHint')}</div>
+          <div style="display:flex;gap:var(--space-sm);flex-wrap:wrap;margin-bottom:var(--space-sm)">
+            <button class="btn btn-primary btn-sm" data-action="calibrate-config-inherit">${t('services.calibrateInherit')}</button>
+            <button class="btn btn-secondary btn-sm" data-action="calibrate-config-reset">${t('services.calibrateReset')}</button>
+          </div>
+          <div style="display:grid;gap:8px;margin-bottom:var(--space-sm)">
+            <div class="setup-inline-note">${t('services.calibrateInheritHint')}</div>
+            <div class="setup-inline-note">${t('services.calibrateResetHint')}</div>
+          </div>
+          <div id="config-calibration-status" style="font-size:var(--font-size-xs);min-height:18px;color:var(--text-tertiary)"></div>
+        </div>
+        <div class="config-section" id="backup-section">
+          <div class="config-section-title">${t('services.configBackup')}</div>
+          <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.configBackupHint')}</div>
+          <div id="backup-actions" style="margin-bottom:var(--space-md)">
+            <button class="btn btn-primary btn-sm" data-action="create-backup">${t('services.createBackup')}</button>
+          </div>
+          <div id="backup-list"><div class="stat-card loading-placeholder" style="height:48px"></div></div>
+        </div>
+      </section>
     </div>
   `
 

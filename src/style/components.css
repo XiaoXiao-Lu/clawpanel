@@ -41,17 +41,34 @@
 /* 卡片 */
 .card {
   background: var(--bg-card);
-  border: 1px solid var(--border-primary);
+  border: 1px solid var(--border-secondary);
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
   box-shadow: var(--shadow-sm);
   transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, var(--brand-indigo), var(--brand-orange));
+  opacity: 0;
+  transition: opacity var(--transition-fast);
 }
 
 .card:hover {
   background: var(--bg-card-hover);
-  border-color: color-mix(in srgb, var(--accent) 24%, var(--border-primary));
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--border-primary));
   box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.card:hover::before {
+  opacity: 1;
 }
 
 /* 状态卡片 */
@@ -64,10 +81,34 @@
 
 .stat-card {
   background: var(--bg-card);
-  border: 1px solid var(--border-primary);
+  border: 1px solid var(--border-secondary);
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
   box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+  transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, var(--brand-indigo), var(--brand-orange));
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.stat-card:hover {
+  background: var(--bg-card-hover);
+  border-color: color-mix(in srgb, var(--accent) 20%, var(--border-primary));
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.stat-card:hover::before {
+  opacity: 1;
 }
 
 .stat-card-header {
@@ -78,13 +119,19 @@
 }
 
 .stat-card-label {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .stat-card-value {
-  font-size: var(--font-size-xl);
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.16;
 }
 
 .stat-card-clickable {
@@ -135,34 +182,47 @@
 }
 
 .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: linear-gradient(135deg, var(--brand-indigo), color-mix(in srgb, var(--brand-indigo) 82%, #111827));
+  border-color: transparent;
   color: #fff;
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--accent) 28%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--brand-indigo) 24%, transparent);
 }
 
 .btn-primary:hover {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
+  background: linear-gradient(135deg, var(--brand-indigo-light), var(--brand-indigo));
+  border-color: transparent;
   transform: translateY(-1px);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--brand-indigo) 32%, transparent);
 }
 
 .btn-secondary {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-primary);
+  background: color-mix(in srgb, var(--surface-raised) 94%, var(--brand-indigo) 6%);
+  border: 1px solid var(--border-secondary);
   color: var(--text-secondary);
 }
 
 .btn-secondary:hover {
-  background: var(--bg-hover);
+  background: color-mix(in srgb, var(--surface-raised) 88%, var(--brand-indigo) 12%);
   border-color: color-mix(in srgb, var(--accent) 24%, var(--border-primary));
   color: var(--text-primary);
+  transform: translateY(-1px);
 }
 
 .btn-danger {
   background: var(--error-muted);
   border-color: color-mix(in srgb, var(--error) 24%, var(--border-primary));
   color: var(--error);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+
+.btn-ghost:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .btn-danger:hover {
@@ -203,8 +263,8 @@
 .input,
 .form-input {
   min-height: 38px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-primary);
+  background: color-mix(in srgb, var(--surface-sunken) 92%, var(--brand-indigo) 8%);
+  border: 1px solid var(--border-secondary);
   border-radius: var(--radius-md);
   color: var(--text-primary);
   transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
@@ -219,6 +279,7 @@
 .form-input:focus {
   border-color: var(--border-focus);
   background: var(--surface-raised);
+  box-shadow: var(--shadow-glow);
 }
 
 /* Toast 通知 */
@@ -335,7 +396,7 @@
 .tab-bar {
   display: flex;
   gap: var(--space-xs);
-  border-bottom: 1px solid var(--border-primary);
+  border-bottom: 1px solid var(--border-secondary);
   margin-bottom: var(--space-lg);
   overflow-x: auto;
 }
@@ -360,11 +421,30 @@
   background: var(--bg-hover);
 }
 .tab.active {
-  color: var(--accent-hover);
+  color: var(--accent);
   border-bottom-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
-  font-weight: 650;
+  font-weight: 700;
 }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.badge-primary { background: var(--accent-muted); color: var(--accent); }
+.badge-success { background: var(--success-muted); color: var(--success); }
+.badge-warning { background: var(--warning-muted); color: var(--warning); }
+.badge-error { background: var(--error-muted); color: var(--error); }
+.badge-info { background: var(--info-muted); color: var(--info); }
 
 /* 配置操作栏 */
 .config-actions {

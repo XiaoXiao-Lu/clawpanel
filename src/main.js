@@ -43,6 +43,7 @@ import './style/ai-drawer.css'
 // 引擎专属样式（scope 到 [data-engine="<id>"] 子树，不影响其他引擎）
 import './engines/hermes/style/hermes.css'
 import './engines/xintian/style/xintian.css'
+import './style/prototype-polish.css'
 
 // 初始化主题 + 国际化
 initTheme()

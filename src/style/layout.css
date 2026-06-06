@@ -91,11 +91,27 @@ body.has-desktop-chrome .desktop-titlebar {
 }
 
 #sidebar {
+  --bg-secondary: #0e1218;
+  --bg-tertiary: #151b26;
+  --bg-card: #111722;
+  --bg-card-hover: #192131;
+  --bg-hover: rgba(255, 255, 255, 0.07);
+  --surface-raised: #141a24;
+  --surface-sunken: #090c12;
+  --border-primary: rgba(255, 255, 255, 0.12);
+  --border-secondary: rgba(255, 255, 255, 0.07);
+  --text-primary: #e8ecf4;
+  --text-secondary: #a8b2c3;
+  --text-tertiary: #677286;
+  --accent: #8e94ff;
   width: var(--sidebar-width);
   height: 100vh;
-  background: var(--bg-secondary);  /* fallback */
-  background: color-mix(in srgb, var(--bg-secondary) 94%, var(--bg-primary));
-  border-right: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  background:
+    radial-gradient(circle at -70px -90px, rgba(109, 114, 255, 0.28), transparent 250px),
+    radial-gradient(circle at 160px 100%, rgba(249, 115, 22, 0.12), transparent 320px),
+    linear-gradient(180deg, #0f141d 0%, #0a0d13 100%);
+  border-right: 1px solid var(--border-secondary);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -148,19 +164,20 @@ body.has-desktop-chrome #main-col {
   gap: var(--space-md);
   border-bottom: 1px solid var(--border-secondary);
   height: var(--header-height);
+  background: rgba(255, 255, 255, 0.025);
 }
 
 .sidebar-logo {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   overflow: hidden;
-  background: var(--surface-sunken);
-  box-shadow: inset 0 0 0 1px var(--border-secondary);
+  background: linear-gradient(135deg, var(--brand-indigo), var(--brand-orange));
+  box-shadow: 0 10px 26px rgba(109, 114, 255, 0.28);
 }
 
 .sidebar-logo img {
@@ -177,9 +194,10 @@ body.has-desktop-chrome #main-col {
 
 .sidebar-title {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--text-primary);
   white-space: nowrap;
+  letter-spacing: 0;
 }
 
 /* === Engine Switcher === */
@@ -187,11 +205,12 @@ body.has-desktop-chrome #main-col {
   padding: var(--space-sm);
   border-bottom: 1px solid var(--border-secondary);
   position: relative;
+  background: rgba(255, 255, 255, 0.018);
 }
 .engine-switcher-label {
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-tertiary);
   padding: 2px 4px 4px;
@@ -203,9 +222,9 @@ body.has-desktop-chrome #main-col {
   width: 100%;
   min-height: 36px;
   padding: 7px 10px;
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border-secondary));
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--accent) 6%, var(--surface-raised));
+  border: 1px solid rgba(109, 114, 255, 0.32);
+  border-radius: var(--radius-md);
+  background: rgba(109, 114, 255, 0.11);
   color: var(--text-primary);
   font-size: var(--font-size-sm);
   font-weight: 500;
@@ -213,8 +232,9 @@ body.has-desktop-chrome #main-col {
   transition: border-color 0.15s, background 0.15s, transform 0.1s;
 }
 .engine-current:hover {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface-raised));
+  border-color: var(--brand-indigo-light);
+  background: rgba(109, 114, 255, 0.16);
+  box-shadow: 0 10px 26px rgba(109, 114, 255, 0.18);
 }
 .engine-current:active {
   transform: translateY(1px);
@@ -307,8 +327,8 @@ body.has-desktop-chrome #main-col {
 .sidebar-footer {
   padding: var(--space-sm);
   border-top: 1px solid var(--border-secondary);
-  background: var(--bg-secondary);  /* fallback */
-  background: color-mix(in srgb, var(--bg-secondary) 86%, var(--bg-primary));
+  background: rgba(8, 10, 14, 0.72);
+  backdrop-filter: blur(16px);
 }
 
 /* === 内核可升级提示卡（侧边栏 footer 之上） === */
@@ -571,17 +591,18 @@ body.has-desktop-chrome #main-col {
   font-size: 10px;
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0;
+  letter-spacing: 0.06em;
   padding: var(--space-sm) 10px var(--space-xs);
   margin-bottom: 2px;
+  font-weight: 800;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 44px;
-  padding: 8px 12px;
+  min-height: 36px;
+  padding: 7px 12px;
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
@@ -593,17 +614,16 @@ body.has-desktop-chrome #main-col {
 }
 
 .nav-item:hover {
-  background: var(--bg-hover);
+  background: rgba(255, 255, 255, 0.065);
   color: var(--text-primary);
-  transform: translateX(2px);
+  transform: translateX(1px);
 }
 
 .nav-item.active {
-  background: var(--bg-secondary);  /* fallback */
-  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 14%, var(--bg-secondary)) 0%, color-mix(in srgb, var(--accent) 6%, var(--bg-secondary)) 100%);
-  color: var(--accent);
+  background: linear-gradient(90deg, rgba(109, 114, 255, 0.22) 0%, rgba(109, 114, 255, 0.07) 100%);
+  color: #aeb3ff;
   font-weight: 600;
-  box-shadow: inset 3px 0 0 var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent), 0 0 18px rgba(109, 114, 255, 0.08);
 }
 
 .nav-item.active:hover {
@@ -658,6 +678,7 @@ body.has-desktop-chrome #main-col {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
+  position: relative;
 }
 
 /* 主内容区 */
@@ -665,7 +686,9 @@ body.has-desktop-chrome #main-col {
   flex: 1;
   overflow-y: auto;
   background: var(--bg-primary);
-  background-image: linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 35%, transparent), transparent 220px);
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 45%, transparent), transparent 240px),
+    radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--brand-indigo) 16%, transparent), transparent 430px),
+    radial-gradient(circle at 18% 16%, color-mix(in srgb, var(--brand-orange) 10%, transparent), transparent 380px);
 }
 
 .page {
@@ -696,10 +719,22 @@ body.has-desktop-chrome #main-col {
 
 .page-title {
   font-size: var(--font-size-2xl);
-  font-weight: 750;
+  font-family: var(--font-display);
+  font-weight: 800;
   color: var(--text-primary);
   margin-bottom: var(--space-xs);
   line-height: 1.22;
+  letter-spacing: 0;
+}
+
+.page-title::after {
+  content: '';
+  display: block;
+  width: 54px;
+  height: 3px;
+  margin-top: 9px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--brand-indigo), var(--brand-orange));
 }
 
 .page-desc {

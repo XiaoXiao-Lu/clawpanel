@@ -5967,7 +5967,7 @@ export async function render() {
   _page = page
 
   page.innerHTML = `
-    <div class="ast-sidebar" id="ast-sidebar">
+    <div class="ast-sidebar open" id="ast-sidebar">
       <div class="ast-sidebar-header">
         <span>${t('assistant.sessionList')}</span>
         <button class="ast-sidebar-btn" id="ast-btn-new" title="${t('assistant.newSession')}">

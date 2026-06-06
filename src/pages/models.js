@@ -44,19 +44,22 @@ export async function render() {
       </div>
     </div>
     
-    <div id="models-console-container"></div>
-    <div id="fallback-waterfall-container" style="display:none;margin-bottom:20px"></div>
-
-    <div class="models-toolbar">
-      <div class="models-search-wrap">
-        ${icon('search', 15)}
-        <input class="form-input" id="model-search" placeholder="${t('models.searchPlaceholder')}">
-      </div>
-      <span id="models-stats-inline" class="models-stats-inline"></span>
-    </div>
-    <div id="providers-list">
-      <div class="config-section"><div class="stat-card loading-placeholder" style="height:120px"></div></div>
-      <div class="config-section"><div class="stat-card loading-placeholder" style="height:120px"></div></div>
+    <div class="models-workbench">
+      <div id="models-console-container"></div>
+      <div id="fallback-waterfall-container" style="display:none;margin-bottom:20px"></div>
+      <section class="models-provider-workbench">
+        <div class="models-toolbar">
+          <div class="models-search-wrap">
+            ${icon('search', 15)}
+            <input class="form-input" id="model-search" placeholder="${t('models.searchPlaceholder')}">
+          </div>
+          <span id="models-stats-inline" class="models-stats-inline"></span>
+        </div>
+        <div id="providers-list">
+          <div class="config-section"><div class="stat-card loading-placeholder" style="height:120px"></div></div>
+          <div class="config-section"><div class="stat-card loading-placeholder" style="height:120px"></div></div>
+        </div>
+      </section>
     </div>
   `
 
