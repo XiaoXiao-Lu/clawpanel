@@ -23,6 +23,10 @@ const SESSIONS_KEY = 'clawpanel-assistant-sessions'
 const MAX_SESSIONS = 50
 const MAX_CONTEXT_TOKENS = 30 // 最近 N 条消息作为上下文
 const AUTO_MODEL_VALUE = '__auto__'
+const DEEPSEEK_CONTEXT_WINDOW_TOKENS = 64000
+const DEEPSEEK_COMPACT_RATIO = 0.72
+const DEEPSEEK_RECENT_CONTEXT_KEEP = 12
+const DEEPSEEK_SUMMARY_MAX_CHARS = 8000
 
 // ── 图片文件存储（通过 Tauri 后端持久化到 ~/.openclaw/clawpanel/images/）──
 async function saveImageToFile(id, dataUrl) {
@@ -94,6 +98,210 @@ function apiKeyPlaceholder(apiType) {
     'google-generative-ai': 'AIza...',
     'ollama': 'ollama-local',
   }[normalizeApiType(apiType)] || 'sk-...'
+}
+
+function isDeepSeekConfig(config = _config, baseOverride = '') {
+  const baseUrl = (baseOverride || config?.baseUrl || '').trim()
+  const model = (config?.model || '').trim().toLowerCase()
+  const apiType = normalizeApiType(config?.apiType)
+  if (apiType !== 'openai-completions') return false
+  if (model.includes('deepseek')) return true
+  try {
+    const host = new URL(baseUrl).hostname.toLowerCase()
+    return host === 'api.deepseek.com' || host.endsWith('.deepseek.com')
+  } catch {
+    return /(^|\/\/|\.)(api\.)?deepseek\.com(\/|$)/i.test(baseUrl)
+  }
+}
+
+function deepSeekCacheUsage(usage) {
+  if (!usage || typeof usage !== 'object') return null
+  const prompt = usage.prompt_tokens || usage.input_tokens || 0
+  const completion = usage.completion_tokens || usage.output_tokens || 0
+  const total = usage.total_tokens || (prompt + completion)
+  const hit = usage.prompt_cache_hit_tokens || usage.prompt_tokens_details?.cached_tokens || 0
+  const miss = usage.prompt_cache_miss_tokens || (hit > 0 && prompt > hit ? prompt - hit : 0)
+  const reasoning = usage.completion_tokens_details?.reasoning_tokens || 0
+  return { prompt, completion, total, cacheHit: hit, cacheMiss: miss, reasoning }
+}
+
+function summarizeRequestMessages(messages) {
+  return messages.map(m => ({
+    role: m.role,
+    content: typeof m.content === 'string'
+      ? m.content.slice(0, 200) + (m.content.length > 200 ? '...' : '')
+      : '[multimodal]',
+    tool_calls: m.tool_calls?.length,
+    tool_call_id: m.tool_call_id,
+    reasoning_content: m.reasoning_content ? '[kept-for-deepseek-tool-call]' : undefined,
+  }))
+}
+
+function sanitizeDeepSeekMessages(messages) {
+  return messages.map(m => {
+    const next = { ...m }
+    const hasToolCalls = Array.isArray(next.tool_calls) && next.tool_calls.length > 0
+    if (next.role === 'assistant' && next.reasoning_content && !hasToolCalls) {
+      delete next.reasoning_content
+    }
+    return next
+  })
+}
+
+function applyDeepSeekChatOptions(body, { deepseek = false } = {}) {
+  if (!deepseek) return body
+  body.messages = sanitizeDeepSeekMessages(body.messages || [])
+  body.stream_options = { include_usage: true }
+  return body
+}
+
+function captureDeepSeekUsage(json) {
+  const usage = deepSeekCacheUsage(json?.usage)
+  if (!usage || !_lastDebugInfo) return
+  _lastDebugInfo.usage = usage
+  _lastDebugInfo.deepseekCache = {
+    hitTokens: usage.cacheHit,
+    missTokens: usage.cacheMiss,
+    hitRate: usage.cacheHit + usage.cacheMiss > 0
+      ? Math.round((usage.cacheHit / (usage.cacheHit + usage.cacheMiss)) * 1000) / 10
+      : null,
+  }
+}
+
+function estimateTokens(text) {
+  const s = typeof text === 'string' ? text : JSON.stringify(text || '')
+  return Math.max(1, Math.ceil(s.length / 4))
+}
+
+function estimateMessagesTokens(messages) {
+  return messages.reduce((sum, m) => sum + estimateTokens(m.content) + 4, 0)
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`
+  }
+  return JSON.stringify(value)
+}
+
+function shortHash(value) {
+  const text = typeof value === 'string' ? value : stableStringify(value)
+  let h = 2166136261
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return (h >>> 0).toString(16).padStart(8, '0')
+}
+
+function normalizeToolSchemasForHash(tools = []) {
+  return tools.map(t => ({
+    name: t?.function?.name || '',
+    description: t?.function?.description || '',
+    parameters: t?.function?.parameters || {},
+  })).sort((a, b) => a.name.localeCompare(b.name))
+}
+
+function captureDeepSeekPrefixShape(messages, tools = [], contextRewriteVersion = 0) {
+  const systemPrompt = messages.find(m => m.role === 'system')?.content || ''
+  const normalizedTools = normalizeToolSchemasForHash(tools)
+  const toolsJson = stableStringify(normalizedTools)
+  return {
+    systemHash: shortHash(systemPrompt),
+    toolsHash: shortHash(toolsJson),
+    prefixHash: shortHash({ system: systemPrompt, tools: normalizedTools }),
+    contextRewriteVersion,
+    messageCount: messages.length,
+    estimatedPromptTokens: estimateMessagesTokens(messages) + estimateTokens(toolsJson),
+    toolSchemaTokens: estimateTokens(toolsJson),
+  }
+}
+
+function attachDeepSeekPrefixDiagnostics(messages, tools = []) {
+  if (!_lastDebugInfo) return
+  const session = getCurrentSession?.()
+  const contextState = session?._deepseekContext || null
+  const shape = captureDeepSeekPrefixShape(messages, tools, contextState?.version || 0)
+  const prev = session?._deepseekPrefixShape || null
+  const reasons = []
+  if (prev) {
+    if (prev.systemHash !== shape.systemHash) reasons.push('system')
+    if (prev.toolsHash !== shape.toolsHash) reasons.push('tools')
+    if ((prev.contextRewriteVersion || 0) !== shape.contextRewriteVersion) reasons.push('context_rewrite')
+  }
+  _lastDebugInfo.deepseekPrefix = {
+    ...shape,
+    changed: !!prev && reasons.length > 0,
+    changeReasons: reasons,
+  }
+  if (session) session._deepseekPrefixShape = shape
+}
+
+function modelFacingChatMessages(messages) {
+  return messages
+    .filter(m => {
+      if (m.role === 'user') return true
+      if (m.role === 'assistant') return m.content && m.content.length > 0
+      return false
+    })
+    .map(m => ({ role: m.role, content: m.content }))
+}
+
+function formatDeepSeekContextSummary(entries, previousSummary = '') {
+  const lines = ['[DeepSeek context summary]', 'Older conversation was compacted locally to keep the repeated prefix cache-friendly.']
+  if (previousSummary) {
+    lines.push('', 'Previous summary:', previousSummary.slice(0, 2400))
+  }
+  lines.push('', `Compacted messages: ${entries.length}`)
+  for (const m of entries) {
+    const text = messageText(m.content).replace(/\s+/g, ' ').trim()
+    if (!text) continue
+    lines.push(`- ${m.role}: ${text.slice(0, 320)}`)
+    if (lines.join('\n').length >= DEEPSEEK_SUMMARY_MAX_CHARS) break
+  }
+  return lines.join('\n').slice(0, DEEPSEEK_SUMMARY_MAX_CHARS)
+}
+
+function compactDeepSeekContext(session, messages, state = null) {
+  const keep = Math.min(DEEPSEEK_RECENT_CONTEXT_KEEP, Math.max(2, messages.length))
+  const sourceCount = Math.max(0, messages.length - keep)
+  const previousSourceCount = state?.sourceCount || 0
+  const entries = messages.slice(previousSourceCount, sourceCount)
+  const summary = formatDeepSeekContextSummary(entries, state?.summary || '')
+  const version = (state?.version || 0) + 1
+  session._deepseekContext = {
+    sourceCount,
+    summary,
+    version,
+    compactedAt: Date.now(),
+    compactedMessages: (state?.compactedMessages || 0) + entries.length,
+  }
+  return [{ role: 'user', content: summary }, ...messages.slice(sourceCount)]
+}
+
+function buildDeepSeekContextMessages(session) {
+  const messages = modelFacingChatMessages(session.messages)
+  if (!messages.length) return []
+  let state = session._deepseekContext || null
+  if (state && (!state.summary || state.sourceCount <= 0 || state.sourceCount >= messages.length)) {
+    state = null
+    delete session._deepseekContext
+  }
+  const threshold = DEEPSEEK_CONTEXT_WINDOW_TOKENS * DEEPSEEK_COMPACT_RATIO
+  if (state) {
+    const compacted = [{ role: 'user', content: state.summary }, ...messages.slice(state.sourceCount)]
+    if (estimateMessagesTokens(compacted) <= threshold) return compacted
+    return compactDeepSeekContext(session, messages, state)
+  }
+  if (estimateMessagesTokens(messages) <= threshold) return messages
+  return compactDeepSeekContext(session, messages)
+}
+
+function buildContextMessagesForSession(session) {
+  if (!session) return []
+  if (isDeepSeekConfig()) return buildDeepSeekContextMessages(session)
+  return modelFacingChatMessages(session.messages).slice(-MAX_CONTEXT_TOKENS)
 }
 
 // ── 系统提示词 ──
@@ -694,6 +902,7 @@ const TOOL_DEFS = {
 // 危险工具（需要用户确认）
 const INTERACTIVE_TOOLS = new Set(['ask_user']) // 交互式工具，不走 confirmToolCall
 const DANGEROUS_TOOLS = new Set(['run_command', 'write_file', 'skills_install_dep', 'skillhub_install'])
+const PLAN_MODE_WRITER_TOOLS = new Set(['write_file', 'skills_install_dep', 'skillhub_install'])
 
 // 安全围栏：极端危险命令模式（任何模式都必须确认，包括无限模式）
 const CRITICAL_PATTERNS = [
@@ -1055,6 +1264,7 @@ function getEnabledTools() {
   if (!mode.tools) return [] // 聊天模式：无工具
 
   const tc = _config.tools || {}
+  const keepSchemaStable = isDeepSeekConfig()
   const tools = [...TOOL_DEFS.system, ...TOOL_DEFS.process, ...TOOL_DEFS.interaction]
 
   if (getActiveEngineId() !== 'hermes') tools.push(...TOOL_DEFS.openclaw)
@@ -1069,7 +1279,7 @@ function getEnabledTools() {
 
   // 文件工具：受设置开关控制 + 规划模式排除写入
   if (tc.fileOps !== false) {
-    if (mode.readOnly) {
+    if (mode.readOnly && !keepSchemaStable) {
       tools.push(...TOOL_DEFS.fileOps.filter(td => td.function.name !== 'write_file'))
     } else {
       tools.push(...TOOL_DEFS.fileOps)
@@ -1077,7 +1287,7 @@ function getEnabledTools() {
   }
 
   // Skills 管理工具：始终启用（规划模式下排除安装操作）
-  if (mode.readOnly) {
+  if (mode.readOnly && !keepSchemaStable) {
     tools.push(...TOOL_DEFS.skills.filter(td => !['skills_install_dep', 'skillhub_install'].includes(td.function.name)))
   } else {
     tools.push(...TOOL_DEFS.skills)
@@ -1265,6 +1475,12 @@ async function buildSystemPromptAsync() {
     }
   }
   return prompt
+}
+
+async function buildProviderMessages(messages, base = '') {
+  const deepseek = isDeepSeekConfig(_config, base)
+  if (!deepseek) return [{ role: 'system', content: await buildSystemPromptAsync() }, ...messages]
+  return [{ role: 'system', content: buildSystemPrompt() }, ...messages]
 }
 
 // ── 灵魂移植：扫描可用 Agent ──
@@ -2843,7 +3059,7 @@ async function _callAIOnce(messages, onChunk) {
 
   const base = cleanBaseUrl(_config.baseUrl, apiType)
   _abortController = new AbortController()
-  const allMessages = [{ role: 'system', content: await buildSystemPromptAsync() }, ...messages]
+  const allMessages = await buildProviderMessages(messages, base)
 
   // 总超时保护
   let _timedOut = false
@@ -2893,20 +3109,24 @@ let _lastDebugInfo = null
 // ── Chat Completions API（/v1/chat/completions）──
 async function callChatCompletions(base, messages, onChunk) {
   const url = base + '/chat/completions'
+  const deepseek = isDeepSeekConfig(_config, base)
   const body = {
     model: _config.model,
     messages,
     stream: true,
     temperature: _config.temperature || 0.7,
   }
+  applyDeepSeekChatOptions(body, { deepseek })
 
   const reqTime = Date.now()
   _lastDebugInfo = {
     url,
     method: 'POST',
-    requestBody: { ...body, messages: body.messages.map(m => ({ role: m.role, content: typeof m.content === 'string' ? m.content.slice(0, 200) + (m.content.length > 200 ? '...' : '') : '[multimodal]' })) },
+    providerHints: deepseek ? { deepseek: true, cacheFriendly: true } : undefined,
+    requestBody: { ...body, messages: summarizeRequestMessages(body.messages) },
     requestTime: new Date(reqTime).toLocaleString('zh-CN'),
   }
+  if (deepseek) attachDeepSeekPrefixDiagnostics(body.messages, [])
 
   const resp = await fetchWithRetry(url, {
     method: 'POST',
@@ -2946,6 +3166,7 @@ async function callChatCompletions(base, messages, onChunk) {
 
     await readSSEStream(resp, (json) => {
       chunkCount++
+      if (deepseek && json.usage) captureDeepSeekUsage(json)
       // 捕获流内错误事件（如模型不可用）
       if (json.error) {
         streamError = streamError || json.error?.message || json.error || ''
@@ -2982,6 +3203,7 @@ async function callChatCompletions(base, messages, onChunk) {
     _lastDebugInfo.streaming = false
     const json = await resp.json()
     _lastDebugInfo.responseBody = { id: json.id, model: json.model, object: json.object, usage: json.usage }
+    if (deepseek) captureDeepSeekUsage(json)
     console.log('[assistant] 非流式响应:', json)
     const msg = json.choices?.[0]?.message
     const content = msg?.content || msg?.reasoning_content || ''
@@ -3428,7 +3650,10 @@ async function executeToolWithSafety(toolName, args, tcForConfirm) {
   const mode = MODES[currentMode()]
   const isCritical = toolName === 'run_command' && isCriticalCommand(args.command)
   const isBrowserWrite = toolName === 'browser_action' && BROWSER_WRITE_ACTIONS.has(String(args.action || ''))
-  if (isCritical) {
+  if (mode.readOnly && (PLAN_MODE_WRITER_TOOLS.has(toolName) || isBrowserWrite)) {
+    approved = false
+    result = `blocked: "${toolName}" is a writer tool and plan mode is read-only. Continue with read-only inspection, then write the plan as your reply.`
+  } else if (isCritical) {
     approved = await confirmToolCall(tcForConfirm || { function: { name: toolName, arguments: JSON.stringify(args) } }, true)
     if (!approved) result = t('assistant.toolRejectedDanger')
   } else if (isBrowserWrite) {
@@ -3454,7 +3679,7 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
 
   const base = cleanBaseUrl(_config.baseUrl, apiType)
   const tools = getEnabledTools()
-  let currentMessages = [{ role: 'system', content: await buildSystemPromptAsync() }, ...messages]
+  let currentMessages = await buildProviderMessages(messages, base)
   const toolHistory = []
 
   const autoRounds = _config.autoRounds ?? 8  // 0 = 无限制
@@ -3599,6 +3824,7 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
     }
 
     // ── OpenAI 工具调用（流式） ──
+    const deepseek = isDeepSeekConfig(_config, base)
     const body = {
       model: _config.model,
       messages: currentMessages,
@@ -3606,6 +3832,17 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
       stream: true,
     }
     if (tools.length > 0) body.tools = tools
+    applyDeepSeekChatOptions(body, { deepseek, tools: tools.length > 0 })
+
+    const reqTime = Date.now()
+    _lastDebugInfo = {
+      url: base + '/chat/completions',
+      method: 'POST',
+      providerHints: deepseek ? { deepseek: true, cacheFriendly: true, tools: tools.length > 0 } : undefined,
+      requestBody: { ...body, messages: summarizeRequestMessages(body.messages) },
+      requestTime: new Date(reqTime).toLocaleString('zh-CN'),
+    }
+    if (deepseek) attachDeepSeekPrefixDiagnostics(body.messages, tools)
 
     const resp = await fetchWithRetry(base + '/chat/completions', {
       method: 'POST',
@@ -3614,8 +3851,14 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
       signal: _abortController.signal,
     })
 
+    _lastDebugInfo.status = resp.status
+    _lastDebugInfo.contentType = resp.headers.get('content-type') || ''
+    _lastDebugInfo.responseTime = new Date().toLocaleString('zh-CN')
+    _lastDebugInfo.latency = Date.now() - reqTime + 'ms'
+
     if (!resp.ok) {
       const errText = await resp.text().catch(() => '')
+      _lastDebugInfo.errorBody = errText.slice(0, 500)
       let errMsg = `API 错误 ${resp.status}`
       try { errMsg = JSON.parse(errText).error?.message || errMsg } catch {}
       // #Compat-5: callAIWithTools 场景下 tools 带进 body 最容易踩 vLLM tool choice 限制，
@@ -3634,6 +3877,7 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
     if (ct.includes('text/event-stream') || ct.includes('text/plain')) {
       // ── SSE 流式解析 ──
       await readSSEStream(resp, (json) => {
+        if (deepseek && json.usage) captureDeepSeekUsage(json)
         if (json.error) {
           streamError = streamError || json.error?.message || json.error || ''
         }
@@ -3681,6 +3925,7 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
     } else {
       // ── 非流式回退（API 忽略了 stream:true）──
       const data = await resp.json()
+      if (deepseek) captureDeepSeekUsage(data)
       const choice = data.choices?.[0]
       const msg = choice?.message
       if (!msg) {
@@ -3688,8 +3933,9 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
         throw new Error(errMsg || t('assistant.errInvalidResponse'))
       }
       finishReason = choice.finish_reason || ''
-      contentBuf = msg.content || msg.reasoning_content || ''
+      contentBuf = msg.content || ''
       if (contentBuf && onChunk) onChunk(contentBuf)
+      if (msg.reasoning_content) reasoningBuf = msg.reasoning_content
       if (msg.tool_calls) {
         for (const tc of msg.tool_calls) {
           pendingToolCalls.push(tc)
@@ -3711,7 +3957,8 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
     // ── 处理工具调用 ──
     if (pendingToolCalls.length > 0) {
       // 构造完整 assistant message 用于上下文
-      const assistantMsg = { role: 'assistant', content: contentBuf || null, tool_calls: pendingToolCalls }
+      const assistantMsg = { role: 'assistant', content: contentBuf || (deepseek ? '' : null), tool_calls: pendingToolCalls }
+      if (deepseek && reasoningBuf) assistantMsg.reasoning_content = reasoningBuf
       currentMessages.push(assistantMsg)
 
       for (const tc of pendingToolCalls) {
@@ -5326,16 +5573,8 @@ async function sendMessageDirect(text) {
   renderMessages()
   renderSessionList()
 
-  // 准备 AI 上下文（只保留 role + content，剔除内部字段）
-  // 过滤掉空的 AI 回复，避免污染上下文导致模型也返回空
-  const contextMessages = session.messages
-    .filter(m => {
-      if (m.role === 'user') return true
-      if (m.role === 'assistant') return m.content && m.content.length > 0
-      return false
-    })
-    .slice(-MAX_CONTEXT_TOKENS)
-    .map(m => ({ role: m.role, content: m.content }))
+  // 准备 AI 上下文（DeepSeek 会在长上下文时做低频本地压缩，普通模型保持短窗口）
+  const contextMessages = buildContextMessagesForSession(session)
 
   // 添加空 AI 消息占位
   const aiMsg = { role: 'assistant', content: '', ts: Date.now() }
@@ -5474,9 +5713,7 @@ async function sendMessageDirect(text) {
 async function retryAIResponse(session) {
   if (_isStreaming) return
 
-  const contextMessages = session.messages
-    .filter(m => m.role === 'user' || m.role === 'assistant')
-    .slice(-MAX_CONTEXT_TOKENS)
+  const contextMessages = buildContextMessagesForSession(session)
 
   const aiMsg = { role: 'assistant', content: '', ts: Date.now() }
   session.messages.push(aiMsg)

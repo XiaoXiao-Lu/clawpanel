@@ -3561,6 +3561,41 @@ function detectStopFromText(text) {
   return /\b(完成|无需继续|结束|停止|done|stop|final)\b/i.test(text)
 }
 
+function isHostedDeepSeekConfig(config, baseOverride = '') {
+  if (normalizeHostedApiType(config?.apiType) !== 'openai-completions') return false
+  const model = String(config?.model || '').toLowerCase()
+  if (model.includes('deepseek')) return true
+  const baseUrl = baseOverride || config?.baseUrl || ''
+  try {
+    const host = new URL(baseUrl).hostname.toLowerCase()
+    return host === 'api.deepseek.com' || host.endsWith('.deepseek.com')
+  } catch {
+    return /(^|\/\/|\.)(api\.)?deepseek\.com(\/|$)/i.test(baseUrl)
+  }
+}
+
+function sanitizeHostedDeepSeekMessages(messages) {
+  return messages.map(m => {
+    const next = { ...m }
+    if (next.role === 'assistant') delete next.reasoning_content
+    return next
+  })
+}
+
+function hostedDeepSeekCacheUsage(usage) {
+  if (!usage || typeof usage !== 'object') return null
+  const prompt = usage.prompt_tokens || usage.input_tokens || 0
+  const hit = usage.prompt_cache_hit_tokens || usage.prompt_tokens_details?.cached_tokens || 0
+  const miss = usage.prompt_cache_miss_tokens || (hit > 0 && prompt > hit ? prompt - hit : 0)
+  return {
+    prompt,
+    completion: usage.completion_tokens || usage.output_tokens || 0,
+    total: usage.total_tokens || 0,
+    cacheHit: hit,
+    cacheMiss: miss,
+  }
+}
+
 async function runHostedAgentStep() {
   if (_hostedBusy || !_hostedSessionConfig?.enabled) return
   const prompt = (_hostedSessionConfig.prompt || '').trim()
@@ -3658,7 +3693,14 @@ async function callHostedAI(messages, onChunk) {
   try {
     const headers = { 'Content-Type': 'application/json' }
     if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`
-    const body = { model: config.model, messages, stream: true, temperature: config.temperature || 0.7 }
+    const deepseek = isHostedDeepSeekConfig(config, base)
+    const body = {
+      model: config.model,
+      messages: deepseek ? sanitizeHostedDeepSeekMessages(messages) : messages,
+      stream: true,
+      temperature: config.temperature || 0.7,
+    }
+    if (deepseek) body.stream_options = { include_usage: true }
     const resp = await fetch(base + '/chat/completions', { method: 'POST', headers, body: JSON.stringify(body), signal })
     if (!resp.ok) {
       const errText = await resp.text().catch(() => '')
@@ -3680,7 +3722,15 @@ async function callHostedAI(messages, onChunk) {
         if (!trimmed || !trimmed.startsWith('data:')) continue
         const data = trimmed.slice(5).trim()
         if (data === '[DONE]') return
-        try { const json = JSON.parse(data); if (json.choices?.[0]?.delta?.content) onChunk(json.choices[0].delta.content) } catch {}
+        try {
+          const json = JSON.parse(data)
+          const usage = hostedDeepSeekCacheUsage(json.usage)
+          if (usage) {
+            _hostedRuntime.lastUsage = usage
+            persistHostedRuntime()
+          }
+          if (json.choices?.[0]?.delta?.content) onChunk(json.choices[0].delta.content)
+        } catch {}
       }
     }
   } finally {

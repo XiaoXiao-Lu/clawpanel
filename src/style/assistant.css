@@ -328,6 +328,8 @@
 .ast-msg-bubble-ai h1 { font-size: 17px; border-bottom: 1px solid var(--border-secondary); padding-bottom: 4px; }
 .ast-msg-bubble-ai h2 { font-size: 15.5px; }
 .ast-msg-bubble-ai h3 { font-size: 14px; }
+
+.ast-msg-bubble-ai ul, .ast-msg-bubble-ai ol {
   margin: 4px 0;
   padding-left: 20px;
 }
