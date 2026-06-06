@@ -694,17 +694,30 @@ fn scan_local_skill_entries_for_agent(
                 continue;
             }
 
-            let name = entry.file_name().to_string_lossy().to_string();
-            let base = scan_single_skill(&entry.path(), &name);
+            let dir_name = entry.file_name().to_string_lossy().to_string();
+            let base = scan_single_skill(&entry.path(), &dir_name);
+            // 优先使用 SKILL.md frontmatter 中的 name，目录名作为 fallback
+            let display_name = base
+                .get("name")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .unwrap_or(dir_name);
+            let sk_source = base
+                .get("custom")
+                .and_then(|v| v.as_bool())
+                .filter(|&c| c)
+                .map(|_| "自定义")
+                .unwrap_or(source_label);
             let eligible = base.get("ready").and_then(|v| v.as_bool()).unwrap_or(false);
             let mut item = serde_json::json!({
-                "name": name,
+                "name": display_name,
                 "description": base.get("description").cloned().unwrap_or(Value::String(String::new())),
                 "emoji": base.get("emoji").cloned().unwrap_or(Value::String("🧩".to_string())),
                 "eligible": eligible,
                 "disabled": false,
                 "blockedByAllowlist": false,
-                "source": source_label,
+                "source": sk_source,
                 "bundled": false,
                 "filePath": entry.path().to_string_lossy().to_string(),
                 "homepage": base.get("homepage").cloned().unwrap_or(Value::Null),
@@ -828,6 +841,12 @@ fn scan_single_skill(skill_path: &std::path::Path, name: &str) -> Value {
     let has_skill_md = skill_md.exists();
     let has_package_json = package_json.exists();
 
+    // 没有 package.json 的技能标注为自定义
+    if !has_package_json {
+        result["source"] = Value::String("自定义".to_string());
+        result["custom"] = Value::Bool(true);
+    }
+
     result["hasSkillMd"] = Value::Bool(has_skill_md);
     result["hasPackageJson"] = Value::Bool(has_package_json);
 
@@ -899,6 +918,10 @@ fn scan_single_skill(skill_path: &std::path::Path, name: &str) -> Value {
     // 3. 从 SKILL.md frontmatter 提取额外信息
     if has_skill_md {
         if let Some(frontmatter) = parse_skill_frontmatter(&skill_md) {
+            // 优先使用 SKILL.md frontmatter 中的 name，目录名只作为 fallback
+            if let Some(skill_name) = frontmatter.get("name").and_then(|v| v.as_str()) {
+                result["name"] = Value::String(skill_name.to_string());
+            }
             // 覆盖或补充 description（SKILL.md 的 description 更权威）
             if let Some(desc) = frontmatter.get("description").and_then(|v| v.as_str()) {
                 result["description"] = Value::String(desc.to_string());
