@@ -27,6 +27,24 @@ export async function render() {
       </div>
     </div>
     <div class="page-content">
+      <div class="agent-office-shell">
+        <div class="agent-office-head">
+          <div>
+            <div class="agent-office-eyebrow">Agent digital office</div>
+            <h2 class="agent-office-title">办公室监控</h2>
+          </div>
+          <div class="agent-office-legend">
+            <span><i class="is-idle"></i>空闲</span>
+            <span><i class="is-working"></i>工作中</span>
+            <span><i class="is-blocked"></i>阻塞</span>
+            <span><i class="is-error"></i>异常</span>
+          </div>
+        </div>
+        <div class="agent-office-body">
+          <div id="agent-office-scene" class="agent-office-scene" aria-label="Agent office scene"></div>
+          <aside id="agent-office-panel" class="agent-office-panel"></aside>
+        </div>
+      </div>
       <div id="agents-stats-bar" class="agents-stats-bar"></div>
       <div class="agents-toolbar">
         <div class="models-search-wrap">
@@ -39,6 +57,14 @@ export async function render() {
   `
 
   const state = { agents: [], bindings: [], search: '' }
+  page.querySelector('#agent-office-panel').innerHTML = `
+    <div class="agent-office-panel-empty">
+      <div class="agent-office-panel-title">办公室加载中</div>
+      <div class="agent-office-panel-desc">正在准备 3D Agent 办公室视图。</div>
+    </div>
+  `
+  initOfficeScene(page, state)
+
   // 非阻塞：先返回 DOM，后台加载数据
   loadAgents(page, state)
 
@@ -50,7 +76,44 @@ export async function render() {
     renderAgents(page, state)
   }
 
+  page.querySelector('#agent-office-panel').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-office-detail]')
+    if (!btn) return
+    location.hash = `#/agent-detail?id=${encodeURIComponent(btn.dataset.officeDetail)}`
+  })
+
   return page
+}
+
+async function initOfficeScene(page, state) {
+  try {
+    const mod = await import('../components/agent-office-scene.js')
+    state.renderAgentOfficePanel = mod.renderAgentOfficePanel
+    state.officeScene = new mod.AgentOfficeScene(page.querySelector('#agent-office-scene'), {
+      onSelect: (agent) => {
+        state.selectedOfficeAgentId = agent.id
+        const selected = state.agents.find(a => a.id === agent.id) || agent
+        state.renderAgentOfficePanel?.(page.querySelector('#agent-office-panel'), selected)
+      },
+    })
+    state.renderAgentOfficePanel(page.querySelector('#agent-office-panel'), null)
+
+    const observer = new MutationObserver(() => {
+      if (!document.body.contains(page)) {
+        state.officeScene?.dispose()
+        observer.disconnect()
+      }
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+    renderOffice(page, state)
+  } catch (e) {
+    page.querySelector('#agent-office-panel').innerHTML = `
+      <div class="agent-office-panel-empty">
+        <div class="agent-office-panel-title">办公室加载失败</div>
+        <div class="agent-office-panel-desc">${String(e).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+      </div>
+    `
+  }
 }
 
 function renderSkeleton(container) {
@@ -78,6 +141,7 @@ async function loadAgents(page, state) {
     state.agents = agents
     state.bindings = Array.isArray(config?.bindings) ? config.bindings : []
     renderAgents(page, state)
+    renderOffice(page, state)
 
     // 只在第一次加载时绑定事件（避免重复绑定）
     if (!state.eventsAttached) {
@@ -88,6 +152,32 @@ async function loadAgents(page, state) {
     container.innerHTML = '<div style="color:var(--error);padding:20px">' + t('agents.loadFailed') + ': ' + String(e).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>'
     toast(humanizeError(e, t('agents.loadListFailed')), 'error')
   }
+}
+
+function officeStateForAgent(agent, state) {
+  if (!agent) return 'offline'
+  const explicit = agent.activity?.state
+  if (explicit) return explicit
+  if (agent.error || agent.status === 'error') return 'error'
+  if (agent.status === 'blocked') return 'blocked'
+  if (agent.status === 'running' || agent.active) return 'working'
+  return 'idle'
+}
+
+function renderOffice(page, state) {
+  const agents = state.agents.map(agent => {
+    const bindingCount = (state.bindings || []).filter(b => (b.agentId || 'main') === agent.id).length
+    return {
+      ...agent,
+      officeState: officeStateForAgent(agent, state),
+      bindingCount,
+    }
+  })
+  if (!state.officeScene || !state.renderAgentOfficePanel) return
+  state.officeScene.setAgents(agents)
+  const selected = agents.find(a => a.id === state.selectedOfficeAgentId) || agents[0] || null
+  state.selectedOfficeAgentId = selected?.id || null
+  state.renderAgentOfficePanel(page.querySelector('#agent-office-panel'), selected)
 }
 
 /** 为指定 agent 生成绑定渠道的 badge HTML */
@@ -200,6 +290,7 @@ function renderAgents(page, state) {
           <div class="agent-card-actions">
             <button class="btn btn-sm btn-primary" data-action="detail" data-id="${a.id}">${t('agents.detail')}</button>
             <button class="btn btn-sm btn-secondary" data-action="edit" data-id="${a.id}">${t('agents.edit')}</button>
+            <button class="btn btn-sm btn-secondary" data-action="backup" data-id="${a.id}">${t('agents.backup')}</button>
             ${!isDefault ? `<button class="btn btn-sm btn-danger" data-action="delete" data-id="${a.id}">${t('agents.delete')}</button>` : ''}
           </div>
         </div>
@@ -372,6 +463,7 @@ async function showEditAgentDialog(page, state, id) {
         if (emoji) agent.identityEmoji = emoji
         if (model) agent.model = model
         renderAgents(page, state)
+        renderOffice(page, state)
 
         toast(t('agents.updated'), 'success')
       } catch (e) {

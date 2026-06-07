@@ -9,6 +9,7 @@ import { showConfirm } from '../components/modal.js'
 import { CHANNEL_LABELS } from '../lib/channel-labels.js'
 import { t } from '../lib/i18n.js'
 import { navigate } from '../router.js'
+import { isTauriRuntime } from '../lib/tauri-api.js'
 
 function esc(str) {
   if (!str) return ''
@@ -36,6 +37,9 @@ export async function render() {
         <a class="agent-back-link" href="#/agents">${t('agentDetail.back')}</a>
         <h1 class="page-title" id="agent-detail-title">Agent: ${esc(agentId)}</h1>
       </div>
+      <div class="agent-detail-actions" style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-sm btn-secondary" id="btn-backup-agent">${t('agents.backup') || '备份'}</button>
+      </div>
     </div>
     <div class="tab-bar" id="agent-tabs">
       <div class="tab active" data-tab="overview">${t('agentDetail.tabOverview')}</div>
@@ -60,10 +64,28 @@ export async function render() {
     switchTab(page, state, tab.dataset.tab)
   })
 
+  // 备份按钮
+  page.querySelector('#btn-backup-agent')?.addEventListener('click', () => backupAgent(state.agentId))
+
   // 首次加载
   loadDetail(page, state)
 
   return page
+}
+
+async function backupAgent(id) {
+  toast(t('agents.backingUp', { id }), 'info')
+  try {
+    const zipPath = await api.backupAgent(id)
+    try {
+      const { open } = await import('@tauri-apps/plugin-shell')
+      const dir = zipPath.substring(0, zipPath.lastIndexOf('/')) || zipPath
+      await open(dir)
+    } catch { /* fallback */ }
+    toast(t('agents.backupDone', { file: zipPath.split('/').pop() }), 'success')
+  } catch (e) {
+    toast(humanizeError(e, t('agents.backupFailed')), 'error')
+  }
 }
 
 async function loadDetail(page, state) {
