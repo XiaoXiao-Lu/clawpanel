@@ -17,6 +17,9 @@ import { ICONS } from './sidebar-icons.js'
 import { NAV_ITEMS_FULL, NAV_ITEMS_SETUP, NAV_ITEMS_ENGINE_SELECT, renderEngineSwitcher, renderKernelUpgradeHint, SS_DISMISSED_KERNEL_UPGRADE } from './sidebar-nav.js'
 import { showConfirm } from './modal.js'
 
+const SIDEBAR_CONNECTORS_I18N_KEY = 'sidebar.connectors'
+const SIDEBAR_NAV_COMPAT_KEYS = { connectors: SIDEBAR_CONNECTORS_I18N_KEY }
+
 
 
 

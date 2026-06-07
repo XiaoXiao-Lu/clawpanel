@@ -1110,7 +1110,17 @@ function renderRuntimeAccountInfo(summary, accountId) {
   `
 }
 
-function renderRuntimeActions(summary, accountId = '') {
+function isPluginManagedRuntimeChannel(pid) {
+  return pid === 'weixin'
+}
+
+function renderRuntimeActions(summary, accountId = '', pid = '') {
+  if (isPluginManagedRuntimeChannel(pid)) {
+    return `
+      <button class="btn btn-sm btn-secondary" data-runtime-action="refresh" data-account-id="${escapeAttr(accountId || '')}" title="${t('channels.runtimeRefreshTitle')}">${icon('refresh-cw', 14)} ${t('channels.runtimeRefreshShort')}</button>
+      <button class="btn btn-sm btn-secondary" data-action="edit">${icon('qr-code', 14)} ${t('channels.weixinLogin')}</button>
+    `
+  }
   if (!summary.supported) {
     return `<button class="btn btn-sm btn-secondary" data-runtime-action="refresh">${icon('refresh-cw', 14)} ${t('channels.runtimeRefresh')}</button>`
   }
@@ -1138,6 +1148,10 @@ async function handleRuntimeAction(pid, action, accountId, btn, page, state) {
       renderConfigured(page, state)
       toast(t('channels.runtimeRefreshed'), 'success')
       return
+    }
+
+    if (isPluginManagedRuntimeChannel(pid)) {
+      throw new Error('该渠道由插件接管，请使用“扫码登录”重新连接，或刷新查看 Gateway 运行态。')
     }
 
     if (!wsClient.connected || !wsClient.gatewayReady) {
@@ -1222,9 +1236,9 @@ function renderConfigured(page, state) {
                 ${renderRuntimeSummary(runtimeSummary)}
                 <div class="platform-accounts">${accountsHtml}</div>
                 <div class="platform-card-actions">
-                  ${renderRuntimeActions(runtimeSummary)}
+                  ${renderRuntimeActions(runtimeSummary, '', p.id)}
                   ${supportsMulti ? `<button class="btn btn-sm btn-secondary" data-action="add-account">${icon('plus', 14)} ${t('channels.addAccount')}</button>` : ''}
-                  ${reg ? `<button class="btn btn-sm btn-secondary" data-action="edit">${icon('edit', 14)} ${t('channels.editDefault')}</button>` : `<span class="form-hint" style="align-self:center">${t('channels.noGuide')}</span>`}
+                  ${reg && !isPluginManagedRuntimeChannel(p.id) ? `<button class="btn btn-sm btn-secondary" data-action="edit">${icon('edit', 14)} ${t('channels.editDefault')}</button>` : (!reg ? `<span class="form-hint" style="align-self:center">${t('channels.noGuide')}</span>` : '')}
                   <button class="btn btn-sm btn-secondary" data-action="toggle">${p.enabled ? icon('pause', 14) + ' ' + t('channels.disable') : icon('play', 14) + ' ' + t('channels.enable')}</button>
                   <button class="btn btn-sm btn-danger" data-action="remove" aria-label="${escapeAttr(t('channels.removePlatformBtn'))}" title="${escapeAttr(t('channels.removePlatformBtn'))}">${icon('trash', 14)}</button>
                 </div>
@@ -1249,9 +1263,9 @@ function renderConfigured(page, state) {
               </div>
               ${renderRuntimeSummary(runtimeSummary)}
               <div class="platform-card-actions">
-                ${renderRuntimeActions(runtimeSummary)}
+                ${renderRuntimeActions(runtimeSummary, '', p.id)}
                 ${supportsMulti ? `<button class="btn btn-sm btn-secondary" data-action="add-account">${icon('plus', 14)} ${t('channels.addAccount')}</button>` : ''}
-                ${reg ? `<button class="btn btn-sm btn-secondary" data-action="edit">${icon('edit', 14)} ${t('channels.editAccount')}</button>` : `<span class="form-hint" style="align-self:center">${t('channels.noGuide')}</span>`}
+                ${reg && !isPluginManagedRuntimeChannel(p.id) ? `<button class="btn btn-sm btn-secondary" data-action="edit">${icon('edit', 14)} ${t('channels.editAccount')}</button>` : (!reg ? `<span class="form-hint" style="align-self:center">${t('channels.noGuide')}</span>` : '')}
                 <button class="btn btn-sm btn-secondary" data-action="toggle">${p.enabled ? icon('pause', 14) + ' ' + t('channels.disable') : icon('play', 14) + ' ' + t('channels.enable')}</button>
                 <button class="btn btn-sm btn-danger" data-action="remove" aria-label="${escapeAttr(t('channels.removePlatformBtn'))}" title="${escapeAttr(t('channels.removePlatformBtn'))}">${icon('trash', 14)}</button>
               </div>

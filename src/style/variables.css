@@ -5,7 +5,7 @@
    ============================================================ */
 
 /* ─── 品牌色 ─── */
-:root, [data-theme="light"] {
+:root {
   --brand:           #4f46e5;
   --brand-indigo:    var(--brand);
   --brand-light:     #6366f1;
@@ -127,8 +127,8 @@
   /* ─── 圆角（新 + 旧兼容）─── */
   --radius-sm:  6px;
   --radius-md:  8px;
-  --radius-lg:  12px;
-  --radius-xl:  16px;
+  --radius-lg:  8px;
+  --radius-xl:  10px;
   --radius-pill: 999px;
   --radius-full: var(--radius-pill);
   --radius-card: var(--radius-lg);
@@ -186,6 +186,8 @@
   --accent-muted: var(--brand-muted);
   --primary: var(--brand);
   --primary-hover: var(--brand-light);
+  --border: var(--border-1);
+  --border-color: var(--border-1);
 }
 
 /* ─── 暗色主题 ─── */

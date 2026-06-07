@@ -1020,33 +1020,15 @@ async function handleStoreSearch(page) {
   if (!input || !results) return
   const q = input.value.trim()
 
-  // 有全量索引 → 本地过滤（更快，零网络延迟）
-  if (_storeIndex && _storeIndex.length) {
-    let items = _storeIndex
-    if (q) {
-      const lq = q.toLowerCase()
-      items = _storeIndex.filter(item => {
-        const name = storeItemName(item).toLowerCase()
-        const desc = storeItemDesc(item).toLowerCase()
-        const slug = (item.slug || '').toLowerCase()
-        const category = storeItemCategory(item).toLowerCase()
-        return name.includes(lq) || desc.includes(lq) || slug.includes(lq) || category.includes(lq)
-      })
-    }
+  if (!q && _storeIndex && _storeIndex.length) {
+    const items = _storeIndex
     if (meta) {
-      if (q && items.length === 0) {
-        meta.innerHTML = `<span class="meta-dot"></span>未找到匹配「${q}」的技能`
-      } else if (q) {
-        meta.innerHTML = `<span class="meta-dot"></span>本地匹配 ${items.length} 个技能（← 输入可实时过滤）`
-      } else {
-        meta.innerHTML = `<span class="meta-dot"></span>${t('skills.featuredMeta', { count: items.length })}`
-      }
+      meta.innerHTML = `<span class="meta-dot"></span>${t('skills.featuredMeta', { count: items.length })}`
     }
     renderStoreItems(results, items)
     return
   }
 
-  // 没有全量索引 → 回退远端 API 搜索
   if (!q) return
   results.innerHTML = skeletonHtml(4)
   if (meta) meta.innerHTML = '<span class="meta-dot"></span>' + t('skills.searching')

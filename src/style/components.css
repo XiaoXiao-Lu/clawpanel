@@ -11,7 +11,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  min-height: 36px;
+  min-height: 38px;
   padding: 0 var(--space-4);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
@@ -74,7 +74,7 @@
 }
 
 .btn-sm {
-  min-height: 30px;
+  min-height: 32px;
   padding: 0 var(--space-3);
   font-size: var(--text-xs);
 }
@@ -198,9 +198,10 @@
   font-weight: 500;
 }
 
-.form-input, .input {
+.input,
+.form-input {
   width: 100%;
-  min-height: 36px;
+  min-height: 38px;
   padding: 8px 12px;
   background: var(--bg-base);
   border: 1px solid var(--border-1);
@@ -210,16 +211,19 @@
   transition: border-color var(--ease-fast), background var(--ease-fast), box-shadow var(--ease-fast);
   outline: none;
 }
-.form-input:hover, .input:hover {
+.input:hover,
+.form-input:hover {
   border-color: var(--border-1);
   background: var(--bg-elevated);
 }
-.form-input:focus, .input:focus {
+.input:focus,
+.form-input:focus {
   border-color: var(--brand);
   background: var(--bg-elevated);
   box-shadow: var(--shadow-glow);
 }
-.form-input:focus-visible, .input:focus-visible {
+.input:focus-visible,
+.form-input:focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 1px;
 }
@@ -241,7 +245,7 @@ select.form-input, select.input {
   overflow-x: auto;
 }
 .tab {
-  min-height: 36px;
+  min-height: 38px;
   padding: 0 var(--space-4);
   display: inline-flex;
   align-items: center;
@@ -515,7 +519,9 @@ select.form-input, select.input {
   transition: opacity 0.4s ease;
 }
 body.has-desktop-chrome #login-overlay,
-body.has-desktop-chrome #backend-down-overlay { top: 36px; }
+body.has-desktop-chrome #backend-down-overlay {
+  top: 36px;
+}
 #login-overlay.hide { opacity: 0; pointer-events: none; }
 
 .login-card {

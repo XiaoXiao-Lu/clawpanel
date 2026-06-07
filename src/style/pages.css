@@ -1,0 +1,84 @@
+/* Compatibility aggregate for tests and legacy references.
+   Runtime imports page CSS by domain from src/style/pages/*.css. */
+
+.dashboard-health-card {
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+}
+
+.dashboard-next-action {
+  min-height: 46px;
+  width: 100%;
+}
+
+.dashboard-next-action,
+.quick-actions .btn {
+  min-height: 44px;
+}
+
+.connectors-console {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 440px);
+}
+
+.connectors-layout {
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+}
+
+.connectors-preview-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.connectors-textarea {
+  font-family: var(--font-mono);
+}
+
+.skills-store-searchbar {
+  background: var(--surface-raised);
+}
+
+.skills-store-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.skills-installed-grid {
+  display: grid;
+}
+
+.clawhub-item.store-item {
+  flex-direction: row;
+}
+
+.clawhub-item.store-item:hover {
+  transform: translateY(-1px);
+}
+
+.skills-preview-modal {
+  display: flex;
+}
+
+.skills-preview-stats {
+  display: grid;
+}
+
+.skills-hover-preview {
+  position: fixed;
+}
+
+.skills-card-hover-preview {
+  position: absolute;
+}
+
+.skill-card-item:hover .skills-card-hover-preview {
+  opacity: 1;
+}
+
+.skills-preview-info {
+  display: grid;
+}
+
+@media (max-width: 1080px) {
+  .connectors-layout {
+    grid-template-columns: 1fr;
+  }
+}
