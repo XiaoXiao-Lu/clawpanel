@@ -68,6 +68,35 @@ function mdToHtml(text) {
   return `<p>${out}</p>`
 }
 
+// --- mdToHtml cache: avoids re-parsing unchanged messages on every redraw ---
+const _mdCache = new Map()
+const MD_CACHE_MAX = 300
+
+function _cacheMd(text, mid) {
+  if (!text) return { html: '', key: 'empty' }
+  // Hash: content length + fast running hash for collision resistance
+  let h = text.length
+  for (let i = 0; i < Math.min(text.length, 200); i++) {
+    h = ((h << 5) - h + text.charCodeAt(i)) | 0
+  }
+  const key = `${mid || ''}:${h}:${text.length}`
+  let cached = _mdCache.get(key)
+  if (!cached) {
+    cached = mdToHtml(text)
+    if (_mdCache.size >= MD_CACHE_MAX) {
+      const first = _mdCache.keys().next().value
+      _mdCache.delete(first)
+    }
+    _mdCache.set(key, cached)
+  }
+  return { html: cached, key }
+}
+
+/** Cached version — use message id for stable cache key across redraws. */
+function cachedMdToHtml(text, mid) {
+  return _cacheMd(text, mid).html
+}
+
 /** Pretty-print JSON-ish tool payload; fallback to raw string. */
 function prettyJson(val) {
   if (val == null || val === '') return ''
@@ -333,9 +362,104 @@ export function render() {
 
   // ----------------------------------------------------------- subscription
 
+  // Track streaming state for incremental DOM updates.
+  // During streaming, we update only the content of the streaming message
+  // and the live tools display — avoiding a full page redraw on every delta.
+  let _streamingMid = null
+  let _streamingLastLen = -1
+  let _streamingLastTools = ''
+
   // Store subscription → `draw()` on mutation. rAF-batched inside the store
   // so a burst of events (streaming deltas) collapses into a single redraw.
-  const unsubscribe = store.subscribe(() => draw())
+  // When streaming, most notify() calls come from deltas — we do incremental
+  // DOM updates instead of full innerHTML replacement (Phase 5 optimization).
+  const unsubscribe = store.subscribe(() => {
+    const streaming = store.state.streaming
+    const s = store.activeSession()
+
+    if (streaming && s?.messages?.length) {
+      const lastMsg = s.messages[s.messages.length - 1]
+
+      if (lastMsg?.isStreaming) {
+        const contentLen = lastMsg.content?.length || 0
+        const toolsJson = JSON.stringify(store.state.liveTools || [])
+        // Try to find the existing DOM element for this streaming message.
+        // If it exists (from a previous full draw), update it incrementally.
+        const msgEl = el.querySelector(`.hm-chat-msg[data-mid="${lastMsg.id}"]`)
+
+        if (msgEl && (contentLen !== _streamingLastLen || toolsJson !== _streamingLastTools)) {
+          _streamingMid = lastMsg.id
+          _streamingLastLen = contentLen
+          _streamingLastTools = toolsJson
+          incrementalStreamingUpdate(lastMsg)
+          return
+        }
+      }
+    }
+
+    // Full redraw for everything else (session switch, streaming started/stopped,
+    // new messages, sidebar changes, input changes, etc.)
+    _streamingMid = null
+    _streamingLastLen = -1
+    _streamingLastTools = ''
+    draw()
+  })
+
+  /** Incremental DOM update for streaming messages — only touches the
+   *  streaming message's content and the live tools indicator, leaving
+   *  the rest of the page (sidebar, header, input, historical messages)
+   *  untouched. Falls back to full draw() if the element is missing. */
+  function incrementalStreamingUpdate(lastMsg) {
+    const msgsEl = el.querySelector('#hm-chat-messages')
+    if (!msgsEl) { draw(); return }
+
+    // Update streaming message content in-place
+    const msgEl = msgsEl.querySelector(`.hm-chat-msg[data-mid="${lastMsg.id}"]`)
+    if (!msgEl) { draw(); return }
+
+    const contentEl = msgEl.querySelector('.hm-chat-msg-content')
+    if (contentEl) {
+      if (lastMsg.content) {
+        // Phase 5: use cached mdToHtml for streaming content updates too.
+        // The cache key uses message ID + content length, which changes
+        // on every delta, so we always get the latest render.
+        contentEl.innerHTML = cachedMdToHtml(lastMsg.content, lastMsg.id)
+      } else {
+        contentEl.innerHTML = '<span class="hm-chat-streaming-dots"><span></span><span></span><span></span></span>'
+      }
+    }
+
+    // Update live tools display
+    const existingTools = msgsEl.querySelector('.hm-chat-streaming')
+    const toolsHtml = renderLiveTools()
+    if (toolsHtml) {
+      if (existingTools) {
+        existingTools.outerHTML = toolsHtml
+      } else {
+        msgsEl.insertAdjacentHTML('beforeend', toolsHtml)
+      }
+    } else if (existingTools) {
+      existingTools.remove()
+    }
+
+    // Auto-scroll if near bottom
+    const wasNearBottom = isMessagesNearBottom()
+    if (forceScrollBottom || wasNearBottom) {
+      msgsEl.scrollTop = msgsEl.scrollHeight
+    }
+    updateJumpButton()
+
+    // Restore input focus + caret
+    const input = el.querySelector('#hm-chat-input')
+    if (input && inputFocused) {
+      input.focus()
+      try {
+        const pos = Math.min(inputCaret, inputValue.length)
+        input.setSelectionRange(pos, pos)
+      } catch { /* ignore */ }
+      autoResize(input)
+    }
+  }
 
   // Teardown + mount-observer are set up near the end of render() (after
   // `onGlobalKey` is defined). We avoid attaching a MutationObserver here
@@ -548,7 +672,7 @@ export function render() {
       return `
         <div class="hm-chat-msg hm-chat-msg--system" data-mid="${escAttr(m.id)}">
           <div class="hm-chat-msg-bubble">
-            <div class="hm-chat-msg-content">${mdToHtml(m.content)}</div>
+            <div class="hm-chat-msg-content">${cachedMdToHtml(m.content, m.id)}</div>
           </div>
         </div>
       `
@@ -561,7 +685,7 @@ export function render() {
           ${!isUser ? `<div class="hm-chat-msg-avatar" aria-hidden="true">H</div>` : ''}
           <div class="hm-chat-msg-content-wrap">
             <div class="hm-chat-msg-bubble">
-              <div class="hm-chat-msg-content">${mdToHtml(m.content)}${m.isStreaming && !m.content ? '<span class="hm-chat-streaming-dots"><span></span><span></span><span></span></span>' : ''}</div>
+              <div class="hm-chat-msg-content">${cachedMdToHtml(m.content, m.id)}${m.isStreaming && !m.content ? '<span class="hm-chat-streaming-dots"><span></span><span></span><span></span></span>' : ''}</div>
             </div>
             <div class="hm-chat-msg-footer">
               <span class="hm-chat-msg-time">${escHtml(formatTime(m.timestamp))}</span>
