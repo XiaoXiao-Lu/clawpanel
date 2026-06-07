@@ -19,7 +19,7 @@ export function buildExpertTeamPlan({ group, experts, task }) {
 }
 
 export async function runExpertTeam({ group, experts, task, onEvent, signal } = {}) {
-  const config = await api.readOpenclawConfig()
+  const config = isolateExpertTeamModelConfig(await api.readOpenclawConfig())
   const defaultSlot = resolveDefaultModelSlot(config)
   const plan = buildExpertTeamPlan({ group, experts, task })
   emit(onEvent, { type: 'start', plan: summarizePlan(plan, defaultSlot, config) })
@@ -89,6 +89,19 @@ export function buildModeratorMessages({ plan, contributions = [] }) {
     { role: 'system', content: moderatorSystemPrompt(plan, moderator) },
     { role: 'user', content: moderatorUserPrompt(plan, contributions) },
   ]
+}
+
+export function isolateExpertTeamModelConfig(config = {}) {
+  return {
+    agents: {
+      defaults: {
+        model: clonePlainObject(config?.agents?.defaults?.model),
+      },
+    },
+    models: {
+      providers: clonePlainObject(config?.models?.providers),
+    },
+  }
 }
 
 export function resolveDefaultModelSlot(config = {}) {
@@ -240,6 +253,11 @@ function parseProxyBody(result) {
   if (result && typeof result === 'object' && result.choices) return result
   const body = typeof result?.body === 'string' ? result.body : JSON.stringify(result || {})
   return JSON.parse(body)
+}
+
+function clonePlainObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return JSON.parse(JSON.stringify(value))
 }
 
 function summarizePlan(plan, slot, config = {}) {

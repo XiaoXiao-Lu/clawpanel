@@ -79,7 +79,6 @@ export async function render() {
     activeTab: TABS.experts,
     experts: [],
     groups: [],
-    agents: [],
     search: '',
     selectedExpertId: null,
     selectedGroupId: null,
@@ -158,14 +157,12 @@ async function loadData(page, state, opts = {}) {
   state.loading = true
   renderAll(page, state)
   try {
-    const [experts, groups, agents] = await Promise.all([
+    const [experts, groups] = await Promise.all([
       api.listExperts(),
       api.listExpertGroups(),
-      api.listAgents().catch(() => []),
     ])
     state.experts = Array.isArray(experts) ? experts : []
     state.groups = Array.isArray(groups) ? groups : []
-    state.agents = Array.isArray(agents) ? agents : []
     state.loading = false
     if (opts.clearDrafts) {
       state.draftExpert = null
@@ -340,13 +337,6 @@ function renderExpertEditor(expert, state) {
         <h3>${t('expertTeams.formCapability')}</h3>
         ${textarea('expert-system-prompt', t('expertTeams.systemPrompt'), expert.systemPrompt || '', { rows: 7, hint: t('expertTeams.systemPromptHint') })}
         <div class="expert-form-grid">
-          <label class="form-group">
-            <span class="form-label">${t('expertTeams.boundAgent')}</span>
-            <select class="form-input" id="expert-bound-agent">
-              <option value="">${t('expertTeams.noBoundAgent')}</option>
-              ${state.agents.map(agent => option(agent.id, agentLabel(agent), expert.boundAgentId || '')).join('')}
-            </select>
-          </label>
           <label class="form-group">
             <span class="form-label">${t('expertTeams.modelMode')}</span>
             <select class="form-input" id="expert-model-inherit">
@@ -755,8 +745,10 @@ function collectExpert(page, current = {}) {
   if (!name) throw new Error(t('expertTeams.nameRequired'))
   if (!ID_RE.test(id)) throw new Error(t('expertTeams.idInvalid'))
   const inheritDefault = valueOf(page, '#expert-model-inherit') !== 'fixed'
+  const base = { ...(current || {}) }
+  delete base.boundAgentId
   return {
-    ...current,
+    ...base,
     id,
     name,
     title: valueOf(page, '#expert-title'),
@@ -764,7 +756,6 @@ function collectExpert(page, current = {}) {
     color: valueOf(page, '#expert-color') || '#4f46e5',
     enabled: page.querySelector('#expert-enabled')?.checked !== false,
     systemPrompt: valueOf(page, '#expert-system-prompt'),
-    boundAgentId: valueOf(page, '#expert-bound-agent') || undefined,
     model: {
       ...(current?.model && typeof current.model === 'object' ? current.model : {}),
       inheritDefault,
@@ -908,10 +899,6 @@ function filterItems(items, search) {
 
 function findExpert(experts, id) {
   return experts.find(expert => expert.id === id) || null
-}
-
-function agentLabel(agent) {
-  return agent.identityName || agent.name || agent.id || t('common.unknown')
 }
 
 function valueOf(root, selector) {

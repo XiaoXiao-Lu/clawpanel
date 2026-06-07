@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildExpertMessages, buildExpertTeamPlan, buildModeratorMessages, resolveDefaultModelSlot, resolveExpertModelSlot, resolveMaxParallel, resolveMembers } from '../src/lib/expert-team-runner.js'
+import { buildExpertMessages, buildExpertTeamPlan, buildModeratorMessages, isolateExpertTeamModelConfig, resolveDefaultModelSlot, resolveExpertModelSlot, resolveMaxParallel, resolveMembers } from '../src/lib/expert-team-runner.js'
 
 const experts = [
   { id: 'planner', name: 'Planner', title: 'Product Planner', enabled: true, systemPrompt: 'Plan product work.' },
@@ -84,6 +84,26 @@ test('expert fixed model requires provider/model', () => {
     ...experts[1],
     model: { inheritDefault: false, modelId: 'bad-model-name' },
   }), /provider\/model/)
+})
+
+test('expert team runtime isolates model config from channels and bindings', () => {
+  const fullConfig = {
+    ...modelConfig(),
+    agents: {
+      defaults: modelConfig().agents.defaults,
+      list: [{ id: 'main', workspace: 'C:/Users/Kinnon/.openclaw/workspace' }],
+    },
+    bindings: [{ type: 'route', agentId: 'main', match: { channel: 'openclaw-weixin' } }],
+    channels: { 'openclaw-weixin': { enabled: true } },
+    session: { dmScope: 'per-channel-peer' },
+  }
+  const isolated = isolateExpertTeamModelConfig(fullConfig)
+  assert.deepEqual(Object.keys(isolated).sort(), ['agents', 'models'])
+  assert.equal(isolated.channels, undefined)
+  assert.equal(isolated.bindings, undefined)
+  assert.equal(isolated.session, undefined)
+  assert.equal(isolated.agents.list, undefined)
+  assert.equal(resolveDefaultModelSlot(isolated).model, 'claude-opus-4-6')
 })
 
 test('resolveMembers skips missing and disabled experts', () => {

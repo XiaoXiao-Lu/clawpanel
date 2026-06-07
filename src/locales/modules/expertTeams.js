@@ -29,8 +29,6 @@ export default {
   color: _('标识颜色', 'Color'),
   systemPrompt: _('专家提示词', 'Expert Prompt'),
   systemPromptHint: _('描述专家的职责、判断标准、边界和输出习惯。', 'Describe this expert’s responsibilities, standards, boundaries, and output habits.'),
-  boundAgent: _('绑定 OpenClaw Agent', 'Bound OpenClaw Agent'),
-  noBoundAgent: _('不绑定，使用专家配置', 'No binding, use expert config'),
   modelMode: _('模型策略', 'Model Strategy'),
   inheritModel: _('继承默认模型', 'Inherit default model'),
   fixedModel: _('指定模型', 'Fixed model'),
