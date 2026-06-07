@@ -96,6 +96,7 @@ pub fn run() {
             config::restart_gateway,
             config::test_model,
             config::test_model_verbose,
+            config::model_chat_completions_proxy,
             config::list_remote_models,
             config::scan_model_client_configs,
             config::list_openclaw_versions,

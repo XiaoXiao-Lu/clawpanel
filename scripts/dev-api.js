@@ -8113,6 +8113,65 @@ async function proxyStreamToInstance(instance, cmd, body, req, res) {
   }
 }
 
+async function streamModelChatCompletionsProxy({ baseUrl, apiKey, apiType = 'openai-completions', body } = {}, req, res) {
+  const type = ['anthropic', 'anthropic-messages'].includes(apiType) ? 'anthropic-messages'
+    : apiType === 'google-gemini' ? 'google-gemini'
+    : 'openai-completions'
+  if (type !== 'openai-completions') throw new Error('当前代理仅支持 OpenAI Chat Completions')
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('请求体无效')
+
+  apiKey = resolveModelApiKey(apiKey)
+  const base = _normalizeBaseUrl(baseUrl)
+  const url = `${base}/chat/completions`
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': body.stream ? 'text/event-stream' : 'application/json',
+    'Accept-Encoding': 'identity',
+  }
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`
+
+  const controller = new AbortController()
+  let closed = false
+  res.on('close', () => {
+    closed = true
+    controller.abort()
+  })
+
+  const upstream = await globalThis.fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    signal: controller.signal,
+  })
+
+  res.statusCode = upstream.status
+  res.statusMessage = upstream.statusText || res.statusMessage
+  const contentType = upstream.headers.get('content-type') || (body.stream ? 'text/event-stream; charset=utf-8' : 'application/json; charset=utf-8')
+  res.setHeader('Content-Type', contentType)
+  res.setHeader('Cache-Control', 'no-cache, no-transform')
+  res.setHeader('Connection', 'keep-alive')
+
+  if (!upstream.ok || !upstream.body) {
+    res.end(await upstream.text())
+    return
+  }
+
+  const reader = upstream.body.getReader()
+  try {
+    while (!closed) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value) {
+        const ready = res.write(Buffer.from(value))
+        if (!ready) await new Promise(resolve => res.once('drain', resolve))
+      }
+    }
+  } finally {
+    try { reader.releaseLock() } catch {}
+    if (!res.writableEnded && !res.destroyed) res.end()
+  }
+}
+
 async function instanceHealthCheck(instance) {
   const result = { id: instance.id, online: false, version: null, gatewayRunning: false, lastCheck: Date.now() }
   if (instance.type === 'local') {
@@ -8185,7 +8244,7 @@ const ALWAYS_LOCAL = new Set([
   'docker_cluster_overview',
   'auth_check', 'auth_login', 'auth_logout',
   'read_panel_config', 'write_panel_config',
-  'get_deploy_mode', 'scan_model_client_configs',
+  'get_deploy_mode', 'scan_model_client_configs', 'model_chat_completions_proxy', 'model_chat_completions_proxy_stream',
   'assistant_exec', 'assistant_read_file', 'assistant_write_file',
   'assistant_list_dir', 'assistant_system_info', 'assistant_list_processes',
   'assistant_check_port', 'assistant_web_search', 'assistant_fetch_url',
@@ -10610,6 +10669,42 @@ const handlers = {
       error = 'API 已响应但未解析出内容'
     }
     return { success, status, reqUrl, reqBody, respHeaders, respBody, respRawHex, respByteCount, reply, error, elapsedMs, usedApi }
+  },
+
+  async model_chat_completions_proxy({ baseUrl, apiKey, apiType = 'openai-completions', body } = {}) {
+    const type = ['anthropic', 'anthropic-messages'].includes(apiType) ? 'anthropic-messages'
+      : apiType === 'google-gemini' ? 'google-gemini'
+      : 'openai-completions'
+    if (type !== 'openai-completions') throw new Error('当前代理仅支持 OpenAI Chat Completions')
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('请求体无效')
+
+    apiKey = resolveModelApiKey(apiKey)
+    const base = _normalizeBaseUrl(baseUrl)
+    const url = `${base}/chat/completions`
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': body.stream ? 'text/event-stream' : 'application/json',
+      'Accept-Encoding': 'identity',
+    }
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`
+
+    const resp = await globalThis.fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120000),
+    })
+    const text = await resp.text()
+    const respHeaders = {}
+    for (const [k, v] of resp.headers.entries()) respHeaders[k] = v
+    return {
+      ok: resp.ok,
+      status: resp.status,
+      statusText: resp.statusText,
+      contentType: resp.headers.get('content-type') || '',
+      headers: respHeaders,
+      body: text,
+    }
   },
 
   async list_remote_models({ baseUrl, apiKey, apiType = 'openai-completions' }) {
@@ -15522,6 +15617,22 @@ async function _apiMiddleware(req, res, next) {
   }
 
   const activeInst = getActiveInstance()
+
+  if (cmd === 'model_chat_completions_proxy_stream') {
+    try {
+      const args = await readBody(req)
+      await streamModelChatCompletionsProxy(args, req, res)
+    } catch (e) {
+      if (!res.headersSent) {
+        res.statusCode = e.name === 'AbortError' ? 499 : 500
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ error: e.message || String(e) }))
+      } else if (!res.writableEnded && !res.destroyed) {
+        res.end()
+      }
+    }
+    return
+  }
 
   if (cmd === 'hermes_agent_run_stream') {
     const args = await readBody(req)

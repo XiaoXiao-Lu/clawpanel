@@ -2588,6 +2588,52 @@ async function fetchWithRetry(url, options, retries = 3) {
   }
 }
 
+function isNetworkFetchError(err) {
+  if (!err || err.name === 'AbortError') return false
+  const msg = String(err.message || err)
+  return err instanceof TypeError
+    || /Failed to fetch|NetworkError|Load failed|CORS|fetch/i.test(msg)
+}
+
+function responseFromProxyResult(result) {
+  const headers = new Headers()
+  const rawHeaders = result?.headers && typeof result.headers === 'object' ? result.headers : {}
+  for (const [key, value] of Object.entries(rawHeaders)) {
+    if (typeof value === 'string') headers.set(key, value)
+  }
+  if (result?.contentType && !headers.has('content-type')) headers.set('content-type', result.contentType)
+  return new Response(result?.body || '', {
+    status: result?.status || 500,
+    statusText: result?.statusText || '',
+    headers,
+  })
+}
+
+async function fetchModelChatCompletions(baseUrl, body, options = {}, retries = 0) {
+  const url = baseUrl + '/chat/completions'
+  try {
+    return await fetchWithRetry(url, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(body),
+      ...options,
+    }, retries)
+  } catch (err) {
+    if (!isNetworkFetchError(err)) throw err
+    const streamResp = await api.modelChatCompletionsProxyStream?.(baseUrl, _config.apiKey || '', _config.apiType, body, {
+      signal: options.signal,
+    })
+    if (streamResp) {
+      streamResp._proxiedByBackend = true
+      return streamResp
+    }
+    const proxied = await api.modelChatCompletionsProxy(baseUrl, _config.apiKey || '', _config.apiType, body)
+    const resp = responseFromProxyResult(proxied)
+    resp._proxiedByBackend = true
+    return resp
+  }
+}
+
 // ── 配置读写 ──
 function loadConfig() {
   try {
@@ -3238,15 +3284,13 @@ async function callChatCompletions(base, messages, onChunk) {
   }
   if (deepseek) attachDeepSeekPrefixDiagnostics(body.messages, [])
 
-  const resp = await fetchWithRetry(url, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify(body),
+  const resp = await fetchModelChatCompletions(base, body, {
     signal: _abortController.signal,
   })
 
   _lastDebugInfo.status = resp.status
   _lastDebugInfo.contentType = resp.headers.get('content-type') || ''
+  if (resp._proxiedByBackend) _lastDebugInfo.proxiedByBackend = true
   _lastDebugInfo.responseTime = new Date().toLocaleString('zh-CN')
   _lastDebugInfo.latency = Date.now() - reqTime + 'ms'
 
@@ -3954,15 +3998,13 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
     }
     if (deepseek) attachDeepSeekPrefixDiagnostics(body.messages, tools)
 
-    const resp = await fetchWithRetry(base + '/chat/completions', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify(body),
+    const resp = await fetchModelChatCompletions(base, body, {
       signal: _abortController.signal,
     })
 
     _lastDebugInfo.status = resp.status
     _lastDebugInfo.contentType = resp.headers.get('content-type') || ''
+    if (resp._proxiedByBackend) _lastDebugInfo.proxiedByBackend = true
     _lastDebugInfo.responseTime = new Date().toLocaleString('zh-CN')
     _lastDebugInfo.latency = Date.now() - reqTime + 'ms'
 

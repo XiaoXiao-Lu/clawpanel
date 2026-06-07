@@ -209,6 +209,21 @@ async function webStreamInvoke(cmd, args, onEvent, options = {}) {
   }
 }
 
+async function webRawInvoke(cmd, args, options = {}) {
+  if (isTauriRuntime()) return null
+  const resp = await fetch(`/__api/${cmd}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(args || {}),
+    signal: options.signal,
+  })
+  if (resp.status === 401) {
+    if (window.__clawpanel_show_login) window.__clawpanel_show_login()
+    throw new Error(t('common.loginRequired'))
+  }
+  return resp
+}
+
 // 后端连接状态
 let _backendOnline = null // null=未检测, true=在线, false=离线
 const _backendListeners = []
@@ -312,6 +327,8 @@ export const api = {
   testModel: (baseUrl, apiKey, modelId, apiType = null) => invoke('test_model', { baseUrl, apiKey, modelId, apiType }),
   testModelVerbose: (baseUrl, apiKey, modelId, apiType = null) => invoke('test_model_verbose', { baseUrl, apiKey, modelId, apiType }),
   listRemoteModels: (baseUrl, apiKey, apiType = null) => invoke('list_remote_models', { baseUrl, apiKey, apiType }),
+  modelChatCompletionsProxy: (baseUrl, apiKey, apiType, body) => invoke('model_chat_completions_proxy', { baseUrl, apiKey, apiType, body }),
+  modelChatCompletionsProxyStream: (baseUrl, apiKey, apiType, body, options) => webRawInvoke('model_chat_completions_proxy_stream', { baseUrl, apiKey, apiType, body }, options),
   scanModelClientConfigs: () => invoke('scan_model_client_configs'),
 
   // Agent 管理
