@@ -228,4 +228,6 @@ export default {
   addAll: _('全部加入', 'Add All', '全部加入'),
   clearAll: _('清空全部', 'Clear All', '清空全部'),
   confirmClearAll: _('确定清空所有备选模型？主模型不会被影响。', 'Clear all fallback models? Primary model is not affected.', '確定清空所有備選模型？主模型不會被影響。'),
+  maxConcurrent: _('并发上限', 'Max concurrent', '並行上限', '最大同時実行数', '최대 동시 실행'),
+  maxConcurrentHint: _('同时运行的最大 Agent 会话数', 'Max concurrent agent sessions', '同時運行的最大 Agent 會話數'),
 }
