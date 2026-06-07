@@ -413,6 +413,101 @@
   text-align: center;
 }
 
+.expert-run-panel {
+  margin: 0 var(--space-4) var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+}
+
+.expert-run-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.expert-run-head h3 {
+  margin: 0 0 4px;
+  color: var(--text-1);
+  font-size: var(--font-size-md);
+  font-weight: 800;
+}
+
+.expert-run-head p {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+.expert-run-task {
+  width: 100%;
+}
+
+.expert-run-transcript {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.expert-run-empty {
+  display: grid;
+  place-items: center;
+  min-height: 96px;
+  border: 1px dashed var(--border-2);
+  border-radius: var(--radius-md);
+  color: var(--text-3);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.expert-run-message {
+  padding: var(--space-3);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+}
+
+.expert-run-message strong,
+.expert-run-message span {
+  display: block;
+  color: var(--text-2);
+  font-size: var(--font-size-sm);
+}
+
+.expert-run-message strong {
+  margin-bottom: 6px;
+  color: var(--text-1);
+}
+
+.expert-run-message pre {
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+.expert-run-message--pending {
+  background: var(--bg-sunken);
+}
+
+.expert-run-message--final {
+  border-color: color-mix(in srgb, var(--brand) 34%, var(--border-2));
+  background: var(--brand-faint);
+}
+
+.expert-run-message--error {
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--border-2));
+  background: var(--danger-muted);
+}
+
 .expert-teams-empty {
   display: flex;
   flex-direction: column;
@@ -463,7 +558,8 @@
   .expert-teams-header,
   .expert-teams-topline,
   .expert-editor-head,
-  .expert-member-toolbar {
+  .expert-member-toolbar,
+  .expert-run-head {
     align-items: stretch;
     flex-direction: column;
   }

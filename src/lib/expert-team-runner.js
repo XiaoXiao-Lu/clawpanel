@@ -1,0 +1,230 @@
+import { api } from './tauri-api.js'
+
+const DEFAULT_TEMPERATURE = 0.3
+
+export function buildExpertTeamPlan({ group, experts, task }) {
+  const members = resolveMembers(group, experts)
+  const moderator = resolveModerator(group, members)
+  const cleanedTask = String(task || '').trim()
+  if (!cleanedTask) throw new Error('Task is required')
+  if (!members.length) throw new Error('Expert team has no enabled members')
+  return {
+    id: `run-${Date.now()}`,
+    task: cleanedTask,
+    group: group || {},
+    members,
+    moderator,
+    blackboard: [],
+  }
+}
+
+export async function runExpertTeam({ group, experts, task, onEvent } = {}) {
+  const config = await api.readOpenclawConfig()
+  const slot = resolveDefaultModelSlot(config)
+  const plan = buildExpertTeamPlan({ group, experts, task })
+  emit(onEvent, { type: 'start', plan: summarizePlan(plan, slot) })
+
+  const contributions = []
+  for (const expert of plan.members) {
+    emit(onEvent, { type: 'expert_start', expertId: expert.id, expertName: expert.name || expert.id })
+    const messages = buildExpertMessages({ plan, expert, previous: contributions })
+    const content = await callChatModel(slot, messages, { maxTokens: 1800 })
+    const contribution = {
+      id: `msg-${contributions.length + 1}`,
+      role: 'expert',
+      expertId: expert.id,
+      expertName: expert.name || expert.id,
+      content,
+      createdAt: new Date().toISOString(),
+    }
+    contributions.push(contribution)
+    plan.blackboard.push(contribution)
+    emit(onEvent, { type: 'expert_done', message: contribution })
+  }
+
+  emit(onEvent, { type: 'moderator_start', expertId: plan.moderator?.id || '' })
+  const finalMessages = buildModeratorMessages({ plan, contributions })
+  const final = await callChatModel(slot, finalMessages, { maxTokens: 2600 })
+  const finalMessage = {
+    id: `msg-${contributions.length + 1}`,
+    role: 'moderator',
+    expertId: plan.moderator?.id || '',
+    expertName: plan.moderator?.name || 'Moderator',
+    content: final,
+    createdAt: new Date().toISOString(),
+  }
+  plan.blackboard.push(finalMessage)
+  emit(onEvent, { type: 'done', final: finalMessage, transcript: plan.blackboard })
+  return { plan: summarizePlan(plan, slot), transcript: plan.blackboard, final: finalMessage }
+}
+
+export function buildExpertMessages({ plan, expert, previous = [] }) {
+  return [
+    { role: 'system', content: expertSystemPrompt(plan, expert) },
+    { role: 'user', content: expertUserPrompt(plan, expert, previous) },
+  ]
+}
+
+export function buildModeratorMessages({ plan, contributions = [] }) {
+  const moderator = plan.moderator || {}
+  return [
+    { role: 'system', content: moderatorSystemPrompt(plan, moderator) },
+    { role: 'user', content: moderatorUserPrompt(plan, contributions) },
+  ]
+}
+
+export function resolveDefaultModelSlot(config = {}) {
+  const primary = config?.agents?.defaults?.model?.primary || ''
+  const providers = config?.models?.providers || {}
+  let providerKey = ''
+  let model = ''
+  if (primary.includes('/')) {
+    const parts = primary.split('/')
+    providerKey = parts.shift()
+    model = parts.join('/')
+  }
+  if (!providerKey || !providers[providerKey]) {
+    providerKey = Object.keys(providers)[0] || ''
+    model = providerModels(providers[providerKey])[0] || model
+  }
+  const provider = providers[providerKey] || {}
+  if (!providerKey || !provider?.baseUrl || !model) {
+    throw new Error('OpenClaw default model is not configured')
+  }
+  return {
+    provider: providerKey,
+    baseUrl: cleanBaseUrl(provider.baseUrl),
+    apiKey: provider.apiKey || '',
+    apiType: normalizeApiType(provider.api),
+    model,
+  }
+}
+
+export function resolveMembers(group = {}, experts = []) {
+  const byId = new Map(experts.map(expert => [expert.id, expert]))
+  return (Array.isArray(group.members) ? group.members : [])
+    .slice()
+    .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
+    .map(member => byId.get(member.expertId))
+    .filter(expert => expert && expert.enabled !== false)
+}
+
+function resolveModerator(group = {}, members = []) {
+  return members.find(expert => expert.id === group.moderatorExpertId) || members[0] || null
+}
+
+function expertSystemPrompt(plan, expert) {
+  return [
+    expert.systemPrompt || `You are ${expert.name || expert.id}, ${expert.title || 'a domain expert'}.`,
+    '',
+    'You are participating in an expert team run.',
+    'Communication protocol:',
+    '1. Work independently from your role.',
+    '2. Use the shared blackboard only as context.',
+    '3. Produce concise, actionable output.',
+    '4. Include assumptions, risks, and concrete recommendations.',
+    expert.outputSchema ? `Required output format:\n${expert.outputSchema}` : '',
+  ].filter(Boolean).join('\n')
+}
+
+function expertUserPrompt(plan, expert, previous) {
+  return [
+    `Team: ${plan.group.name || plan.group.id || 'Expert Team'}`,
+    `Mode: ${plan.group.mode || 'panel'}`,
+    `Task:\n${plan.task}`,
+    '',
+    `Your role: ${expert.name || expert.id}${expert.title ? ` (${expert.title})` : ''}`,
+    previous.length ? `Shared blackboard so far:\n${formatMessages(previous)}` : 'Shared blackboard so far: empty',
+    '',
+    'Respond as this expert only. Do not synthesize the final answer unless you are the moderator.',
+  ].join('\n')
+}
+
+function moderatorSystemPrompt(plan, moderator) {
+  return [
+    moderator.systemPrompt || `You are ${moderator.name || 'the moderator'}, responsible for synthesizing expert input.`,
+    '',
+    'Moderator protocol:',
+    '1. Compare expert contributions, resolve conflicts, and preserve dissenting risks.',
+    '2. Produce a final answer the user can act on.',
+    '3. Be explicit about tradeoffs and next steps.',
+  ].join('\n')
+}
+
+function moderatorUserPrompt(plan, contributions) {
+  return [
+    `Team: ${plan.group.name || plan.group.id || 'Expert Team'}`,
+    `Mode: ${plan.group.mode || 'panel'}`,
+    `Original task:\n${plan.task}`,
+    '',
+    `Expert blackboard:\n${formatMessages(contributions)}`,
+    '',
+    'Synthesize the final team output. Include key decisions, reasoning, risks, and concrete next actions.',
+  ].join('\n')
+}
+
+function formatMessages(messages) {
+  return messages.map(msg => {
+    const speaker = msg.expertName || msg.expertId || msg.role || 'expert'
+    return `### ${speaker}\n${msg.content || ''}`
+  }).join('\n\n')
+}
+
+async function callChatModel(slot, messages, opts = {}) {
+  const body = {
+    model: slot.model,
+    messages,
+    temperature: DEFAULT_TEMPERATURE,
+    max_tokens: opts.maxTokens || 2000,
+  }
+  const result = await api.modelChatCompletionsProxy(slot.baseUrl, slot.apiKey || '', slot.apiType, body)
+  const parsed = parseProxyBody(result)
+  const content = parsed?.choices?.[0]?.message?.content || parsed?.choices?.[0]?.text || ''
+  if (!content.trim()) throw new Error('Model returned an empty expert response')
+  return content.trim()
+}
+
+function parseProxyBody(result) {
+  if (result && typeof result === 'object' && result.choices) return result
+  const body = typeof result?.body === 'string' ? result.body : JSON.stringify(result || {})
+  return JSON.parse(body)
+}
+
+function summarizePlan(plan, slot) {
+  return {
+    id: plan.id,
+    task: plan.task,
+    groupId: plan.group.id || '',
+    groupName: plan.group.name || '',
+    mode: plan.group.mode || 'panel',
+    members: plan.members.map(expert => ({ id: expert.id, name: expert.name || expert.id, title: expert.title || '' })),
+    moderator: plan.moderator ? { id: plan.moderator.id, name: plan.moderator.name || plan.moderator.id } : null,
+    model: { provider: slot.provider, model: slot.model, apiType: slot.apiType },
+  }
+}
+
+function providerModels(provider = {}) {
+  return (Array.isArray(provider.models) ? provider.models : [])
+    .map(model => typeof model === 'string' ? model : model?.id)
+    .filter(Boolean)
+}
+
+function normalizeApiType(raw) {
+  const type = String(raw || '').trim()
+  if (type === 'anthropic' || type === 'anthropic-messages') return 'anthropic-messages'
+  if (type === 'google-gemini' || type === 'google-generative-ai') return 'google-generative-ai'
+  if (type === 'ollama') return 'ollama'
+  return 'openai-completions'
+}
+
+function cleanBaseUrl(raw) {
+  let base = String(raw || '').trim().replace(/\/+$/, '')
+  base = base.replace(/\/chat\/completions\/?$/, '')
+  base = base.replace(/\/models\/?$/, '')
+  if (/:(11434)$/i.test(base) && !base.endsWith('/v1')) return `${base}/v1`
+  return base
+}
+
+function emit(onEvent, event) {
+  if (typeof onEvent === 'function') onEvent(event)
+}

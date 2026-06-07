@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 const page = readFileSync(new URL('../src/pages/expert-teams.js', import.meta.url), 'utf8')
 const css = readFileSync(new URL('../src/style/pages/expert-teams.css', import.meta.url), 'utf8')
 const api = readFileSync(new URL('../src/lib/tauri-api.js', import.meta.url), 'utf8')
+const runner = readFileSync(new URL('../src/lib/expert-team-runner.js', import.meta.url), 'utf8')
 const rust = readFileSync(new URL('../src-tauri/src/commands/team.rs', import.meta.url), 'utf8')
 const devApi = readFileSync(new URL('../scripts/dev-api.js', import.meta.url), 'utf8')
 const engine = readFileSync(new URL('../src/engines/openclaw/index.js', import.meta.url), 'utf8')
@@ -74,8 +75,26 @@ test('Expert Teams page supports expert editing and team member selection', () =
     'moderatorExpertId',
     'group-moderator',
     'expert-communication-note',
+    'expert-run-panel',
+    'data-action="run-team"',
+    'runExpertTeam',
   ]) {
     assert.match(page, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
+})
+
+test('Expert Teams runner defines structured expert communication', () => {
+  for (const token of [
+    'buildExpertTeamPlan',
+    'buildExpertMessages',
+    'buildModeratorMessages',
+    'shared blackboard',
+    'Communication protocol',
+    'Moderator protocol',
+    'api.modelChatCompletionsProxy',
+    'resolveDefaultModelSlot',
+  ]) {
+    assert.match(runner, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
 })
 
@@ -83,5 +102,6 @@ test('Expert Teams styling keeps a responsive workbench layout', () => {
   assert.match(cssBlock('.expert-teams-shell'), /grid-template-columns:\s*minmax\(280px,\s*360px\)\s*minmax\(0,\s*1fr\)/)
   assert.match(cssBlock('.expert-member-picker'), /grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(260px,\s*1fr\)\)/)
   assert.match(cssBlock('.expert-member-row'), /grid-template-columns:\s*18px\s*32px\s*minmax\(0,\s*1fr\)\s*64px/)
+  assert.match(cssBlock('.expert-run-panel'), /background:\s*var\(--bg-base\)/)
   assert.match(css, /@media \(max-width:\s*1120px\)[\s\S]*\.expert-teams-shell\s*\{[\s\S]*grid-template-columns:\s*1fr/)
 })

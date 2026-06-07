@@ -12,6 +12,7 @@ import { humanizeError } from '../lib/humanize-error.js'
 import { t } from '../lib/i18n.js'
 import { icon } from '../lib/icons.js'
 import { escapeHtml, escapeAttr } from '../lib/utils.js'
+import { runExpertTeam } from '../lib/expert-team-runner.js'
 
 const TABS = {
   experts: 'experts',
@@ -84,6 +85,10 @@ export async function render() {
     selectedGroupId: null,
     draftExpert: null,
     draftGroup: null,
+    runTask: '',
+    runBusy: false,
+    runEvents: [],
+    runFinal: null,
     loading: true,
   }
 
@@ -126,12 +131,18 @@ function bindEvents(page, state) {
     else if (action === 'duplicate') duplicateCurrent(page, state)
     else if (action === 'save') await saveCurrent(page, state)
     else if (action === 'delete') await deleteCurrent(page, state)
+    else if (action === 'run-team') await runCurrentTeam(page, state)
   })
 
   page.addEventListener('input', (e) => {
     if (e.target.id !== 'expert-teams-search') return
     state.search = e.target.value.trim().toLowerCase()
     renderList(page, state)
+  })
+
+  page.addEventListener('input', (e) => {
+    if (e.target.id !== 'expert-team-task') return
+    state.runTask = e.target.value
   })
 
   page.addEventListener('change', (e) => {
@@ -353,6 +364,60 @@ function renderExpertEditor(expert, state) {
   `
 }
 
+function renderRunPanel(group, state) {
+  const memberCount = Array.isArray(group.members) ? group.members.length : 0
+  const canRun = memberCount > 0 && !state.draftGroup && !state.runBusy
+  return `
+    <section class="expert-run-panel" id="expert-run-panel">
+      <div class="expert-run-head">
+        <div>
+          <h3>${t('expertTeams.runTitle')}</h3>
+          <p>${t('expertTeams.runDesc')}</p>
+        </div>
+        <button class="btn btn-sm btn-primary" type="button" data-action="run-team" ${canRun ? '' : 'disabled'}>
+          ${state.runBusy ? icon('loader-2', 14) : icon('play', 14)} ${state.runBusy ? t('expertTeams.running') : t('expertTeams.run')}
+        </button>
+      </div>
+      <textarea class="form-input expert-textarea expert-run-task" id="expert-team-task" rows="5" placeholder="${escapeAttr(t('expertTeams.taskPlaceholder'))}" ${state.runBusy ? 'disabled' : ''}>${escapeHtml(state.runTask || '')}</textarea>
+      ${state.draftGroup ? `<div class="form-hint">${t('expertTeams.saveBeforeRun')}</div>` : ''}
+      ${!memberCount ? `<div class="form-hint">${t('expertTeams.selectMembersBeforeRun')}</div>` : ''}
+      <div class="expert-run-transcript" id="expert-run-transcript">
+        ${renderRunTranscript(state)}
+      </div>
+    </section>
+  `
+}
+
+function renderRunTranscript(state) {
+  const events = Array.isArray(state.runEvents) ? state.runEvents : []
+  if (!events.length && !state.runFinal) {
+    return `<div class="expert-run-empty">${t('expertTeams.runEmpty')}</div>`
+  }
+  const rows = []
+  for (const event of events) {
+    if (event.type === 'expert_start') {
+      rows.push(renderRunEvent(t('expertTeams.expertSpeaking', { name: event.expertName || event.expertId }), '', 'pending'))
+    } else if (event.type === 'expert_done') {
+      rows.push(renderRunEvent(event.message?.expertName || event.message?.expertId || t('expertTeams.expert'), event.message?.content || '', 'expert'))
+    } else if (event.type === 'moderator_start') {
+      rows.push(renderRunEvent(t('expertTeams.moderatorSynthesizing'), '', 'pending'))
+    } else if (event.type === 'error') {
+      rows.push(renderRunEvent(t('common.error'), event.message || '', 'error'))
+    }
+  }
+  if (state.runFinal) rows.push(renderRunEvent(state.runFinal.expertName || t('expertTeams.finalModerator'), state.runFinal.content || '', 'final'))
+  return rows.join('')
+}
+
+function renderRunEvent(title, content, kind) {
+  return `
+    <article class="expert-run-message expert-run-message--${escapeAttr(kind)}">
+      <strong>${escapeHtml(title)}</strong>
+      ${content ? `<pre>${escapeHtml(content)}</pre>` : `<span>${t('common.loading')}</span>`}
+    </article>
+  `
+}
+
 function renderGroupEditor(group, state) {
   if (!group) {
     return `
@@ -430,6 +495,7 @@ function renderGroupEditor(group, state) {
         </div>
       </section>
     </form>
+    ${renderRunPanel(group, state)}
   `
 }
 
@@ -590,6 +656,47 @@ async function deleteCurrent(page, state) {
   await api.deleteExpertGroup(group.id)
   state.selectedGroupId = null
   await loadData(page, state)
+}
+
+async function runCurrentTeam(page, state) {
+  const group = currentGroup(state)
+  if (!group || state.draftGroup || state.runBusy) return
+  if (!String(state.runTask || '').trim()) {
+    toast(t('expertTeams.taskRequired'), 'warning')
+    return
+  }
+  state.runBusy = true
+  state.runEvents = []
+  state.runFinal = null
+  renderEditor(page, state)
+  try {
+    const result = await runExpertTeam({
+      group,
+      experts: state.experts,
+      task: state.runTask,
+      onEvent: (event) => {
+        if (event.type === 'done') {
+          state.runFinal = event.final || null
+        } else if (event.type !== 'start') {
+          state.runEvents.push(event)
+        }
+        renderRunPanelOnly(page, state)
+      },
+    })
+    state.runFinal = result.final || state.runFinal
+    toast(t('expertTeams.runSuccess'), 'success')
+  } catch (e) {
+    state.runEvents.push({ type: 'error', message: humanizeError(e, t('expertTeams.runFailed')) })
+    toast(humanizeError(e, t('expertTeams.runFailed')), 'error')
+  } finally {
+    state.runBusy = false
+    renderEditor(page, state)
+  }
+}
+
+function renderRunPanelOnly(page, state) {
+  const transcript = page.querySelector('#expert-run-transcript')
+  if (transcript) transcript.innerHTML = renderRunTranscript(state)
 }
 
 function collectExpert(page, current = {}) {
