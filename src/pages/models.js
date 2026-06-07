@@ -153,6 +153,10 @@ function ensureConfigDefaultModelConfig(config) {
   if (!Array.isArray(config.agents.defaults.model.fallbacks)) {
     config.agents.defaults.model.fallbacks = []
   }
+  // Ensure maxConcurrent has a default value
+  if (config.agents.defaults.maxConcurrent == null) {
+    config.agents.defaults.maxConcurrent = 4
+  }
   return config.agents.defaults.model
 }
 
@@ -449,6 +453,7 @@ function renderConsole(page, state) {
   const fallbacks = modelConfig.fallbacks || []
   const entry = getModelObject(state.config, primary)
   const reasoning = !!entry?.model?.reasoning
+  const maxConcurrent = state.config?.agents?.defaults?.maxConcurrent ?? 4
 
   container.innerHTML = `
     <div class="models-control-console">
@@ -486,6 +491,11 @@ function renderConsole(page, state) {
             <input type="checkbox" ${reasoning ? 'checked' : ''}>
             <span>${t('models.isReasoningLabel')}</span>
           </label>
+
+          <div class="models-concurrency-inline" title="${t('models.maxConcurrentHint')}">
+            <span class="models-concurrency-label">${t('models.maxConcurrent')}</span>
+            <input type="number" id="models-max-concurrent" class="models-concurrency-input" min="1" max="100" step="1" value="${escapeHtml(String(maxConcurrent))}">
+          </div>
 
           <div class="models-fallback-inline">
             ${fallbacks.length > 0
@@ -626,6 +636,21 @@ function renderConsole(page, state) {
         updateUndoBtn(page, state)
         autoSave(state)
       }
+    }
+  }
+
+  // Max concurrent input handler
+  const maxConcurrentInput = container.querySelector('#models-max-concurrent')
+  if (maxConcurrentInput) {
+    maxConcurrentInput.onchange = () => {
+      let val = parseInt(maxConcurrentInput.value, 10)
+      if (isNaN(val) || val < 1) val = 1
+      if (val > 100) val = 100
+      maxConcurrentInput.value = String(val)
+      if (!state.config.agents) state.config.agents = {}
+      if (!state.config.agents.defaults) state.config.agents.defaults = {}
+      state.config.agents.defaults.maxConcurrent = val
+      autoSave(state)
     }
   }
 }
