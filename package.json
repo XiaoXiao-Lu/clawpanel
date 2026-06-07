@@ -28,6 +28,7 @@
     "tauri": "tauri",
     "icon:regen": "tauri icon docs/logo.png -o src-tauri/icons",
     "serve": "node scripts/serve.js",
+    "agent-office:assets": "node scripts/generate-agent-office-avatar.mjs",
     "agent-office:ci": "node scripts/agent-office-ci.mjs",
     "agent-office:visual": "node scripts/agent-office-ci.mjs",
     "version:sync": "node scripts/sync-version.js",

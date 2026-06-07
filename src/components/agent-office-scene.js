@@ -18,7 +18,7 @@ const QUALITY_LABELS = {
   low: 'Low',
 }
 const DEFAULT_ASSET_PIPELINE = {
-  avatarUrl: '',
+  avatarUrl: '/assets/agent-office/agent-avatar.glb',
   scale: 1,
   yOffset: 0,
   clips: {

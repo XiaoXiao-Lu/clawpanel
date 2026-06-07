@@ -11,8 +11,8 @@ const root = path.resolve(import.meta.dirname, '..')
 const artifactsDir = path.join(root, 'artifacts', 'agent-office')
 const port = Number(process.env.AGENT_OFFICE_CI_PORT || 15179)
 const url = `http://127.0.0.1:${port}/#/agents`
-const maxDrawCalls = Number(process.env.AGENT_OFFICE_MAX_DRAW_CALLS || 900)
-const maxTriangles = Number(process.env.AGENT_OFFICE_MAX_TRIANGLES || 180000)
+const maxDrawCalls = Number(process.env.AGENT_OFFICE_MAX_DRAW_CALLS || 4200)
+const maxTriangles = Number(process.env.AGENT_OFFICE_MAX_TRIANGLES || 280000)
 const minFps = Number(process.env.AGENT_OFFICE_MIN_FPS || 0)
 
 function wait(ms) {
@@ -94,32 +94,51 @@ async function decodePngRgba(buffer) {
     }
     offset += length + 12
   }
-  if (bitDepth !== 8 || colorType !== 6) {
+  if (bitDepth !== 8 || ![2, 6].includes(colorType)) {
     throw new Error(`Unsupported PNG format: bitDepth=${bitDepth}, colorType=${colorType}`)
   }
   const raw = await inflate(Buffer.concat(idat))
-  const bytesPerPixel = 4
+  const bytesPerPixel = colorType === 6 ? 4 : 3
   const stride = width * bytesPerPixel
-  const pixels = Buffer.alloc(width * height * bytesPerPixel)
+  const pixels = Buffer.alloc(width * height * 4)
+  const decodedRows = []
   let input = 0
   for (let y = 0; y < height; y += 1) {
     const filter = raw[input++]
-    const row = pixels.subarray(y * stride, (y + 1) * stride)
-    const prev = y > 0 ? pixels.subarray((y - 1) * stride, y * stride) : null
+    const decoded = Buffer.alloc(stride)
+    const prevDecoded = y > 0 ? decodedRows[y - 1] : null
     for (let x = 0; x < stride; x += 1) {
       const value = raw[input++]
-      const left = x >= bytesPerPixel ? row[x - bytesPerPixel] : 0
-      const up = prev ? prev[x] : 0
-      const upLeft = prev && x >= bytesPerPixel ? prev[x - bytesPerPixel] : 0
-      if (filter === 0) row[x] = value
-      else if (filter === 1) row[x] = (value + left) & 255
-      else if (filter === 2) row[x] = (value + up) & 255
-      else if (filter === 3) row[x] = (value + Math.floor((left + up) / 2)) & 255
-      else if (filter === 4) row[x] = (value + paeth(left, up, upLeft)) & 255
+      const left = x >= bytesPerPixel ? decoded[x - bytesPerPixel] : 0
+      const up = prevDecoded ? prevDecoded[x] : 0
+      const upLeft = prevDecoded && x >= bytesPerPixel ? prevDecoded[x - bytesPerPixel] : 0
+      if (filter === 0) decoded[x] = value
+      else if (filter === 1) decoded[x] = (value + left) & 255
+      else if (filter === 2) decoded[x] = (value + up) & 255
+      else if (filter === 3) decoded[x] = (value + Math.floor((left + up) / 2)) & 255
+      else if (filter === 4) decoded[x] = (value + paeth(left, up, upLeft)) & 255
       else throw new Error(`Unsupported PNG filter: ${filter}`)
+    }
+    decodedRows[y] = decoded
+    for (let x = 0; x < width; x += 1) {
+      const source = x * bytesPerPixel
+      const target = (y * width + x) * 4
+      pixels[target] = decoded[source]
+      pixels[target + 1] = decoded[source + 1]
+      pixels[target + 2] = decoded[source + 2]
+      pixels[target + 3] = colorType === 6 ? decoded[source + 3] : 255
     }
   }
   return { width, height, pixels }
+}
+
+async function launchBrowser() {
+  try {
+    return await chromium.launch({ headless: true })
+  } catch (error) {
+    console.warn(`[agent-office-ci] bundled Chromium unavailable, trying system Chrome: ${error.message}`)
+    return chromium.launch({ channel: 'chrome', headless: true })
+  }
 }
 
 async function assertNonBlankPng(buffer) {
@@ -152,7 +171,7 @@ async function main() {
   let browser
   try {
     await waitForServer(`http://127.0.0.1:${port}/`)
-    browser = await chromium.launch({ headless: true })
+    browser = await launchBrowser()
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 })
     const consoleErrors = []
     page.on('console', message => {
@@ -162,6 +181,7 @@ async function main() {
 
     await page.goto(url, { waitUntil: 'domcontentloaded' })
     await page.evaluate(() => {
+      localStorage.removeItem('agentOfficeAssets')
       localStorage.setItem('agentOfficeStress', '1')
       localStorage.setItem('agentOfficeDemo', '1')
     })
@@ -184,6 +204,10 @@ async function main() {
     if (fallbackVisible) throw new Error('3D scene fell back to 2D view')
     if (!summaryText.includes('100')) throw new Error('Stress summary did not show 100 agents')
     if (!auditText.includes('事件审计')) throw new Error('Audit rail did not render')
+    if (metrics.assetStatus !== 'gltf') throw new Error(`GLTF asset did not load: assetStatus=${metrics.assetStatus}`)
+    if (Number(metrics.animationClipCount || 0) < 8) {
+      throw new Error(`Expected at least 8 GLTF animation clips, got ${metrics.animationClipCount}`)
+    }
     if (Number(metrics.drawCalls || 0) > maxDrawCalls) {
       throw new Error(`Draw calls exceeded threshold: ${metrics.drawCalls} > ${maxDrawCalls}`)
     }
