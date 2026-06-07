@@ -992,6 +992,7 @@ function bindActions(page) {
 
   btnUpdate?.addEventListener('click', async () => {
     btnUpdate.disabled = true
+    btnUpdate.classList.add('btn-loading')
     btnUpdate.textContent = t('dashboard.checking')
     try {
       const info = await api.getVersionInfo()
@@ -1009,12 +1010,14 @@ function bindActions(page) {
       toast(humanizeError(e, t('dashboard.checkUpdateFail')), 'error')
     } finally {
       btnUpdate.disabled = false
+      btnUpdate.classList.remove('btn-loading')
       btnUpdate.innerHTML = actionLabel('search', 'dashboard.checkUpdate')
     }
   })
 
   btnCreateBackup?.addEventListener('click', async () => {
     btnCreateBackup.disabled = true
+    btnCreateBackup.classList.add('btn-loading')
     btnCreateBackup.innerHTML = t('dashboard.backingUp')
     try {
       const res = await api.createBackup()
@@ -1024,6 +1027,7 @@ function bindActions(page) {
       toast(humanizeError(e, t('dashboard.backupFail')), 'error')
     } finally {
       btnCreateBackup.disabled = false
+      btnCreateBackup.classList.remove('btn-loading')
       btnCreateBackup.innerHTML = actionLabel('download', 'dashboard.createBackup')
     }
   })

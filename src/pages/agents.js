@@ -12,9 +12,14 @@ import { listAgentsCompat } from '../lib/api-compat.js'
 import { hasFeature } from '../lib/kernel.js'
 import { termHelpHtml, attachTermTooltips } from '../lib/term-tooltip.js'
 
+function tr(key, fallback, params) {
+  const value = t(key, params)
+  return value === key ? fallback : value
+}
+
 export async function render() {
   const page = document.createElement('div')
-  page.className = 'page'
+  page.className = 'page agents-page'
 
   page.innerHTML = `
     <div class="page-header">
@@ -23,7 +28,7 @@ export async function render() {
         <p class="page-desc">${t('agents.desc')}</p>
       </div>
       <div class="page-actions">
-        <button class="btn btn-primary" id="btn-add-agent">${t('agents.addAgent')}</button>
+        <button class="btn btn-primary" id="btn-add-agent">${tr('agents.addAgent', '新增 Agent')}</button>
       </div>
     </div>
     <div class="page-content">
@@ -39,6 +44,10 @@ export async function render() {
             <span><i class="is-blocked"></i>阻塞</span>
             <span><i class="is-error"></i>异常</span>
           </div>
+          <div class="agent-office-actions">
+            <button class="btn btn-sm btn-secondary" id="agent-office-focus">专注视图</button>
+            <button class="btn btn-sm btn-secondary" id="agent-office-demo">演示动态</button>
+          </div>
         </div>
         <div class="agent-office-body">
           <div id="agent-office-scene" class="agent-office-scene" aria-label="Agent office scene"></div>
@@ -50,7 +59,7 @@ export async function render() {
       <div class="agents-toolbar">
         <div class="models-search-wrap">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input class="form-input" id="agents-search" placeholder="${t('agents.detailHint')}">
+          <input class="form-input" id="agents-search" placeholder="${tr('agents.detailHint', '搜索 Agent、模型或工作区')}">
         </div>
       </div>
       <div id="agents-list"></div>
@@ -87,7 +96,16 @@ export async function render() {
     const btn = e.target.closest('[data-office-agent]')
     if (!btn) return
     state.selectedOfficeAgentId = btn.dataset.officeAgent
+    state.officeScene?.setSelectedAgent?.(state.selectedOfficeAgentId)
     renderOffice(page, state)
+  })
+
+  page.querySelector('#agent-office-demo')?.addEventListener('click', () => {
+    toggleOfficeDemo(page, state)
+  })
+
+  page.querySelector('#agent-office-focus')?.addEventListener('click', () => {
+    toggleOfficeFocus(page, state)
   })
 
   return page
@@ -100,7 +118,8 @@ async function initOfficeScene(page, state) {
     state.officeScene = new mod.AgentOfficeScene(page.querySelector('#agent-office-scene'), {
       onSelect: (agent) => {
         state.selectedOfficeAgentId = agent.id
-        const selected = state.agents.find(a => a.id === agent.id) || agent
+        const selected = state.officeAgents?.find(a => a.id === agent.id) || state.agents.find(a => a.id === agent.id) || agent
+        state.officeScene?.setSelectedAgent?.(agent.id)
         state.renderAgentOfficePanel?.(page.querySelector('#agent-office-panel'), selected)
       },
     })
@@ -109,6 +128,7 @@ async function initOfficeScene(page, state) {
     const observer = new MutationObserver(() => {
       if (!document.body.contains(page)) {
         state.officeScene?.dispose()
+        if (state.officeDemoTimer) clearInterval(state.officeDemoTimer)
         observer.disconnect()
       }
     })
@@ -161,8 +181,8 @@ async function loadAgents(page, state) {
       state.eventsAttached = true
     }
   } catch (e) {
-    container.innerHTML = '<div style="color:var(--error);padding:20px">' + t('agents.loadFailed') + ': ' + String(e).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>'
-    toast(humanizeError(e, t('agents.loadListFailed')), 'error')
+    container.innerHTML = '<div style="color:var(--error);padding:20px">' + tr('agents.loadFailed', '加载失败') + ': ' + String(e).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>'
+    toast(humanizeError(e, tr('agents.loadListFailed', 'Agent 列表加载失败')), 'error')
   }
 }
 
@@ -170,9 +190,9 @@ function activityForAgent(agent, state) {
   return (state.activities || []).find(item => item.agentId === agent?.id) || null
 }
 
-function officeStateForAgent(agent, state) {
+function officeStateForAgent(agent, state, activity = null) {
   if (!agent) return 'offline'
-  const explicit = activityForAgent(agent, state)?.state || agent.activity?.state
+  const explicit = activity?.state || activityForAgent(agent, state)?.state || agent.activity?.state
   if (explicit) return explicit
   if (agent.error || agent.status === 'error') return 'error'
   if (agent.status === 'blocked') return 'blocked'
@@ -183,20 +203,85 @@ function officeStateForAgent(agent, state) {
 function renderOffice(page, state) {
   const agents = state.agents.map(agent => {
     const bindingCount = (state.bindings || []).filter(b => (b.agentId || 'main') === agent.id).length
-    const activity = activityForAgent(agent, state)
+    const activity = state.officeDemo ? demoActivityForAgent(agent, state) : activityForAgent(agent, state)
     return {
       ...agent,
       activity,
-      officeState: officeStateForAgent(agent, state),
+      officeState: officeStateForAgent(agent, state, activity),
       bindingCount: activity?.bindingCount ?? bindingCount,
     }
   })
   if (!state.officeScene || !state.renderAgentOfficePanel) return
+  state.officeAgents = agents
   state.officeScene.setAgents(agents)
   const selected = agents.find(a => a.id === state.selectedOfficeAgentId) || agents[0] || null
   state.selectedOfficeAgentId = selected?.id || null
+  state.officeScene.setSelectedAgent?.(state.selectedOfficeAgentId)
   state.renderAgentOfficePanel(page.querySelector('#agent-office-panel'), selected)
   renderActivityRail(page, state)
+}
+
+function toggleOfficeFocus(page, state) {
+  state.officeFocus = !state.officeFocus
+  page.classList.toggle('agents-page--office-focus', state.officeFocus)
+  const btn = page.querySelector('#agent-office-focus')
+  if (btn) {
+    btn.textContent = state.officeFocus ? '退出专注' : '专注视图'
+    btn.classList.toggle('btn-primary', state.officeFocus)
+    btn.classList.toggle('btn-secondary', !state.officeFocus)
+  }
+  setTimeout(() => state.officeScene?.resize?.(), 60)
+}
+
+function demoActivityForAgent(agent, state) {
+  const index = state.agents.findIndex(a => a.id === agent.id)
+  const phase = Math.floor((Date.now() - (state.officeDemoStartedAt || Date.now())) / 6200)
+  const offset = (index + phase) % 6
+  const states = ['idle', 'walking', 'working', 'thinking', 'tool_call', 'blocked']
+  const current = states[offset] || 'idle'
+  if (current === 'idle') return { agentId: agent.id, state: 'idle', progressText: '休息区待命', updatedAt: Date.now() }
+  const labels = {
+    walking: '走向工位',
+    working: '处理渠道消息',
+    thinking: '分析上下文',
+    tool_call: '调用工具',
+    blocked: '等待人工确认',
+  }
+  return {
+    agentId: agent.id,
+    state: current,
+    taskTitle: labels[current],
+    progressText: current === 'blocked' ? '需要检查输入或权限' : '演示动态，不影响真实任务',
+    toolName: current === 'tool_call' ? 'workspace.read' : '',
+    source: 'demo',
+    updatedAt: Date.now(),
+  }
+}
+
+function toggleOfficeDemo(page, state) {
+  state.officeDemo = !state.officeDemo
+  state.officeDemoStartedAt = Date.now()
+  const btn = page.querySelector('#agent-office-demo')
+  if (btn) {
+    btn.textContent = state.officeDemo ? '关闭演示' : '演示动态'
+    btn.classList.toggle('btn-primary', state.officeDemo)
+    btn.classList.toggle('btn-secondary', !state.officeDemo)
+  }
+  if (state.officeDemo) {
+    if (state.officeDemoTimer) clearInterval(state.officeDemoTimer)
+    state.officeDemoTimer = setInterval(() => {
+      if (!document.body.contains(page) || !state.officeDemo || document.hidden) {
+        clearInterval(state.officeDemoTimer)
+        state.officeDemoTimer = null
+        return
+      }
+      renderOffice(page, state)
+    }, 1200)
+  } else if (state.officeDemoTimer) {
+    clearInterval(state.officeDemoTimer)
+    state.officeDemoTimer = null
+  }
+  renderOffice(page, state)
 }
 
 function startActivityStream(page, state) {
@@ -225,19 +310,29 @@ function startActivityStream(page, state) {
 function renderActivityRail(page, state) {
   const el = page.querySelector('#agent-office-activity')
   if (!el) return
-  const activities = state.activities || []
+  const officeAgents = state.officeAgents || []
+  const activities = state.officeDemo
+    ? officeAgents.map(agent => ({
+        agentId: agent.id,
+        state: agent.officeState,
+        taskTitle: agent.activity?.taskTitle,
+        progressText: agent.activity?.progressText,
+      }))
+    : (state.activities || [])
   const counts = activities.reduce((acc, item) => {
     const key = item.state || 'idle'
     acc[key] = (acc[key] || 0) + 1
     return acc
   }, {})
-  const active = activities.filter(item => ['working', 'tool_call', 'thinking', 'blocked', 'error'].includes(item.state)).slice(0, 4)
+  const workingCount = ['queued', 'walking', 'working', 'tool_call', 'thinking', 'done'].reduce((sum, key) => sum + (counts[key] || 0), 0)
+  const idleCount = state.officeDemo ? (counts.idle || 0) : (counts.idle || Math.max(0, officeAgents.length - activities.length))
+  const active = activities.filter(item => ['queued', 'walking', 'working', 'tool_call', 'thinking', 'blocked', 'error', 'done'].includes(item.state)).slice(0, 6)
   el.innerHTML = `
     <div class="agent-office-activity-stats">
-      <span><strong>${counts.working || 0}</strong> 工作中</span>
+      <span><strong>${workingCount}</strong> 工作中</span>
       <span><strong>${counts.blocked || 0}</strong> 阻塞</span>
       <span><strong>${counts.error || 0}</strong> 异常</span>
-      <span><strong>${counts.idle || 0}</strong> 空闲</span>
+      <span><strong>${idleCount}</strong> 空闲</span>
     </div>
     <div class="agent-office-activity-list">
       ${active.length ? active.map(item => `
@@ -254,7 +349,7 @@ function renderActivityRail(page, state) {
 function renderBindingBadges(agentId, bindings) {
   const matched = (bindings || []).filter(b => (b.agentId || 'main') === agentId)
   if (!matched.length) {
-    return `<span style="color:var(--text-tertiary)">${t('agents.noBinding')}</span>`
+    return `<span style="color:var(--text-tertiary)">${tr('agents.noBinding', '未绑定')}</span>`
   }
   return matched.map(b => {
     const channel = b.match?.channel || ''
@@ -297,15 +392,15 @@ function renderAgents(page, state) {
     statsBar.innerHTML = `
       <div class="agents-stat">
         <span class="agents-stat__num">${state.agents.length}</span>
-        <span class="agents-stat__label">${t('agents.totalAgents') || '个 Agent'}</span>
+        <span class="agents-stat__label">${tr('agents.totalAgents', '个 Agent')}</span>
       </div>
       <div class="agents-stat">
         <span class="agents-stat__num">${defaultAgent ? (defaultAgent.identityEmoji || '🤖') : '—'}</span>
-        <span class="agents-stat__label">${defaultAgent ? (defaultAgent.identityName || defaultAgent.id) : t('common.none')}</span>
+        <span class="agents-stat__label">${defaultAgent ? (defaultAgent.identityName || defaultAgent.id) : tr('common.none', '无')}</span>
       </div>
       <div class="agents-stat">
         <span class="agents-stat__num">${totalBindings}</span>
-        <span class="agents-stat__label">${t('agents.bindings') || '渠道绑定'}</span>
+        <span class="agents-stat__label">${tr('agents.bindings', '渠道绑定')}</span>
       </div>
     `
   }
@@ -325,13 +420,13 @@ function renderAgents(page, state) {
 
   if (!filtered.length) {
     container.innerHTML = search
-      ? `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">${t('agents.noMatch') || '没有匹配的 Agent'}</div></div>`
+      ? `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">${tr('agents.noMatch', '没有匹配的 Agent')}</div></div>`
       : `
       <div class="empty-state">
         <div class="empty-icon">🤖</div>
-        <div class="empty-title">${t('agents.noAgents')}</div>
-        <div class="empty-desc">${t('common.emptyGetStartedHint')}</div>
-        <div class="empty-cta"><button class="btn btn-primary" data-empty-cta="add-agent">${t('agents.addAgent')}</button></div>
+        <div class="empty-title">${tr('agents.noAgents', '暂无 Agent')}</div>
+        <div class="empty-desc">${tr('common.emptyGetStartedHint', '先新增一个开始使用')}</div>
+        <div class="empty-cta"><button class="btn btn-primary" data-empty-cta="add-agent">${tr('agents.addAgent', '新增 Agent')}</button></div>
       </div>
     `
     container.querySelector('[data-empty-cta="add-agent"]')?.addEventListener('click', () => {
@@ -354,25 +449,25 @@ function renderAgents(page, state) {
             <span class="agent-av">${emoji}</span>
             <div class="agent-name-block">
               <span class="agent-display-name">${name || a.id}</span>
-              <span class="agent-id-sub">${a.id}${isDefault ? ` · ${t('agents.default')}` : ''}</span>
+              <span class="agent-id-sub">${a.id}${isDefault ? ` · ${tr('agents.default', '默认')}` : ''}</span>
             </div>
           </div>
           <div class="agent-card-actions">
-            <button class="btn btn-sm btn-primary" data-action="detail" data-id="${a.id}">${t('agents.detail')}</button>
-            <button class="btn btn-sm btn-secondary" data-action="edit" data-id="${a.id}">${t('agents.edit')}</button>
-            <button class="btn btn-sm btn-secondary" data-action="backup" data-id="${a.id}">${t('agents.backup')}</button>
-            ${!isDefault ? `<button class="btn btn-sm btn-danger" data-action="delete" data-id="${a.id}">${t('agents.delete')}</button>` : ''}
+            <button class="btn btn-sm btn-primary" data-action="detail" data-id="${a.id}">${tr('agents.detail', '详情')}</button>
+            <button class="btn btn-sm btn-secondary" data-action="edit" data-id="${a.id}">${tr('agents.edit', '编辑')}</button>
+            <button class="btn btn-sm btn-secondary" data-action="backup" data-id="${a.id}">${tr('agents.backup', '备份')}</button>
+            ${!isDefault ? `<button class="btn btn-sm btn-danger" data-action="delete" data-id="${a.id}">${tr('agents.delete', '删除')}</button>` : ''}
           </div>
         </div>
         <div class="agent-card-body">
           <div class="agent-meta-grid">
-            ${modelStr ? `<div class="agent-meta-item"><span class="agent-meta-label">${t('agents.labelModel')}</span><span class="agent-meta-value" title="${modelStr}">${modelStr}</span></div>` : ''}
-            ${a.workspace ? `<div class="agent-meta-item"><span class="agent-meta-label">${t('agents.labelWorkspace')}</span><span class="agent-meta-value" title="${a.workspace}">${a.workspace}</span></div>` : ''}
-            <div class="agent-meta-item"><span class="agent-meta-label">${t('agents.bindings') || '渠道'}</span><span class="agent-meta-value">${bindingCount > 0 ? renderBindingBadges(a.id, state.bindings) : `<span style="color:var(--text-tertiary)">${t('agents.noBinding')}</span>`}</span></div>
-            ${hasFeature('agents.runtime') ? `<div class="agent-meta-item"><span class="agent-meta-label">${t('agents.labelRuntime')}</span><span class="agent-meta-value">${_renderRuntimeBadge(a.agentRuntime)}</span></div>` : ''}
+            ${modelStr ? `<div class="agent-meta-item"><span class="agent-meta-label">${tr('agents.labelModel', '模型')}</span><span class="agent-meta-value" title="${modelStr}">${modelStr}</span></div>` : ''}
+            ${a.workspace ? `<div class="agent-meta-item"><span class="agent-meta-label">${tr('agents.labelWorkspace', '工作区')}</span><span class="agent-meta-value" title="${a.workspace}">${a.workspace}</span></div>` : ''}
+            <div class="agent-meta-item"><span class="agent-meta-label">${tr('agents.bindings', '渠道')}</span><span class="agent-meta-value">${bindingCount > 0 ? renderBindingBadges(a.id, state.bindings) : `<span style="color:var(--text-tertiary)">${tr('agents.noBinding', '未绑定')}</span>`}</span></div>
+            ${hasFeature('agents.runtime') ? `<div class="agent-meta-item"><span class="agent-meta-label">${tr('agents.labelRuntime', '运行时')}</span><span class="agent-meta-value">${_renderRuntimeBadge(a.agentRuntime)}</span></div>` : ''}
           </div>
         </div>
-        <div class="agent-card-click-hint">${t('agents.clickToDetail') || '点击查看详情 →'}</div>
+        <div class="agent-card-click-hint">${tr('agents.clickToDetail', '点击查看详情 ->')}</div>
       </div>
     `
   }).join('')

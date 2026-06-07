@@ -40,6 +40,7 @@ export async function render() {
 
   btnDiagnose.onclick = async () => {
     btnDiagnose.disabled = true
+    btnDiagnose.classList.add('btn-loading')
     btnDiagnose.textContent = t('diagnose.running')
     page.querySelector('#diagnose-summary').innerHTML = ''
     page.querySelector('#diagnose-steps').innerHTML = '<div class="stat-card loading-placeholder" style="height:40px;margin:8px 0"></div>'.repeat(6)
@@ -52,6 +53,7 @@ export async function render() {
       page.querySelector('#diagnose-steps').innerHTML = `<div class="empty-state" style="padding:32px;color:var(--text-error)">${t('diagnose.diagnoseFailed')}: ${e}</div>`
     } finally {
       btnDiagnose.disabled = false
+      btnDiagnose.classList.remove('btn-loading')
       btnDiagnose.textContent = t('diagnose.runDiagnose')
     }
   }

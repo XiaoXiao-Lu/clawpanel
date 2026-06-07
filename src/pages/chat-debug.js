@@ -107,12 +107,44 @@ function bindEvents(page) {
     panel?.classList.toggle('open')
   })
   // 高级工具
-  page.querySelector('#adv-doctor-check')?.addEventListener('click', () => handleDoctorAdv(page, false))
-  page.querySelector('#adv-doctor-fix')?.addEventListener('click', () => handleDoctorAdv(page, true))
-  page.querySelector('#adv-conn-diag')?.addEventListener('click', () => runConnDiagAdv(page))
+  page.querySelector('#adv-doctor-check')?.addEventListener('click', async () => {
+    const btn = page.querySelector('#adv-doctor-check')
+    setBtnLoading(btn, true)
+    await handleDoctorAdv(page, false)
+    setBtnLoading(btn, false)
+  })
+  page.querySelector('#adv-doctor-fix')?.addEventListener('click', async () => {
+    const btn = page.querySelector('#adv-doctor-fix')
+    setBtnLoading(btn, true)
+    await handleDoctorAdv(page, true)
+    setBtnLoading(btn, false)
+  })
+  page.querySelector('#adv-conn-diag')?.addEventListener('click', async () => {
+    const btn = page.querySelector('#adv-conn-diag')
+    setBtnLoading(btn, true)
+    await runConnDiagAdv(page)
+    setBtnLoading(btn, false)
+  })
   page.querySelector('#adv-test-ws')?.addEventListener('click', () => testWebSocketAdv(page))
-  page.querySelector('#adv-fix-pairing')?.addEventListener('click', () => fixPairingAdv(page))
+  page.querySelector('#adv-fix-pairing')?.addEventListener('click', async () => {
+    const btn = page.querySelector('#adv-fix-pairing')
+    setBtnLoading(btn, true)
+    await fixPairingAdv(page)
+    setBtnLoading(btn, false)
+  })
   page.querySelector('#adv-network-log')?.addEventListener('click', () => toggleNetworkLogAdv(page))
+}
+
+function setBtnLoading(btn, loading) {
+  if (!btn) return
+  if (loading) {
+    btn.disabled = true
+    btn.dataset.originalText = btn.textContent
+    btn.textContent = t('common.loading') + '...'
+  } else {
+    btn.disabled = false
+    btn.textContent = btn.dataset.originalText || btn.textContent
+  }
 }
 
 /* ── 一键检测 ── */

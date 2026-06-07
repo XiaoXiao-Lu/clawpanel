@@ -2136,6 +2136,8 @@ async function handleBatchTest(section, state, providerKey) {
   const ctrl = { abort: false }
   _batchTestAbort = ctrl
   if (batchBtn) {
+    batchBtn.disabled = false
+    batchBtn.classList.add('btn-loading')
     batchBtn.textContent = t('models.stopBatchTest')
     batchBtn.classList.remove('btn-secondary')
     batchBtn.classList.add('btn-danger')
@@ -2190,6 +2192,8 @@ async function handleBatchTest(section, state, providerKey) {
   const newSection = page?.querySelector(`[data-provider="${providerKey}"]`)
   const newBtn = newSection?.querySelector('[data-action="batch-test"]')
   if (newBtn) {
+    newBtn.disabled = false
+    newBtn.classList.remove('btn-loading')
     newBtn.textContent = t('models.batchTest')
     newBtn.classList.remove('btn-danger')
     newBtn.classList.add('btn-secondary')
@@ -2208,11 +2212,13 @@ async function handleBatchTest(section, state, providerKey) {
 async function fetchRemoteModels(btn, page, state, providerKey) {
   const provider = state.config.models.providers[providerKey]
   btn.disabled = true
+  btn.classList.add('btn-loading')
   btn.textContent = t('models.qtcoolFetching')
 
   try {
     const remoteIds = await api.listRemoteModels(provider.baseUrl, provider.apiKey || '', provider.api || 'openai-completions')
     btn.disabled = false
+    btn.classList.remove('btn-loading')
     btn.textContent = t('models.fetchList')
 
     // 标记已添加的模型
@@ -2306,6 +2312,7 @@ async function fetchRemoteModels(btn, page, state, providerKey) {
     filterInput.focus()
   } catch (e) {
     btn.disabled = false
+    btn.classList.remove('btn-loading')
     btn.textContent = t('models.fetchList')
     const errStr = String(e?.message || e)
     // 服务商不支持 /models 接口 → 友好弹窗引导手动添加
@@ -2331,6 +2338,7 @@ async function testModel(btn, state, providerKey, idx) {
   const modelId = typeof model === 'string' ? model : model.id
 
   btn.disabled = true
+  btn.classList.add('btn-loading')
   const origText = btn.textContent
   btn.textContent = t('models.testing')
 
@@ -2370,6 +2378,7 @@ async function testModel(btn, state, providerKey, idx) {
     toast(t('models.testFail', { model: modelId, time: (elapsed / 1000).toFixed(1), error: e }), 'error', { duration: 8000 })
   } finally {
     btn.disabled = false
+    btn.classList.remove('btn-loading')
     btn.textContent = origText
     // 刷新卡片显示最新状态
     const page = btn.closest('.page')
