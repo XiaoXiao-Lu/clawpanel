@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js'
 import { t } from '../lib/i18n.js'
 
 const AGENT_COLORS = [
@@ -14,6 +16,21 @@ const QUALITY_LABELS = {
   high: 'High',
   medium: 'Medium',
   low: 'Low',
+}
+const DEFAULT_ASSET_PIPELINE = {
+  avatarUrl: '',
+  scale: 1,
+  yOffset: 0,
+  clips: {
+    idle: ['Idle', 'idle', 'Rest', 'rest'],
+    walking: ['Walk', 'Walking', 'walk', 'walking'],
+    working: ['Typing', 'Working', 'Work', 'working', 'typing'],
+    tool_call: ['ToolCall', 'Tool', 'tool_call', 'tool'],
+    thinking: ['Thinking', 'Think', 'thinking'],
+    blocked: ['Blocked', 'Alert', 'blocked'],
+    error: ['Error', 'Failure', 'error'],
+    done: ['Done', 'Complete', 'done'],
+  },
 }
 const VIEW_PRESETS = {
   overview: {
@@ -403,6 +420,118 @@ function createAgentAvatar(agent, options = {}) {
   return createProceduralAgentAvatar(agent, options)
 }
 
+function readAssetPipeline(options = {}) {
+  let configured = {}
+  try {
+    configured = JSON.parse(localStorage.getItem('agentOfficeAssets') || '{}')
+  } catch {}
+  const globalConfig = window.__AGENT_OFFICE_ASSETS__ || {}
+  return {
+    ...DEFAULT_ASSET_PIPELINE,
+    ...globalConfig,
+    ...configured,
+    ...options,
+    clips: {
+      ...DEFAULT_ASSET_PIPELINE.clips,
+      ...(globalConfig.clips || {}),
+      ...(configured.clips || {}),
+      ...(options.clips || {}),
+    },
+  }
+}
+
+function animationKeyForState(state, moving, seated) {
+  if (moving) return 'walking'
+  if (seated && (state === 'idle' || state === 'offline')) return 'idle'
+  if (state === 'queued') return 'idle'
+  return DEFAULT_ASSET_PIPELINE.clips[state] ? state : 'idle'
+}
+
+function normalizeClipNames(value) {
+  return Array.isArray(value) ? value : [value].filter(Boolean)
+}
+
+function findClip(clips, candidates = []) {
+  const names = normalizeClipNames(candidates).map(name => String(name).toLowerCase())
+  return clips.find(clip => names.includes(String(clip.name).toLowerCase())) || null
+}
+
+class AgentOfficeAssetManager {
+  constructor(config = {}) {
+    this.config = readAssetPipeline(config)
+    this.loader = new GLTFLoader()
+    this.asset = null
+    this.loadPromise = null
+    this.error = null
+  }
+
+  get enabled() {
+    return !!this.config.avatarUrl
+  }
+
+  async load() {
+    if (!this.enabled) return null
+    if (this.loadPromise) return this.loadPromise
+    this.loadPromise = this.loader.loadAsync(this.config.avatarUrl)
+      .then(gltf => {
+        gltf.scene.traverse(child => {
+          if (!child.isMesh) return
+          child.castShadow = true
+          child.receiveShadow = true
+          child.userData.baseCastShadow = true
+        })
+        this.asset = {
+          scene: gltf.scene,
+          animations: gltf.animations || [],
+          clipNames: (gltf.animations || []).map(clip => clip.name),
+        }
+        return this.asset
+      })
+      .catch(error => {
+        this.error = error
+        throw error
+      })
+    return this.loadPromise
+  }
+
+  createAvatar(agent) {
+    if (!this.asset?.scene) return null
+    const root = new THREE.Group()
+    root.userData.agent = agent
+    root.userData.clickable = true
+    root.userData.assetType = 'gltf'
+
+    const model = cloneSkeleton(this.asset.scene)
+    model.scale.setScalar(Number(this.config.scale) || 1)
+    model.position.y = Number(this.config.yOffset) || 0
+    model.traverse(child => {
+      child.userData.agent = agent
+      child.userData.clickable = true
+      if (child.isMesh && typeof child.userData.baseCastShadow !== 'boolean') {
+        child.userData.baseCastShadow = child.castShadow
+      }
+    })
+    root.add(model)
+
+    const mixer = new THREE.AnimationMixer(model)
+    root.userData.animation = {
+      mixer,
+      actions: new Map(),
+      activeKey: '',
+      model,
+      clips: this.asset.animations,
+      clipNames: this.asset.clipNames,
+      config: this.config,
+    }
+    root.userData.parts = {}
+    return root
+  }
+
+  disposeAvatar(root) {
+    root?.userData?.animation?.mixer?.stopAllAction?.()
+  }
+}
+
 function createTextSprite(text) {
   const canvas = document.createElement('canvas')
   canvas.width = 480
@@ -620,6 +749,8 @@ export class AgentOfficeScene {
     this.container = container
     this.onSelect = options.onSelect || (() => {})
     this.onMetrics = options.onMetrics || null
+    this.assetManager = new AgentOfficeAssetManager(options.assets || {})
+    this.assetStatus = this.assetManager.enabled ? 'loading' : 'procedural'
     this.agents = []
     this.agentRecords = new Map()
     this.pickables = []
@@ -686,6 +817,23 @@ export class AgentOfficeScene {
     }
     this.resize()
     this.start()
+    this.loadAvatarAssets()
+  }
+
+  loadAvatarAssets() {
+    if (!this.assetManager.enabled) return
+    this.assetManager.load()
+      .then(() => {
+        this.assetStatus = 'gltf'
+        for (const record of this.agentRecords.values()) this.replaceRecordAvatar(record)
+        this.rebuildPickables()
+        this.emitMetrics(this.frameSamples.fps || 0)
+      })
+      .catch(error => {
+        this.assetStatus = 'fallback'
+        console.warn('[agent-office] GLTF avatar failed, using procedural fallback:', error)
+        this.emitMetrics(this.frameSamples.fps || 0)
+      })
   }
 
   addLights() {
@@ -839,6 +987,13 @@ export class AgentOfficeScene {
     this.emitMetrics(this.frameSamples.fps || 0)
   }
 
+  rebuildPickables() {
+    this.pickables = []
+    for (const record of this.agentRecords.values()) {
+      this.pickables.push(record.avatar, record.monitor, record.lamp)
+    }
+  }
+
   resolveQualityMode() {
     const fps = this.frameSamples.fps || 0
     if (this.denseMode || this.agents.length > DENSE_AGENT_COUNT || (fps && fps < 32)) return 'low'
@@ -934,7 +1089,9 @@ export class AgentOfficeScene {
     const group = new THREE.Group()
     const workstation = createDesk(positions.desk, agent.officeState)
     const chair = createChair(positions.desk)
-    const avatar = createAgentAvatar(agent)
+    const avatar = this.assetStatus === 'gltf'
+      ? this.assetManager.createAvatar(agent) || createAgentAvatar(agent)
+      : createAgentAvatar(agent)
     const label = createTextSprite(agent.displayName)
     const ring = createActivityRing(STATE_META[agent.officeState]?.color || STATE_META.idle.color)
     const selectRing = createActivityRing(0x0f172a)
@@ -976,6 +1133,21 @@ export class AgentOfficeScene {
       lounge: positions.lounge.clone(),
       work: positions.work.clone(),
     }
+  }
+
+  replaceRecordAvatar(record) {
+    if (record.avatar?.userData?.assetType === 'gltf') return
+    const nextAvatar = this.assetManager.createAvatar(record.agent)
+    if (!nextAvatar) return
+    nextAvatar.position.copy(record.avatar.position)
+    nextAvatar.rotation.copy(record.avatar.rotation)
+    nextAvatar.scale.copy(record.avatar.scale)
+    record.group.remove(record.avatar)
+    disposeObject(record.avatar)
+    record.avatar = nextAvatar
+    record.group.add(nextAvatar)
+    this.applyRecordQuality(record)
+    this.refreshRecordVisibility(record)
   }
 
   updateRecord(record, agent, positions) {
@@ -1206,6 +1378,7 @@ export class AgentOfficeScene {
 
   emitMetrics(fps = 0) {
     const renderInfo = this.renderer.info?.render || {}
+    const gltfClips = this.assetManager.asset?.clipNames || []
     this.onMetrics?.({
       fps,
       agents: this.agents.length,
@@ -1216,7 +1389,11 @@ export class AgentOfficeScene {
       quality: this.qualityMode,
       qualityLabel: QUALITY_LABELS[this.qualityMode] || this.qualityMode,
       qualityReason: this.qualityReason,
-      assetType: 'procedural-v2',
+      assetType: this.assetStatus === 'gltf' ? 'gltf' : 'procedural-v2',
+      assetStatus: this.assetStatus,
+      assetUrl: this.assetManager.config.avatarUrl || '',
+      animationClips: gltfClips,
+      animationClipCount: gltfClips.length,
       drawCalls: renderInfo.calls || 0,
       triangles: renderInfo.triangles || 0,
       points: renderInfo.points || 0,
@@ -1302,6 +1479,11 @@ export class AgentOfficeScene {
     record.selectRing.rotation.z -= this.reducedMotion ? 0 : delta * 0.9
     record.selectRing.scale.setScalar(this.reducedMotion ? 1.22 : 1.22 + Math.sin(elapsed * 2.8) * 0.08)
 
+    if (avatar.userData.assetType === 'gltf') {
+      this.animateGltfRecord(record, delta, moving, seated)
+      return
+    }
+
     const parts = avatar.userData.parts || {}
     resetAvatarParts(parts)
     if (record.lamp) record.lamp.scale.setScalar(1)
@@ -1368,6 +1550,31 @@ export class AgentOfficeScene {
     }
   }
 
+  animateGltfRecord(record, delta, moving, seated) {
+    const avatar = record.avatar
+    const animation = avatar.userData.animation
+    if (!animation) return
+    const key = animationKeyForState(record.state, moving, seated)
+    if (animation.activeKey !== key) {
+      const clip = findClip(animation.clips, animation.config.clips[key] || key) || animation.clips[0]
+      if (clip) {
+        const previous = animation.actions.get(animation.activeKey)
+        const action = animation.actions.get(clip.name) || animation.mixer.clipAction(clip)
+        animation.actions.set(clip.name, action)
+        action.enabled = true
+        action.reset().fadeIn(0.18).play()
+        previous?.fadeOut?.(0.18)
+        animation.activeKey = key
+      }
+    }
+    animation.mixer.update(delta)
+    if (!this.reducedMotion && !animation.clips.length) {
+      avatar.rotation.z = record.state === 'error'
+        ? Math.sin(this.clock.getElapsedTime() * 6) * 0.025
+        : 0
+    }
+  }
+
   dispose() {
     this.stop()
     window.removeEventListener('resize', this.handleResize)
@@ -1380,6 +1587,7 @@ export class AgentOfficeScene {
     } else {
       this.motionQuery?.removeListener?.(this.handleMotionPreference)
     }
+    this.agentRecords.forEach(record => this.assetManager.disposeAvatar(record.avatar))
     disposeObject(this.root)
     this.renderer.dispose()
     this.renderer.domElement.remove()

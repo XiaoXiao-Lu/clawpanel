@@ -656,7 +656,8 @@
   justify-content: center;
 }
 
-.agent-office-activity {
+.agent-office-activity,
+.agent-office-audit {
   position: relative;
   z-index: 2;
   display: grid;
@@ -669,25 +670,30 @@
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
 }
 
-.agent-office-activity-head {
+.agent-office-activity-head,
+.agent-office-audit-head {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
 }
 
-.agent-office-activity-head div {
+.agent-office-activity-head div,
+.agent-office-audit-head div {
   display: grid;
   gap: 2px;
 }
 
 .agent-office-activity-head span,
-.agent-office-activity-head small {
+.agent-office-activity-head small,
+.agent-office-audit-head span,
+.agent-office-audit-head small {
   color: var(--text-tertiary);
   font-size: var(--font-size-xs);
 }
 
-.agent-office-activity-head strong {
+.agent-office-activity-head strong,
+.agent-office-audit-head strong {
   color: var(--text-primary);
   font-size: 24px;
   line-height: 1;
@@ -715,7 +721,8 @@
   font-size: var(--font-size-md);
 }
 
-.agent-office-activity-list {
+.agent-office-activity-list,
+.agent-office-audit-list {
   display: grid;
   gap: 8px;
   min-width: 0;
@@ -815,6 +822,89 @@
   font-size: var(--font-size-sm);
 }
 
+.agent-office-audit {
+  gap: 12px;
+}
+
+.agent-office-audit-list {
+  gap: 7px;
+}
+
+.agent-office-audit-item {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) minmax(76px, auto);
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-left: 3px solid #2dd4bf;
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.58);
+  padding: 8px 9px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.agent-office-audit-item:hover {
+  border-color: var(--border-focus);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.agent-office-audit-item.is-working,
+.agent-office-audit-item.is-tool_call,
+.agent-office-audit-item.is-thinking,
+.agent-office-audit-item.is-walking,
+.agent-office-audit-item.is-queued,
+.agent-office-audit-item.is-done {
+  border-left-color: #22c55e;
+}
+
+.agent-office-audit-item.is-blocked {
+  border-left-color: #f59e0b;
+}
+
+.agent-office-audit-item.is-error {
+  border-left-color: #ef4444;
+}
+
+.agent-office-audit-time {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.agent-office-audit-main,
+.agent-office-audit-meta {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.agent-office-audit-meta {
+  justify-items: end;
+}
+
+.agent-office-audit-main strong,
+.agent-office-audit-meta b {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-office-audit-main small,
+.agent-office-audit-meta small {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .agent-office-tooltip {
   position: absolute;
   z-index: 3;
@@ -896,12 +986,14 @@
 }
 
 [data-theme="dark"] .agent-office-panel,
-[data-theme="dark"] .agent-office-activity {
+[data-theme="dark"] .agent-office-activity,
+[data-theme="dark"] .agent-office-audit {
   background: color-mix(in srgb, var(--bg-secondary) 88%, transparent);
 }
 
 [data-theme="dark"] .agent-office-task-card,
 [data-theme="dark"] .agent-office-activity-item,
+[data-theme="dark"] .agent-office-audit-item,
 [data-theme="dark"] .agent-office-activity-stats span {
   background: color-mix(in srgb, var(--bg-primary) 86%, transparent);
 }
@@ -1186,7 +1278,8 @@
   .agents-page--office-focus .agent-office-scene {
     min-height: max(460px, calc(100vh - 420px));
   }
-  .agent-office-activity {
+  .agent-office-activity,
+  .agent-office-audit {
     grid-template-columns: 1fr;
     margin: 0 12px 12px;
   }
@@ -1232,11 +1325,19 @@
   .agent-office-panel-grid--compact {
     grid-template-columns: 1fr;
   }
-  .agent-office-activity {
+  .agent-office-activity,
+  .agent-office-audit {
     border-radius: 0;
     border-left: 0;
     border-right: 0;
     margin: 0;
+  }
+  .agent-office-audit-item {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+  .agent-office-audit-meta {
+    grid-column: 2;
+    justify-items: start;
   }
   .agent-office-scene {
     min-height: 520px;
@@ -1270,7 +1371,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .agent-office-tooltip,
-  .agent-office-fallback-card {
+  .agent-office-fallback-card,
+  .agent-office-audit-item {
     transition: none;
   }
 

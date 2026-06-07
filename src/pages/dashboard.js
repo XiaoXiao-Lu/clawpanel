@@ -57,7 +57,7 @@ export async function render() {
     </div>
     <div class="config-section">
       <div class="config-section-title">${t('dashboard.recentLogs')}</div>
-      <div class="log-viewer" id="recent-logs" style="max-height:300px"></div>
+      <div class="log-viewer dashboard-log-viewer" id="recent-logs"></div>
     </div>
   `
 
@@ -76,7 +76,7 @@ export async function render() {
     console.error('[dashboard] loadDashboardData 异常:', e)
     const cardsEl = page.querySelector('#stat-cards')
     if (cardsEl && cardsEl.querySelector('.loading-placeholder')) {
-      cardsEl.innerHTML = `<div class="stat-card" style="grid-column:1/-1;text-align:center;color:var(--text-secondary)"><div>${t('common.loadFailed')}: ${escapeHtml(String(e?.message || e))}</div><button class="btn btn-sm btn-secondary" style="margin-top:8px" onclick="this.closest('.page')&&this.closest('.page').__retryLoad?.()">${t('dashboard.retry')}</button></div>`
+      cardsEl.innerHTML = `<div class="stat-card dashboard-error-card"><div>${t('common.loadFailed')}: ${escapeHtml(String(e?.message || e))}</div><button class="btn btn-sm btn-secondary" onclick="this.closest('.page')&&this.closest('.page').__retryLoad?.()">${t('dashboard.retry')}</button></div>`
     }
   })
   setTimeout(() => {
@@ -546,8 +546,8 @@ function renderStatCards(page, services, version, agents, config, panelConfig) {
       <div class="stat-card-value">${foreignGateway ? t('dashboard.externalInstance') : gw?.running ? t('common.running') : t('common.stopped')}</div>
       <div class="stat-card-meta">${foreignGateway ? t('dashboard.externalGatewayDetected', { pid: gw?.pid ? ' · PID ' + gw.pid : '' }) : gw?.pid ? 'PID: ' + gw.pid : (gw?.running ? t('dashboard.portDetect') : t('dashboard.notStarted'))}</div>
       ${foreignGateway
-        ? `<div class="stat-card-meta" style="margin-top:8px;color:var(--warning);line-height:1.6">${t('dashboard.foreignGatewayHint')}</div>
-           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        ? `<div class="dashboard-warning-hint">${t('dashboard.foreignGatewayHint')}</div>
+           <div class="dashboard-warning-actions">
              <button class="btn btn-secondary btn-xs" data-action="resolve-foreign-gateway">${t('dashboard.viewGuidance')}</button>
              <button class="btn btn-primary btn-xs" data-action="open-settings">${t('dashboard.goSettings')}</button>
            </div>`
@@ -559,17 +559,17 @@ function renderStatCards(page, services, version, agents, config, panelConfig) {
       </div>
       <div class="stat-card-value">${version.current || t('common.unknown')}</div>
       <div class="stat-card-meta">${versionMeta}</div>
-      ${version.cli_path ? `<div class="stat-card-meta" style="margin-top:2px;font-size:11px;opacity:0.7" title="${escapeHtml(version.cli_path)}">${cliSourceLabel}${multiInstall ? ' · <span' + (cliBound ? '' : ' style="color:var(--warning)"') + '>' + t('dashboard.installCount', { count: installCount }) + '</span>' : ''}</div>` : ''}
+      ${version.cli_path ? `<div class="stat-card-meta dashboard-meta-xs" title="${escapeHtml(version.cli_path)}">${cliSourceLabel}${multiInstall ? ' · <span' + (cliBound ? '' : ' style="color:var(--warning)"') + '>' + t('dashboard.installCount', { count: installCount }) + '</span>' : ''}</div>` : ''}
       ${multiInstall && !cliBound
-        ? `<div class="stat-card-meta" style="margin-top:8px;color:var(--warning);line-height:1.6">${t('dashboard.multiInstallCardHint')}</div>
-           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        ? `<div class="dashboard-warning-hint">${t('dashboard.multiInstallCardHint')}</div>
+           <div class="dashboard-warning-actions">
              <button class="btn btn-primary btn-xs" data-action="open-cleanup">${t('services.cleanupTitle')}</button>
              <button class="btn btn-secondary btn-xs" data-action="resolve-multi-install">${t('dashboard.viewGuidance')}</button>
              <button class="btn btn-secondary btn-xs" data-action="open-settings">${t('dashboard.goSettings')}</button>
            </div>`
         : multiInstall && cliBound
-          ? `<div class="stat-card-meta" style="margin-top:4px;color:var(--text-tertiary);font-size:11px">✓ ${t('dashboard.multiInstallBoundOk', { count: installCount })}</div>
-             <div style="margin-top:6px"><button class="btn btn-secondary btn-xs" data-action="open-cleanup">${t('services.cleanupTitle')}</button></div>`
+          ? `<div class="dashboard-meta-ok">✓ ${t('dashboard.multiInstallBoundOk', { count: installCount })}</div>
+             <div class="dashboard-action-row"><button class="btn btn-secondary btn-xs" data-action="open-cleanup">${t('services.cleanupTitle')}</button></div>`
         : ''}
     </div>
     <div class="stat-card">
@@ -596,9 +596,9 @@ function renderStatCards(page, services, version, agents, config, panelConfig) {
     <div class="stat-card stat-card-clickable" id="card-control-ui" title="${t('dashboard.controlUIDesc')}">
       <div class="stat-card-header">
         <span class="stat-card-label">${t('dashboard.controlUI')}</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="opacity:0.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="overview-card-icon"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       </div>
-      <div class="stat-card-value" style="font-size:var(--font-size-sm)">${t('dashboard.controlUIDesc')}</div>
+      <div class="stat-card-value overview-value-sm">${t('dashboard.controlUIDesc')}</div>
       <div class="stat-card-meta">${gw?.running ? t('dashboard.controlUIClick') : t('dashboard.controlUINotRunning')}</div>
     </div>
   `
@@ -654,18 +654,18 @@ function renderOverview(page, services, mcpConfig, backups, config, agents, stat
         </div>
 
         <div class="overview-card" data-nav="/models">
-          <div class="overview-card-icon" style="color:var(--accent)">
+          <div class="overview-card-icon overview-card-icon--accent">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
           </div>
           <div class="overview-card-body">
             <div class="overview-card-title">${t('dashboard.primaryModel')}</div>
-            <div class="overview-card-value" style="font-size:var(--font-size-sm)">${primaryModel}</div>
+            <div class="overview-card-value overview-value-sm">${primaryModel}</div>
             <div class="overview-card-meta">${t('dashboard.maxConcurrent')} ${config?.agents?.defaults?.maxConcurrent || 4}</div>
           </div>
         </div>
 
         <div class="overview-card" data-nav="/skills">
-          <div class="overview-card-icon" style="color:var(--warning)">
+          <div class="overview-card-icon overview-card-icon--warning">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
           </div>
           <div class="overview-card-body">
@@ -676,18 +676,18 @@ function renderOverview(page, services, mcpConfig, backups, config, agents, stat
         </div>
 
         <div class="overview-card" data-nav="/services">
-          <div class="overview-card-icon" style="color:var(--text-tertiary)">
+          <div class="overview-card-icon overview-card-icon--muted">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           </div>
           <div class="overview-card-body">
             <div class="overview-card-title">${t('dashboard.recentBackup')}</div>
-            <div class="overview-card-value" style="font-size:var(--font-size-sm)">${latestBackup ? formatDate(latestBackup.created_at) : t('dashboard.noBackup')}</div>
+            <div class="overview-card-value overview-value-sm">${latestBackup ? formatDate(latestBackup.created_at) : t('dashboard.noBackup')}</div>
             <div class="overview-card-meta">${t('dashboard.backupCount', { count: backups.length })}</div>
           </div>
         </div>
 
         <div class="overview-card" data-nav="/agents">
-          <div class="overview-card-icon" style="color:var(--success)">
+          <div class="overview-card-icon overview-card-icon--success">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
           </div>
           <div class="overview-card-body">
@@ -698,12 +698,12 @@ function renderOverview(page, services, mcpConfig, backups, config, agents, stat
         </div>
 
         <div class="overview-card">
-          <div class="overview-card-icon" style="color:var(--text-tertiary)">
+          <div class="overview-card-icon overview-card-icon--muted">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </div>
           <div class="overview-card-body">
             <div class="overview-card-title">${t('dashboard.runtimeVersion')}</div>
-            <div class="overview-card-value" style="font-size:var(--font-size-sm)">${runtimeVer || lastUpdate}</div>
+            <div class="overview-card-value overview-value-sm">${runtimeVer || lastUpdate}</div>
             <div class="overview-card-meta">${runtimeMeta}</div>
           </div>
         </div>
@@ -716,7 +716,6 @@ function renderOverview(page, services, mcpConfig, backups, config, agents, stat
 
   // 概览卡片点击导航
   containerEl.querySelectorAll('[data-nav]').forEach(card => {
-    card.style.cursor = 'pointer'
     card.addEventListener('click', (e) => {
       if (e.target.closest('button')) return
       navigate(card.dataset.nav)
@@ -748,8 +747,8 @@ function renderSessionStatus(sessions) {
   const defaultModel = sessions.defaults?.model || '—'
   const defaultCtx = sessions.defaults?.contextTokens ? `${Math.round(sessions.defaults.contextTokens / 1000)}k` : '—'
   return `
-    <div class="config-section" style="margin-top:16px">
-      <div class="config-section-title">${t('dashboard.activeSessions')} <span style="font-weight:normal;color:var(--text-tertiary);font-size:var(--font-size-xs)">${sessions.count || 0} · ${t('dashboard.defaultModel')} ${escapeHtml(defaultModel)} · ${t('dashboard.context')} ${defaultCtx}</span></div>
+    <div class="config-section session-section">
+      <div class="config-section-title">${t('dashboard.activeSessions')} <span>${sessions.count || 0} · ${t('dashboard.defaultModel')} ${escapeHtml(defaultModel)} · ${t('dashboard.context')} ${defaultCtx}</span></div>
       <div class="session-list">${rows.join('')}</div>
     </div>`
 }
@@ -781,11 +780,11 @@ function renderWsStatus() {
   }
 
   return `
-    <div class="config-section" style="margin-top:16px">
+    <div class="config-section session-section">
       <div class="config-section-title" style="display:flex;align-items:center;gap:8px">
-        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColor}"></span>
+        <span class="ws-dot" style="background:${statusColor}"></span>
         WebSocket ${statusLabel}
-        ${statusDetail ? `<span style="font-weight:normal;color:var(--text-tertiary);font-size:var(--font-size-xs)">${escapeHtml(statusDetail)}</span>` : ''}
+        ${statusDetail ? `<span class="ws-detail">${escapeHtml(statusDetail)}</span>` : ''}
       </div>
     </div>`
 }
@@ -799,15 +798,15 @@ function renderChannelsOverview(channels) {
     const enabled = ch.enabled !== false
     const dot = enabled ? 'var(--success)' : 'var(--text-tertiary)'
     const name = ch.name || ch.platform || ch.id || ''
-    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;background:var(--bg-secondary);font-size:var(--font-size-xs);white-space:nowrap">
-      <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dot}"></span>
+    return `<span class="channel-chip">
+      <span class="channel-chip-dot" style="background:${dot}"></span>
       ${channelIcon} ${escapeHtml(name)}
     </span>`
   })
   return `
-    <div class="config-section" style="margin-top:12px">
-      <div class="config-section-title">${t('dashboard.connectedChannels')} <span style="font-weight:normal;color:var(--text-tertiary);font-size:var(--font-size-xs)">${channels.length}</span></div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px">${items.join('')}</div>
+    <div class="config-section channel-section">
+      <div class="config-section-title">${t('dashboard.connectedChannels')} <span class="ws-detail">${channels.length}</span></div>
+      <div class="channel-section-title">${items.join('')}</div>
     </div>`
 }
 
@@ -821,28 +820,20 @@ function parseLogLine(line) {
   return { time: '', level: '', msg: line }
 }
 
-const LOG_LEVEL_STYLE = {
-  ERROR: 'background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.2)',
-  FATAL: 'background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.2)',
-  WARN: 'background:rgba(234,179,8,0.12);color:#ca8a04;border:1px solid rgba(234,179,8,0.2)',
-  INFO: 'background:rgba(59,130,246,0.10);color:#3b82f6;border:1px solid rgba(59,130,246,0.15)',
-  DEBUG: 'background:rgba(148,163,184,0.10);color:#94a3b8;border:1px solid rgba(148,163,184,0.15)',
-  TRACE: 'background:rgba(148,163,184,0.08);color:#94a3b8;border:1px solid rgba(148,163,184,0.1)',
-}
-
 function renderLogs(page, logs) {
   const logsEl = page.querySelector('#recent-logs')
   if (!logs) {
-    logsEl.innerHTML = '<div style="color:var(--text-tertiary);padding:12px">' + t('dashboard.noLogs') + '</div>'
+    logsEl.innerHTML = '<div class="log-empty">' + t('dashboard.noLogs') + '</div>'
     return
   }
   const lines = logs.trim().split('\n')
   logsEl.innerHTML = lines.map(l => {
     const parsed = parseLogLine(l)
     if (!parsed.level) return `<div class="log-line">${escapeHtml(l)}</div>`
-    const badge = `<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:0.5px;${LOG_LEVEL_STYLE[parsed.level] || ''}">${parsed.level}</span>`
-    const time = parsed.time ? `<span style="color:var(--text-tertiary);font-size:11px;opacity:0.7;margin-right:4px">${escapeHtml(parsed.time)}</span>` : ''
-    return `<div class="log-line" style="display:flex;align-items:center;gap:6px">${time}${badge}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${escapeHtml(parsed.msg)}</span></div>`
+    const levelClass = 'log-level-badge--' + parsed.level.toLowerCase().replace('warning', 'warn')
+    const badge = `<span class="log-level-badge ${levelClass}">${parsed.level}</span>`
+    const time = parsed.time ? `<span class="log-line-time">${escapeHtml(parsed.time)}</span>` : ''
+    return `<div class="log-line log-line-flex">${time}${badge}<span class="log-line-msg">${escapeHtml(parsed.msg)}</span></div>`
   }).join('')
   logsEl.scrollTop = logsEl.scrollHeight
 }

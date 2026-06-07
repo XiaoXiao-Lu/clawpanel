@@ -14,6 +14,7 @@ import { termHelpHtml, attachTermTooltips } from '../lib/term-tooltip.js'
 
 const SHOW_OFFICE_DEMO = import.meta.env.DEV || localStorage.getItem('agentOfficeDemo') === '1'
 const SHOW_OFFICE_STRESS = import.meta.env.DEV || localStorage.getItem('agentOfficeStress') === '1'
+const MAX_OFFICE_AUDIT_EVENTS = 80
 
 function tr(key, fallback, params) {
   const value = t(key, params)
@@ -92,6 +93,7 @@ export async function render() {
           <aside class="agent-office-sidebar" aria-label="Agent office monitoring">
             <section id="agent-office-panel" class="agent-office-panel"></section>
             <section id="agent-office-activity" class="agent-office-activity"></section>
+            <section id="agent-office-audit" class="agent-office-audit"></section>
           </aside>
         </div>
       </div>
@@ -106,7 +108,15 @@ export async function render() {
     </div>
   `
 
-  const state = { agents: [], bindings: [], activities: [], search: '', officeStressSize: 60 }
+  const state = {
+    agents: [],
+    bindings: [],
+    activities: [],
+    search: '',
+    officeStressSize: 60,
+    officeAuditEvents: [],
+    officeAuditLast: new Map(),
+  }
   page.querySelector('#agent-office-panel').innerHTML = `
     <div class="agent-office-panel-empty">
       <div class="agent-office-panel-title">办公室加载中</div>
@@ -141,6 +151,14 @@ export async function render() {
   })
 
   page.querySelector('#agent-office-activity').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-office-agent]')
+    if (!btn) return
+    state.selectedOfficeAgentId = btn.dataset.officeAgent
+    state.officeScene?.setSelectedAgent?.(state.selectedOfficeAgentId)
+    renderOffice(page, state)
+  })
+
+  page.querySelector('#agent-office-audit').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-office-agent]')
     if (!btn) return
     state.selectedOfficeAgentId = btn.dataset.officeAgent
@@ -267,9 +285,11 @@ async function loadAgents(page, state) {
     state.bindings = Array.isArray(config?.bindings) ? config.bindings : []
     state.activities = Array.isArray(activity?.items) ? activity.items : []
     state.activityUpdatedAt = latestActivityTime(state.activities)
+    appendOfficeAuditFromActivities(page, state, state.activities, 'real', { seed: true })
     renderAgents(page, state)
     renderOffice(page, state)
     renderActivityRail(page, state)
+    renderAuditRail(page, state)
     startActivityStream(page, state)
 
     // 只在第一次加载时绑定事件（避免重复绑定）
@@ -343,6 +363,8 @@ function renderOffice(page, state) {
   renderOfficeSummary(page, state)
   renderOfficeDiagnostics(page, state)
   renderActivityRail(page, state)
+  syncSyntheticAudit(page, state, agents)
+  renderAuditRail(page, state)
 }
 
 function renderOfficeSummary(page, state) {
@@ -421,9 +443,7 @@ function renderOfficeDiagnostics(page, state) {
     fps: '帧率采样',
     auto: '自动',
   }[metrics.qualityReason] || metrics.qualityReason || '自动'
-  const assetLabel = metrics.assetType === 'procedural-v2'
-    ? 'Procedural v2'
-    : metrics.assetType || '未加载'
+  const assetLabel = formatAssetLabel(metrics)
   const triangles = Number(metrics.triangles || 0).toLocaleString()
   const drawCalls = Number(metrics.drawCalls || 0).toLocaleString()
   const shadows = metrics.shadows ? '阴影开' : '阴影关'
@@ -434,6 +454,15 @@ function renderOfficeDiagnostics(page, state) {
       ? 'is-attention'
       : 'is-ok'
   el.className = `agent-office-diagnostics ${statusClass}`
+  el.dataset.quality = metrics.quality || ''
+  el.dataset.assetStatus = metrics.assetStatus || ''
+  el.dataset.assetType = metrics.assetType || ''
+  el.dataset.animationClipCount = String(metrics.animationClipCount || 0)
+  el.dataset.agents = String(agents.length)
+  el.dataset.drawCalls = String(metrics.drawCalls || 0)
+  el.dataset.triangles = String(metrics.triangles || 0)
+  el.dataset.fps = String(metrics.fps || 0)
+  el.dataset.pixelRatio = String(metrics.pixelRatio || '')
   el.innerHTML = `
     <div class="agent-office-diagnostic-main">
       <span>${escHtml(source)}监控</span>
@@ -449,6 +478,16 @@ function renderOfficeDiagnostics(page, state) {
       <span><b>${agents.length}</b><small>Agents</small></span>
     </div>
   `
+}
+
+function formatAssetLabel(metrics = {}) {
+  if (metrics.assetStatus === 'gltf') {
+    return `GLTF · ${Number(metrics.animationClipCount || 0)} clips`
+  }
+  if (metrics.assetStatus === 'loading') return 'GLTF loading'
+  if (metrics.assetStatus === 'fallback') return 'GLTF fallback'
+  if (metrics.assetType === 'procedural-v2') return 'Procedural v2'
+  return metrics.assetType || '未加载'
 }
 
 function stateLabel(state) {
@@ -658,6 +697,58 @@ function toggleOfficeStress(page, state) {
   renderOfficeDiagnostics(page, state)
 }
 
+function auditKeyForActivity(item = {}) {
+  return [
+    item.agentId || '',
+    normalizeOfficeState(item.state) || item.state || 'idle',
+    item.taskTitle || '',
+    item.progressText || '',
+    item.toolName || '',
+    item.source || '',
+  ].join('|')
+}
+
+function appendOfficeAuditFromActivities(page, state, activities = [], source = 'real', options = {}) {
+  const now = Date.now()
+  const nextEvents = []
+  for (const item of activities) {
+    if (!item?.agentId) continue
+    const key = auditKeyForActivity(item)
+    const previous = state.officeAuditLast.get(item.agentId)
+    if (previous === key && !options.force) continue
+    state.officeAuditLast.set(item.agentId, key)
+    const eventTime = new Date(item.updatedAt || item.createdAt || item.time || now).getTime()
+    nextEvents.push({
+      id: `${item.agentId}-${eventTime || now}-${nextEvents.length}`,
+      agentId: item.agentId,
+      state: normalizeOfficeState(item.state) || item.state || 'idle',
+      taskTitle: item.taskTitle || '',
+      progressText: item.progressText || '',
+      toolName: item.toolName || '',
+      source: item.source || source,
+      time: Number.isFinite(eventTime) && eventTime > 0 ? eventTime : now,
+      seeded: !!options.seed,
+    })
+  }
+  if (!nextEvents.length) return
+  state.officeAuditEvents = [...nextEvents.reverse(), ...(state.officeAuditEvents || [])].slice(0, MAX_OFFICE_AUDIT_EVENTS)
+  renderAuditRail(page, state)
+}
+
+function syncSyntheticAudit(page, state, agents = []) {
+  if (!state.officeDemo && !state.officeStress) return
+  const source = state.officeStress ? 'stress' : 'demo'
+  appendOfficeAuditFromActivities(page, state, agents.map(agent => ({
+    agentId: agent.id,
+    state: agent.officeState,
+    taskTitle: agent.activity?.taskTitle,
+    progressText: agent.activity?.progressText,
+    toolName: agent.activity?.toolName,
+    source,
+    updatedAt: agent.activity?.updatedAt || Date.now(),
+  })), source)
+}
+
 function startActivityStream(page, state) {
   if (state.activityStreamStarted) return
   state.activityStreamStarted = true
@@ -677,6 +768,7 @@ function startActivityStream(page, state) {
     state.activityStreamStatus = 'connected'
     state.activities = Array.isArray(event.items) ? event.items : []
     state.activityUpdatedAt = latestActivityTime(state.activities)
+    appendOfficeAuditFromActivities(page, state, state.activities, 'real')
     renderOffice(page, state)
     renderActivityRail(page, state)
   }, { signal: controller.signal }).catch(e => {
@@ -685,6 +777,7 @@ function startActivityStream(page, state) {
       renderOfficeSummary(page, state)
       renderOfficeDiagnostics(page, state)
       renderActivityRail(page, state)
+      renderAuditRail(page, state)
       console.warn('[agents] activity stream failed:', e)
     }
   })
@@ -773,6 +866,51 @@ function renderActivityRail(page, state) {
           </span>
         </button>
       `).join('') : '<span class="agent-office-activity-empty">当前没有运行中的任务</span>'}
+    </div>
+  `
+}
+
+function renderAuditRail(page, state) {
+  const el = page.querySelector('#agent-office-audit')
+  if (!el) return
+  const officeAgents = state.officeAgents || []
+  const events = (state.officeAuditEvents || []).slice(0, 10)
+  const nameForAgent = (id) => {
+    const agent = officeAgents.find(item => item.id === id) || state.agents.find(item => item.id === id)
+    return agent?.identityName || agent?.name || id
+  }
+  const sourceLabel = {
+    real: '真实任务流',
+    demo: '演示事件',
+    stress: '压测事件',
+  }
+  const renderTime = (value) => {
+    const date = new Date(value || Date.now())
+    if (Number.isNaN(date.getTime())) return '刚刚'
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  }
+  el.innerHTML = `
+    <div class="agent-office-audit-head">
+      <div>
+        <span>事件审计</span>
+        <strong>${events.length}</strong>
+      </div>
+      <small>${state.officeStress ? 'Stress' : state.officeDemo ? 'Demo' : state.activityStreamStatus === 'connected' ? 'Live' : 'Snapshot'}</small>
+    </div>
+    <div class="agent-office-audit-list">
+      ${events.length ? events.map(event => `
+        <button class="agent-office-audit-item is-${escHtml(event.state || 'idle')}" data-office-agent="${escHtml(event.agentId)}">
+          <span class="agent-office-audit-time">${escHtml(renderTime(event.time))}</span>
+          <span class="agent-office-audit-main">
+            <strong>${escHtml(nameForAgent(event.agentId))}</strong>
+            <small>${escHtml(event.taskTitle || event.progressText || stateLabel(event.state))}</small>
+          </span>
+          <span class="agent-office-audit-meta">
+            <b>${escHtml(stateLabel(event.state))}</b>
+            <small>${escHtml(event.toolName || sourceLabel[event.source] || event.source || '真实任务流')}</small>
+          </span>
+        </button>
+      `).join('') : '<span class="agent-office-activity-empty">暂无任务流事件</span>'}
     </div>
   `
 }

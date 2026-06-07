@@ -31,7 +31,7 @@ export async function render() {
       </div>
     </div>
     <div id="push-content">
-      <div style="padding:32px;text-align:center;color:var(--text-tertiary)">${escapeHtml(t('common.loading'))}…</div>
+      <div class="push-loading">${escapeHtml(t('common.loading'))}…</div>
     </div>
   `
 
@@ -75,23 +75,23 @@ async function loadAndRender(page) {
         </div>
       </div>
       ${sub ? `
-        <div class="form-hint" style="margin-top:var(--space-md);word-break:break-all">
+        <div class="form-hint push-endpoint-hint">
           <strong>${escapeHtml(t('notifications.endpointLabel'))}</strong>
-          <code style="display:inline-block;font-size:11px;margin-left:8px;color:var(--text-tertiary)">${escapeHtml(truncateEndpoint(sub.endpoint))}</code>
+          <code class="push-endpoint-code">${escapeHtml(truncateEndpoint(sub.endpoint))}</code>
         </div>
       ` : ''}
     </div>
 
     <div class="config-section">
       <div class="config-section-title">${escapeHtml(t('notifications.actionsTitle'))}</div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <div class="push-actions">
         ${sub
           ? `<button class="btn btn-secondary btn-sm" id="btn-unsub">${escapeHtml(t('notifications.unsubscribeBtn'))}</button>
              <button class="btn btn-primary btn-sm" id="btn-test">${escapeHtml(t('notifications.testBtn'))}</button>`
           : `<button class="btn btn-primary btn-sm" id="btn-sub">${escapeHtml(t('notifications.subscribeBtn'))}</button>`
         }
       </div>
-      <div class="form-hint" style="margin-top:var(--space-sm)">${escapeHtml(t('notifications.hint'))}</div>
+      <div class="form-hint push-hint">${escapeHtml(t('notifications.hint'))}</div>
     </div>
   `
 

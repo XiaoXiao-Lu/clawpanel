@@ -28,6 +28,8 @@
     "tauri": "tauri",
     "icon:regen": "tauri icon docs/logo.png -o src-tauri/icons",
     "serve": "node scripts/serve.js",
+    "agent-office:ci": "node scripts/agent-office-ci.mjs",
+    "agent-office:visual": "node scripts/agent-office-ci.mjs",
     "version:sync": "node scripts/sync-version.js",
     "version:set": "node scripts/sync-version.js"
   },
@@ -40,6 +42,7 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.5.0",
+    "playwright": "^1.60.0",
     "vite": "^6.4.2"
   }
 }
