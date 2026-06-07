@@ -815,3 +815,50 @@
   transform: translateX(18px);
 }
 
+/* ─── Setup page extracted inline styles ─── */
+.setup-step-section { text-align: left; }
+.setup-step-section.is-disabled { opacity: 0.65; pointer-events: none; }
+.setup-step-title { display: flex; align-items: center; gap: 4px; }
+.setup-step-title--icon { gap: 6px; }
+.setup-step-desc { color: var(--text-secondary); font-size: var(--font-size-sm); margin-bottom: var(--space-sm); line-height: 1.5; }
+.setup-step-desc--success { color: var(--success); }
+.setup-step-hint { margin-left: 8px; }
+.setup-step-box { margin-top: var(--space-sm); padding: 10px 12px; background: var(--bg-tertiary); border-radius: var(--radius-sm); font-size: var(--font-size-xs); color: var(--text-secondary); line-height: 1.6; }
+.setup-step-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.setup-step-or { color: var(--text-tertiary); }
+.setup-input-row--tight { margin-top: 6px; }
+.setup-input-compact { flex: 1; padding: 4px 8px; border: 1px solid var(--border-primary); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); font-size: 11px; font-family: monospace; }
+.setup-inline-code { background: var(--bg-secondary); padding: 2px 6px; border-radius: 3px; user-select: all; }
+.setup-result { margin-top: 6px; }
+.setup-skeleton-row { height: 48px; margin-top: 8px; }
+.setup-skeleton-row:first-child { margin-top: 0; }
+.setup-step-icon { font-weight: 700; width: 18px; display: inline-block; }
+.setup-step-icon.is-ok { color: var(--success); }
+.setup-step-icon.is-pending { color: var(--text-tertiary); }
+.setup-details { margin-top: var(--space-sm); cursor: pointer; }
+.setup-details-summary { font-size: var(--font-size-xs); color: var(--text-secondary); font-weight: 600; user-select: none; }
+.setup-details-body { margin-top: var(--space-sm); padding: 10px 12px; background: var(--bg-tertiary); border-radius: var(--radius-sm); font-size: var(--font-size-xs); line-height: 1.6; }
+.setup-details-body--stack { display: flex; flex-direction: column; gap: 12px; }
+.setup-panel-title { font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+.setup-panel-desc { color: var(--text-secondary); }
+.setup-label { font-size: var(--font-size-xs); color: var(--text-secondary); display: block; margin-bottom: 6px; }
+.setup-label--muted { color: var(--text-tertiary); }
+.setup-textarea-compact { width: 100%; padding: 6px 8px; border: 1px solid var(--border-primary); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); font-size: 11px; font-family: monospace; resize: vertical; min-height: 78px; }
+.setup-source-options { display: flex; gap: var(--space-sm); margin-bottom: var(--space-sm); }
+.setup-source-option { flex: 1; cursor: pointer; }
+.setup-source-option input { margin-right: 6px; }
+.setup-source-label { font-weight: 600; font-size: var(--font-size-sm); }
+.setup-source-meta { font-size: var(--font-size-xs); color: var(--text-tertiary); }
+.setup-form-group { margin-bottom: var(--space-sm); }
+.setup-select { width: 100%; padding: 6px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-primary); background: var(--bg-secondary); color: var(--text-primary); font-size: var(--font-size-sm); }
+.setup-hint-text { font-size: var(--font-size-xs); color: var(--text-tertiary); margin-top: 4px; line-height: 1.5; }
+.setup-next-steps { margin-top: var(--space-md); }
+.setup-ol { margin: 8px 0 0 18px; padding: 0; }
+.setup-enter-wrap { margin-top: var(--space-lg); }
+.setup-btn-enter { min-width: 200px; }
+.setup-btn-recheck { min-width: 120px; }
+.setup-btn-recheck svg { margin-right: 4px; }
+.setup-env-hint { margin-top: var(--space-md); }
+.setup-help-list { margin: 0 0 12px 18px; padding: 0; line-height: 1.8; color: var(--text-secondary); }
+.setup-warning-note { margin-top: 8px; padding: 8px 12px; background: var(--bg-tertiary); border-radius: var(--radius-sm); font-size: var(--font-size-xs); color: var(--warning, #f59e0b); line-height: 1.6; }
+.btn-compact { font-size: 11px; padding: 3px 10px; }

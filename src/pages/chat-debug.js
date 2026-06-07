@@ -39,7 +39,7 @@ export function cleanup() {
 
 function renderPage(page) {
   const shieldIcon = `<svg class="scan-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`
-  const loadingIcon = `<svg class="scan-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:scan-ring 1s linear infinite"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>`
+  const loadingIcon = `<svg class="scan-icon scan-icon--spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>`
 
   let html = `<div class="scan-hero">
     <div class="scan-circle${_scanning ? ' scanning' : ''}${_scanning || _fixing ? ' disabled' : ''}" id="scan-btn">
@@ -69,7 +69,7 @@ function renderPage(page) {
     _results.items.forEach((item, i) => {
       const cls = item.ok ? 'ok' : (item.warn ? 'warn' : 'err')
       const icon = item.ok ? '✓' : (item.warn ? '!' : '✕')
-      html += `<div class="scan-item" style="animation-delay:${i * 60}ms">
+      html += `<div class="scan-item" data-index="${i}">`
         <div class="si-icon ${cls}">${icon}</div>
         <div class="si-label">${esc(item.label)}${item.detail ? `<div class="si-detail">${esc(item.detail)}</div>` : ''}</div>
       </div>`
@@ -84,7 +84,7 @@ function renderPage(page) {
   // 高级工具（折叠）
   html += `<div class="advanced-toggle" id="adv-toggle">▾ ${t('chatDebug.advancedTools')}</div>
   <div class="advanced-panel" id="adv-panel">
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+    <div class="adv-btn-grid">
       <button class="adv-btn" id="adv-doctor-check">${t('chatDebug.btnDiagConfig')}</button>
       <button class="adv-btn" id="adv-doctor-fix">${t('chatDebug.btnAutoFix')}</button>
       <button class="adv-btn" id="adv-conn-diag">${t('chatDebug.btnConnDiag')}</button>
@@ -313,8 +313,10 @@ function showAdvOutput(page) {
 function advLog(page, text, color) {
   const el = page.querySelector('#adv-output')
   if (!el) return
-  el.style.display = 'block'
-  el.style.color = color || 'var(--text-primary)'
+  el.classList.add('is-visible')
+  if (color) el.classList.add('has-color')
+  else el.classList.remove('has-color')
+  el.style.setProperty('--adv-color', color || 'var(--text-primary)')
   el.textContent = text
 }
 

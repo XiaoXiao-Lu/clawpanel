@@ -12,9 +12,28 @@ import { listAgentsCompat } from '../lib/api-compat.js'
 import { hasFeature } from '../lib/kernel.js'
 import { termHelpHtml, attachTermTooltips } from '../lib/term-tooltip.js'
 
+const SHOW_OFFICE_DEMO = import.meta.env.DEV || localStorage.getItem('agentOfficeDemo') === '1'
+
 function tr(key, fallback, params) {
   const value = t(key, params)
   return value === key ? fallback : value
+}
+
+function escHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function canUseWebGL() {
+  try {
+    const canvas = document.createElement('canvas')
+    return !!(canvas.getContext('webgl2') || canvas.getContext('webgl'))
+  } catch {
+    return false
+  }
 }
 
 export async function render() {
@@ -45,15 +64,22 @@ export async function render() {
             <span><i class="is-error"></i>异常</span>
           </div>
           <div class="agent-office-actions">
+            <div class="agent-office-view-tabs" aria-label="办公室视角">
+              <button class="btn btn-sm btn-secondary is-active" data-office-view="overview">全景</button>
+              <button class="btn btn-sm btn-secondary" data-office-view="work">工位</button>
+              <button class="btn btn-sm btn-secondary" data-office-view="lounge">休息区</button>
+            </div>
             <button class="btn btn-sm btn-secondary" id="agent-office-focus">专注视图</button>
-            <button class="btn btn-sm btn-secondary" id="agent-office-demo">演示动态</button>
+            ${SHOW_OFFICE_DEMO ? '<button class="btn btn-sm btn-secondary" id="agent-office-demo">演示动态</button>' : ''}
           </div>
         </div>
         <div class="agent-office-body">
           <div id="agent-office-scene" class="agent-office-scene" aria-label="Agent office scene"></div>
-          <aside id="agent-office-panel" class="agent-office-panel"></aside>
+          <aside class="agent-office-sidebar" aria-label="Agent office monitoring">
+            <section id="agent-office-panel" class="agent-office-panel"></section>
+            <section id="agent-office-activity" class="agent-office-activity"></section>
+          </aside>
         </div>
-        <div id="agent-office-activity" class="agent-office-activity"></div>
       </div>
       <div id="agents-stats-bar" class="agents-stats-bar"></div>
       <div class="agents-toolbar">
@@ -92,12 +118,26 @@ export async function render() {
     location.hash = `#/agent-detail?id=${encodeURIComponent(btn.dataset.officeDetail)}`
   })
 
+  page.querySelector('#agent-office-scene').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-office-agent]')
+    if (!btn) return
+    state.selectedOfficeAgentId = btn.dataset.officeAgent
+    state.officeScene?.setSelectedAgent?.(state.selectedOfficeAgentId)
+    renderOffice(page, state)
+  })
+
   page.querySelector('#agent-office-activity').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-office-agent]')
     if (!btn) return
     state.selectedOfficeAgentId = btn.dataset.officeAgent
     state.officeScene?.setSelectedAgent?.(state.selectedOfficeAgentId)
     renderOffice(page, state)
+  })
+
+  page.querySelector('.agent-office-view-tabs')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-office-view]')
+    if (!btn) return
+    setOfficeView(page, state, btn.dataset.officeView)
   })
 
   page.querySelector('#agent-office-demo')?.addEventListener('click', () => {
@@ -112,6 +152,18 @@ export async function render() {
 }
 
 async function initOfficeScene(page, state) {
+  if (!canUseWebGL()) {
+    state.officeSceneFallback = true
+    page.querySelector('#agent-office-scene').innerHTML = `
+      <div class="agent-office-fallback">
+        <div class="agent-office-fallback-title">2D 监控视图</div>
+        <div class="agent-office-fallback-desc">当前设备不可用 WebGL，已切换到低负载状态板。</div>
+        <div class="agent-office-fallback-grid"></div>
+      </div>
+    `
+    renderOffice(page, state)
+    return
+  }
   try {
     const mod = await import('../components/agent-office-scene.js')
     state.renderAgentOfficePanel = mod.renderAgentOfficePanel
@@ -123,6 +175,7 @@ async function initOfficeScene(page, state) {
         state.renderAgentOfficePanel?.(page.querySelector('#agent-office-panel'), selected)
       },
     })
+    state.officeScene.setViewMode?.(state.officeView || 'overview')
     state.renderAgentOfficePanel(page.querySelector('#agent-office-panel'), null)
 
     const observer = new MutationObserver(() => {
@@ -135,12 +188,21 @@ async function initOfficeScene(page, state) {
     observer.observe(document.body, { childList: true, subtree: true })
     renderOffice(page, state)
   } catch (e) {
+    state.officeSceneFallback = true
     page.querySelector('#agent-office-panel').innerHTML = `
       <div class="agent-office-panel-empty">
         <div class="agent-office-panel-title">办公室加载失败</div>
-        <div class="agent-office-panel-desc">${String(e).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+        <div class="agent-office-panel-desc">${escHtml(e)}</div>
       </div>
     `
+    page.querySelector('#agent-office-scene').innerHTML = `
+      <div class="agent-office-fallback">
+        <div class="agent-office-fallback-title">2D 监控视图</div>
+        <div class="agent-office-fallback-desc">3D 办公室初始化失败，已切换到低负载状态板。</div>
+        <div class="agent-office-fallback-grid"></div>
+      </div>
+    `
+    renderOffice(page, state)
   }
 }
 
@@ -211,14 +273,79 @@ function renderOffice(page, state) {
       bindingCount: activity?.bindingCount ?? bindingCount,
     }
   })
-  if (!state.officeScene || !state.renderAgentOfficePanel) return
   state.officeAgents = agents
-  state.officeScene.setAgents(agents)
   const selected = agents.find(a => a.id === state.selectedOfficeAgentId) || agents[0] || null
   state.selectedOfficeAgentId = selected?.id || null
-  state.officeScene.setSelectedAgent?.(state.selectedOfficeAgentId)
-  state.renderAgentOfficePanel(page.querySelector('#agent-office-panel'), selected)
+  if (state.officeScene && state.renderAgentOfficePanel) {
+    state.officeScene.setAgents(agents)
+    state.officeScene.setSelectedAgent?.(state.selectedOfficeAgentId)
+    state.renderAgentOfficePanel(page.querySelector('#agent-office-panel'), selected)
+  } else if (state.renderAgentOfficePanel) {
+    state.renderAgentOfficePanel(page.querySelector('#agent-office-panel'), selected)
+  } else {
+    renderOfficeFallbackPanel(page, selected)
+  }
+  renderOfficeFallback(page, state)
   renderActivityRail(page, state)
+}
+
+function stateLabel(state) {
+  const map = {
+    idle: '空闲',
+    queued: '排队',
+    walking: '移动中',
+    working: '工作中',
+    tool_call: '调用工具',
+    thinking: '思考中',
+    blocked: '阻塞',
+    error: '异常',
+    done: '完成',
+    offline: '离线',
+  }
+  return map[state] || state || '未知'
+}
+
+function renderOfficeFallback(page, state) {
+  const grid = page.querySelector('.agent-office-fallback-grid')
+  if (!grid) return
+  const agents = state.officeAgents || []
+  grid.innerHTML = agents.map(agent => `
+    <button class="agent-office-fallback-card is-${escHtml(agent.officeState)} ${agent.id === state.selectedOfficeAgentId ? 'is-selected' : ''}" data-office-agent="${escHtml(agent.id)}" aria-pressed="${agent.id === state.selectedOfficeAgentId ? 'true' : 'false'}">
+      <span>${escHtml(stateLabel(agent.officeState))}</span>
+      <strong>${escHtml(agent.identityName || agent.id)}</strong>
+      <small>${escHtml(agent.activity?.taskTitle || agent.activity?.progressText || '等待调度')}</small>
+    </button>
+  `).join('') || '<div class="agent-office-fallback-empty">暂无 Agent</div>'
+}
+
+function renderOfficeFallbackPanel(page, agent) {
+  const panel = page.querySelector('#agent-office-panel')
+  if (!panel) return
+  if (!agent) {
+    panel.innerHTML = `
+      <div class="agent-office-panel-empty">
+        <div class="agent-office-panel-title">暂无 Agent</div>
+        <div class="agent-office-panel-desc">创建 Agent 后，这里会显示对应的模型、工作区、渠道绑定和实时任务。</div>
+      </div>
+    `
+    return
+  }
+  panel.innerHTML = `
+    <div class="agent-office-panel-head">
+      <div>
+        <div class="agent-office-panel-kicker">${escHtml(stateLabel(agent.officeState))}</div>
+        <div class="agent-office-panel-title">${escHtml(agent.identityName || agent.id)}</div>
+      </div>
+    </div>
+    <div class="agent-office-panel-grid">
+      <div><span>ID</span><strong>${escHtml(agent.id)}</strong></div>
+      <div><span>模型</span><strong>${escHtml(typeof agent.model === 'object' ? (agent.model?.primary || agent.model?.id || '未设置') : (agent.model || '未设置'))}</strong></div>
+      <div><span>工作区</span><strong>${escHtml(agent.workspace || '未设置')}</strong></div>
+      <div><span>当前任务</span><strong>${escHtml(agent.activity?.taskTitle || '暂无任务')}</strong></div>
+      <div><span>进度</span><strong>${escHtml(agent.activity?.progressText || '等待调度')}</strong></div>
+    </div>
+    <button class="btn btn-sm btn-primary agent-office-detail-btn" data-office-detail="${escHtml(agent.id)}">进入 Agent 详情</button>
+  `
 }
 
 function toggleOfficeFocus(page, state) {
@@ -231,6 +358,17 @@ function toggleOfficeFocus(page, state) {
     btn.classList.toggle('btn-secondary', !state.officeFocus)
   }
   setTimeout(() => state.officeScene?.resize?.(), 60)
+}
+
+function setOfficeView(page, state, mode) {
+  state.officeView = ['overview', 'work', 'lounge'].includes(mode) ? mode : 'overview'
+  page.querySelectorAll('[data-office-view]').forEach(btn => {
+    const active = btn.dataset.officeView === state.officeView
+    btn.classList.toggle('is-active', active)
+    btn.classList.toggle('btn-primary', active)
+    btn.classList.toggle('btn-secondary', !active)
+  })
+  state.officeScene?.setViewMode?.(state.officeView)
 }
 
 function demoActivityForAgent(agent, state) {
@@ -259,6 +397,7 @@ function demoActivityForAgent(agent, state) {
 }
 
 function toggleOfficeDemo(page, state) {
+  if (!SHOW_OFFICE_DEMO) return
   state.officeDemo = !state.officeDemo
   state.officeDemoStartedAt = Date.now()
   const btn = page.querySelector('#agent-office-demo')
@@ -326,8 +465,25 @@ function renderActivityRail(page, state) {
   }, {})
   const workingCount = ['queued', 'walking', 'working', 'tool_call', 'thinking', 'done'].reduce((sum, key) => sum + (counts[key] || 0), 0)
   const idleCount = state.officeDemo ? (counts.idle || 0) : (counts.idle || Math.max(0, officeAgents.length - activities.length))
-  const active = activities.filter(item => ['queued', 'walking', 'working', 'tool_call', 'thinking', 'blocked', 'error', 'done'].includes(item.state)).slice(0, 6)
+  const active = activities.filter(item => ['queued', 'walking', 'working', 'tool_call', 'thinking', 'blocked', 'error', 'done'].includes(item.state)).slice(0, 7)
+  const nameForAgent = (id) => {
+    const agent = officeAgents.find(item => item.id === id)
+    return agent?.identityName || agent?.name || id
+  }
+  const renderTime = (value) => {
+    if (!value) return '刚刚'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return '刚刚'
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
   el.innerHTML = `
+    <div class="agent-office-activity-head">
+      <div>
+        <span>实时概览</span>
+        <strong>${officeAgents.length}</strong>
+      </div>
+      <small>Agents</small>
+    </div>
     <div class="agent-office-activity-stats">
       <span><strong>${workingCount}</strong> 工作中</span>
       <span><strong>${counts.blocked || 0}</strong> 阻塞</span>
@@ -336,9 +492,16 @@ function renderActivityRail(page, state) {
     </div>
     <div class="agent-office-activity-list">
       ${active.length ? active.map(item => `
-        <button class="agent-office-activity-item" data-office-agent="${String(item.agentId).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">
-          <span>${String(item.agentId).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
-          <strong>${String(item.taskTitle || item.progressText || item.state).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</strong>
+        <button class="agent-office-activity-item is-${escHtml(item.state || 'idle')}" data-office-agent="${escHtml(item.agentId)}">
+          <span class="agent-office-activity-dot" aria-hidden="true"></span>
+          <span class="agent-office-activity-main">
+            <strong>${escHtml(nameForAgent(item.agentId))}</strong>
+            <small>${escHtml(item.taskTitle || item.progressText || stateLabel(item.state))}</small>
+          </span>
+          <span class="agent-office-activity-meta">
+            <b>${escHtml(stateLabel(item.state))}</b>
+            <small>${escHtml(renderTime(item.updatedAt))}</small>
+          </span>
         </button>
       `).join('') : '<span class="agent-office-activity-empty">当前没有运行中的任务</span>'}
     </div>

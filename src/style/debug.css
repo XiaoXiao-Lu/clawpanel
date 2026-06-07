@@ -103,3 +103,17 @@
 .adv-btn:hover { border-color:var(--accent) }
 .adv-btn:disabled { opacity:.5 }
 .adv-output { margin-top:12px; background:var(--bg-primary); border-radius: var(--radius-md); padding:12px; font-size:11px; max-height:300px; overflow:auto; white-space:pre-wrap; word-break:break-all; display:none }
+.adv-btn-grid { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px }
+.adv-output.is-visible { display:block }
+.adv-output.has-color { color:var(--adv-color, var(--text-primary)) }
+.scan-icon--spin { animation:scan-ring 1s linear infinite }
+.scan-item[data-index="0"] { animation-delay:0ms }
+.scan-item[data-index="1"] { animation-delay:60ms }
+.scan-item[data-index="2"] { animation-delay:120ms }
+.scan-item[data-index="3"] { animation-delay:180ms }
+.scan-item[data-index="4"] { animation-delay:240ms }
+.scan-item[data-index="5"] { animation-delay:300ms }
+.scan-item[data-index="6"] { animation-delay:360ms }
+.scan-item[data-index="7"] { animation-delay:420ms }
+.scan-item[data-index="8"] { animation-delay:480ms }
+.scan-item[data-index="9"] { animation-delay:540ms }

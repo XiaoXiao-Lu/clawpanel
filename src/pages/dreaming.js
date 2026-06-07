@@ -389,13 +389,13 @@ function renderPhaseCard(title, phase) {
   ].filter(Boolean).join(' · ')
 
   return `
-    <div class="config-section" style="margin:0">
-      <div class="config-section-title" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+    <div class="config-section dream-phase-card">
+      <div class="config-section-title dream-phase-header">
         <span>${esc(title)}</span>
         <span class="badge${phase.enabled ? ' badge-success' : ''}">${esc(phase.enabled ? t('dreaming.statusEnabled') : t('dreaming.statusDisabled'))}</span>
       </div>
       <div class="form-hint">${esc(meta || t('dreaming.notScheduled'))}</div>
-      ${details ? `<div style="margin-top:8px;font-size:12px;color:var(--text-secondary)">${esc(details)}</div>` : ''}
+      ${details ? `<div class="dream-phase-details">${esc(details)}</div>` : ''}
     </div>
   `
 }
@@ -403,10 +403,10 @@ function renderPhaseCard(title, phase) {
 function renderEntries(title, entries) {
   const content = entries.length
     ? entries.slice(0, 8).map((entry) => `
-        <div style="padding:10px 0;border-bottom:1px solid var(--border-primary)">
-          <div style="font-size:13px;color:var(--text-primary);line-height:1.6">${esc(entry.snippet || '(empty)')}</div>
-          <div style="margin-top:6px;font-size:12px;color:var(--text-secondary)">${esc(entry.path)}${entry.startLine ? ':' + entry.startLine : ''}${entry.endLine && entry.endLine !== entry.startLine ? '-' + entry.endLine : ''}</div>
-          <div style="margin-top:4px;font-size:12px;color:var(--text-tertiary)">
+        <div class="dream-entry">
+          <div class="dream-entry-snippet">${esc(entry.snippet || '(empty)')}</div>
+          <div class="dream-entry-path">${esc(entry.path)}${entry.startLine ? ':' + entry.startLine : ''}${entry.endLine && entry.endLine !== entry.startLine ? '-' + entry.endLine : ''}</div>
+          <div class="dream-entry-meta">
             ${esc([
               entry.recallCount ? `${entry.recallCount} recall` : '',
               entry.dailyCount ? `${entry.dailyCount} daily` : '',
@@ -420,7 +420,7 @@ function renderEntries(title, entries) {
     : `<div class="form-hint">${esc(t('dreaming.noEntries'))}</div>`
 
   return `
-    <div class="config-section" style="margin:0">
+    <div class="config-section dream-entries-card">
       <div class="config-section-title">${esc(title)}</div>
       ${content}
     </div>
@@ -432,7 +432,7 @@ function renderActionButtons(enabled, disabledAttr) {
   const actionsDisabled = !_state.actionsSupported ? 'disabled title="' + esc(t('dreaming.rpcUnsupported')) + '"' : disabledAttr
   const diaryDisabled = !_state.diarySupported ? 'disabled title="' + esc(t('dreaming.rpcUnsupported')) + '"' : disabledAttr
   return `
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <div class="dream-actions">
       <button class="btn btn-sm ${enabled ? 'btn-warning' : 'btn-primary'}" id="btn-dreaming-toggle" ${disabledAttr}>${esc(_state.actionLoading ? t('dreaming.actionRunning') : toggleText)}</button>
       <button class="btn btn-sm btn-secondary" id="btn-dreaming-backfill" ${diaryDisabled}>${esc(t('dreaming.backfill'))}</button>
       <button class="btn btn-sm btn-secondary" id="btn-dreaming-reset-diary" ${diaryDisabled}>${esc(t('dreaming.resetDiary'))}</button>
@@ -443,15 +443,15 @@ function renderActionButtons(enabled, disabledAttr) {
 
 function renderStatusHints() {
   const hints = []
-  if (_state.toggleBlockedReason) hints.push(`<div class="form-hint" style="margin-top:10px">${esc(_state.toggleBlockedReason)}</div>`)
-  if (!_state.diarySupported || !_state.actionsSupported) hints.push(`<div class="form-hint" style="margin-top:8px;color:var(--text-tertiary)">${esc(t('dreaming.rpcUnsupported'))}</div>`)
-  if (_state.error && !_state.unsupported) hints.push(`<div style="margin-top:12px;color:var(--warning)">${esc(_state.error)}</div>`)
+  if (_state.toggleBlockedReason) hints.push(`<div class="form-hint dream-hint-blocked">${esc(_state.toggleBlockedReason)}</div>`)
+  if (!_state.diarySupported || !_state.actionsSupported) hints.push(`<div class="form-hint dream-hint-unsupported">${esc(t('dreaming.rpcUnsupported'))}</div>`)
+  if (_state.error && !_state.unsupported) hints.push(`<div class="dream-hint-error">${esc(_state.error)}</div>`)
   return hints.join('')
 }
 
 function renderViewTabs() {
   return `
-    <div class="tab-bar" style="margin-bottom:var(--space-lg)">
+    <div class="tab-bar dream-tabs">
       <div class="tab${_state.view === 'scene' ? ' active' : ''}" data-dreaming-view="scene">${esc(t('dreaming.viewScene'))}</div>
       <div class="tab${_state.view === 'diary' ? ' active' : ''}" data-dreaming-view="diary">${esc(t('dreaming.viewDiary'))}</div>
     </div>
@@ -467,22 +467,22 @@ function renderDreamLane(title, subtitle, entries, accent) {
   const tone = tones[accent] || tones.violet
   const items = entries.length
     ? entries.slice(0, 4).map((entry, idx) => `
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 0;${idx < Math.min(entries.length, 4) - 1 ? 'border-bottom:1px solid var(--border-primary)' : ''}">
-          <div style="width:8px;height:8px;border-radius:999px;background:${tone.dot};margin-top:6px;flex-shrink:0"></div>
-          <div style="min-width:0">
-            <div style="font-size:13px;line-height:1.6;color:var(--text-primary)">${esc(entry.snippet || '(empty)')}</div>
-            <div style="margin-top:4px;font-size:12px;color:var(--text-tertiary)">${esc(entry.path)}${entry.startLine ? ':' + entry.startLine : ''}</div>
+        <div class="dream-lane-item${idx < Math.min(entries.length, 4) - 1 ? ' dream-lane-item--bordered' : ''}">
+          <div class="dream-lane-dot" style="background:${tone.dot}"></div>
+          <div class="dream-lane-content">
+            <div class="dream-lane-snippet">${esc(entry.snippet || '(empty)')}</div>
+            <div class="dream-lane-path">${esc(entry.path)}${entry.startLine ? ':' + entry.startLine : ''}</div>
           </div>
         </div>
       `).join('')
     : `<div class="form-hint">${esc(t('dreaming.noEntries'))}</div>`
   return `
-    <div class="config-section" style="margin:0;border-left:3px solid ${tone.border}">
-      <div class="config-section-title" style="display:flex;align-items:center;gap:8px">
+    <div class="config-section dream-lane" style="border-left-color:${tone.border}">
+      <div class="config-section-title dream-lane-header">
         <span>${esc(title)}</span>
-        <span class="badge" style="font-size:11px">${entries.length}</span>
+        <span class="badge dream-lane-badge">${entries.length}</span>
       </div>
-      <div class="form-hint" style="margin-bottom:8px">${esc(subtitle)}</div>
+      <div class="form-hint dream-lane-subtitle">${esc(subtitle)}</div>
       ${items}
     </div>
   `
@@ -528,6 +528,64 @@ function renderSceneView(status, enabled, heroText, disabledAttr, nextRun) {
       .dream-stat-glass { padding:14px 16px; border-radius:16px; background:rgba(255,255,255,0.06); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.08) }
       .dream-stat-glass .ds-label { font-size:12px; color:rgba(226,232,240,0.6) }
       .dream-stat-glass .ds-value { font-size:22px; font-weight:700; margin-top:4px; color:#e2e8f0 }
+      .dream-hero-body { position:relative; display:flex; justify-content:space-between; gap:18px; align-items:flex-start; flex-wrap:wrap }
+      .dream-hero-main { max-width:600px }
+      .dream-hero-badge { margin-bottom:10px }
+      .dream-hero-title { font-size:26px; font-weight:700; letter-spacing:-0.02em; margin-bottom:10px }
+      .dream-hero-desc { font-size:13px; line-height:1.8; color:rgba(226,232,240,0.88); max-width:540px }
+      .dream-hero-text { margin-top:12px; font-size:13px; line-height:1.8; color:rgba(255,255,255,0.92) }
+      .dream-hero-tags { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px }
+      .dream-hero-actions { position:relative; z-index:1; display:flex; flex-direction:column; gap:10px; align-items:flex-end; max-width:420px }
+      .dream-stat-cards { margin-bottom:var(--space-lg) }
+      .dream-phase-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:var(--space-md); margin-bottom:var(--space-lg) }
+      .dream-lane-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:var(--space-md) }
+      .dream-tabs { margin-bottom:var(--space-lg) }
+      .dream-actions { display:flex; gap:8px; flex-wrap:wrap }
+      .dream-hint-blocked { margin-top:10px }
+      .dream-hint-unsupported { margin-top:8px; color:var(--text-tertiary) }
+      .dream-hint-error { margin-top:12px; color:var(--warning) }
+      .dream-phase-card { margin:0 }
+      .dream-phase-header { display:flex; justify-content:space-between; align-items:center; gap:8px }
+      .dream-phase-details { margin-top:8px; font-size:12px; color:var(--text-secondary) }
+      .dream-entries-card { margin:0 }
+      .dream-entry { padding:10px 0; border-bottom:1px solid var(--border-primary) }
+      .dream-entry:last-child { border-bottom:none }
+      .dream-entry-snippet { font-size:13px; color:var(--text-primary); line-height:1.6 }
+      .dream-entry-path { margin-top:6px; font-size:12px; color:var(--text-secondary) }
+      .dream-entry-meta { margin-top:4px; font-size:12px; color:var(--text-tertiary) }
+      .dream-lane { margin:0; border-left:3px solid }
+      .dream-lane-header { display:flex; align-items:center; gap:8px }
+      .dream-lane-badge { font-size:11px }
+      .dream-lane-subtitle { margin-bottom:8px }
+      .dream-lane-item { display:flex; gap:10px; align-items:flex-start; padding:10px 0 }
+      .dream-lane-item--bordered { border-bottom:1px solid var(--border-primary) }
+      .dream-lane-dot { width:8px; height:8px; border-radius:999px; margin-top:6px; flex-shrink:0 }
+      .dream-lane-content { min-width:0 }
+      .dream-lane-snippet { font-size:13px; line-height:1.6; color:var(--text-primary) }
+      .dream-lane-path { margin-top:4px; font-size:12px; color:var(--text-tertiary) }
+      .dream-diary-header { margin-bottom:var(--space-lg) }
+      .dream-diary-header-body { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; flex-wrap:wrap }
+      .dream-diary-header-main { flex:1; min-width:280px }
+      .dream-diary-header-desc { font-size:13px; line-height:1.8; color:var(--text-secondary) }
+      .dream-diary-header-tags { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap }
+      .dream-diary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:var(--space-md) }
+      .dream-diary-sections { margin:0 }
+      .dream-diary-raw { margin:0 }
+      .dream-diary-item { padding:14px 0; border-bottom:1px solid var(--border-primary) }
+      .dream-diary-item--last { border-bottom:none }
+      .dream-diary-item-header { display:flex; align-items:center; gap:8px; margin-bottom:8px }
+      .dream-diary-item-title { font-weight:600; color:var(--text-primary) }
+      .dream-diary-item-body { font-size:13px; line-height:1.7; color:var(--text-secondary) }
+      .dream-diary-pre { white-space:pre-wrap; word-break:break-word; background:var(--bg-secondary); border-radius:var(--radius); padding:var(--space-md); font-size:12px; line-height:1.7; max-height:560px; overflow:auto }
+      .dream-diary-hint { line-height:1.8 }
+      .dream-diary-unavailable { margin:0; border-left:3px solid var(--warning) }
+      .dream-skeleton-hero { height:120px }
+      .dream-skeleton-body { height:220px; margin-top:var(--space-md) }
+      .dream-connecting { color:var(--text-tertiary); margin-bottom:8px }
+      .dream-error-card { border-left:3px solid var(--warning) }
+      .dream-error-text { color:var(--warning); line-height:1.7 }
+      .dream-error-hint { margin-top:8px }
+      .dream-page-actions { display:flex; gap:8px; flex-wrap:wrap }
     </style>
     <div class="dream-hero">
       ${starsHtml}
@@ -536,19 +594,19 @@ function renderSceneView(status, enabled, heroText, disabledAttr, nextRun) {
       <span class="dream-z">z</span>
       <span class="dream-z">Z</span>
 
-      <div style="position:relative;display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap">
-        <div style="max-width:600px">
-          <div class="badge${enabled ? ' badge-success' : ''}" style="margin-bottom:10px">${esc(enabled ? t('dreaming.statusEnabled') : t('dreaming.statusDisabled'))}</div>
-          <div style="font-size:26px;font-weight:700;letter-spacing:-0.02em;margin-bottom:10px">${esc(t('dreaming.sceneTitle'))}</div>
-          <div style="font-size:13px;line-height:1.8;color:rgba(226,232,240,0.88);max-width:540px">${esc(t('dreaming.sceneDesc'))}</div>
-          <div style="margin-top:12px;font-size:13px;line-height:1.8;color:rgba(255,255,255,0.92)">${esc(heroText)}</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+      <div class="dream-hero-body">
+        <div class="dream-hero-main">
+          <div class="badge${enabled ? ' badge-success' : ''} dream-hero-badge">${esc(enabled ? t('dreaming.statusEnabled') : t('dreaming.statusDisabled'))}</div>
+          <div class="dream-hero-title">${esc(t('dreaming.sceneTitle'))}</div>
+          <div class="dream-hero-desc">${esc(t('dreaming.sceneDesc'))}</div>
+          <div class="dream-hero-text">${esc(heroText)}</div>
+          <div class="dream-hero-tags">
             <span class="badge">${esc(`${t('dreaming.nextRun')}: ${nextRun}`)}</span>
             <span class="badge">${esc(`${t('dreaming.timezone')}: ${status?.timezone || '—'}`)}</span>
             <span class="badge">${esc(`${t('dreaming.memoryPath')}: ${status?.storePath || 'MEMORY.md'}`)}</span>
           </div>
         </div>
-        <div style="position:relative;z-index:1;display:flex;flex-direction:column;gap:10px;align-items:flex-end;max-width:420px">
+        <div class="dream-hero-actions">
           ${renderActionButtons(enabled, disabledAttr)}
         </div>
       </div>
@@ -561,7 +619,7 @@ function renderSceneView(status, enabled, heroText, disabledAttr, nextRun) {
       </div>
     </div>
 
-    <div class="stat-cards" style="margin-bottom:var(--space-lg)">
+    <div class="stat-cards dream-stat-cards">
       ${renderStatCard(t('dreaming.promotedToday'), status?.promotedToday ?? 0)}
       ${renderStatCard(t('dreaming.grounded'), status?.groundedSignalCount ?? 0)}
       ${renderStatCard(t('dreaming.storageMode'), status?.storageMode || 'inline')}
@@ -569,13 +627,13 @@ function renderSceneView(status, enabled, heroText, disabledAttr, nextRun) {
       ${renderStatCard(t('dreaming.signals'), status?.totalSignalCount ?? 0, `${t('dreaming.diaryPath')}: ${_state.diaryPath || 'DREAMS.md'}`)}
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--space-md);margin-bottom:var(--space-lg)">
+    <div class="dream-phase-grid">
       ${renderPhaseCard(t('dreaming.phaseLight'), status?.phases?.light || normalizePhase(null))}
       ${renderPhaseCard(t('dreaming.phaseDeep'), status?.phases?.deep || normalizePhase(null))}
       ${renderPhaseCard(t('dreaming.phaseRem'), status?.phases?.rem || normalizePhase(null))}
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--space-md)">
+    <div class="dream-lane-grid">
       ${renderDreamLane(t('dreaming.sceneQueue'), t('dreaming.entriesShortTerm'), status?.shortTermEntries || [], 'violet')}
       ${renderDreamLane(t('dreaming.sceneSignals'), t('dreaming.entriesSignals'), status?.signalEntries || [], 'cyan')}
       ${renderDreamLane(t('dreaming.scenePromotions'), t('dreaming.entriesPromoted'), status?.promotedEntries || [], 'amber')}
@@ -590,44 +648,44 @@ function renderDiaryView(status, enabled, heroText, disabledAttr) {
   let diaryBody = ''
   if (diaryUnavailable) {
     diaryBody = `
-      <div class="config-section" style="margin:0;border-left:3px solid var(--warning)">
+      <div class="config-section dream-diary-unavailable">
         <div class="config-section-title">${esc(t('dreaming.diary'))}</div>
-        <div class="form-hint" style="line-height:1.8">${esc(t('dreaming.rpcUnsupported'))}</div>
+        <div class="form-hint dream-diary-hint">${esc(t('dreaming.rpcUnsupported'))}</div>
       </div>`
   } else {
     diaryBody = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:var(--space-md)">
-        <div class="config-section" style="margin:0">
+      <div class="dream-diary-grid">
+        <div class="config-section dream-diary-sections">
           <div class="config-section-title">${esc(t('dreaming.diarySections'))}</div>
           ${sections.length
             ? sections.map((section, idx) => `
-                <div style="padding:14px 0;border-bottom:${idx === sections.length - 1 ? 'none' : '1px solid var(--border-primary)'}">
-                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <div class="dream-diary-item${idx === sections.length - 1 ? ' dream-diary-item--last' : ''}">
+                  <div class="dream-diary-item-header">
                     <span class="badge${idx === 0 ? ' badge-success' : ''}">${esc(`${t('dreaming.diarySection')} ${idx + 1}`)}</span>
-                    <span style="font-weight:600;color:var(--text-primary)">${esc(section.title)}</span>
+                    <span class="dream-diary-item-title">${esc(section.title)}</span>
                   </div>
-                  <div style="font-size:13px;line-height:1.7;color:var(--text-secondary)">${esc(section.body.slice(0, 220) || section.title)}</div>
+                  <div class="dream-diary-item-body">${esc(section.body.slice(0, 220) || section.title)}</div>
                 </div>
               `).join('')
-            : `<div class="form-hint" style="line-height:1.8">${esc(t('dreaming.diaryEmpty'))}<br>${esc(t('dreaming.diaryEmptyHint'))}</div>`}
+            : `<div class="form-hint dream-diary-hint">${esc(t('dreaming.diaryEmpty'))}<br>${esc(t('dreaming.diaryEmptyHint'))}</div>`}
         </div>
 
-        <div class="config-section" style="margin:0">
+        <div class="config-section dream-diary-raw">
           <div class="config-section-title">${esc(t('dreaming.diaryRaw'))}</div>
           ${typeof _state.diaryContent === 'string'
-            ? `<pre style="white-space:pre-wrap;word-break:break-word;background:var(--bg-secondary);border-radius:var(--radius);padding:var(--space-md);font-size:12px;line-height:1.7;max-height:560px;overflow:auto">${esc(_state.diaryContent)}</pre>`
-            : `<div class="form-hint" style="line-height:1.8">${esc(t('dreaming.diaryEmpty'))}<br>${esc(t('dreaming.diaryEmptyHint'))}</div>`}
+            ? `<pre class="dream-diary-pre">${esc(_state.diaryContent)}</pre>`
+            : `<div class="form-hint dream-diary-hint">${esc(t('dreaming.diaryEmpty'))}<br>${esc(t('dreaming.diaryEmptyHint'))}</div>`}
         </div>
       </div>`
   }
 
   return `
-    <div class="config-section" style="margin-bottom:var(--space-lg)">
-      <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap">
-        <div style="flex:1;min-width:280px">
+    <div class="config-section dream-diary-header">
+      <div class="dream-diary-header-body">
+        <div class="dream-diary-header-main">
           <div class="config-section-title">${esc(t('dreaming.diary'))}</div>
-          <div style="font-size:13px;line-height:1.8;color:var(--text-secondary)">${esc(heroText)}</div>
-          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <div class="dream-diary-header-desc">${esc(heroText)}</div>
+          <div class="dream-diary-header-tags">
             <span class="badge${enabled ? ' badge-success' : ''}">${esc(enabled ? t('dreaming.statusEnabled') : t('dreaming.statusDisabled'))}</span>
             <span class="badge">${esc(`${t('dreaming.diaryPath')}: ${_state.diaryPath || 'DREAMS.md'}`)}</span>
             ${!diaryUnavailable ? `<span class="badge">${esc(`${t('dreaming.diarySections')}: ${sections.length}`)}</span>` : ''}
@@ -695,22 +753,22 @@ function renderPage(page) {
 
   if (_state.loading) {
     body = `
-      <div class="stat-card loading-placeholder" style="height:120px"></div>
-      <div class="stat-card loading-placeholder" style="height:220px;margin-top:var(--space-md)"></div>
+      <div class="stat-card loading-placeholder dream-skeleton-hero"></div>
+      <div class="stat-card loading-placeholder dream-skeleton-body"></div>
     `
   } else if (!ready) {
     body = `
-      <div class="config-section">
-        <div style="color:var(--text-tertiary);margin-bottom:8px">${esc(t('dreaming.gwConnecting'))}</div>
+      <div class="config-section dream-connecting">
+        <div class="dream-connecting-text">${esc(t('dreaming.gwConnecting'))}</div>
         <div class="form-hint">${esc(t('dreaming.gwWait'))}</div>
       </div>
     `
   } else if (_state.unsupported) {
     body = `
-      <div class="config-section" style="border-left:3px solid var(--warning)">
+      <div class="config-section dream-error-card">
         <div class="config-section-title">${esc(t('dreaming.loadFailed'))}</div>
-        <div style="color:var(--warning);line-height:1.7">${esc(_state.error || t('dreaming.unsupportedHint'))}</div>
-        <div class="form-hint" style="margin-top:8px">${esc(t('dreaming.loadFailedHint'))}</div>
+        <div class="dream-error-text">${esc(_state.error || t('dreaming.unsupportedHint'))}</div>
+        <div class="form-hint dream-error-hint">${esc(t('dreaming.loadFailedHint'))}</div>
       </div>
     `
   } else {
@@ -723,7 +781,7 @@ function renderPage(page) {
     <div class="page-header">
       <h1 class="page-title">${t('dreaming.title')}</h1>
       <p class="page-desc">${t('dreaming.desc')}</p>
-      <div class="page-actions" style="display:flex;gap:8px;flex-wrap:wrap">
+      <div class="page-actions dream-page-actions">
         <button class="btn btn-sm btn-secondary" id="btn-dreaming-refresh">${icon('refresh-cw', 14)} ${t('dreaming.refresh')}</button>
         <button class="btn btn-sm btn-secondary" id="btn-dreaming-open-memory">${t('dreaming.openMemory')}</button>
       </div>

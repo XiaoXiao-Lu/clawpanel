@@ -724,3 +724,27 @@ mark {
   border-color: var(--brand);
   background: var(--brand-faint);
 }
+
+/* ─── Communication page extracted inline styles ─── */
+.comm-toolbar { display:flex; gap:8px; margin-bottom:var(--space-lg); flex-wrap:wrap }
+.comm-toolbar-spacer { flex:1 }
+.comm-skeleton { height:200px }
+.comm-error { color:var(--error) }
+.comm-approvals-desc { margin-bottom:var(--space-md) }
+.comm-approvals-queue { margin-top:var(--space-lg) }
+.comm-approvals-queue-title { display:flex; justify-content:space-between; align-items:center }
+.comm-approval-queue { margin-top:var(--space-sm) }
+.comm-approvals-unsupported { color:var(--text-tertiary) }
+.comm-approval-item { padding:10px 0; border-bottom:1px solid var(--border-primary); display:flex; justify-content:space-between; align-items:center; gap:8px }
+.comm-approval-item:last-child { border-bottom:none }
+.comm-approval-item-main { min-width:0; flex:1 }
+.comm-approval-item-cmd { font-size:13px }
+.comm-approval-item-badge { font-size:11px; margin-right:4px }
+.comm-approval-item-meta { font-size:12px; color:var(--text-tertiary); margin-top:2px }
+
+/* ─── Form utilities ─── */
+.form-group--row { display:flex; align-items:center; justify-content:space-between }
+.form-label--compact { margin:0 }
+.form-hint--compact { margin:0 }
+.form-input--short { max-width:200px }
+.form-input--medium { max-width:300px }

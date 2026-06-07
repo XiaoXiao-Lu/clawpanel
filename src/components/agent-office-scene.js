@@ -7,6 +7,35 @@ const AGENT_COLORS = [
 ]
 
 const WORK_STATES = new Set(['queued', 'walking', 'working', 'tool_call', 'thinking', 'blocked', 'error', 'done'])
+const SEATED_WORK_STATES = new Set(['working', 'tool_call', 'thinking', 'blocked', 'error', 'done'])
+const COMPACT_AGENT_COUNT = 24
+const DENSE_AGENT_COUNT = 50
+const VIEW_PRESETS = {
+  overview: {
+    position: [8.5, 16, 16.5],
+    target: [0, 0, -0.6],
+    minWidth: 34,
+    minHeight: 22,
+    padX: 12,
+    padZ: 9,
+  },
+  work: {
+    position: [6.4, 12.8, 14.2],
+    target: [1.6, 0, -0.8],
+    minWidth: 22,
+    minHeight: 15,
+    padX: 7,
+    padZ: 6,
+  },
+  lounge: {
+    position: [-8.8, 10.8, 13.2],
+    target: [-11.6, 0, 7.05],
+    minWidth: 12.5,
+    minHeight: 9.5,
+    padX: 0,
+    padZ: 0,
+  },
+}
 
 function tr(key, fallback, params) {
   const value = t(key, params)
@@ -93,6 +122,8 @@ function disposeObject(obj) {
 function addBox(parent, size, position, color, opts = {}) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(size[0], size[1], size[2]), makeMat(color, opts))
   mesh.position.set(position[0], position[1], position[2])
+  mesh.castShadow = opts.castShadow ?? true
+  mesh.receiveShadow = opts.receiveShadow ?? false
   parent.add(mesh)
   return mesh
 }
@@ -100,6 +131,26 @@ function addBox(parent, size, position, color, opts = {}) {
 function addCylinder(parent, radius, height, position, color, opts = {}) {
   const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, height, opts.segments || 18), makeMat(color, opts))
   mesh.position.set(position[0], position[1], position[2])
+  mesh.castShadow = opts.castShadow ?? true
+  mesh.receiveShadow = opts.receiveShadow ?? false
+  parent.add(mesh)
+  return mesh
+}
+
+function addSoftShadow(parent, size, position, opacity = 0.08) {
+  const mesh = new THREE.Mesh(
+    new THREE.CircleGeometry(1, 40),
+    new THREE.MeshBasicMaterial({
+      color: 0x0f172a,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+    })
+  )
+  mesh.rotation.x = -Math.PI / 2
+  mesh.scale.set(size[0], size[1], 1)
+  mesh.position.set(position[0], 0.018, position[1])
+  mesh.renderOrder = -1
   parent.add(mesh)
   return mesh
 }
@@ -119,6 +170,7 @@ function addPlant(parent, x, z) {
     const leaf = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 9), makeMat(0x16a34a, { roughness: 0.72 }))
     leaf.scale.set(1, 0.65, 1)
     leaf.position.set(lx, ly, lz)
+    leaf.castShadow = true
     root.add(leaf)
   }
   parent.add(root)
@@ -139,8 +191,9 @@ function createDesk(position, state) {
   const root = new THREE.Group()
   root.position.copy(position)
 
-  addBox(root, [3.2, 0.18, 1.18], [0, 1.12, 0], 0xf8fafc)
-  addBox(root, [0.58, 0.92, 0.74], [1.12, 0.52, 0.1], 0xe2e8f0)
+  addSoftShadow(root, [2.05, 0.9], [0.12, 0.18], 0.065)
+  addBox(root, [3.2, 0.18, 1.18], [0, 1.12, 0], 0xffffff)
+  addBox(root, [0.58, 0.92, 0.74], [1.12, 0.52, 0.1], 0xe8eef5)
   addBox(root, [0.74, 0.08, 0.54], [-0.98, 1.24, 0.22], 0xcbd5e1)
   addBox(root, [0.4, 0.06, 0.26], [-0.44, 1.24, 0.24], 0x0f172a)
 
@@ -169,9 +222,10 @@ function createDesk(position, state) {
   lamp.userData.kind = 'lamp'
   root.add(lamp)
 
-  const privacy = addBox(root, [3.45, 0.52, 0.08], [0, 1.52, 0.62], 0xe2e8f0, {
+  const privacy = addBox(root, [3.45, 0.52, 0.08], [0, 1.52, 0.62], 0xe8eef5, {
     transparent: true,
-    opacity: 0.62,
+    opacity: 0.5,
+    castShadow: false,
   })
   privacy.userData.kind = 'partition'
 
@@ -181,6 +235,7 @@ function createDesk(position, state) {
 function createChair(position) {
   const root = new THREE.Group()
   root.position.copy(position)
+  addSoftShadow(root, [0.74, 0.54], [0, 0.92], 0.055)
   addBox(root, [0.82, 0.16, 0.72], [0, 0.72, 0.86], 0xf1f5f9)
   addBox(root, [0.82, 0.76, 0.14], [0, 1.08, 1.2], 0xf1f5f9)
   const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.7, 10), makeMat(0x94a3b8))
@@ -203,10 +258,12 @@ function createAgentAvatar(agent) {
 
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.52, 0.86, 16), bodyMat)
   body.position.set(0, 0.95, 0)
+  body.castShadow = true
   root.add(body)
 
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 18, 14), bodyMat)
   head.position.set(0, 1.52, 0)
+  head.castShadow = true
   root.add(head)
 
   const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.38, 8), bodyMat)
@@ -238,8 +295,29 @@ function createAgentAvatar(agent) {
   rightArm.rotation.z = -0.24
   root.add(rightArm)
 
+  const leftLeg = addBox(root, [0.17, 0.56, 0.16], [-0.24, 0.43, 0], 0x111827)
+  const rightLeg = addBox(root, [0.17, 0.56, 0.16], [0.24, 0.43, 0], 0x111827)
   const leftFoot = addBox(root, [0.24, 0.12, 0.34], [-0.22, 0.15, -0.04], 0x111827)
   const rightFoot = addBox(root, [0.24, 0.12, 0.34], [0.22, 0.15, -0.04], 0x111827)
+
+  const focusPanel = addBox(root, [0.72, 0.34, 0.035], [0, 1.14, -0.62], state.screen, {
+    emissive: state.screen,
+    emissiveIntensity: 0.24,
+    transparent: true,
+    opacity: 0.78,
+  })
+  focusPanel.userData.kind = 'focusPanel'
+  const progressA = addBox(root, [0.46, 0.035, 0.045], [-0.05, 1.2, -0.655], state.color, {
+    emissive: state.color,
+    emissiveIntensity: 0.22,
+  })
+  const progressB = addBox(root, [0.32, 0.035, 0.045], [-0.12, 1.08, -0.655], 0xffffff, {
+    emissive: state.color,
+    emissiveIntensity: 0.12,
+  })
+  focusPanel.visible = false
+  progressA.visible = false
+  progressB.visible = false
 
   const shadow = new THREE.Mesh(
     new THREE.CircleGeometry(0.72, 24),
@@ -247,6 +325,7 @@ function createAgentAvatar(agent) {
   )
   shadow.rotation.x = -Math.PI / 2
   shadow.position.set(0, 0.03, 0)
+  shadow.renderOrder = -1
   root.add(shadow)
 
   for (const child of root.children) {
@@ -254,32 +333,58 @@ function createAgentAvatar(agent) {
     child.userData.clickable = true
   }
 
-  root.userData.parts = { body, head, visor, chest, statusBadge, leftArm, rightArm, leftFoot, rightFoot, antennaLight }
+  root.userData.parts = {
+    body,
+    head,
+    antenna,
+    visor,
+    chest,
+    statusBadge,
+    leftArm,
+    rightArm,
+    leftLeg,
+    rightLeg,
+    leftFoot,
+    rightFoot,
+    antennaLight,
+    focusPanel,
+    progressA,
+    progressB,
+  }
   return root
 }
 
 function createTextSprite(text) {
   const canvas = document.createElement('canvas')
-  canvas.width = 320
-  canvas.height = 80
+  canvas.width = 480
+  canvas.height = 132
   const ctx = canvas.getContext('2d')
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.86)'
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.94)'
   if (ctx.roundRect) {
-    ctx.roundRect(0, 0, 320, 80, 12)
+    ctx.roundRect(8, 8, 464, 116, 18)
     ctx.fill()
   } else {
-    ctx.fillRect(0, 0, 320, 80)
+    ctx.fillRect(8, 8, 464, 116)
   }
-  ctx.fillStyle = '#ffffff'
-  ctx.font = '600 24px sans-serif'
+  ctx.strokeStyle = 'rgba(15, 23, 42, 0.22)'
+  ctx.lineWidth = 4
+  if (ctx.roundRect) {
+    ctx.roundRect(8, 8, 464, 116, 18)
+    ctx.stroke()
+  } else {
+    ctx.strokeRect(8, 8, 464, 116)
+  }
+  ctx.fillStyle = '#0f172a'
+  ctx.font = '800 44px sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillText(String(text).slice(0, 18), 160, 40)
+  ctx.fillText(String(text).slice(0, 14), 240, 66)
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
+  texture.anisotropy = 4
   const material = new THREE.SpriteMaterial({ map: texture, transparent: true })
   const sprite = new THREE.Sprite(material)
-  sprite.scale.set(2.25, 0.56, 1)
+  sprite.scale.set(2.75, 0.76, 1)
   return sprite
 }
 
@@ -308,6 +413,109 @@ function createPathLine() {
   return line
 }
 
+function setPartVisible(part, visible) {
+  if (part) part.visible = visible
+}
+
+function resetAvatarParts(parts) {
+  if (parts.body) {
+    parts.body.position.set(0, 0.95, 0)
+    parts.body.rotation.set(0, 0, 0)
+    parts.body.scale.set(1, 1, 1)
+  }
+  if (parts.head) {
+    parts.head.position.set(0, 1.52, 0)
+    parts.head.rotation.set(0, 0, 0)
+  }
+  if (parts.antenna) {
+    parts.antenna.position.set(0, 1.92, 0)
+    parts.antenna.rotation.set(0, 0, 0)
+  }
+  if (parts.antennaLight) parts.antennaLight.position.set(0, 2.15, 0)
+  if (parts.visor) {
+    parts.visor.position.set(0, 1.56, -0.35)
+    parts.visor.rotation.set(0, 0, 0)
+    parts.visor.scale.set(1, 1, 1)
+  }
+  if (parts.chest) parts.chest.position.set(0, 0.92, -0.28)
+  if (parts.statusBadge) {
+    parts.statusBadge.position.set(0.28, 1.02, -0.38)
+    parts.statusBadge.scale.setScalar(1)
+  }
+  if (parts.leftArm) {
+    parts.leftArm.position.set(-0.54, 0.96, -0.03)
+    parts.leftArm.rotation.set(0, 0, 0.24)
+  }
+  if (parts.rightArm) {
+    parts.rightArm.position.set(0.54, 0.96, -0.03)
+    parts.rightArm.rotation.set(0, 0, -0.24)
+  }
+  if (parts.leftLeg) {
+    parts.leftLeg.position.set(-0.24, 0.43, 0)
+    parts.leftLeg.rotation.set(0, 0, 0)
+  }
+  if (parts.rightLeg) {
+    parts.rightLeg.position.set(0.24, 0.43, 0)
+    parts.rightLeg.rotation.set(0, 0, 0)
+  }
+  if (parts.leftFoot) {
+    parts.leftFoot.position.set(-0.22, 0.15, -0.04)
+    parts.leftFoot.rotation.set(0, 0, 0)
+  }
+  if (parts.rightFoot) {
+    parts.rightFoot.position.set(0.22, 0.15, -0.04)
+    parts.rightFoot.rotation.set(0, 0, 0)
+  }
+  setPartVisible(parts.focusPanel, false)
+  setPartVisible(parts.progressA, false)
+  setPartVisible(parts.progressB, false)
+}
+
+function applySeatedPose(parts, kind, elapsed, seed, state) {
+  const relax = kind === 'lounge'
+  const lean = relax ? -0.12 : 0.06
+  parts.body.position.set(0, 0.78, relax ? 0.08 : 0)
+  parts.body.rotation.x = lean
+  parts.body.scale.set(0.94, 0.82, 1)
+  parts.head.position.set(0, 1.28, relax ? 0.02 : -0.03)
+  parts.antenna.position.set(0, 1.66, relax ? 0.02 : -0.03)
+  parts.antennaLight.position.set(0, 1.89, relax ? 0.02 : -0.03)
+  parts.visor.position.set(0, 1.32, -0.35)
+  parts.chest.position.set(0, 0.78, -0.28)
+  parts.statusBadge.position.set(0.28, 0.88, -0.38)
+
+  const legZ = relax ? -0.38 : -0.27
+  parts.leftLeg.position.set(-0.24, 0.48, legZ)
+  parts.rightLeg.position.set(0.24, 0.48, legZ)
+  parts.leftLeg.rotation.x = Math.PI / 2.35
+  parts.rightLeg.rotation.x = Math.PI / 2.35
+  parts.leftFoot.position.set(-0.25, 0.28, relax ? -0.78 : -0.66)
+  parts.rightFoot.position.set(0.25, 0.28, relax ? -0.78 : -0.66)
+
+  if (relax) {
+    parts.leftArm.position.set(-0.52, 0.82, 0.03)
+    parts.rightArm.position.set(0.52, 0.82, 0.03)
+    parts.leftArm.rotation.set(0.15, 0, 0.72)
+    parts.rightArm.rotation.set(0.1, 0, -0.36)
+    parts.head.rotation.y = Math.sin(elapsed * 0.75 + seed) * 0.18
+    parts.visor.scale.x = 0.78 + Math.sin(elapsed * 0.9 + seed) * 0.06
+    return
+  }
+
+  parts.leftArm.position.set(-0.42, 0.92, -0.26)
+  parts.rightArm.position.set(0.42, 0.92, -0.26)
+  parts.leftArm.rotation.set(1.05 + Math.sin(elapsed * 7) * 0.1, 0, 0.42)
+  parts.rightArm.rotation.set(1.05 + Math.sin(elapsed * 7 + Math.PI) * 0.1, 0, -0.42)
+  parts.head.rotation.x = state === 'thinking' ? -0.12 + Math.sin(elapsed * 2.1) * 0.05 : -0.06
+  parts.head.rotation.y = state === 'thinking' ? Math.sin(elapsed * 1.6) * 0.16 : 0
+  setPartVisible(parts.focusPanel, true)
+  setPartVisible(parts.progressA, true)
+  setPartVisible(parts.progressB, true)
+  parts.focusPanel.scale.set(1, state === 'tool_call' ? 1.12 + Math.sin(elapsed * 6) * 0.08 : 1, 1)
+  parts.progressA.scale.x = state === 'blocked' ? 0.48 : 0.85 + Math.sin(elapsed * 4) * 0.08
+  parts.progressB.scale.x = state === 'error' ? 0.35 + Math.sin(elapsed * 9) * 0.12 : 0.62
+}
+
 export class AgentOfficeScene {
   constructor(container, options = {}) {
     this.container = container
@@ -323,17 +531,23 @@ export class AgentOfficeScene {
     this.layout = layoutForAgents(0)
     this.hoveredAgent = null
     this.selectedAgentId = null
+    this.viewMode = 'overview'
+    this.compactMode = false
+    this.denseMode = false
+    this.motionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)') || null
+    this.reducedMotion = !!this.motionQuery?.matches
 
     this.scene = new THREE.Scene()
     this.scene.background = new THREE.Color(0xf8fafc)
 
     this.camera = new THREE.OrthographicCamera(-12, 12, 7, -7, 0.1, 100)
-    this.camera.position.set(10, 9, 10)
-    this.camera.lookAt(0, 0, 0)
+    this.applyCameraPreset()
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
+    this.renderer.shadowMap.enabled = true
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
     this.container.appendChild(this.renderer.domElement)
 
     this.root = new THREE.Group()
@@ -349,6 +563,10 @@ export class AgentOfficeScene {
     this.handlePointerDown = this.onPointerDown.bind(this)
     this.handlePointerMove = this.onPointerMove.bind(this)
     this.handlePointerLeave = () => this.setTooltip(null)
+    this.handleMotionPreference = () => {
+      this.reducedMotion = !!this.motionQuery?.matches
+      for (const record of this.agentRecords.values()) this.refreshRecordVisibility(record)
+    }
     this.handleVisibility = () => {
       if (document.hidden) this.stop()
       else this.start()
@@ -358,43 +576,59 @@ export class AgentOfficeScene {
     this.renderer.domElement.addEventListener('pointerdown', this.handlePointerDown)
     this.renderer.domElement.addEventListener('pointermove', this.handlePointerMove)
     this.renderer.domElement.addEventListener('pointerleave', this.handlePointerLeave)
+    if (this.motionQuery?.addEventListener) {
+      this.motionQuery.addEventListener('change', this.handleMotionPreference)
+    } else {
+      this.motionQuery?.addListener?.(this.handleMotionPreference)
+    }
     this.resize()
     this.start()
   }
 
   addLights() {
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0xdbeafe, 1.25))
-    const key = new THREE.DirectionalLight(0xffffff, 1.1)
-    key.position.set(4, 8, 5)
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0xe0f2fe, 1.45))
+    const key = new THREE.DirectionalLight(0xffffff, 1.05)
+    key.position.set(5.5, 10, 5.5)
+    key.castShadow = true
+    key.shadow.mapSize.width = 2048
+    key.shadow.mapSize.height = 2048
+    key.shadow.camera.left = -18
+    key.shadow.camera.right = 18
+    key.shadow.camera.top = 14
+    key.shadow.camera.bottom = -14
+    key.shadow.camera.near = 1
+    key.shadow.camera.far = 28
+    key.shadow.bias = -0.00025
     this.scene.add(key)
-    const fill = new THREE.DirectionalLight(0xe0f2fe, 0.55)
+    const fill = new THREE.DirectionalLight(0xe0f2fe, 0.62)
     fill.position.set(-6, 5, -3)
     this.scene.add(fill)
   }
 
   addRoom() {
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(34, 23), makeMat(0xf7f7f4, { roughness: 0.9 }))
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(34, 23), makeMat(0xf9fafb, { roughness: 0.92 }))
     floor.rotation.x = -Math.PI / 2
+    floor.receiveShadow = true
     this.root.add(floor)
 
-    addBox(this.root, [11.2, 0.04, 0.1], [-3.8, 0.04, 3.4], 0xd9e2ec)
-    addBox(this.root, [0.1, 0.04, 8.4], [-7.8, 0.04, -1.1], 0xd9e2ec)
-    addBox(this.root, [7.8, 0.035, 2.0], [2.6, 0.035, 4.7], 0xecfeff)
-    addBox(this.root, [7.8, 0.035, 2.0], [2.6, 0.036, -5.35], 0xfef3c7)
-    addBox(this.root, [7.4, 0.032, 2.1], [2.6, 0.038, -0.55], 0xf1f5f9)
+    addBox(this.root, [11.2, 0.035, 0.08], [-3.8, 0.035, 3.4], 0xe5edf6, { castShadow: false })
+    addBox(this.root, [0.08, 0.035, 8.4], [-7.8, 0.035, -1.1], 0xe5edf6, { castShadow: false })
+    addBox(this.root, [7.8, 0.025, 2.0], [2.6, 0.032, 4.7], 0xeefcff, { castShadow: false })
+    addBox(this.root, [7.8, 0.025, 2.0], [2.6, 0.034, -5.35], 0xfff7d6, { castShadow: false })
+    addBox(this.root, [7.4, 0.025, 2.1], [2.6, 0.036, -0.55], 0xf2f6fa, { castShadow: false })
 
-    addBox(this.root, [34, 0.16, 0.35], [0, 0.08, -11.2], 0xcbd5e1)
-    addBox(this.root, [0.35, 0.16, 23], [-16.8, 0.08, 0], 0xcbd5e1)
-    addBox(this.root, [34, 0.08, 0.18], [0, 3.1, -11.15], 0xe2e8f0)
-    addBox(this.root, [0.18, 0.08, 23], [-16.75, 3.1, 0], 0xe2e8f0)
-    addBox(this.root, [14.5, 0.06, 0.14], [6.2, 0.07, 10.2], 0xe2e8f0)
-    addBox(this.root, [0.14, 0.06, 6.2], [14.7, 0.07, 5.1], 0xe2e8f0)
+    addBox(this.root, [34, 0.16, 0.35], [0, 0.08, -11.2], 0xd8e1ec, { castShadow: false })
+    addBox(this.root, [0.35, 0.16, 23], [-16.8, 0.08, 0], 0xd8e1ec, { castShadow: false })
+    addBox(this.root, [34, 0.08, 0.18], [0, 3.1, -11.15], 0xe8eef5, { castShadow: false })
+    addBox(this.root, [0.18, 0.08, 23], [-16.75, 3.1, 0], 0xe8eef5, { castShadow: false })
+    addBox(this.root, [14.5, 0.05, 0.12], [6.2, 0.06, 10.2], 0xe8eef5, { castShadow: false })
+    addBox(this.root, [0.12, 0.05, 6.2], [14.7, 0.06, 5.1], 0xe8eef5, { castShadow: false })
 
     for (let i = 0; i < 6; i += 1) {
-      addBox(this.root, [0.05, 0.025, 19.0], [-12 + i * 4, 0.026, -0.2], 0xe5e7eb)
+      addBox(this.root, [0.035, 0.018, 19.0], [-12 + i * 4, 0.024, -0.2], 0xedf2f7, { castShadow: false })
     }
     for (let i = 0; i < 5; i += 1) {
-      addBox(this.root, [26.0, 0.025, 0.05], [0, 0.027, -7.5 + i * 3.5], 0xe5e7eb)
+      addBox(this.root, [26.0, 0.018, 0.035], [0, 0.025, -7.5 + i * 3.5], 0xedf2f7, { castShadow: false })
     }
 
     for (let i = 0; i < 7; i += 1) {
@@ -412,11 +646,16 @@ export class AgentOfficeScene {
       })
     }
 
-    addBox(this.root, [5.7, 0.08, 2.35], [-11.8, 0.05, 7.25], 0xe0f2fe)
-    addBox(this.root, [2.65, 0.52, 0.78], [-12.25, 0.43, 7.2], 0x38bdf8)
-    addBox(this.root, [1.2, 0.36, 1.0], [-9.8, 0.28, 7.55], 0xbae6fd)
-    addBox(this.root, [2.6, 0.12, 1.05], [-12.25, 0.88, 7.78], 0x0ea5e9)
+    addSoftShadow(this.root, [3.2, 1.5], [-11.55, 7.22], 0.06)
+    addBox(this.root, [5.7, 0.06, 2.35], [-11.8, 0.045, 7.25], 0xe0f2fe, { castShadow: false })
+    addBox(this.root, [2.65, 0.52, 0.78], [-12.25, 0.43, 7.2], 0x60a5fa)
+    addBox(this.root, [1.2, 0.36, 1.0], [-9.8, 0.28, 7.55], 0xbfdbfe)
+    addBox(this.root, [2.6, 0.12, 1.05], [-12.25, 0.88, 7.78], 0x2563eb)
     addBox(this.root, [1.25, 0.08, 0.78], [-10.1, 0.78, 6.55], 0xf8fafc)
+    addBox(this.root, [0.98, 0.32, 0.82], [-9.1, 0.24, 6.35], 0xdbeafe)
+    addBox(this.root, [0.98, 0.12, 0.82], [-9.1, 0.5, 6.35], 0x93c5fd)
+    addBox(this.root, [1.05, 0.32, 0.8], [-13.2, 0.24, 8.08], 0xdbeafe)
+    addBox(this.root, [1.05, 0.12, 0.8], [-13.2, 0.5, 8.08], 0x93c5fd)
 
     const table = new THREE.Mesh(new THREE.CylinderGeometry(0.92, 0.92, 0.16, 28), makeMat(0xffffff))
     table.position.set(-9.85, 0.55, 6.55)
@@ -425,7 +664,8 @@ export class AgentOfficeScene {
 
     const meeting = new THREE.Group()
     meeting.position.set(8.9, 0, 6.0)
-    addBox(meeting, [3.9, 0.18, 1.5], [0, 0.9, 0], 0xf8fafc)
+    addSoftShadow(meeting, [2.8, 1.25], [0, 0], 0.055)
+    addBox(meeting, [3.9, 0.18, 1.5], [0, 0.9, 0], 0xffffff)
     addBox(meeting, [1.1, 0.62, 0.16], [-2.35, 0.68, 0], 0xe2e8f0)
     addBox(meeting, [1.1, 0.62, 0.16], [2.35, 0.68, 0], 0xe2e8f0)
     addBox(meeting, [0.16, 0.62, 1.1], [0, 0.68, -1.08], 0xe2e8f0)
@@ -466,6 +706,10 @@ export class AgentOfficeScene {
     }
 
     this.agents = nextAgents
+    this.compactMode = this.agents.length > COMPACT_AGENT_COUNT
+    this.denseMode = this.agents.length > DENSE_AGENT_COUNT
+    this.renderer.setPixelRatio(this.denseMode ? 1 : Math.min(window.devicePixelRatio || 1, this.compactMode ? 1.25 : 1.5))
+    this.renderer.shadowMap.enabled = !this.denseMode
     this.layout = layoutForAgents(this.agents.length)
     this.pickables = []
 
@@ -491,19 +735,26 @@ export class AgentOfficeScene {
     const z = this.layout.startZ + row * this.layout.spacingZ
     const desk = new THREE.Vector3(x, 0, z)
     const loungeSeats = [
-      [-12.95, 0, 6.55],
-      [-11.9, 0, 7.65],
-      [-10.25, 0, 6.28],
-      [-9.42, 0, 7.28],
-      [-13.25, 0, 7.9],
-      [-10.7, 0, 5.55],
+      [-13.05, 0, 6.72, -0.6, -0.18, 0.1],
+      [-11.62, 0, 7.82, 0.55, 0.2, -0.08],
+      [-9.92, 0, 6.24, -0.5, -0.08, 0.16],
+      [-8.72, 0, 7.1, 0.58, 0.18, -0.12],
+      [-13.28, 0, 8.12, -0.58, 0.2, 0.2],
+      [-10.58, 0, 5.34, 0.54, -0.18, -0.08],
     ]
     const seat = loungeSeats[index % loungeSeats.length]
     const rowOffset = Math.floor(index / loungeSeats.length) * 0.42
-    const lounge = new THREE.Vector3(seat[0] + rowOffset, 0, seat[2] - rowOffset)
-    const workOffset = ((index % 3) - 1) * 0.28
-    const work = new THREE.Vector3(x + workOffset, 0, z + 0.9 + (index % 2) * 0.14)
-    return { desk, lounge, work }
+    const lounge = new THREE.Vector3(seat[0] + rowOffset * 0.5, 0, seat[2] - rowOffset * 0.32)
+    const workOffset = ((index % 3) - 1) * 0.22
+    const work = new THREE.Vector3(x + workOffset, 0, z + 1.03)
+    return {
+      desk,
+      lounge,
+      work,
+      labelShiftX: seat[3] || 0,
+      labelShiftZ: seat[4] || 0,
+      labelShiftY: seat[5] || 0,
+    }
   }
 
   createAgentRecord(agent, positions) {
@@ -511,39 +762,42 @@ export class AgentOfficeScene {
     const workstation = createDesk(positions.desk, agent.officeState)
     const chair = createChair(positions.desk)
     const avatar = createAgentAvatar(agent)
-      const label = createTextSprite(agent.displayName)
-      const ring = createActivityRing(STATE_META[agent.officeState]?.color || STATE_META.idle.color)
-      const selectRing = createActivityRing(0x0f172a)
-      const pathLine = createPathLine()
+    const label = createTextSprite(agent.displayName)
+    const ring = createActivityRing(STATE_META[agent.officeState]?.color || STATE_META.idle.color)
+    const selectRing = createActivityRing(0x0f172a)
+    const pathLine = createPathLine()
 
-      avatar.position.copy(WORK_STATES.has(agent.officeState) ? positions.work : positions.lounge)
-      label.position.set(avatar.position.x, 2.38, avatar.position.z)
-      ring.position.x = avatar.position.x
-      ring.position.z = avatar.position.z
-      selectRing.position.x = avatar.position.x
-      selectRing.position.z = avatar.position.z
-      selectRing.scale.setScalar(1.22)
-      selectRing.visible = false
+    avatar.position.copy(WORK_STATES.has(agent.officeState) ? positions.work : positions.lounge)
+    label.position.set(avatar.position.x, 2.38, avatar.position.z)
+    ring.position.x = avatar.position.x
+    ring.position.z = avatar.position.z
+    selectRing.position.x = avatar.position.x
+    selectRing.position.z = avatar.position.z
+    selectRing.scale.setScalar(1.22)
+    selectRing.visible = false
 
-      group.add(workstation.root, chair, pathLine, avatar, label, ring, selectRing)
-      group.userData.agent = agent
+    group.add(workstation.root, chair, pathLine, avatar, label, ring, selectRing)
+    group.userData.agent = agent
 
-      return {
+    return {
       group,
       workstation: workstation.root,
       chair,
       monitor: workstation.monitor,
       lamp: workstation.lamp,
       avatar,
-        label,
-        ring,
-        selectRing,
-        pathLine,
+      label,
+      ring,
+      selectRing,
+      pathLine,
       agent,
       state: agent.officeState,
       target: avatar.position.clone(),
       idleSeed: Math.random() * Math.PI * 2,
       labelOffset: (Math.random() - 0.5) * 0.28,
+      labelShiftX: positions.labelShiftX || 0,
+      labelShiftZ: positions.labelShiftZ || 0,
+      labelShiftY: positions.labelShiftY || 0,
       desk: positions.desk.clone(),
       lounge: positions.lounge.clone(),
       work: positions.work.clone(),
@@ -560,6 +814,9 @@ export class AgentOfficeScene {
     record.desk.copy(positions.desk)
     record.lounge.copy(positions.lounge)
     record.work.copy(positions.work)
+    record.labelShiftX = positions.labelShiftX || 0
+    record.labelShiftZ = positions.labelShiftZ || 0
+    record.labelShiftY = positions.labelShiftY || 0
 
     record.workstation.position.copy(positions.desk)
     record.chair.position.copy(positions.desk)
@@ -574,11 +831,10 @@ export class AgentOfficeScene {
     record.ring.material.color.setHex(state.color)
     record.ring.material.emissive.setHex(state.color)
     record.ring.visible = state.active
-    record.selectRing.visible = record.agent.id === this.selectedAgentId
     record.selectRing.material.color.setHex(state.color)
     record.selectRing.material.emissive.setHex(state.color)
     record.selectRing.material.emissiveIntensity = 0.55
-    this.updatePathLine(record, state.active || agent.officeState === 'walking' || agent.officeState === 'queued')
+    this.refreshRecordVisibility(record)
     record.monitor.userData.agent = agent
     record.lamp.userData.agent = agent
     const parts = record.avatar.userData.parts || {}
@@ -597,13 +853,44 @@ export class AgentOfficeScene {
       parts.antennaLight.material.emissive.setHex(state.color)
       parts.antennaLight.material.emissiveIntensity = state.active ? 0.35 : 0.1
     }
+    if (parts.focusPanel?.material) {
+      parts.focusPanel.material.color.setHex(state.screen)
+      parts.focusPanel.material.emissive.setHex(state.screen)
+    }
+    if (parts.progressA?.material) {
+      parts.progressA.material.color.setHex(state.color)
+      parts.progressA.material.emissive.setHex(state.color)
+    }
+    if (parts.progressB?.material) {
+      parts.progressB.material.emissive.setHex(state.color)
+    }
 
     if (previousState !== agent.officeState) {
       record.avatar.rotation.set(0, record.avatar.rotation.y, 0)
     }
   }
 
-  updatePathLine(record, visible) {
+  shouldShowLabel(record) {
+    const state = STATE_META[record.state] || STATE_META.idle
+    const selected = record.agent.id === this.selectedAgentId
+    return !this.denseMode && (!this.compactMode || selected || state.active)
+  }
+
+  shouldShowPathLine(record, requestedVisible) {
+    if (!requestedVisible || this.reducedMotion || this.denseMode) return false
+    return !this.compactMode || record.agent.id === this.selectedAgentId
+  }
+
+  refreshRecordVisibility(record) {
+    const state = STATE_META[record.state] || STATE_META.idle
+    const active = state.active || record.state === 'walking' || record.state === 'queued'
+    record.selectRing.visible = record.agent.id === this.selectedAgentId
+    record.label.visible = this.shouldShowLabel(record)
+    this.updatePathLine(record, active)
+  }
+
+  updatePathLine(record, requestedVisible) {
+    const visible = this.shouldShowPathLine(record, requestedVisible)
     record.pathLine.visible = visible
     if (!visible) return
     const attr = record.pathLine.geometry.getAttribute('position')
@@ -616,20 +903,39 @@ export class AgentOfficeScene {
   setSelectedAgent(agentId) {
     this.selectedAgentId = agentId || null
     for (const record of this.agentRecords.values()) {
-      record.selectRing.visible = record.agent.id === this.selectedAgentId
+      this.refreshRecordVisibility(record)
     }
   }
 
+  setViewMode(mode) {
+    this.viewMode = VIEW_PRESETS[mode] ? mode : 'overview'
+    this.applyCameraPreset()
+    this.fitCamera()
+  }
+
+  applyCameraPreset() {
+    const preset = VIEW_PRESETS[this.viewMode] || VIEW_PRESETS.overview
+    this.camera.position.set(...preset.position)
+    this.camera.lookAt(...preset.target)
+  }
+
   fitCamera() {
+    const preset = VIEW_PRESETS[this.viewMode] || VIEW_PRESETS.overview
     const roomWidth = 33.5
     const roomHeight = 22.8
-    const width = Math.max(roomWidth, this.layout.cols * this.layout.spacingX + 15)
-    const height = Math.max(roomHeight, this.layout.rows * this.layout.spacingZ + 10)
+    let width = Math.max(preset.minWidth, this.layout.cols * this.layout.spacingX + preset.padX)
+    let height = Math.max(preset.minHeight, this.layout.rows * this.layout.spacingZ + preset.padZ)
+    if (this.viewMode === 'overview') {
+      width = Math.max(roomWidth, width)
+      height = Math.max(roomHeight, height)
+    }
     const aspect = Math.max(0.8, this.container.clientWidth / Math.max(1, this.container.clientHeight))
-    this.camera.left = -width / 2
-    this.camera.right = width / 2
-    this.camera.top = height / 2 / aspect + 3.8
-    this.camera.bottom = -height / 2 / aspect - 3.8
+    const viewHeight = Math.max(height, width / aspect)
+    const viewWidth = viewHeight * aspect
+    this.camera.left = -viewWidth / 2
+    this.camera.right = viewWidth / 2
+    this.camera.top = viewHeight / 2
+    this.camera.bottom = -viewHeight / 2
     this.camera.updateProjectionMatrix()
   }
 
@@ -707,68 +1013,74 @@ export class AgentOfficeScene {
     const avatar = record.avatar
     const state = record.state
     const target = record.target
-    if (state === 'idle') {
-      const driftX = Math.sin(elapsed * 0.34 + record.idleSeed) * 0.34
-      const driftZ = Math.cos(elapsed * 0.27 + record.idleSeed) * 0.24
-      target.set(record.lounge.x + driftX, 0, record.lounge.z + driftZ)
-    }
     const toTarget = this.tmpVec3.copy(target).sub(avatar.position)
     const distance = toTarget.length()
     const moving = distance > 0.035
+    const seatedAtWork = SEATED_WORK_STATES.has(state) && !moving
+    const seatedAtLounge = (state === 'idle' || state === 'offline') && !moving
+    const seated = seatedAtWork || seatedAtLounge
 
     if (moving) {
-      const step = Math.min(distance, delta * 3.1)
+      const step = Math.min(distance, delta * (this.reducedMotion ? 7 : 3.1))
       toTarget.normalize()
       avatar.position.addScaledVector(toTarget, step)
-      avatar.rotation.y = Math.atan2(toTarget.x, toTarget.z)
+      avatar.rotation.y = Math.atan2(-toTarget.x, -toTarget.z)
     } else {
       avatar.position.copy(target)
-      const settledAngle = WORK_STATES.has(state) ? Math.PI : 0
+      const settledAngle = seatedAtWork ? 0 : Math.PI * 0.08
       avatar.rotation.y += (settledAngle - avatar.rotation.y) * Math.min(1, delta * 4)
     }
 
     record.label.position.set(
-      avatar.position.x,
-      2.38 + record.labelOffset + Math.sin(elapsed * 1.1 + avatar.position.x) * 0.04,
-      avatar.position.z
+      avatar.position.x + (record.labelShiftX || 0),
+      (seated ? 2.08 : 2.38) + record.labelOffset + (record.labelShiftY || 0) + (this.reducedMotion ? 0 : Math.sin(elapsed * 1.1 + avatar.position.x) * 0.04),
+      avatar.position.z + (record.labelShiftZ || 0)
     )
     record.ring.position.x = avatar.position.x
     record.ring.position.z = avatar.position.z
-    record.ring.rotation.z += delta * (state === 'error' ? 1.5 : 0.75)
-    record.ring.scale.setScalar(1 + Math.sin(elapsed * 2.2) * 0.06)
+    record.ring.rotation.z += this.reducedMotion ? 0 : delta * (state === 'error' ? 1.5 : 0.75)
+    record.ring.scale.setScalar(this.reducedMotion ? 1 : 1 + Math.sin(elapsed * 2.2) * 0.06)
     record.selectRing.position.x = avatar.position.x
     record.selectRing.position.z = avatar.position.z
-    record.selectRing.rotation.z -= delta * 0.9
-    record.selectRing.scale.setScalar(1.22 + Math.sin(elapsed * 2.8) * 0.08)
+    record.selectRing.rotation.z -= this.reducedMotion ? 0 : delta * 0.9
+    record.selectRing.scale.setScalar(this.reducedMotion ? 1.22 : 1.22 + Math.sin(elapsed * 2.8) * 0.08)
 
     const parts = avatar.userData.parts || {}
-    if (parts.head) parts.head.rotation.set(0, 0, 0)
-    if (parts.leftArm) parts.leftArm.rotation.x = 0
-    if (parts.rightArm) parts.rightArm.rotation.x = 0
-    if (parts.statusBadge) parts.statusBadge.scale.setScalar(1)
-    if (parts.visor) parts.visor.scale.set(1, 1, 1)
+    resetAvatarParts(parts)
     if (record.lamp) record.lamp.scale.setScalar(1)
     record.monitor.material.emissiveIntensity = STATE_META[state]?.active ? 0.35 : 0.05
 
-    parts.leftFoot.position.z = -0.04 + (moving ? Math.sin(elapsed * 8) * 0.08 : 0)
-    parts.rightFoot.position.z = -0.04 + (moving ? Math.sin(elapsed * 8 + Math.PI) * 0.08 : 0)
-    parts.leftArm.rotation.z = 0.24 + (moving ? Math.sin(elapsed * 8 + Math.PI) * 0.24 : 0)
-    parts.rightArm.rotation.z = -0.24 + (moving ? Math.sin(elapsed * 8) * 0.24 : 0)
+    const gait = moving && !this.reducedMotion
+    parts.leftFoot.position.z = -0.04 + (gait ? Math.sin(elapsed * 8) * 0.08 : 0)
+    parts.rightFoot.position.z = -0.04 + (gait ? Math.sin(elapsed * 8 + Math.PI) * 0.08 : 0)
+    parts.leftLeg.position.z = gait ? Math.sin(elapsed * 8 + Math.PI) * 0.04 : 0
+    parts.rightLeg.position.z = gait ? Math.sin(elapsed * 8) * 0.04 : 0
+    parts.leftArm.rotation.z = 0.24 + (gait ? Math.sin(elapsed * 8 + Math.PI) * 0.24 : 0)
+    parts.rightArm.rotation.z = -0.24 + (gait ? Math.sin(elapsed * 8) * 0.24 : 0)
 
     avatar.position.y = 0
     avatar.rotation.z = 0
-    if (state === 'idle') {
-      avatar.position.y = Math.sin(elapsed * 1.4 + record.lounge.x) * 0.035
-      parts.head.rotation.y = Math.sin(elapsed * 0.7) * 0.18
-      parts.leftArm.rotation.z = 0.46 + Math.sin(elapsed * 1.8 + record.idleSeed) * 0.06
-      parts.rightArm.rotation.z = -0.1 + Math.sin(elapsed * 1.4 + record.idleSeed) * 0.05
-      parts.visor.scale.x = 0.82 + Math.sin(elapsed * 0.9 + record.idleSeed) * 0.08
-    } else if (state === 'walking' || state === 'queued') {
+    if (seatedAtWork) {
+      applySeatedPose(parts, 'work', this.reducedMotion ? 0 : elapsed, record.idleSeed, state)
+      if (record.lamp) record.lamp.scale.setScalar(state === 'blocked' ? 1.08 : 1)
+      record.monitor.material.emissiveIntensity = state === 'thinking'
+        ? 0.28 + (this.reducedMotion ? 0 : Math.sin(elapsed * 2.5) * 0.08)
+        : 0.35 + (this.reducedMotion ? 0 : Math.sin(elapsed * 4) * 0.08)
+      if (this.reducedMotion) return
+    } else if (seatedAtLounge) {
+      applySeatedPose(parts, 'lounge', this.reducedMotion ? 0 : elapsed, record.idleSeed, state)
+      if (!this.reducedMotion) avatar.position.y = Math.sin(elapsed * 1.1 + record.lounge.x) * 0.018
+      if (this.reducedMotion) return
+    } else if (this.reducedMotion) {
+      return
+    }
+
+    if (state === 'walking' || state === 'queued') {
+      avatar.position.y = Math.sin(elapsed * 8) * 0.035
       parts.head.rotation.y = Math.sin(elapsed * 3.2) * 0.08
       parts.statusBadge.scale.setScalar(1 + Math.sin(elapsed * 5) * 0.18)
+      parts.visor.scale.x = 0.92 + Math.sin(elapsed * 6) * 0.04
     } else if (state === 'working' || state === 'tool_call') {
-      parts.leftArm.rotation.x = Math.sin(elapsed * 7) * 0.28
-      parts.rightArm.rotation.x = Math.sin(elapsed * 7 + Math.PI) * 0.28
       record.monitor.material.emissiveIntensity = 0.35 + Math.sin(elapsed * 5) * 0.12
       parts.head.rotation.x = Math.sin(elapsed * 3.5) * 0.04
       if (state === 'tool_call') {
@@ -781,9 +1093,9 @@ export class AgentOfficeScene {
       parts.head.rotation.y = Math.sin(elapsed * 2.1) * 0.22
       record.ring.rotation.z += delta * 1.6
     } else if (state === 'blocked') {
-      avatar.rotation.z = Math.sin(elapsed * 2.2) * 0.04
-      parts.leftArm.rotation.z = 0.9
-      parts.rightArm.rotation.z = -0.9
+      avatar.rotation.z = Math.sin(elapsed * 2.2) * 0.025
+      parts.leftArm.rotation.z = 0.78
+      parts.rightArm.rotation.z = -0.78
       record.lamp.scale.setScalar(1.08 + Math.sin(elapsed * 3.5) * 0.12)
     } else if (state === 'error') {
       avatar.rotation.z = Math.sin(elapsed * 6) * 0.035
@@ -803,6 +1115,11 @@ export class AgentOfficeScene {
     this.renderer.domElement.removeEventListener('pointerdown', this.handlePointerDown)
     this.renderer.domElement.removeEventListener('pointermove', this.handlePointerMove)
     this.renderer.domElement.removeEventListener('pointerleave', this.handlePointerLeave)
+    if (this.motionQuery?.removeEventListener) {
+      this.motionQuery.removeEventListener('change', this.handleMotionPreference)
+    } else {
+      this.motionQuery?.removeListener?.(this.handleMotionPreference)
+    }
     disposeObject(this.root)
     this.renderer.dispose()
     this.renderer.domElement.remove()
@@ -825,24 +1142,35 @@ export function renderAgentOfficePanel(container, agent) {
   const model = typeof agent.model === 'object' ? (agent.model?.primary || agent.model?.id || '') : (agent.model || '')
   const bindings = Array.isArray(agent.bindings) ? agent.bindings.length : (agent.bindingCount || 0)
   const activity = agent.activity || {}
+  const agentName = agent.displayName || agent.identityName || agent.id
+  const workspace = agent.workspace || tr('agents.notSet', '未设置')
+  const taskTitle = activity.taskTitle || tr('agents.noTask', '暂无任务')
+  const progress = activity.progressText || tr('agents.waitingSchedule', '等待调度')
+  const initial = String(agentName || 'A').trim().slice(0, 1).toUpperCase()
   container.innerHTML = `
-    <div class="agent-office-panel-head">
-      <div>
+    <div class="agent-office-profile">
+      <div class="agent-office-avatar" style="--agent-color:#${state.color.toString(16).padStart(6, '0')}">${escHtml(initial)}</div>
+      <div class="agent-office-profile-main">
         <div class="agent-office-panel-kicker">${escHtml(state.label)}</div>
-        <div class="agent-office-panel-title">${escHtml(agent.displayName || agent.identityName || agent.id)}</div>
+        <div class="agent-office-panel-title">${escHtml(agentName)}</div>
+        <div class="agent-office-panel-sub">${escHtml(model || tr('agents.notSet', '未设置'))}</div>
       </div>
-      <span class="agent-office-state-dot" style="background:#${state.color.toString(16).padStart(6, '0')}"></span>
+      <span class="agent-office-status-pill" style="--agent-color:#${state.color.toString(16).padStart(6, '0')}">${escHtml(state.label)}</span>
     </div>
-    <div class="agent-office-panel-grid">
+    <div class="agent-office-task-card">
+      <div>
+        <span>${tr('agents.labelCurrentTask', '当前任务')}</span>
+        <strong>${escHtml(taskTitle)}</strong>
+      </div>
+      <p>${escHtml(progress)}</p>
+    </div>
+    <div class="agent-office-panel-grid agent-office-panel-grid--compact">
       <div><span>ID</span><strong>${escHtml(agent.id)}</strong></div>
-      <div><span>${tr('agents.labelModel', '模型')}</span><strong>${escHtml(model || tr('agents.notSet', '未设置'))}</strong></div>
-      <div><span>${tr('agents.labelWorkspace', '工作区')}</span><strong title="${escHtml(agent.workspace || '')}">${escHtml(agent.workspace || tr('agents.notSet', '未设置'))}</strong></div>
+      <div><span>${tr('agents.labelWorkspace', '工作区')}</span><strong title="${escHtml(agent.workspace || '')}">${escHtml(workspace)}</strong></div>
       <div><span>${tr('agents.labelBindings', '渠道绑定')}</span><strong>${bindings}</strong></div>
-      <div><span>${tr('agents.labelCurrentTask', '当前任务')}</span><strong>${escHtml(activity.taskTitle || tr('agents.noTask', '暂无任务'))}</strong></div>
-      <div><span>${tr('agents.labelProgress', '进度')}</span><strong>${escHtml(activity.progressText || tr('agents.waitingSchedule', '等待调度'))}</strong></div>
-      <div><span>来源</span><strong>${escHtml(activity.source || tr('agents.notSet', '未设置'))}</strong></div>
       <div><span>工具</span><strong>${escHtml(activity.toolName || tr('agents.notSet', '未设置'))}</strong></div>
       <div><span>更新时间</span><strong>${escHtml(formatTime(activity.updatedAt))}</strong></div>
+      <div><span>来源</span><strong>${escHtml(activity.source || tr('agents.notSet', '未设置'))}</strong></div>
     </div>
     <button class="btn btn-sm btn-primary agent-office-detail-btn" data-office-detail="${escHtml(agent.id)}">${tr('agents.enterDetail', '进入 Agent 详情')}</button>
   `
