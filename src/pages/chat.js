@@ -1156,14 +1156,8 @@ async function applySelectedModel() {
   _isApplyingModel = true
   renderModelSelect()
   try {
-    await wsClient.sessionsPatch(_sessionKey, {
-      providerOverride: modelRef.provider,
-      modelOverride: modelRef.model,
-      modelOverrideSource: 'user'
-    })
     localStorage.setItem(STORAGE_MODEL_KEY, modelRef.full)
     toast(`${formatChatModelLabel(modelRef.full)}`, 'success')
-    refreshSessionList()
   } catch (e) {
     toast(`${t('common.saveFailed')}: ${e.message || e}`, 'error')
   } finally {
@@ -1387,7 +1381,7 @@ async function connectGateway() {
       }
       // 始终刷新会话列表（无论是否有 sessionKey）
       refreshSessionList()
-      // Gateway 就绪后刷新模型列表；会话级模型覆盖由 sessions.patch 持久保存。
+      // Gateway 就绪后刷新模型列表；当前选择会在桌面端下一次 chat.send 中作为 provider/model 覆盖参数发送。
       loadModelOptions().catch(() => {})
     })
 

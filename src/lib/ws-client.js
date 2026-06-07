@@ -915,10 +915,6 @@ export class WsClient {
     return this.request('sessions.reset', { key })
   }
 
-  sessionsPatch(key, patch = {}) {
-    return this.request('sessions.patch', { key, ...patch })
-  }
-
   // ===== 4.9: Sessions Compaction =====
   sessionsCompactionList(key) {
     return this.request('sessions.compaction.list', { key })

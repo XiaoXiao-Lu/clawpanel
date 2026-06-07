@@ -68,18 +68,15 @@ test('OpenClaw chat sends selected model as provider/model override', () => {
   assert.match(chatPage, /function syncSelectedModelForSession/)
   assert.match(chatPage, /provider:\s*text\.slice\(0,\s*slash\)/)
   assert.match(chatPage, /model:\s*text\.slice\(slash \+ 1\)/)
-  assert.match(chatPage, /await wsClient\.sessionsPatch\(_sessionKey,\s*\{/)
-  assert.match(chatPage, /providerOverride:\s*modelRef\.provider/)
-  assert.match(chatPage, /modelOverride:\s*modelRef\.model/)
-  assert.match(chatPage, /modelOverrideSource:\s*'user'/)
   assert.match(chatPage, /modelRef \? \{ provider:\s*modelRef\.provider,\s*model:\s*modelRef\.model \} : undefined/)
   assert.doesNotMatch(chatPage, /chatSend\(_sessionKey,\s*`\/model \$\{_selectedModel\}`/)
+  assert.doesNotMatch(chatPage, /wsClient\.sessionsPatch\(_sessionKey/)
 
   assert.match(wsClient, /chatSend\(sessionKey,\s*message,\s*attachments,\s*options = \{\}\)/)
   assert.match(wsClient, /if \(options\.provider\) params\.provider = options\.provider/)
   assert.match(wsClient, /if \(options\.model\) params\.model = options\.model/)
-  assert.match(wsClient, /sessionsPatch\(key,\s*patch = \{\}\)/)
-  assert.match(wsClient, /this\.request\('sessions\.patch',\s*\{ key,\s*\.\.\.patch \}\)/)
+  assert.doesNotMatch(wsClient, /providerOverride/)
+  assert.doesNotMatch(wsClient, /modelOverride/)
 })
 
 test('OpenClaw chat management translations and icons are present', () => {
