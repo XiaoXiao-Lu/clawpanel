@@ -10,6 +10,11 @@ const WORK_STATES = new Set(['queued', 'walking', 'working', 'tool_call', 'think
 const SEATED_WORK_STATES = new Set(['working', 'tool_call', 'thinking', 'blocked', 'error', 'done'])
 const COMPACT_AGENT_COUNT = 24
 const DENSE_AGENT_COUNT = 50
+const QUALITY_LABELS = {
+  high: 'High',
+  medium: 'Medium',
+  low: 'Low',
+}
 const VIEW_PRESETS = {
   overview: {
     position: [8.5, 16, 16.5],
@@ -124,6 +129,7 @@ function addBox(parent, size, position, color, opts = {}) {
   mesh.position.set(position[0], position[1], position[2])
   mesh.castShadow = opts.castShadow ?? true
   mesh.receiveShadow = opts.receiveShadow ?? false
+  mesh.userData.baseCastShadow = mesh.castShadow
   parent.add(mesh)
   return mesh
 }
@@ -133,6 +139,18 @@ function addCylinder(parent, radius, height, position, color, opts = {}) {
   mesh.position.set(position[0], position[1], position[2])
   mesh.castShadow = opts.castShadow ?? true
   mesh.receiveShadow = opts.receiveShadow ?? false
+  mesh.userData.baseCastShadow = mesh.castShadow
+  parent.add(mesh)
+  return mesh
+}
+
+function addSphere(parent, radius, position, color, opts = {}) {
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, opts.widthSegments || 18, opts.heightSegments || 12), makeMat(color, opts))
+  mesh.position.set(position[0], position[1], position[2])
+  mesh.scale.set(opts.scaleX || 1, opts.scaleY || 1, opts.scaleZ || 1)
+  mesh.castShadow = opts.castShadow ?? true
+  mesh.receiveShadow = opts.receiveShadow ?? false
+  mesh.userData.baseCastShadow = mesh.castShadow
   parent.add(mesh)
   return mesh
 }
@@ -151,6 +169,7 @@ function addSoftShadow(parent, size, position, opacity = 0.08) {
   mesh.scale.set(size[0], size[1], 1)
   mesh.position.set(position[0], 0.018, position[1])
   mesh.renderOrder = -1
+  mesh.userData.baseCastShadow = false
   parent.add(mesh)
   return mesh
 }
@@ -244,10 +263,11 @@ function createChair(position) {
   return root
 }
 
-function createAgentAvatar(agent) {
+function createProceduralAgentAvatar(agent) {
   const root = new THREE.Group()
   root.userData.agent = agent
   root.userData.clickable = true
+  root.userData.assetType = 'procedural-v2'
 
   const state = STATE_META[agent.officeState] || STATE_META.idle
   const bodyMat = makeMat(agent.officeState === 'offline' ? 0x64748b : 0x111827, {
@@ -261,10 +281,23 @@ function createAgentAvatar(agent) {
   body.castShadow = true
   root.add(body)
 
+  const backpack = addBox(root, [0.58, 0.58, 0.18], [0, 0.98, 0.38], 0x1f2937)
+  const torsoStripe = addBox(root, [0.62, 0.08, 0.08], [0, 1.13, -0.42], agent.color || state.color, {
+    emissive: agent.color || state.color,
+    emissiveIntensity: 0.12,
+  })
+
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 18, 14), bodyMat)
   head.position.set(0, 1.52, 0)
   head.castShadow = true
   root.add(head)
+
+  const headset = new THREE.Mesh(new THREE.TorusGeometry(0.43, 0.025, 8, 32, Math.PI * 1.08), bodyMat)
+  headset.position.set(0, 1.56, 0)
+  headset.rotation.set(Math.PI / 2, 0, Math.PI * 0.04)
+  root.add(headset)
+  const mic = addCylinder(root, 0.025, 0.34, [0.38, 1.43, -0.22], 0x111827, { segments: 8 })
+  mic.rotation.z = Math.PI / 2.8
 
   const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.38, 8), bodyMat)
   antenna.position.set(0, 1.92, 0)
@@ -285,6 +318,8 @@ function createAgentAvatar(agent) {
   statusBadge.position.set(0.28, 1.02, -0.38)
   root.add(statusBadge)
 
+  const leftShoulder = addSphere(root, 0.12, [-0.46, 1.2, -0.03], 0x1f2937, { scaleX: 1.15, scaleY: 0.82, scaleZ: 0.82 })
+  const rightShoulder = addSphere(root, 0.12, [0.46, 1.2, -0.03], 0x1f2937, { scaleX: 1.15, scaleY: 0.82, scaleZ: 0.82 })
   const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.72, 10), bodyMat)
   leftArm.position.set(-0.54, 0.96, -0.03)
   leftArm.rotation.z = 0.24
@@ -294,6 +329,8 @@ function createAgentAvatar(agent) {
   rightArm.position.x = 0.54
   rightArm.rotation.z = -0.24
   root.add(rightArm)
+  const leftHand = addSphere(root, 0.105, [-0.64, 0.58, -0.05], agent.color || state.color)
+  const rightHand = addSphere(root, 0.105, [0.64, 0.58, -0.05], agent.color || state.color)
 
   const leftLeg = addBox(root, [0.17, 0.56, 0.16], [-0.24, 0.43, 0], 0x111827)
   const rightLeg = addBox(root, [0.17, 0.56, 0.16], [0.24, 0.43, 0], 0x111827)
@@ -336,12 +373,20 @@ function createAgentAvatar(agent) {
   root.userData.parts = {
     body,
     head,
+    backpack,
+    torsoStripe,
+    headset,
+    mic,
     antenna,
     visor,
     chest,
     statusBadge,
+    leftShoulder,
+    rightShoulder,
     leftArm,
     rightArm,
+    leftHand,
+    rightHand,
     leftLeg,
     rightLeg,
     leftFoot,
@@ -352,6 +397,10 @@ function createAgentAvatar(agent) {
     progressB,
   }
   return root
+}
+
+function createAgentAvatar(agent, options = {}) {
+  return createProceduralAgentAvatar(agent, options)
 }
 
 function createTextSprite(text) {
@@ -423,9 +472,27 @@ function resetAvatarParts(parts) {
     parts.body.rotation.set(0, 0, 0)
     parts.body.scale.set(1, 1, 1)
   }
+  if (parts.backpack) {
+    parts.backpack.position.set(0, 0.98, 0.38)
+    parts.backpack.rotation.set(0, 0, 0)
+    parts.backpack.scale.set(1, 1, 1)
+  }
+  if (parts.torsoStripe) {
+    parts.torsoStripe.position.set(0, 1.13, -0.42)
+    parts.torsoStripe.rotation.set(0, 0, 0)
+    parts.torsoStripe.scale.set(1, 1, 1)
+  }
   if (parts.head) {
     parts.head.position.set(0, 1.52, 0)
     parts.head.rotation.set(0, 0, 0)
+  }
+  if (parts.headset) {
+    parts.headset.position.set(0, 1.56, 0)
+    parts.headset.rotation.set(Math.PI / 2, 0, Math.PI * 0.04)
+  }
+  if (parts.mic) {
+    parts.mic.position.set(0.38, 1.43, -0.22)
+    parts.mic.rotation.set(0, 0, Math.PI / 2.8)
   }
   if (parts.antenna) {
     parts.antenna.position.set(0, 1.92, 0)
@@ -442,6 +509,14 @@ function resetAvatarParts(parts) {
     parts.statusBadge.position.set(0.28, 1.02, -0.38)
     parts.statusBadge.scale.setScalar(1)
   }
+  if (parts.leftShoulder) {
+    parts.leftShoulder.position.set(-0.46, 1.2, -0.03)
+    parts.leftShoulder.rotation.set(0, 0, 0)
+  }
+  if (parts.rightShoulder) {
+    parts.rightShoulder.position.set(0.46, 1.2, -0.03)
+    parts.rightShoulder.rotation.set(0, 0, 0)
+  }
   if (parts.leftArm) {
     parts.leftArm.position.set(-0.54, 0.96, -0.03)
     parts.leftArm.rotation.set(0, 0, 0.24)
@@ -449,6 +524,14 @@ function resetAvatarParts(parts) {
   if (parts.rightArm) {
     parts.rightArm.position.set(0.54, 0.96, -0.03)
     parts.rightArm.rotation.set(0, 0, -0.24)
+  }
+  if (parts.leftHand) {
+    parts.leftHand.position.set(-0.64, 0.58, -0.05)
+    parts.leftHand.scale.setScalar(1)
+  }
+  if (parts.rightHand) {
+    parts.rightHand.position.set(0.64, 0.58, -0.05)
+    parts.rightHand.scale.setScalar(1)
   }
   if (parts.leftLeg) {
     parts.leftLeg.position.set(-0.24, 0.43, 0)
@@ -477,7 +560,15 @@ function applySeatedPose(parts, kind, elapsed, seed, state) {
   parts.body.position.set(0, 0.78, relax ? 0.08 : 0)
   parts.body.rotation.x = lean
   parts.body.scale.set(0.94, 0.82, 1)
+  parts.backpack.position.set(0, 0.83, relax ? 0.38 : 0.34)
+  parts.backpack.rotation.x = lean
+  parts.torsoStripe.position.set(0, 0.91, -0.38)
+  parts.torsoStripe.rotation.x = lean
   parts.head.position.set(0, 1.28, relax ? 0.02 : -0.03)
+  parts.headset.position.set(0, 1.32, relax ? 0.02 : -0.03)
+  parts.headset.rotation.set(Math.PI / 2, 0, Math.PI * 0.04)
+  parts.mic.position.set(0.36, 1.2, -0.22)
+  parts.mic.rotation.set(0, 0, Math.PI / 2.8)
   parts.antenna.position.set(0, 1.66, relax ? 0.02 : -0.03)
   parts.antennaLight.position.set(0, 1.89, relax ? 0.02 : -0.03)
   parts.visor.position.set(0, 1.32, -0.35)
@@ -493,19 +584,27 @@ function applySeatedPose(parts, kind, elapsed, seed, state) {
   parts.rightFoot.position.set(0.25, 0.28, relax ? -0.78 : -0.66)
 
   if (relax) {
+    parts.leftShoulder.position.set(-0.44, 0.98, 0.03)
+    parts.rightShoulder.position.set(0.44, 0.98, 0.03)
     parts.leftArm.position.set(-0.52, 0.82, 0.03)
     parts.rightArm.position.set(0.52, 0.82, 0.03)
     parts.leftArm.rotation.set(0.15, 0, 0.72)
     parts.rightArm.rotation.set(0.1, 0, -0.36)
+    parts.leftHand.position.set(-0.72, 0.62, -0.1)
+    parts.rightHand.position.set(0.63, 0.66, -0.12)
     parts.head.rotation.y = Math.sin(elapsed * 0.75 + seed) * 0.18
     parts.visor.scale.x = 0.78 + Math.sin(elapsed * 0.9 + seed) * 0.06
     return
   }
 
+  parts.leftShoulder.position.set(-0.41, 1.04, -0.14)
+  parts.rightShoulder.position.set(0.41, 1.04, -0.14)
   parts.leftArm.position.set(-0.42, 0.92, -0.26)
   parts.rightArm.position.set(0.42, 0.92, -0.26)
   parts.leftArm.rotation.set(1.05 + Math.sin(elapsed * 7) * 0.1, 0, 0.42)
   parts.rightArm.rotation.set(1.05 + Math.sin(elapsed * 7 + Math.PI) * 0.1, 0, -0.42)
+  parts.leftHand.position.set(-0.48, 0.64, -0.56 + Math.sin(elapsed * 7) * 0.03)
+  parts.rightHand.position.set(0.48, 0.64, -0.56 + Math.sin(elapsed * 7 + Math.PI) * 0.03)
   parts.head.rotation.x = state === 'thinking' ? -0.12 + Math.sin(elapsed * 2.1) * 0.05 : -0.06
   parts.head.rotation.y = state === 'thinking' ? Math.sin(elapsed * 1.6) * 0.16 : 0
   setPartVisible(parts.focusPanel, true)
@@ -520,6 +619,7 @@ export class AgentOfficeScene {
   constructor(container, options = {}) {
     this.container = container
     this.onSelect = options.onSelect || (() => {})
+    this.onMetrics = options.onMetrics || null
     this.agents = []
     this.agentRecords = new Map()
     this.pickables = []
@@ -534,6 +634,9 @@ export class AgentOfficeScene {
     this.viewMode = 'overview'
     this.compactMode = false
     this.denseMode = false
+    this.qualityMode = 'high'
+    this.qualityReason = 'initial'
+    this.frameSamples = { frames: 0, elapsed: 0, fps: 0, labels: 0 }
     this.motionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)') || null
     this.reducedMotion = !!this.motionQuery?.matches
 
@@ -588,6 +691,7 @@ export class AgentOfficeScene {
   addLights() {
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0xe0f2fe, 1.45))
     const key = new THREE.DirectionalLight(0xffffff, 1.05)
+    this.keyLight = key
     key.position.set(5.5, 10, 5.5)
     key.castShadow = true
     key.shadow.mapSize.width = 2048
@@ -696,6 +800,9 @@ export class AgentOfficeScene {
 
   setAgents(agents = []) {
     const nextAgents = agents.map(normalizeAgent)
+    const previousCompact = this.compactMode
+    const previousDense = this.denseMode
+    const previousCount = this.agents.length
     const nextIds = new Set(nextAgents.map(agent => agent.id))
     for (const [id, record] of this.agentRecords.entries()) {
       if (!nextIds.has(id)) {
@@ -708,8 +815,10 @@ export class AgentOfficeScene {
     this.agents = nextAgents
     this.compactMode = this.agents.length > COMPACT_AGENT_COUNT
     this.denseMode = this.agents.length > DENSE_AGENT_COUNT
-    this.renderer.setPixelRatio(this.denseMode ? 1 : Math.min(window.devicePixelRatio || 1, this.compactMode ? 1.25 : 1.5))
-    this.renderer.shadowMap.enabled = !this.denseMode
+    if (previousCount !== this.agents.length || previousCompact !== this.compactMode || previousDense !== this.denseMode) {
+      this.frameSamples = { frames: 0, elapsed: 0, fps: 0, labels: this.visibleLabelCount() }
+    }
+    this.applyQualityMode('agent-count')
     this.layout = layoutForAgents(this.agents.length)
     this.pickables = []
 
@@ -722,10 +831,74 @@ export class AgentOfficeScene {
         this.root.add(record.group)
       }
       this.updateRecord(record, agent, positions)
+      this.applyRecordQuality(record)
       this.pickables.push(record.avatar, record.monitor, record.lamp)
     })
 
     this.fitCamera()
+    this.emitMetrics(this.frameSamples.fps || 0)
+  }
+
+  resolveQualityMode() {
+    const fps = this.frameSamples.fps || 0
+    if (this.denseMode || this.agents.length > DENSE_AGENT_COUNT || (fps && fps < 32)) return 'low'
+    if (this.compactMode || this.agents.length > COMPACT_AGENT_COUNT || (fps && fps < 48)) return 'medium'
+    return 'high'
+  }
+
+  pixelRatioForQuality(mode) {
+    const device = window.devicePixelRatio || 1
+    if (mode === 'low') return Math.min(device, 0.9)
+    if (mode === 'medium') return Math.min(device, 1.15)
+    return Math.min(device, 1.5)
+  }
+
+  applyQualityMode(reason = 'auto') {
+    const next = this.resolveQualityMode()
+    const changed = next !== this.qualityMode
+    this.qualityMode = next
+    this.qualityReason = reason
+    this.container.dataset.officeQuality = next
+    this.renderer.setPixelRatio(this.pixelRatioForQuality(next))
+    this.renderer.shadowMap.enabled = next !== 'low'
+    if (this.keyLight?.shadow?.mapSize) {
+      const size = next === 'high' ? 2048 : next === 'medium' ? 1024 : 512
+      this.keyLight.shadow.mapSize.set(size, size)
+    }
+    if (changed) {
+      for (const record of this.agentRecords.values()) {
+        this.applyRecordQuality(record)
+        this.refreshRecordVisibility(record)
+      }
+      this.resize()
+    }
+  }
+
+  applyRecordQuality(record) {
+    const parts = record.avatar.userData.parts || {}
+    const selected = record.agent.id === this.selectedAgentId
+    const lowDetail = this.qualityMode === 'low' && !selected
+    const mediumDetail = this.qualityMode === 'medium' && !selected
+    const visibleDetail = !lowDetail
+    ;[
+      parts.backpack,
+      parts.torsoStripe,
+      parts.headset,
+      parts.mic,
+      parts.leftShoulder,
+      parts.rightShoulder,
+      parts.leftHand,
+      parts.rightHand,
+    ].forEach(part => setPartVisible(part, visibleDetail))
+    setPartVisible(parts.antenna, !lowDetail && !mediumDetail)
+    setPartVisible(parts.antennaLight, !lowDetail)
+    record.label.scale.set(this.qualityMode === 'low' ? 2.35 : this.qualityMode === 'medium' ? 2.55 : 2.75, this.qualityMode === 'low' ? 0.64 : 0.76, 1)
+    record.group.traverse(child => {
+      if (child.isMesh) {
+        if (typeof child.userData.baseCastShadow !== 'boolean') child.userData.baseCastShadow = child.castShadow
+        child.castShadow = this.qualityMode !== 'low' && child.userData.baseCastShadow
+      }
+    })
   }
 
   positionsForIndex(index) {
@@ -798,6 +971,7 @@ export class AgentOfficeScene {
       labelShiftX: positions.labelShiftX || 0,
       labelShiftZ: positions.labelShiftZ || 0,
       labelShiftY: positions.labelShiftY || 0,
+      labelBase: label.position.clone(),
       desk: positions.desk.clone(),
       lounge: positions.lounge.clone(),
       work: positions.work.clone(),
@@ -873,11 +1047,15 @@ export class AgentOfficeScene {
   shouldShowLabel(record) {
     const state = STATE_META[record.state] || STATE_META.idle
     const selected = record.agent.id === this.selectedAgentId
-    return !this.denseMode && (!this.compactMode || selected || state.active)
+    if (this.qualityMode === 'low') return selected || (state.active && this.agents.length <= 18)
+    if (this.qualityMode === 'medium') return selected || state.active
+    if (this.denseMode) return selected
+    if (selected || state.active) return true
+    return this.viewMode === 'lounge' && !this.compactMode
   }
 
   shouldShowPathLine(record, requestedVisible) {
-    if (!requestedVisible || this.reducedMotion || this.denseMode) return false
+    if (!requestedVisible || this.reducedMotion || this.denseMode || this.qualityMode === 'low') return false
     return !this.compactMode || record.agent.id === this.selectedAgentId
   }
 
@@ -903,6 +1081,7 @@ export class AgentOfficeScene {
   setSelectedAgent(agentId) {
     this.selectedAgentId = agentId || null
     for (const record of this.agentRecords.values()) {
+      this.applyRecordQuality(record)
       this.refreshRecordVisibility(record)
     }
   }
@@ -1006,7 +1185,84 @@ export class AgentOfficeScene {
     for (const record of this.agentRecords.values()) {
       this.animateRecord(record, delta, elapsed)
     }
+    this.layoutLabels()
+    this.recordPerformance(delta)
     this.renderer.render(this.scene, this.camera)
+  }
+
+  recordPerformance(delta) {
+    this.frameSamples.frames += 1
+    this.frameSamples.elapsed += delta
+    if (this.frameSamples.elapsed < 1) return
+    const fps = Math.round(this.frameSamples.frames / Math.max(0.001, this.frameSamples.elapsed))
+    this.frameSamples = { frames: 0, elapsed: 0, fps, labels: this.visibleLabelCount() }
+    this.applyQualityMode('fps')
+    this.emitMetrics(fps)
+  }
+
+  visibleLabelCount() {
+    return Array.from(this.agentRecords.values()).filter(record => record.label.visible).length
+  }
+
+  emitMetrics(fps = 0) {
+    const renderInfo = this.renderer.info?.render || {}
+    this.onMetrics?.({
+      fps,
+      agents: this.agents.length,
+      labels: this.visibleLabelCount(),
+      dense: this.denseMode,
+      compact: this.compactMode,
+      reducedMotion: this.reducedMotion,
+      quality: this.qualityMode,
+      qualityLabel: QUALITY_LABELS[this.qualityMode] || this.qualityMode,
+      qualityReason: this.qualityReason,
+      assetType: 'procedural-v2',
+      drawCalls: renderInfo.calls || 0,
+      triangles: renderInfo.triangles || 0,
+      points: renderInfo.points || 0,
+      lines: renderInfo.lines || 0,
+      pixelRatio: Number(this.renderer.getPixelRatio?.() || 1).toFixed(2),
+      shadows: !!this.renderer.shadowMap.enabled,
+    })
+  }
+
+  layoutLabels() {
+    const visible = []
+    const viewHeight = Math.max(1, this.camera.top - this.camera.bottom)
+    const pxPerWorld = Math.max(1, this.container.clientHeight / viewHeight)
+    const rect = this.renderer.domElement.getBoundingClientRect()
+    for (const record of this.agentRecords.values()) {
+      if (!record.label.visible) continue
+      record.label.position.copy(record.labelBase || record.label.position)
+      const projected = this.tmpVec3.copy(record.label.position).project(this.camera)
+      const width = record.label.scale.x * pxPerWorld
+      const height = record.label.scale.y * pxPerWorld
+      const x = (projected.x * 0.5 + 0.5) * rect.width
+      const y = (-projected.y * 0.5 + 0.5) * rect.height
+      visible.push({ record, x, y, width, height })
+    }
+    visible.sort((a, b) => a.y - b.y || a.x - b.x)
+    const placed = []
+    for (const item of visible) {
+      let shiftPx = 0
+      let attempts = 0
+      while (attempts < 8) {
+        const box = {
+          left: item.x - item.width / 2,
+          right: item.x + item.width / 2,
+          top: item.y - item.height / 2 - shiftPx,
+          bottom: item.y + item.height / 2 - shiftPx,
+        }
+        const hit = placed.find(other => !(box.right < other.left || box.left > other.right || box.bottom < other.top || box.top > other.bottom))
+        if (!hit) {
+          placed.push(box)
+          break
+        }
+        shiftPx += Math.min(28, hit.bottom - box.top + 8)
+        attempts += 1
+      }
+      if (shiftPx > 0) item.record.label.position.y += shiftPx / pxPerWorld
+    }
   }
 
   animateRecord(record, delta, elapsed) {
@@ -1036,6 +1292,7 @@ export class AgentOfficeScene {
       (seated ? 2.08 : 2.38) + record.labelOffset + (record.labelShiftY || 0) + (this.reducedMotion ? 0 : Math.sin(elapsed * 1.1 + avatar.position.x) * 0.04),
       avatar.position.z + (record.labelShiftZ || 0)
     )
+    record.labelBase = record.label.position.clone()
     record.ring.position.x = avatar.position.x
     record.ring.position.z = avatar.position.z
     record.ring.rotation.z += this.reducedMotion ? 0 : delta * (state === 'error' ? 1.5 : 0.75)
@@ -1057,6 +1314,9 @@ export class AgentOfficeScene {
     parts.rightLeg.position.z = gait ? Math.sin(elapsed * 8) * 0.04 : 0
     parts.leftArm.rotation.z = 0.24 + (gait ? Math.sin(elapsed * 8 + Math.PI) * 0.24 : 0)
     parts.rightArm.rotation.z = -0.24 + (gait ? Math.sin(elapsed * 8) * 0.24 : 0)
+    if (parts.leftHand) parts.leftHand.position.x = -0.64 + (gait ? Math.sin(elapsed * 8 + Math.PI) * 0.08 : 0)
+    if (parts.rightHand) parts.rightHand.position.x = 0.64 + (gait ? Math.sin(elapsed * 8) * 0.08 : 0)
+    if (parts.backpack) parts.backpack.rotation.z = gait ? Math.sin(elapsed * 8) * 0.04 : 0
 
     avatar.position.y = 0
     avatar.rotation.z = 0

@@ -69,7 +69,7 @@ function renderPage(page) {
     _results.items.forEach((item, i) => {
       const cls = item.ok ? 'ok' : (item.warn ? 'warn' : 'err')
       const icon = item.ok ? '✓' : (item.warn ? '!' : '✕')
-      html += `<div class="scan-item" data-index="${i}">`
+      html += `<div class="scan-item" data-index="${i}">
         <div class="si-icon ${cls}">${icon}</div>
         <div class="si-label">${esc(item.label)}${item.detail ? `<div class="si-detail">${esc(item.detail)}</div>` : ''}</div>
       </div>`

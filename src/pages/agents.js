@@ -13,6 +13,7 @@ import { hasFeature } from '../lib/kernel.js'
 import { termHelpHtml, attachTermTooltips } from '../lib/term-tooltip.js'
 
 const SHOW_OFFICE_DEMO = import.meta.env.DEV || localStorage.getItem('agentOfficeDemo') === '1'
+const SHOW_OFFICE_STRESS = import.meta.env.DEV || localStorage.getItem('agentOfficeStress') === '1'
 
 function tr(key, fallback, params) {
   const value = t(key, params)
@@ -71,8 +72,21 @@ export async function render() {
             </div>
             <button class="btn btn-sm btn-secondary" id="agent-office-focus">专注视图</button>
             ${SHOW_OFFICE_DEMO ? '<button class="btn btn-sm btn-secondary" id="agent-office-demo">演示动态</button>' : ''}
+            ${SHOW_OFFICE_STRESS ? `
+              <label class="agent-office-stress-control" title="开发压测只影响当前 3D 可视化，不会写入 Agent 配置">
+                <span>压测</span>
+                <select id="agent-office-stress-size" aria-label="压测 Agent 数量">
+                  <option value="30">30</option>
+                  <option value="60" selected>60</option>
+                  <option value="100">100</option>
+                </select>
+              </label>
+              <button class="btn btn-sm btn-secondary" id="agent-office-stress">开始压测</button>
+            ` : ''}
           </div>
         </div>
+        <div id="agent-office-summary" class="agent-office-summary" aria-label="Agent office summary"></div>
+        <div id="agent-office-diagnostics" class="agent-office-diagnostics" aria-label="Agent office diagnostics"></div>
         <div class="agent-office-body">
           <div id="agent-office-scene" class="agent-office-scene" aria-label="Agent office scene"></div>
           <aside class="agent-office-sidebar" aria-label="Agent office monitoring">
@@ -92,7 +106,7 @@ export async function render() {
     </div>
   `
 
-  const state = { agents: [], bindings: [], activities: [], search: '' }
+  const state = { agents: [], bindings: [], activities: [], search: '', officeStressSize: 60 }
   page.querySelector('#agent-office-panel').innerHTML = `
     <div class="agent-office-panel-empty">
       <div class="agent-office-panel-title">办公室加载中</div>
@@ -144,6 +158,20 @@ export async function render() {
     toggleOfficeDemo(page, state)
   })
 
+  page.querySelector('#agent-office-stress')?.addEventListener('click', () => {
+    toggleOfficeStress(page, state)
+  })
+
+  page.querySelector('#agent-office-stress-size')?.addEventListener('change', (e) => {
+    state.officeStressSize = Number(e.target.value) || 60
+    if (state.officeStress) {
+      state.officeStressAgents = createStressAgents(state.agents, state.officeStressSize)
+      state.officeStressStartedAt = Date.now()
+      renderOffice(page, state)
+    }
+    renderOfficeDiagnostics(page, state)
+  })
+
   page.querySelector('#agent-office-focus')?.addEventListener('click', () => {
     toggleOfficeFocus(page, state)
   })
@@ -168,6 +196,11 @@ async function initOfficeScene(page, state) {
     const mod = await import('../components/agent-office-scene.js')
     state.renderAgentOfficePanel = mod.renderAgentOfficePanel
     state.officeScene = new mod.AgentOfficeScene(page.querySelector('#agent-office-scene'), {
+      onMetrics: (metrics) => {
+        state.officeMetrics = metrics
+        renderOfficeSummary(page, state)
+        renderOfficeDiagnostics(page, state)
+      },
       onSelect: (agent) => {
         state.selectedOfficeAgentId = agent.id
         const selected = state.officeAgents?.find(a => a.id === agent.id) || state.agents.find(a => a.id === agent.id) || agent
@@ -182,6 +215,7 @@ async function initOfficeScene(page, state) {
       if (!document.body.contains(page)) {
         state.officeScene?.dispose()
         if (state.officeDemoTimer) clearInterval(state.officeDemoTimer)
+        if (state.officeStressTimer) clearInterval(state.officeStressTimer)
         observer.disconnect()
       }
     })
@@ -232,6 +266,7 @@ async function loadAgents(page, state) {
     state.agents = agents
     state.bindings = Array.isArray(config?.bindings) ? config.bindings : []
     state.activities = Array.isArray(activity?.items) ? activity.items : []
+    state.activityUpdatedAt = latestActivityTime(state.activities)
     renderAgents(page, state)
     renderOffice(page, state)
     renderActivityRail(page, state)
@@ -254,7 +289,7 @@ function activityForAgent(agent, state) {
 
 function officeStateForAgent(agent, state, activity = null) {
   if (!agent) return 'offline'
-  const explicit = activity?.state || activityForAgent(agent, state)?.state || agent.activity?.state
+  const explicit = normalizeOfficeState(activity?.state || activityForAgent(agent, state)?.state || agent.activity?.state)
   if (explicit) return explicit
   if (agent.error || agent.status === 'error') return 'error'
   if (agent.status === 'blocked') return 'blocked'
@@ -262,10 +297,29 @@ function officeStateForAgent(agent, state, activity = null) {
   return 'idle'
 }
 
+function normalizeOfficeState(value) {
+  const raw = String(value || '').toLowerCase()
+  if (!raw) return ''
+  if (['idle', 'offline', 'queued', 'walking', 'working', 'tool_call', 'thinking', 'blocked', 'error', 'done'].includes(raw)) return raw
+  if (['running', 'streaming', 'responding', 'busy', 'active'].includes(raw)) return 'working'
+  if (['tool', 'tool_calling', 'tool-use', 'tool_use', 'function_call'].includes(raw)) return 'tool_call'
+  if (['planning', 'reasoning', 'analyzing'].includes(raw)) return 'thinking'
+  if (['waiting', 'pending', 'scheduled'].includes(raw)) return 'queued'
+  if (['failed', 'failure', 'crashed'].includes(raw)) return 'error'
+  if (['complete', 'completed', 'success', 'succeeded'].includes(raw)) return 'done'
+  if (['paused', 'blocked_by_user', 'needs_input'].includes(raw)) return 'blocked'
+  return ''
+}
+
 function renderOffice(page, state) {
-  const agents = state.agents.map(agent => {
-    const bindingCount = (state.bindings || []).filter(b => (b.agentId || 'main') === agent.id).length
-    const activity = state.officeDemo ? demoActivityForAgent(agent, state) : activityForAgent(agent, state)
+  const sourceAgents = getOfficeSourceAgents(state)
+  const agents = sourceAgents.map(agent => {
+    const bindingCount = agent.bindingCount ?? (state.bindings || []).filter(b => (b.agentId || 'main') === agent.id).length
+    const activity = state.officeStress
+      ? stressActivityForAgent(agent, state)
+      : state.officeDemo
+        ? demoActivityForAgent(agent, state)
+        : activityForAgent(agent, state)
     return {
       ...agent,
       activity,
@@ -286,7 +340,115 @@ function renderOffice(page, state) {
     renderOfficeFallbackPanel(page, selected)
   }
   renderOfficeFallback(page, state)
+  renderOfficeSummary(page, state)
+  renderOfficeDiagnostics(page, state)
   renderActivityRail(page, state)
+}
+
+function renderOfficeSummary(page, state) {
+  const el = page.querySelector('#agent-office-summary')
+  if (!el) return
+  const agents = state.officeAgents || []
+  const counts = agents.reduce((acc, agent) => {
+    const key = agent.officeState || 'idle'
+    acc[key] = (acc[key] || 0) + 1
+    return acc
+  }, {})
+  const working = ['queued', 'walking', 'working', 'tool_call', 'thinking', 'done'].reduce((sum, key) => sum + (counts[key] || 0), 0)
+  const blocked = counts.blocked || 0
+  const error = counts.error || 0
+  const idle = counts.idle || Math.max(0, agents.length - working - blocked - error)
+  const metrics = state.officeMetrics || {}
+  const flowText = state.officeStress
+    ? '压测数据'
+    : state.officeDemo
+      ? '演示数据'
+      : state.activityStreamStatus === 'failed'
+        ? '活动流异常'
+        : state.activityStreamStatus === 'connected'
+          ? `活动流 ${formatShortTime(state.activityUpdatedAt)}`
+          : '活动流启动中'
+  el.innerHTML = `
+    <div class="agent-office-summary-item">
+      <span>Agent 总数</span>
+      <strong>${agents.length}</strong>
+    </div>
+    <div class="agent-office-summary-item is-working">
+      <span>运行中</span>
+      <strong>${working}</strong>
+    </div>
+    <div class="agent-office-summary-item is-blocked">
+      <span>阻塞</span>
+      <strong>${blocked}</strong>
+    </div>
+    <div class="agent-office-summary-item is-error">
+      <span>异常</span>
+      <strong>${error}</strong>
+    </div>
+    <div class="agent-office-summary-item is-idle">
+      <span>空闲</span>
+      <strong>${idle}</strong>
+    </div>
+    <div class="agent-office-summary-item is-perf">
+      <span>场景性能</span>
+      <strong>${metrics.fps ? `${metrics.fps} FPS` : '--'}</strong>
+      <small>${metrics.qualityLabel || '--'} · ${metrics.labels ?? 0} 标签 · ${metrics.agents ?? agents.length} 角色</small>
+    </div>
+    <div class="agent-office-summary-item is-flow">
+      <span>任务流</span>
+      <strong>${working + blocked + error}</strong>
+      <small>${escHtml(flowText)}</small>
+    </div>
+  `
+}
+
+function renderOfficeDiagnostics(page, state) {
+  const el = page.querySelector('#agent-office-diagnostics')
+  if (!el) return
+  const metrics = state.officeMetrics || {}
+  const agents = state.officeAgents || []
+  const source = state.officeStress ? '压测' : state.officeDemo ? '演示' : '真实'
+  const stream = state.officeStress || state.officeDemo
+    ? '模拟数据'
+    : state.activityStreamStatus === 'failed'
+      ? '活动流异常'
+      : state.activityStreamStatus === 'connected'
+        ? `活动流在线 · ${formatShortTime(state.activityUpdatedAt)}`
+        : '活动流连接中'
+  const qualityReason = {
+    initial: '初始化',
+    'agent-count': '角色数量',
+    fps: '帧率采样',
+    auto: '自动',
+  }[metrics.qualityReason] || metrics.qualityReason || '自动'
+  const assetLabel = metrics.assetType === 'procedural-v2'
+    ? 'Procedural v2'
+    : metrics.assetType || '未加载'
+  const triangles = Number(metrics.triangles || 0).toLocaleString()
+  const drawCalls = Number(metrics.drawCalls || 0).toLocaleString()
+  const shadows = metrics.shadows ? '阴影开' : '阴影关'
+  const pixelRatio = metrics.pixelRatio || '--'
+  const statusClass = metrics.quality === 'low' || state.activityStreamStatus === 'failed'
+    ? 'is-warning'
+    : metrics.quality === 'medium'
+      ? 'is-attention'
+      : 'is-ok'
+  el.className = `agent-office-diagnostics ${statusClass}`
+  el.innerHTML = `
+    <div class="agent-office-diagnostic-main">
+      <span>${escHtml(source)}监控</span>
+      <strong>${escHtml(metrics.qualityLabel || '--')}</strong>
+      <small>${escHtml(qualityReason)} · ${escHtml(stream)}</small>
+    </div>
+    <div class="agent-office-diagnostic-grid">
+      <span><b>${escHtml(assetLabel)}</b><small>资产</small></span>
+      <span><b>${drawCalls}</b><small>Draw calls</small></span>
+      <span><b>${triangles}</b><small>Triangles</small></span>
+      <span><b>${pixelRatio}x</b><small>Pixel ratio</small></span>
+      <span><b>${escHtml(shadows)}</b><small>Render</small></span>
+      <span><b>${agents.length}</b><small>Agents</small></span>
+    </div>
+  `
 }
 
 function stateLabel(state) {
@@ -423,9 +585,83 @@ function toggleOfficeDemo(page, state) {
   renderOffice(page, state)
 }
 
+function getOfficeSourceAgents(state) {
+  if (!state.officeStress) return state.agents
+  if (!state.officeStressAgents?.length) state.officeStressAgents = createStressAgents(state.agents, state.officeStressSize || 60)
+  return state.officeStressAgents
+}
+
+function createStressAgents(sourceAgents, count = 60) {
+  const seeds = sourceAgents?.length ? sourceAgents : [{
+    id: 'main',
+    identityName: 'main',
+    model: 'demo/model',
+    workspace: 'stress-workspace',
+  }]
+  return Array.from({ length: count }, (_, index) => {
+    const seed = seeds[index % seeds.length] || {}
+    const baseName = seed.identityName || seed.name || seed.id || 'Agent'
+    return {
+      ...seed,
+      id: `stress-${index + 1}`,
+      identityName: `${String(baseName).split(',')[0].trim() || 'Agent'} ${index + 1}`,
+      workspace: seed.workspace || `workspace-${(index % 6) + 1}`,
+      bindingCount: index % 4,
+    }
+  })
+}
+
+function stressActivityForAgent(agent, state) {
+  const index = Number(String(agent.id).match(/\d+$/)?.[0] || 0)
+  const phase = Math.floor((Date.now() - (state.officeStressStartedAt || Date.now())) / 3600)
+  const states = ['idle', 'walking', 'working', 'thinking', 'tool_call', 'blocked', 'done', 'queued', 'working', 'error']
+  const current = states[(index + phase) % states.length] || 'idle'
+  return {
+    agentId: agent.id,
+    state: current,
+    taskTitle: current === 'idle' ? '休息区待命' : `压测任务 ${index}`,
+    progressText: current === 'error' ? '模拟异常路径' : current === 'blocked' ? '模拟等待输入' : '压测渲染与任务流联动',
+    toolName: current === 'tool_call' ? 'stress.tool' : '',
+    source: 'stress',
+    updatedAt: Date.now(),
+  }
+}
+
+function toggleOfficeStress(page, state) {
+  if (!SHOW_OFFICE_STRESS) return
+  state.officeStress = !state.officeStress
+  state.officeStressStartedAt = Date.now()
+  const size = Number(page.querySelector('#agent-office-stress-size')?.value || state.officeStressSize || 60)
+  state.officeStressSize = size
+  if (state.officeStress) state.officeStressAgents = createStressAgents(state.agents, size)
+  const btn = page.querySelector('#agent-office-stress')
+  if (btn) {
+    btn.textContent = state.officeStress ? '关闭压测' : '开始压测'
+    btn.classList.toggle('btn-primary', state.officeStress)
+    btn.classList.toggle('btn-secondary', !state.officeStress)
+  }
+  if (state.officeStress) {
+    if (state.officeStressTimer) clearInterval(state.officeStressTimer)
+    state.officeStressTimer = setInterval(() => {
+      if (!document.body.contains(page) || !state.officeStress || document.hidden) {
+        clearInterval(state.officeStressTimer)
+        state.officeStressTimer = null
+        return
+      }
+      renderOffice(page, state)
+    }, 1000)
+  } else if (state.officeStressTimer) {
+    clearInterval(state.officeStressTimer)
+    state.officeStressTimer = null
+  }
+  renderOffice(page, state)
+  renderOfficeDiagnostics(page, state)
+}
+
 function startActivityStream(page, state) {
   if (state.activityStreamStarted) return
   state.activityStreamStarted = true
+  state.activityStreamStatus = 'connecting'
   const controller = new AbortController()
   state.activityStreamController = controller
   const stopObserver = new MutationObserver(() => {
@@ -438,12 +674,34 @@ function startActivityStream(page, state) {
 
   api.agentActivityStream?.((event) => {
     if (event?.event !== 'agent_activity.snapshot') return
+    state.activityStreamStatus = 'connected'
     state.activities = Array.isArray(event.items) ? event.items : []
+    state.activityUpdatedAt = latestActivityTime(state.activities)
     renderOffice(page, state)
     renderActivityRail(page, state)
   }, { signal: controller.signal }).catch(e => {
-    if (e?.name !== 'AbortError') console.warn('[agents] activity stream failed:', e)
+    if (e?.name !== 'AbortError') {
+      state.activityStreamStatus = 'failed'
+      renderOfficeSummary(page, state)
+      renderOfficeDiagnostics(page, state)
+      renderActivityRail(page, state)
+      console.warn('[agents] activity stream failed:', e)
+    }
   })
+}
+
+function latestActivityTime(items) {
+  const timestamps = (items || [])
+    .map(item => new Date(item.updatedAt || item.createdAt || item.time || 0).getTime())
+    .filter(value => Number.isFinite(value) && value > 0)
+  return timestamps.length ? Math.max(...timestamps) : Date.now()
+}
+
+function formatShortTime(value) {
+  if (!value) return '待更新'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '待更新'
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 function renderActivityRail(page, state) {
@@ -457,15 +715,26 @@ function renderActivityRail(page, state) {
         taskTitle: agent.activity?.taskTitle,
         progressText: agent.activity?.progressText,
       }))
+    : state.officeStress
+      ? officeAgents.map(agent => ({
+          agentId: agent.id,
+          state: agent.officeState,
+          taskTitle: agent.activity?.taskTitle,
+          progressText: agent.activity?.progressText,
+          updatedAt: agent.activity?.updatedAt,
+        }))
     : (state.activities || [])
   const counts = activities.reduce((acc, item) => {
-    const key = item.state || 'idle'
+    const key = normalizeOfficeState(item.state) || 'idle'
     acc[key] = (acc[key] || 0) + 1
     return acc
   }, {})
   const workingCount = ['queued', 'walking', 'working', 'tool_call', 'thinking', 'done'].reduce((sum, key) => sum + (counts[key] || 0), 0)
   const idleCount = state.officeDemo ? (counts.idle || 0) : (counts.idle || Math.max(0, officeAgents.length - activities.length))
-  const active = activities.filter(item => ['queued', 'walking', 'working', 'tool_call', 'thinking', 'blocked', 'error', 'done'].includes(item.state)).slice(0, 7)
+  const active = activities
+    .map(item => ({ ...item, state: normalizeOfficeState(item.state) || item.state || 'idle' }))
+    .filter(item => ['queued', 'walking', 'working', 'tool_call', 'thinking', 'blocked', 'error', 'done'].includes(item.state))
+    .slice(0, 7)
   const nameForAgent = (id) => {
     const agent = officeAgents.find(item => item.id === id)
     return agent?.identityName || agent?.name || id
@@ -479,10 +748,10 @@ function renderActivityRail(page, state) {
   el.innerHTML = `
     <div class="agent-office-activity-head">
       <div>
-        <span>实时概览</span>
+        <span>${state.officeStress ? '压测概览' : state.officeDemo ? '演示概览' : '实时概览'}</span>
         <strong>${officeAgents.length}</strong>
       </div>
-      <small>Agents</small>
+      <small>${state.activityStreamStatus === 'failed' ? 'Stream failed' : state.activityStreamStatus === 'connected' ? 'Live stream' : 'Agents'}</small>
     </div>
     <div class="agent-office-activity-stats">
       <span><strong>${workingCount}</strong> 工作中</span>
