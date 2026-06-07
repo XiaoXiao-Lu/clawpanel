@@ -649,7 +649,12 @@ async function loadModelOptions(showToast = false) {
     }
     _availableModels = models
     const saved = localStorage.getItem(STORAGE_MODEL_KEY) || ''
-    _selectedModel = models.includes(saved) ? saved : (_primaryModel || models[0] || '')
+    const sessionModel = getSessionModelRef(_sessionKey)
+    if (sessionModel && !seen.has(sessionModel)) {
+      _availableModels.unshift(sessionModel)
+      seen.add(sessionModel)
+    }
+    _selectedModel = _availableModels.includes(sessionModel) ? sessionModel : (_availableModels.includes(saved) ? saved : (_primaryModel || _availableModels[0] || ''))
     renderModelSelect()
     if (showToast) toast(`${t('chat.refreshModels')} (${models.length})`, 'success')
   } catch (e) {
@@ -703,6 +708,39 @@ function formatChatModelLabel(full) {
   const slash = text.indexOf('/')
   if (slash <= 0) return text
   return `${text.slice(0, slash)} · ${text.slice(slash + 1)}`
+}
+
+function parseSelectedModelRef(full = _selectedModel) {
+  const text = String(full || '').trim()
+  const slash = text.indexOf('/')
+  if (slash <= 0 || slash === text.length - 1) return null
+  return {
+    provider: text.slice(0, slash),
+    model: text.slice(slash + 1),
+    full: text
+  }
+}
+
+function getSessionModelRef(sessionKey = _sessionKey) {
+  if (!sessionKey) return ''
+  const row = _lastSessions.find(s => (s.sessionKey || s.key || '') === sessionKey)
+  if (!row) return ''
+  const provider = String(row.providerOverride || row.modelProvider || '').trim()
+  const model = String(row.modelOverride || row.model || '').trim()
+  if (!model) return ''
+  if (model.includes('/')) return model
+  return provider ? `${provider}/${model}` : ''
+}
+
+function syncSelectedModelForSession(sessionKey = _sessionKey) {
+  const sessionModel = getSessionModelRef(sessionKey)
+  if (sessionModel) {
+    if (!_availableModels.includes(sessionModel)) _availableModels.unshift(sessionModel)
+    _selectedModel = sessionModel
+    return
+  }
+  const saved = localStorage.getItem(STORAGE_MODEL_KEY) || ''
+  _selectedModel = _availableModels.includes(saved) ? saved : (_primaryModel || _availableModels[0] || '')
 }
 
 /** 本地会话别名缓存 */
@@ -1106,7 +1144,8 @@ async function saveWorkspaceCurrentFile() {
 }
 
 async function applySelectedModel() {
-  if (!_selectedModel) {
+  const modelRef = parseSelectedModelRef()
+  if (!modelRef) {
     toast(t('chat.loadingModels'), 'warning')
     return
   }
@@ -1117,10 +1156,16 @@ async function applySelectedModel() {
   _isApplyingModel = true
   renderModelSelect()
   try {
-    await wsClient.chatSend(_sessionKey, `/model ${_selectedModel}`)
-    toast(`${_selectedModel}`, 'success')
+    await wsClient.sessionsPatch(_sessionKey, {
+      providerOverride: modelRef.provider,
+      modelOverride: modelRef.model,
+      modelOverrideSource: 'user'
+    })
+    localStorage.setItem(STORAGE_MODEL_KEY, modelRef.full)
+    toast(`${formatChatModelLabel(modelRef.full)}`, 'success')
+    refreshSessionList()
   } catch (e) {
-    toast(`${t('chat.sendFailed')}${e.message || e}`, 'error')
+    toast(`${t('common.saveFailed')}: ${e.message || e}`, 'error')
   } finally {
     _isApplyingModel = false
     renderModelSelect()
@@ -1342,12 +1387,8 @@ async function connectGateway() {
       }
       // 始终刷新会话列表（无论是否有 sessionKey）
       refreshSessionList()
-      // Gateway 就绪后：刷新模型列表并应用当前选中的模型
-      loadModelOptions().then(() => {
-        if (_selectedModel) {
-          applySelectedModel().catch(() => {})
-        }
-      })
+      // Gateway 就绪后刷新模型列表；会话级模型覆盖由 sessions.patch 持久保存。
+      loadModelOptions().catch(() => {})
     })
 
     _unsubEvent = wsClient.onEvent((msg) => {
@@ -1482,6 +1523,7 @@ function renderSessionBulkBar(rows) {
 function renderSessionList(sessions) {
   if (!_sessionListEl) return
   _lastSessions = Array.isArray(sessions) ? sessions.slice() : []
+  syncSelectedModelForSession()
   const rows = _lastSessions.map(normalizeSessionRow).filter(r => r.key)
   renderSessionFilters(rows)
   const visibleRows = getVisibleSessionRows()
@@ -1634,10 +1676,8 @@ async function switchSession(newKey, options = {}) {
   clearMessages()
   loadHistory()
   refreshSessionList()
-  // 切换会话后重新应用当前选中的模型，确保新会话使用正确的模型
-  if (wsClient.gatewayReady && _selectedModel) {
-    applySelectedModel().catch(() => {})
-  }
+  syncSelectedModelForSession(newKey)
+  renderModelSelect()
   return true
 }
 
@@ -2003,7 +2043,13 @@ async function doSend(text, attachments = []) {
   _isSending = true
   _startResponseWatchdog()
   try {
-    await wsClient.chatSend(_sessionKey, text, attachments.length ? attachments : undefined)
+    const modelRef = parseSelectedModelRef()
+    await wsClient.chatSend(
+      _sessionKey,
+      text,
+      attachments.length ? attachments : undefined,
+      modelRef ? { provider: modelRef.provider, model: modelRef.model } : undefined
+    )
   } catch (err) {
     showTyping(false)
     _cancelResponseWatchdog()
