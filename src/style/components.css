@@ -292,7 +292,7 @@ select.form-input, select.input {
   position: fixed;
   top: 56px;
   right: var(--space-4);
-  z-index: 9999;
+  z-index: var(--z-toast);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -355,7 +355,7 @@ select.form-input, select.input {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9000;
+  z-index: var(--z-modal);
   animation: fadeInModal 150ms ease;
 }
 .modal {
@@ -507,7 +507,7 @@ select.form-input, select.input {
 #login-overlay {
   position: fixed;
   inset: 0;
-  z-index: 99998;
+  z-index: var(--z-max);
   display: flex;
   align-items: center;
   justify-content: center;

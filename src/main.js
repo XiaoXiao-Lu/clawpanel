@@ -473,7 +473,7 @@ async function boot() {
   if (sessionStorage.getItem('clawpanel_must_change_pw') === '1') {
     const banner = document.createElement('div')
     banner.id = 'pw-change-banner'
-    banner.style.cssText = 'position:sticky;top:0;z-index:80;background:var(--accent);color:#fff;padding:8px 16px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:13px;font-weight:500;box-shadow:var(--shadow-md);min-height:52px;flex-shrink:0'
+    banner.style.cssText = 'position:sticky;top:0;z-index:var(--z-sticky);background:var(--accent);color:#fff;padding:8px 16px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:13px;font-weight:500;box-shadow:var(--shadow-md);min-height:52px;flex-shrink:0'
     banner.innerHTML = `
       <span>${statusIcon('warn', 14)} ${t('common.defaultPasswordBanner')}</span>
       <a href="#/security" style="color:#fff;background:rgba(255,255,255,0.2);min-height:44px;padding:0 14px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center" onclick="document.getElementById('pw-change-banner').remove();sessionStorage.removeItem('clawpanel_must_change_pw')">${t('common.goSecurity')}</a>

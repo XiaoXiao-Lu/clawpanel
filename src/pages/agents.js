@@ -44,6 +44,7 @@ export async function render() {
           <div id="agent-office-scene" class="agent-office-scene" aria-label="Agent office scene"></div>
           <aside id="agent-office-panel" class="agent-office-panel"></aside>
         </div>
+        <div id="agent-office-activity" class="agent-office-activity"></div>
       </div>
       <div id="agents-stats-bar" class="agents-stats-bar"></div>
       <div class="agents-toolbar">
@@ -56,7 +57,7 @@ export async function render() {
     </div>
   `
 
-  const state = { agents: [], bindings: [], search: '' }
+  const state = { agents: [], bindings: [], activities: [], search: '' }
   page.querySelector('#agent-office-panel').innerHTML = `
     <div class="agent-office-panel-empty">
       <div class="agent-office-panel-title">办公室加载中</div>
@@ -80,6 +81,13 @@ export async function render() {
     const btn = e.target.closest('[data-office-detail]')
     if (!btn) return
     location.hash = `#/agent-detail?id=${encodeURIComponent(btn.dataset.officeDetail)}`
+  })
+
+  page.querySelector('#agent-office-activity').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-office-agent]')
+    if (!btn) return
+    state.selectedOfficeAgentId = btn.dataset.officeAgent
+    renderOffice(page, state)
   })
 
   return page
@@ -134,14 +142,18 @@ async function loadAgents(page, state) {
   const container = page.querySelector('#agents-list')
   renderSkeleton(container)
   try {
-    const [agents, config] = await Promise.all([
+    const [agents, config, activity] = await Promise.all([
       listAgentsCompat(),
       api.readOpenclawConfig().catch(() => null),
+      api.listAgentActivity().catch(() => null),
     ])
     state.agents = agents
     state.bindings = Array.isArray(config?.bindings) ? config.bindings : []
+    state.activities = Array.isArray(activity?.items) ? activity.items : []
     renderAgents(page, state)
     renderOffice(page, state)
+    renderActivityRail(page, state)
+    startActivityStream(page, state)
 
     // 只在第一次加载时绑定事件（避免重复绑定）
     if (!state.eventsAttached) {
@@ -154,9 +166,13 @@ async function loadAgents(page, state) {
   }
 }
 
+function activityForAgent(agent, state) {
+  return (state.activities || []).find(item => item.agentId === agent?.id) || null
+}
+
 function officeStateForAgent(agent, state) {
   if (!agent) return 'offline'
-  const explicit = agent.activity?.state
+  const explicit = activityForAgent(agent, state)?.state || agent.activity?.state
   if (explicit) return explicit
   if (agent.error || agent.status === 'error') return 'error'
   if (agent.status === 'blocked') return 'blocked'
@@ -167,10 +183,12 @@ function officeStateForAgent(agent, state) {
 function renderOffice(page, state) {
   const agents = state.agents.map(agent => {
     const bindingCount = (state.bindings || []).filter(b => (b.agentId || 'main') === agent.id).length
+    const activity = activityForAgent(agent, state)
     return {
       ...agent,
+      activity,
       officeState: officeStateForAgent(agent, state),
-      bindingCount,
+      bindingCount: activity?.bindingCount ?? bindingCount,
     }
   })
   if (!state.officeScene || !state.renderAgentOfficePanel) return
@@ -178,6 +196,58 @@ function renderOffice(page, state) {
   const selected = agents.find(a => a.id === state.selectedOfficeAgentId) || agents[0] || null
   state.selectedOfficeAgentId = selected?.id || null
   state.renderAgentOfficePanel(page.querySelector('#agent-office-panel'), selected)
+  renderActivityRail(page, state)
+}
+
+function startActivityStream(page, state) {
+  if (state.activityStreamStarted) return
+  state.activityStreamStarted = true
+  const controller = new AbortController()
+  state.activityStreamController = controller
+  const stopObserver = new MutationObserver(() => {
+    if (!document.body.contains(page)) {
+      controller.abort()
+      stopObserver.disconnect()
+    }
+  })
+  stopObserver.observe(document.body, { childList: true, subtree: true })
+
+  api.agentActivityStream?.((event) => {
+    if (event?.event !== 'agent_activity.snapshot') return
+    state.activities = Array.isArray(event.items) ? event.items : []
+    renderOffice(page, state)
+    renderActivityRail(page, state)
+  }, { signal: controller.signal }).catch(e => {
+    if (e?.name !== 'AbortError') console.warn('[agents] activity stream failed:', e)
+  })
+}
+
+function renderActivityRail(page, state) {
+  const el = page.querySelector('#agent-office-activity')
+  if (!el) return
+  const activities = state.activities || []
+  const counts = activities.reduce((acc, item) => {
+    const key = item.state || 'idle'
+    acc[key] = (acc[key] || 0) + 1
+    return acc
+  }, {})
+  const active = activities.filter(item => ['working', 'tool_call', 'thinking', 'blocked', 'error'].includes(item.state)).slice(0, 4)
+  el.innerHTML = `
+    <div class="agent-office-activity-stats">
+      <span><strong>${counts.working || 0}</strong> 工作中</span>
+      <span><strong>${counts.blocked || 0}</strong> 阻塞</span>
+      <span><strong>${counts.error || 0}</strong> 异常</span>
+      <span><strong>${counts.idle || 0}</strong> 空闲</span>
+    </div>
+    <div class="agent-office-activity-list">
+      ${active.length ? active.map(item => `
+        <button class="agent-office-activity-item" data-office-agent="${String(item.agentId).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">
+          <span>${String(item.agentId).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
+          <strong>${String(item.taskTitle || item.progressText || item.state).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</strong>
+        </button>
+      `).join('') : '<span class="agent-office-activity-empty">当前没有运行中的任务</span>'}
+    </div>
+  `
 }
 
 /** 为指定 agent 生成绑定渠道的 badge HTML */

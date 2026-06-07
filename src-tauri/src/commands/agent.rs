@@ -292,6 +292,38 @@ pub async fn list_agents() -> Result<Value, String> {
 }
 
 #[tauri::command]
+pub async fn list_agent_activity() -> Result<Value, String> {
+    let agents = list_agents().await?;
+    let now = chrono::Utc::now().timestamp_millis();
+    let items: Vec<Value> = agents
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|agent| {
+            let id = agent
+                .get("id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("main");
+            json!({
+                "agentId": id,
+                "state": "idle",
+                "taskTitle": "",
+                "progressText": "",
+                "toolName": null,
+                "source": null,
+                "sessionId": null,
+                "startedAt": null,
+                "updatedAt": now,
+                "error": null,
+                "bindingCount": 0,
+            })
+        })
+        .collect();
+    Ok(json!({ "items": items, "ts": now }))
+}
+
+#[tauri::command]
 pub async fn get_agent_detail(id: String) -> Result<Value, String> {
     let config = super::config::load_openclaw_json()?;
 

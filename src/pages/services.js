@@ -43,7 +43,11 @@ export async function render() {
       <div class="services-ops-column">
         <div id="version-bar"><div class="stat-card loading-placeholder" style="height:80px;margin-bottom:var(--space-lg)"></div></div>
         <div id="services-list"><div class="stat-card loading-placeholder" style="height:64px"></div></div>
-        ${isTauriRuntime() ? '' : `
+        ${isTauriRuntime() ? `
+        <div class="config-section" style="opacity:0.6">
+          <div class="config-section-title">${t('services.dockerManager')}</div>
+          <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.dockerManagerTauriHint') || 'Docker 管理在桌面端暂不可用，请使用 Web 模式访问'}</div>
+        </div>` : `
         <div class="config-section" id="docker-manager-section">
           <div class="config-section-title">${t('services.dockerManager')}</div>
           <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.dockerManagerHint')}</div>

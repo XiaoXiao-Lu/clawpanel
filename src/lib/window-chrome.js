@@ -1,5 +1,6 @@
 import { icon } from './icons.js'
 import { isTauriRuntime } from './tauri-api.js'
+import { t } from './i18n.js'
 
 let _windowChromeReady = false
 
@@ -29,13 +30,13 @@ export function initDesktopWindowChrome() {
     </div>
     <div class="desktop-titlebar-drag" data-tauri-drag-region></div>
     <div class="desktop-titlebar-actions">
-      <button class="desktop-window-btn" type="button" data-window-action="minimize" aria-label="Minimize" title="Minimize">
+      <button class="desktop-window-btn" type="button" data-window-action="minimize" aria-label="${t('common.minimize')}" title="${t('common.minimize')}">
         <span></span>
       </button>
-      <button class="desktop-window-btn" type="button" data-window-action="toggle-maximize" aria-label="Maximize" title="Maximize">
+      <button class="desktop-window-btn" type="button" data-window-action="toggle-maximize" aria-label="${t('common.maximize')}" title="${t('common.maximize')}">
         <i></i>
       </button>
-      <button class="desktop-window-btn desktop-window-btn-close" type="button" data-window-action="close" aria-label="Close" title="Close">
+      <button class="desktop-window-btn desktop-window-btn-close" type="button" data-window-action="close" aria-label="${t('common.close')}" title="${t('common.close')}">
         ${icon('x', 13)}
       </button>
     </div>

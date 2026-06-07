@@ -62,6 +62,32 @@
   --info-rgb:        8, 145, 178;
   --info-muted:      rgba(8, 145, 178, 0.08);
 
+  /* ─── 语法高亮 ─── */
+  --hl-keyword:      #c678dd;
+  --hl-string:       #98c379;
+  --hl-comment:      #5c6370;
+  --hl-number:       #d19a66;
+  --hl-func:         #61afef;
+  --hl-type:         #e5c07b;
+
+  /* ─── 导航图标色 ─── */
+  --nav-assistant:   #8b5cf6;
+  --nav-chat:        #ec4899;
+  --nav-route-map:   #10b981;
+  --nav-services:    #f59e0b;
+  --nav-logs:        #6b7280;
+  --nav-models:      #ef4444;
+  --nav-agents:      #6366f1;
+  --nav-gateway:     #06b6d4;
+  --nav-channels:    #22c55e;
+  --nav-memory:      #d97706;
+  --nav-dreaming:    #a855f7;
+  --nav-clock:       #14b8a6;
+  --nav-bar-chart:   #f97316;
+  --nav-skills:      #e11d48;
+  --nav-connectors:  #0ea5e9;
+  --nav-extensions:  #d946ef;
+
   /* ─── 阴影 ─── */
   --shadow-1:        0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.02);
   --shadow-sm:       var(--shadow-1);
@@ -140,6 +166,19 @@
   --sidebar-width: 220px;
   --sidebar-collapsed: 56px;
   --header-height: 52px;
+
+  /* ─── z-index 层级系统 ─── */
+  --z-base:       0;
+  --z-dropdown:   100;
+  --z-sticky:     200;
+  --z-drawer:     300;
+  --z-modal:      400;
+  --z-popover:    500;
+  --z-tooltip:    600;
+  --z-toast:      700;
+  --z-command:    800;
+  --z-overlay:    900;
+  --z-max:        1000;
 
   /* ─── 旧变量兼容 ─── */
   --accent: var(--brand);

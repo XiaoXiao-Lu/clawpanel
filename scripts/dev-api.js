@@ -843,6 +843,57 @@ function createTask(containerId, containerName, nodeId, message) {
   return task
 }
 
+function agentActivityStateFromTask(task) {
+  if (!task) return 'idle'
+  if (task.status === 'running') return 'working'
+  if (task.status === 'error') return 'error'
+  if (task.status === 'completed') return 'done'
+  return 'idle'
+}
+
+function summarizeTaskProgress(task) {
+  if (!task) return ''
+  const lastEvent = Array.isArray(task.events) ? task.events[task.events.length - 1] : null
+  if (task.error) return task.error
+  if (lastEvent?.data) return String(lastEvent.data).slice(0, 180)
+  if (lastEvent?.event) return String(lastEvent.event)
+  if (task.result) return '任务已完成'
+  return task.status === 'running' ? '任务执行中' : ''
+}
+
+function listAgentActivitySnapshot() {
+  const cfg = readOpenclawConfigOptional()
+  const agents = handlers.list_agents()
+  const bindings = Array.isArray(cfg.bindings) ? cfg.bindings : []
+  const tasks = [..._taskStore.values()].sort((a, b) => b.startedAt - a.startedAt)
+  const now = Date.now()
+
+  return agents.map(agent => {
+    const id = agent.id || 'main'
+    const agentBindings = bindings.filter(b => (b.agentId || 'main') === id)
+    const task = tasks.find(t =>
+      t.agentId === id ||
+      t.containerName === id ||
+      t.containerName === agent.identityName ||
+      String(t.message || '').includes(`agent:${id}`)
+    ) || null
+    const state = agentActivityStateFromTask(task)
+    return {
+      agentId: id,
+      state,
+      taskTitle: task?.message ? String(task.message).slice(0, 120) : '',
+      progressText: summarizeTaskProgress(task),
+      toolName: task?.events?.findLast?.(e => e?.tool)?.tool || null,
+      source: task?.containerName || agentBindings[0]?.match?.channel || null,
+      sessionId: task?.id || null,
+      startedAt: task?.startedAt || null,
+      updatedAt: task?.completedAt || task?.startedAt || now,
+      error: task?.error || null,
+      bindingCount: agentBindings.length,
+    }
+  })
+}
+
 // 语义化版本比较
 function parseVersion(value) {
   return String(value || '').split(/[^0-9]/).filter(Boolean).map(Number)
@@ -8245,6 +8296,7 @@ const ALWAYS_LOCAL = new Set([
   'auth_check', 'auth_login', 'auth_logout',
   'read_panel_config', 'write_panel_config',
   'get_deploy_mode', 'scan_model_client_configs', 'model_chat_completions_proxy', 'model_chat_completions_proxy_stream',
+  'list_agent_activity', 'agent_activity_stream',
   'assistant_exec', 'assistant_read_file', 'assistant_write_file',
   'assistant_list_dir', 'assistant_system_info', 'assistant_list_processes',
   'assistant_check_port', 'assistant_web_search', 'assistant_fetch_url',
@@ -9823,6 +9875,10 @@ const handlers = {
       elapsed: t.completedAt ? t.completedAt - t.startedAt : Date.now() - t.startedAt,
       hasResult: !!t.result,
     }))
+  },
+
+  list_agent_activity() {
+    return { items: listAgentActivitySnapshot(), ts: Date.now() }
   },
 
   async docker_init_worker({ nodeId, containerId, role = 'general' } = {}) {
@@ -15631,6 +15687,27 @@ async function _apiMiddleware(req, res, next) {
         res.end()
       }
     }
+    return
+  }
+
+  if (cmd === 'agent_activity_stream') {
+    res.statusCode = 200
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
+    res.setHeader('Cache-Control', 'no-cache, no-transform')
+    res.setHeader('Connection', 'keep-alive')
+    let closed = false
+    let timer = null
+    const writeSnapshot = () => {
+      if (closed || res.destroyed || res.writableEnded) return
+      res.write(JSON.stringify({ event: 'agent_activity.snapshot', items: listAgentActivitySnapshot(), ts: Date.now() }) + '\n')
+    }
+    req.on('close', () => {
+      closed = true
+      clearInterval(timer)
+      if (!res.writableEnded && !res.destroyed) res.end()
+    })
+    writeSnapshot()
+    timer = setInterval(writeSnapshot, 2000)
     return
   }
 

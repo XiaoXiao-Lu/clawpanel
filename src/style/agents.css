@@ -151,6 +151,83 @@
   margin-top: 16px;
 }
 
+.agent-office-activity {
+  display: grid;
+  grid-template-columns: 310px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+}
+
+.agent-office-activity-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.agent-office-activity-stats span {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  background: var(--bg-primary);
+}
+
+.agent-office-activity-stats strong {
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+}
+
+.agent-office-activity-list {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.agent-office-activity-item {
+  min-width: 180px;
+  max-width: 260px;
+  display: grid;
+  gap: 3px;
+  text-align: left;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.agent-office-activity-item:hover {
+  border-color: var(--border-focus);
+}
+
+.agent-office-activity-item span {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+.agent-office-activity-item strong {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-office-activity-empty {
+  display: flex;
+  align-items: center;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
 [data-theme="dark"] .agent-office-scene {
   background: #111827;
 }
@@ -377,6 +454,12 @@
   }
   .agent-office-scene {
     min-height: 320px;
+  }
+  .agent-office-activity {
+    grid-template-columns: 1fr;
+  }
+  .agent-office-activity-stats {
+    grid-template-columns: repeat(2, 1fr);
   }
   .agent-meta-grid {
     grid-template-columns: 1fr;

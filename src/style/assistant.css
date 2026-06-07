@@ -625,7 +625,7 @@
   border-radius: var(--radius-lg);
   background: var(--bg-secondary);
   box-shadow: var(--shadow-lg);
-  z-index: 200;
+  z-index: var(--z-dropdown);
 }
 
 .ast-model-menu::-webkit-scrollbar {
@@ -1036,7 +1036,7 @@
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
-  z-index: 100;
+  z-index: var(--z-dropdown);
   margin-top: 4px;
 }
 
@@ -1158,7 +1158,7 @@
   border-radius: var(--radius-lg);
   background: var(--bg-secondary);
   box-shadow: var(--shadow-lg);
-  z-index: 200;
+  z-index: var(--z-dropdown);
 }
 
 .ast-mode-selector.open .ast-mode-menu {
@@ -1267,7 +1267,7 @@
   top: 0; left: 0; right: 0;
   height: 120px;
   pointer-events: none;
-  z-index: 0;
+  z-index: var(--z-base);
   transition: opacity 0.5s ease;
   opacity: 0;
 }
@@ -1819,7 +1819,7 @@
   font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--accent);
-  z-index: 100;
+  z-index: var(--z-dropdown);
   pointer-events: none;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -1829,7 +1829,7 @@
 /* 右键调试菜单 */
 .ast-ctx-menu {
   position: fixed;
-  z-index: 99999;
+  z-index: var(--z-popover);
   min-width: 160px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
@@ -1864,7 +1864,7 @@
 .ast-debug-overlay {
   position: fixed;
   inset: 0;
-  z-index: 99999;
+  z-index: var(--z-popover);
   background: rgba(0,0,0,0.4);
   display: flex;
   align-items: center;
@@ -2071,7 +2071,7 @@
     position: fixed;
     left: 0;
     top: 0;
-    z-index: 850;
+    z-index: var(--z-drawer);
     height: 100vh;
     width: 240px;
     min-width: 240px;

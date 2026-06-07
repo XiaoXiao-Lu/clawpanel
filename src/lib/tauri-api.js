@@ -333,6 +333,8 @@ export const api = {
 
   // Agent 管理
   listAgents: () => cachedInvoke('list_agents'),
+  listAgentActivity: () => invoke('list_agent_activity'),
+  agentActivityStream: (onEvent, options) => isTauriRuntime() ? Promise.resolve() : webStreamInvoke('agent_activity_stream', {}, onEvent, options),
   getAgentDetail: (id) => cachedInvoke('get_agent_detail', { id }, 5000),
   listAgentFiles: (id) => cachedInvoke('list_agent_files', { id }, 5000),
   readAgentFile: (id, name) => invoke('read_agent_file', { id, name }),

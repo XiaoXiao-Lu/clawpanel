@@ -163,6 +163,7 @@ pub fn run() {
             extensions::install_clawapp,
             // Agent 管理
             agent::list_agents,
+            agent::list_agent_activity,
             agent::get_agent_detail,
             agent::list_agent_files,
             agent::read_agent_file,
