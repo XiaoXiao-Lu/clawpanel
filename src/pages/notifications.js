@@ -22,7 +22,7 @@ import {
 
 export async function render() {
   const page = document.createElement('div')
-  page.className = 'page'
+  page.className = 'page notifications-page'
   page.innerHTML = `
     <div class="page-header">
       <div>

@@ -14,6 +14,142 @@
 
 /* .page-title / .page-desc 统一定义在 layout.css */
 
+.cli-conflict-slot {
+  margin-bottom: var(--space-lg);
+}
+
+.cli-conflict-banner {
+  overflow: hidden;
+  background: color-mix(in srgb, var(--warning-muted) 72%, var(--surface-raised));
+  border: 1px solid color-mix(in srgb, var(--warning) 24%, var(--border-primary));
+  border-left: 3px solid var(--warning);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.cli-conflict-banner-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-md);
+  align-items: start;
+  padding: var(--space-md);
+}
+
+.cli-conflict-banner-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  color: var(--warning);
+  font-size: var(--font-size-md);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.cli-conflict-banner-text {
+  min-width: 0;
+}
+
+.cli-conflict-banner-title {
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.cli-conflict-banner-desc {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.65;
+}
+
+.cli-conflict-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.cli-conflict-banner-actions .btn {
+  min-height: 30px;
+}
+
+.cli-conflict-banner-body {
+  padding: 0 var(--space-md) var(--space-md) calc(var(--space-md) + 31px + var(--space-md));
+}
+
+.cli-conflict-list {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.cli-conflict-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-md);
+  align-items: center;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+}
+
+.cli-conflict-item-main {
+  min-width: 0;
+}
+
+.cli-conflict-item-source {
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.cli-conflict-item-version {
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+
+.cli-conflict-item-path {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.cli-conflict-item-meta,
+.cli-conflict-banner-foot {
+  margin-top: 4px;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .cli-conflict-banner-head,
+  .cli-conflict-item {
+    grid-template-columns: 1fr;
+  }
+
+  .cli-conflict-banner-icon {
+    display: none;
+  }
+
+  .cli-conflict-banner-actions {
+    justify-content: flex-start;
+  }
+
+  .cli-conflict-banner-body {
+    padding-left: var(--space-md);
+  }
+}
+
 .dashboard-command-center {
   min-height: 172px;
   margin-bottom: var(--space-lg);
@@ -498,11 +634,4 @@
 .log-level-badge--info { background: rgba(59,130,246,0.10); color: #3b82f6; border: 1px solid rgba(59,130,246,0.15); }
 .log-level-badge--debug { background: rgba(148,163,184,0.10); color: #94a3b8; border: 1px solid rgba(148,163,184,0.15); }
 .log-level-badge--trace { background: rgba(148,163,184,0.08); color: #94a3b8; border: 1px solid rgba(148,163,184,0.1); }
-
-/* ─── Notifications page inline styles ─── */
-.push-loading { padding: 32px; text-align: center; color: var(--text-tertiary); }
-.push-endpoint-hint { margin-top: var(--space-md); word-break: break-all; }
-.push-endpoint-code { display: inline-block; font-size: 11px; margin-left: 8px; color: var(--text-tertiary); }
-.push-actions { display: flex; gap: 12px; flex-wrap: wrap; }
-.push-hint { margin-top: var(--space-sm); }
 
