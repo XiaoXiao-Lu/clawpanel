@@ -61,7 +61,7 @@ pub fn auto_pair_device() -> Result<String, String> {
     // 添加设备到配对列表
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_millis() as u64;
 
     paired[&device_id] = serde_json::json!({

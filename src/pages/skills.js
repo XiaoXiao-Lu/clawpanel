@@ -647,7 +647,6 @@ export async function render() {
     agentSelect.addEventListener('change', () => {
       const val = agentSelect.value
       _selectedAgentId = (val === 'main') ? null : val
-      _storeIndex = null
       _installedNames = new Set()
       loadSkills(page)
     })
@@ -795,13 +794,29 @@ function renderSkills(el, data) {
   // 实时过滤
   const input = el.querySelector('#skill-filter-input')
   if (input) {
+    const filterEmptyEl = document.createElement('div')
+    filterEmptyEl.id = 'skills-filter-empty'
+    filterEmptyEl.style.cssText = 'display:none;padding:40px;text-align:center;color:var(--text-tertiary)'
+    el.querySelector('.skills-summary')?.after(filterEmptyEl)
+
     input.addEventListener('input', () => {
       const q = input.value.trim().toLowerCase()
+      let visibleCount = 0
       el.querySelectorAll('.skill-card-item').forEach(card => {
         const name = (card.dataset.name || '').toLowerCase()
         const desc = (card.dataset.desc || '').toLowerCase()
-        card.style.display = (!q || name.includes(q) || desc.includes(q)) ? '' : 'none'
+        const source = (card.dataset.source || '').toLowerCase()
+        const match = !q || name.includes(q) || desc.includes(q) || source.includes(q)
+        card.style.display = match ? '' : 'none'
+        if (match) visibleCount++
       })
+
+      if (q && visibleCount === 0) {
+        filterEmptyEl.textContent = t('skills.noResults')
+        filterEmptyEl.style.display = ''
+      } else {
+        filterEmptyEl.style.display = 'none'
+      }
     })
   }
 
@@ -853,7 +868,7 @@ function renderSkillCard(skill, status) {
   }
 
   return `
-    <div class="clawhub-item skill-card-item ${statusClassMap[status] || ''}" data-action="skill-info" data-preview-kind="installed" data-preview-key="${esc(name)}" data-name="${esc(name)}" data-desc="${esc(desc)}">
+    <div class="clawhub-item skill-card-item ${statusClassMap[status] || ''}" data-action="skill-info" data-preview-kind="installed" data-preview-key="${esc(name)}" data-name="${esc(name)}" data-desc="${esc(desc)}" data-source="${esc(source)}">
       ${renderSkillIcon(iconSource)}
       <div class="clawhub-item-main">
         <div class="clawhub-item-title">${esc(name)}</div>
@@ -1004,11 +1019,34 @@ async function handleStoreSearch(page) {
   const meta = page.querySelector('#skill-store-meta')
   if (!input || !results) return
   const q = input.value.trim()
-  if (!q && _storeIndex) {
-    if (meta) meta.innerHTML = `<span class="meta-dot"></span>${t('skills.featuredMeta', { count: _storeIndex.length })}`
-    renderStoreItems(results, _storeIndex)
+
+  // 有全量索引 → 本地过滤（更快，零网络延迟）
+  if (_storeIndex && _storeIndex.length) {
+    let items = _storeIndex
+    if (q) {
+      const lq = q.toLowerCase()
+      items = _storeIndex.filter(item => {
+        const name = storeItemName(item).toLowerCase()
+        const desc = storeItemDesc(item).toLowerCase()
+        const slug = (item.slug || '').toLowerCase()
+        const category = storeItemCategory(item).toLowerCase()
+        return name.includes(lq) || desc.includes(lq) || slug.includes(lq) || category.includes(lq)
+      })
+    }
+    if (meta) {
+      if (q && items.length === 0) {
+        meta.innerHTML = `<span class="meta-dot"></span>未找到匹配「${q}」的技能`
+      } else if (q) {
+        meta.innerHTML = `<span class="meta-dot"></span>本地匹配 ${items.length} 个技能（← 输入可实时过滤）`
+      } else {
+        meta.innerHTML = `<span class="meta-dot"></span>${t('skills.featuredMeta', { count: items.length })}`
+      }
+    }
+    renderStoreItems(results, items)
     return
   }
+
+  // 没有全量索引 → 回退远端 API 搜索
   if (!q) return
   results.innerHTML = skeletonHtml(4)
   if (meta) meta.innerHTML = '<span class="meta-dot"></span>' + t('skills.searching')
@@ -1117,17 +1155,16 @@ function bindEvents(page) {
       page.querySelectorAll('#skills-main-tabs .skills-tab-btn').forEach(t => t.classList.remove('active'))
       tab.classList.add('active')
       const key = tab.dataset.mainTab
-      page.querySelector('#skills-tab-installed').style.display = key === 'installed' ? '' : 'none'
-      page.querySelector('#skills-tab-store').style.display = key === 'store' ? '' : 'none'
+      const installedTab = page.querySelector('#skills-tab-installed')
+      const storeTab = page.querySelector('#skills-tab-store')
+      if (installedTab) installedTab.style.display = key === 'installed' ? '' : 'none'
+      if (storeTab) storeTab.style.display = key === 'store' ? '' : 'none'
       if (key === 'store') loadStore(page)
     }
   })
 
-  page.addEventListener('mouseover', (e) => handlePreviewEnter(page, e))
   page.addEventListener('pointerover', (e) => handlePreviewEnter(page, e))
-  page.addEventListener('mousemove', (e) => handlePreviewEnter(page, e))
 
-  page.addEventListener('mouseout', handlePreviewLeave)
   page.addEventListener('pointerout', handlePreviewLeave)
 
   page.addEventListener('scroll', () => hideSkillHoverPreview(0), true)
@@ -1193,4 +1230,17 @@ function bindEvents(page) {
       updateStoreSourceUi(page)
     }
   })
+}
+
+export function cleanup() {
+  clearTimeout(_hoverPreviewTimer)
+  _hoverPreviewEl?.remove()
+  _hoverPreviewEl = null
+  _hoverPreviewCard = null
+  _hoverPreviewTimer = null
+  _storeIndex = null
+  _storeItems = []
+  _installedNames = new Set()
+  _installedItems = new Map()
+  _storeIndexPromise = null
 }

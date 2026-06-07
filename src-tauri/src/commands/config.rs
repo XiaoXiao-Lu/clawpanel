@@ -3429,7 +3429,7 @@ async fn try_r2_install(
         )
     } else if use_tarball {
         // 其次通用 tarball（需要 npm install，仍有网络依赖）
-        let t = tarball.unwrap();
+        let t = tarball.ok_or("tarball 数据缺失")?;
         (
             t.get("url")
                 .and_then(|v| v.as_str())

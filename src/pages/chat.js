@@ -1342,6 +1342,12 @@ async function connectGateway() {
       }
       // 始终刷新会话列表（无论是否有 sessionKey）
       refreshSessionList()
+      // Gateway 就绪后：刷新模型列表并应用当前选中的模型
+      loadModelOptions().then(() => {
+        if (_selectedModel) {
+          applySelectedModel().catch(() => {})
+        }
+      })
     })
 
     _unsubEvent = wsClient.onEvent((msg) => {
@@ -1628,6 +1634,10 @@ async function switchSession(newKey, options = {}) {
   clearMessages()
   loadHistory()
   refreshSessionList()
+  // 切换会话后重新应用当前选中的模型，确保新会话使用正确的模型
+  if (wsClient.gatewayReady && _selectedModel) {
+    applySelectedModel().catch(() => {})
+  }
   return true
 }
 

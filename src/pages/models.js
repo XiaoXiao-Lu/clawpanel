@@ -9,7 +9,6 @@ import { showModal, showConfirm } from '../components/modal.js'
 import { icon, statusIcon } from '../lib/icons.js'
 import { API_TYPES, PROVIDER_PRESETS, QTCOOL, MODEL_PRESETS, fetchQtcoolModels } from '../lib/model-presets.js'
 import { t } from '../lib/i18n.js'
-import { scheduleGatewayRestart, fireRestartNow, cancelPendingRestart, onRestartState } from '../lib/gateway-restart-queue.js'
 import { termHelpHtml, attachTermTooltips } from '../lib/term-tooltip.js'
 import { createModelCombobox } from '../engines/hermes/lib/model-combobox.js'
 
@@ -100,7 +99,7 @@ async function loadConfig(page, state) {
     const normalizedModel = normalizeDefaultModelSelection(state.config)
     if (before !== after || normalizedModel.changed) {
       console.log('[models] 自动修复了模型配置,正在保存...')
-      await api.writeOpenclawConfig(state.config)
+      await api.writeOpenclawConfig(state.config, { noReload: true })
       if (oldPrimary !== normalizedModel.primary) toast(t('models.primaryAutoSwitch', { model: normalizedModel.primary || t('models.notConfigured') }), 'info')
       else if (before !== after) toast(t('models.autoFixUrl'), 'info')
     }
@@ -469,6 +468,7 @@ function renderConsole(page, state) {
         <div class="models-switch-actions">
           <button class="btn btn-sm btn-secondary" id="models-test-primary" title="${t('models.testPrimary')}">${icon('activity', 14)} ${t('models.testPrimary')}</button>
           <button class="btn btn-sm btn-secondary" id="models-locate-primary" title="${t('models.locateModel')}">${icon('map-pin', 14)} ${t('models.locateModel')}</button>
+          <button class="btn btn-sm btn-primary" id="models-apply-gateway" title="${t('models.applyGatewayHint')}">${icon('refresh-cw', 14)} ${t('models.applyGateway')}</button>
         </div>
       </div>
 
@@ -579,6 +579,11 @@ function renderConsole(page, state) {
       const current = getCurrentPrimary(state.config)
       if (current) locateModel(page, current)
     }
+  }
+
+  const applyGatewayBtn = container.querySelector('#models-apply-gateway')
+  if (applyGatewayBtn) {
+    applyGatewayBtn.onclick = () => applyGatewayConfig(applyGatewayBtn, state)
   }
 
   const toggleFbBtn = container.querySelector('#models-toggle-fallbacks')
@@ -1076,8 +1081,7 @@ async function undo(page, state) {
   toast(t('models.undone'), 'info')
 }
 
-// 自动保存（防抖 300ms）+ Gateway 重启队列（3s 防抖 + 单飞行锁）
-// 解决 issue #243 / #244 / #240：快速连续编辑不再触发多次重启
+// 自动保存（防抖 300ms）。模型页只写配置，不自动重启 Gateway，避免打断消息渠道。
 let _saveTimer = null
 let _batchTestAbort = null // 批量测试终止控制器
 
@@ -1088,7 +1092,6 @@ export function cleanup() {
   clearTimeout(_saveTimer)
   _saveTimer = null
   if (_batchTestAbort) { _batchTestAbort.abort = true; _batchTestAbort = null }
-  cancelPendingRestart()
   if (_globalPrimaryCombo) {
     _globalPrimaryCombo.destroy()
     _globalPrimaryCombo = null
@@ -1163,56 +1166,32 @@ async function doAutoSave(state) {
     if (primary) applyDefaultModel(state)
     normalizeProviderUrls(state.config)
     await api.writeOpenclawConfig(state.config, { noReload: true })
-
-    // ⚠ 只有 Gateway 已经在运行时才触发 restart 让配置生效。
-    // 如果 Gateway 没启动（首次安装 / 用户手动停了），盲目调 restart_gateway 会：
-    //   1) HTTP 重载失败（端口没人）→ fallback 到 restart_service 强制启动
-    //   2) Gateway 启动失败 → 触发后端 Guardian 自动跑 doctor --fix → 卡 30s
-    //   3) 用户看到的全是错误 toast，但**配置实际已经写入文件了**
-    // 改成：先 probe，运行才 schedule restart；没运行就静默告诉用户"已保存"。
-    const gwRunning = await api.probeGatewayPort().catch(() => false)
-    if (gwRunning) {
-      // 配置已写入。使用 3s 防抖 + 单飞行锁排队重启，避免快速连续编辑触发多次重启。
-      showRestartPendingToast()
-      scheduleGatewayRestart({ reason: 'models-page' })
-    } else {
-      toast(t('models.configSavedGwNotRunning'), 'info', { duration: 4000 })
-    }
   } catch (e) {
     toast(humanizeError(e, t('models.autoSaveFailed')), 'error')
   }
 }
 
-function showRestartPendingToast() {
-  const applyNow = document.createElement('button')
-  applyNow.className = 'btn btn-sm btn-primary'
-  applyNow.textContent = t('models.applyNow')
-  applyNow.style.marginLeft = '8px'
-  applyNow.onclick = () => fireRestartNow()
-  toast(t('models.configQueued'), 'info', { action: applyNow, duration: 3500 })
-}
-
-/**
- * 处理重启队列事件并展示 toast。监听在模块级别，全生命周期生效。
- * - succeeded → 成功提示
- * - failed    → 失败提示 + 重试按钮
- */
-function handleRestartState(ev) {
-  if (ev.event === 'succeeded') {
+async function applyGatewayConfig(btn, state) {
+  const previousText = btn?.innerHTML
+  try {
+    if (btn) {
+      btn.disabled = true
+      btn.innerHTML = `${icon('refresh-cw', 14)} ${t('models.restarting')}`
+    }
+    clearTimeout(_saveTimer)
+    _saveTimer = null
+    await doAutoSave(state)
+    toast(t('models.configSavedRestarting'), 'info', { duration: 2500 })
+    await api.reloadGateway()
     toast(t('models.configEffective'), 'success')
-  } else if (ev.event === 'failed') {
-    const retryBtn = document.createElement('button')
-    retryBtn.className = 'btn btn-sm btn-primary'
-    retryBtn.textContent = t('models.retryRestart')
-    retryBtn.style.marginLeft = '8px'
-    retryBtn.onclick = () => scheduleGatewayRestart({ delay: 0, reason: 'retry' })
-    toast(t('models.configSavedGwFailed') + ': ' + ev.error, 'warning', { action: retryBtn, duration: 6000 })
+  } catch (e) {
+    toast(humanizeError(e, t('models.configSavedGwFailed')), 'warning', { duration: 6000 })
+  } finally {
+    if (btn) {
+      btn.disabled = false
+      btn.innerHTML = previousText
+    }
   }
-}
-
-let _restartStateOff = null
-if (typeof window !== 'undefined' && !_restartStateOff) {
-  _restartStateOff = onRestartState(handleRestartState)
 }
 
 // 更新撤销按钮状态

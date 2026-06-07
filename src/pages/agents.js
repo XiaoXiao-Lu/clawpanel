@@ -57,32 +57,32 @@ export async function render() {
         <div class="agent-office-head">
           <div>
             <div class="agent-office-eyebrow">Agent digital office</div>
-            <h2 class="agent-office-title">办公室监控</h2>
+            <h2 class="agent-office-title">${t('agents.officeTitle')}</h2>
           </div>
           <div class="agent-office-legend">
-            <span><i class="is-idle"></i>空闲</span>
-            <span><i class="is-working"></i>工作中</span>
-            <span><i class="is-blocked"></i>阻塞</span>
-            <span><i class="is-error"></i>异常</span>
+            <span><i class="is-idle"></i>${t('agents.officeLegendIdle')}</span>
+            <span><i class="is-working"></i>${t('agents.officeLegendWorking')}</span>
+            <span><i class="is-blocked"></i>${t('agents.officeLegendBlocked')}</span>
+            <span><i class="is-error"></i>${t('agents.officeLegendError')}</span>
           </div>
           <div class="agent-office-actions">
-            <div class="agent-office-view-tabs" aria-label="办公室视角">
-              <button class="btn btn-sm btn-secondary is-active" data-office-view="overview">全景</button>
-              <button class="btn btn-sm btn-secondary" data-office-view="work">工位</button>
-              <button class="btn btn-sm btn-secondary" data-office-view="lounge">休息区</button>
+            <div class="agent-office-view-tabs" aria-label="${t('agents.officeViewLabel')}">
+              <button class="btn btn-sm btn-secondary is-active" data-office-view="overview">${t('agents.officeViewOverview')}</button>
+              <button class="btn btn-sm btn-secondary" data-office-view="work">${t('agents.officeViewWork')}</button>
+              <button class="btn btn-sm btn-secondary" data-office-view="lounge">${t('agents.officeViewLounge')}</button>
             </div>
-            <button class="btn btn-sm btn-secondary" id="agent-office-focus">专注视图</button>
-            ${SHOW_OFFICE_DEMO ? '<button class="btn btn-sm btn-secondary" id="agent-office-demo">演示动态</button>' : ''}
+            <button class="btn btn-sm btn-secondary" id="agent-office-focus">${t('agents.officeFocus')}</button>
+            ${SHOW_OFFICE_DEMO ? `<button class="btn btn-sm btn-secondary" id="agent-office-demo">${t('agents.officeDemo')}</button>` : ''}
             ${SHOW_OFFICE_STRESS ? `
-              <label class="agent-office-stress-control" title="开发压测只影响当前 3D 可视化，不会写入 Agent 配置">
-                <span>压测</span>
-                <select id="agent-office-stress-size" aria-label="压测 Agent 数量">
+              <label class="agent-office-stress-control" title="${t('agents.officeStressDesc')}">
+                <span>${t('agents.officeStress')}</span>
+                <select id="agent-office-stress-size" aria-label="${t('agents.officeStressLabel')}">
                   <option value="30">30</option>
                   <option value="60" selected>60</option>
                   <option value="100">100</option>
                 </select>
               </label>
-              <button class="btn btn-sm btn-secondary" id="agent-office-stress">开始压测</button>
+              <button class="btn btn-sm btn-secondary" id="agent-office-stress">${t('agents.officeStressStart')}</button>
             ` : ''}
           </div>
         </div>
@@ -119,8 +119,8 @@ export async function render() {
   }
   page.querySelector('#agent-office-panel').innerHTML = `
     <div class="agent-office-panel-empty">
-      <div class="agent-office-panel-title">办公室加载中</div>
-      <div class="agent-office-panel-desc">正在准备 3D Agent 办公室视图。</div>
+      <div class="agent-office-panel-title">${t('agents.officeLoading')}</div>
+      <div class="agent-office-panel-desc">${t('agents.officeLoadingDesc')}</div>
     </div>
   `
   initOfficeScene(page, state)
@@ -243,14 +243,14 @@ async function initOfficeScene(page, state) {
     state.officeSceneFallback = true
     page.querySelector('#agent-office-panel').innerHTML = `
       <div class="agent-office-panel-empty">
-        <div class="agent-office-panel-title">办公室加载失败</div>
+        <div class="agent-office-panel-title">${t('agents.officeLoadFailed')}</div>
         <div class="agent-office-panel-desc">${escHtml(e)}</div>
       </div>
     `
     page.querySelector('#agent-office-scene').innerHTML = `
       <div class="agent-office-fallback">
         <div class="agent-office-fallback-title">2D 监控视图</div>
-        <div class="agent-office-fallback-desc">3D 办公室初始化失败，已切换到低负载状态板。</div>
+        <div class="agent-office-fallback-desc">${t('agents.officeFallbackDesc')}</div>
         <div class="agent-office-fallback-grid"></div>
       </div>
     `
@@ -382,11 +382,11 @@ function renderOfficeSummary(page, state) {
   const idle = counts.idle || Math.max(0, agents.length - working - blocked - error)
   const metrics = state.officeMetrics || {}
   const flowText = state.officeStress
-    ? '压测数据'
+    ? t('agents.officeDataStress')
     : state.officeDemo
-      ? '演示数据'
+      ? t('agents.officeDataDemo')
       : state.activityStreamStatus === 'failed'
-        ? '活动流异常'
+        ? t('agents.officeFlowError')
         : state.activityStreamStatus === 'connected'
           ? `活动流 ${formatShortTime(state.activityUpdatedAt)}`
           : '活动流启动中'
@@ -400,15 +400,15 @@ function renderOfficeSummary(page, state) {
       <strong>${working}</strong>
     </div>
     <div class="agent-office-summary-item is-blocked">
-      <span>阻塞</span>
+      <span>${t('agents.stateBlocked')}</span>
       <strong>${blocked}</strong>
     </div>
     <div class="agent-office-summary-item is-error">
-      <span>异常</span>
+      <span>${t('agents.stateError')}</span>
       <strong>${error}</strong>
     </div>
     <div class="agent-office-summary-item is-idle">
-      <span>空闲</span>
+      <span>${t('agents.stateIdle')}</span>
       <strong>${idle}</strong>
     </div>
     <div class="agent-office-summary-item is-perf">
@@ -492,14 +492,14 @@ function formatAssetLabel(metrics = {}) {
 
 function stateLabel(state) {
   const map = {
-    idle: '空闲',
+    idle: t('agents.stateIdle'),
     queued: '排队',
     walking: '移动中',
-    working: '工作中',
+    working: t('agents.stateWorking'),
     tool_call: '调用工具',
     thinking: '思考中',
-    blocked: '阻塞',
-    error: '异常',
+    blocked: t('agents.stateBlocked'),
+    error: t('agents.stateError'),
     done: '完成',
     offline: '离线',
   }
@@ -554,7 +554,7 @@ function toggleOfficeFocus(page, state) {
   page.classList.toggle('agents-page--office-focus', state.officeFocus)
   const btn = page.querySelector('#agent-office-focus')
   if (btn) {
-    btn.textContent = state.officeFocus ? '退出专注' : '专注视图'
+    btn.textContent = state.officeFocus ? t('agents.officeFocusExit') : t('agents.officeFocus')
     btn.classList.toggle('btn-primary', state.officeFocus)
     btn.classList.toggle('btn-secondary', !state.officeFocus)
   }
@@ -578,9 +578,9 @@ function demoActivityForAgent(agent, state) {
   const offset = (index + phase) % 6
   const states = ['idle', 'walking', 'working', 'thinking', 'tool_call', 'blocked']
   const current = states[offset] || 'idle'
-  if (current === 'idle') return { agentId: agent.id, state: 'idle', progressText: '休息区待命', updatedAt: Date.now() }
+  if (current === 'idle') return { agentId: agent.id, state: 'idle', progressText: t('agents.progressIdle'), updatedAt: Date.now() }
   const labels = {
-    walking: '走向工位',
+    walking: t('agents.progressWalking'),
     working: '处理渠道消息',
     thinking: '分析上下文',
     tool_call: '调用工具',
@@ -590,7 +590,7 @@ function demoActivityForAgent(agent, state) {
     agentId: agent.id,
     state: current,
     taskTitle: labels[current],
-    progressText: current === 'blocked' ? '需要检查输入或权限' : '演示动态，不影响真实任务',
+    progressText: current === 'blocked' ? t('agents.progressBlocked') : t('agents.progressDemo'),
     toolName: current === 'tool_call' ? 'workspace.read' : '',
     source: 'demo',
     updatedAt: Date.now(),
@@ -603,7 +603,7 @@ function toggleOfficeDemo(page, state) {
   state.officeDemoStartedAt = Date.now()
   const btn = page.querySelector('#agent-office-demo')
   if (btn) {
-    btn.textContent = state.officeDemo ? '关闭演示' : '演示动态'
+    btn.textContent = state.officeDemo ? t('agents.officeDemoClose') : t('agents.officeDemo')
     btn.classList.toggle('btn-primary', state.officeDemo)
     btn.classList.toggle('btn-secondary', !state.officeDemo)
   }
@@ -675,7 +675,7 @@ function toggleOfficeStress(page, state) {
   if (state.officeStress) state.officeStressAgents = createStressAgents(state.agents, size)
   const btn = page.querySelector('#agent-office-stress')
   if (btn) {
-    btn.textContent = state.officeStress ? '关闭压测' : '开始压测'
+    btn.textContent = state.officeStress ? t('agents.officeStressEnd') : t('agents.officeStressStart')
     btn.classList.toggle('btn-primary', state.officeStress)
     btn.classList.toggle('btn-secondary', !state.officeStress)
   }

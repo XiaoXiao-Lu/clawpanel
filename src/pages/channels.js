@@ -1053,7 +1053,7 @@ function renderRuntimeNotice(state) {
     return `
       <div class="channel-runtime-notice warning">
         ${icon('alert-triangle', 14)}
-        <span>当前 OpenClaw 内核不支持通用渠道运行态，请升级到新版内核；配置编辑仍可继续使用。</span>
+        <span>${t('channels.runtimeUnsupported')}</span>
       </div>
     `
   }
@@ -1112,16 +1112,16 @@ function renderRuntimeAccountInfo(summary, accountId) {
 
 function renderRuntimeActions(summary, accountId = '') {
   if (!summary.supported) {
-    return `<button class="btn btn-sm btn-secondary" data-runtime-action="refresh">${icon('refresh-cw', 14)} 刷新状态</button>`
+    return `<button class="btn btn-sm btn-secondary" data-runtime-action="refresh">${icon('refresh-cw', 14)} ${t('channels.runtimeRefresh')}</button>`
   }
   const accountAttr = escapeAttr(accountId || '')
   const stopDisabled = summary.state === 'missing' || summary.state === 'configured'
   const logoutDisabled = summary.state === 'missing'
   return `
-    <button class="btn btn-sm btn-secondary" data-runtime-action="refresh" data-account-id="${accountAttr}" title="刷新 Gateway 渠道状态">${icon('refresh-cw', 14)} 刷新</button>
-    <button class="btn btn-sm btn-secondary" data-runtime-action="start" data-account-id="${accountAttr}" title="启动该渠道运行时">${icon('play', 14)} 启动</button>
-    <button class="btn btn-sm btn-secondary" data-runtime-action="stop" data-account-id="${accountAttr}" ${stopDisabled ? 'disabled' : ''} title="停止该渠道运行时">${icon('stop', 14)} 停止</button>
-    <button class="btn btn-sm btn-secondary" data-runtime-action="logout" data-account-id="${accountAttr}" ${logoutDisabled ? 'disabled' : ''} title="注销该渠道账号登录态">${icon('x-circle', 14)} 注销</button>
+    <button class="btn btn-sm btn-secondary" data-runtime-action="refresh" data-account-id="${accountAttr}" title="${t('channels.runtimeRefreshTitle')}">${icon('refresh-cw', 14)} ${t('channels.runtimeRefreshShort')}</button>
+    <button class="btn btn-sm btn-secondary" data-runtime-action="start" data-account-id="${accountAttr}" title="${t('channels.runtimeStartTitle')}">${icon('play', 14)} ${t('channels.runtimeStart')}</button>
+    <button class="btn btn-sm btn-secondary" data-runtime-action="stop" data-account-id="${accountAttr}" ${stopDisabled ? 'disabled' : ''} title="${t('channels.runtimeStopTitle')}">${icon('stop', 14)} ${t('channels.runtimeStop')}</button>
+    <button class="btn btn-sm btn-secondary" data-runtime-action="logout" data-account-id="${accountAttr}" ${logoutDisabled ? 'disabled' : ''} title="${t('channels.runtimeLogoutTitle')}">${icon('x-circle', 14)} ${t('channels.runtimeLogout')}</button>
   `
 }
 
@@ -1130,18 +1130,18 @@ async function handleRuntimeAction(pid, action, accountId, btn, page, state) {
   const prevHtml = btn?.innerHTML
   if (btn) {
     btn.disabled = true
-    btn.textContent = action === 'refresh' ? '刷新中' : '处理中'
+    btn.textContent = action === 'refresh' ? t('channels.runtimeRefreshing') : t('channels.runtimeProcessing')
   }
   try {
     if (action === 'refresh') {
       await loadChannelRuntimeStatus(state, { probe: true, timeoutMs: 7000 })
       renderConfigured(page, state)
-      toast('渠道运行态已刷新', 'success')
+      toast(t('channels.runtimeRefreshed'), 'success')
       return
     }
 
     if (!wsClient.connected || !wsClient.gatewayReady) {
-      throw new Error('Gateway WebSocket 未连接，请先启动 OpenClaw Gateway')
+      throw new Error(t('channels.runtimeGatewayNotReady'))
     }
 
     const params = { channel }
