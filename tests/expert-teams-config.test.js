@@ -77,6 +77,9 @@ test('Expert Teams page supports expert editing and team member selection', () =
     'expert-communication-note',
     'expert-run-panel',
     'data-action="run-team"',
+    'data-action="stop-run"',
+    'expert-run-meta',
+    'runAbortController',
     'runExpertTeam',
   ]) {
     assert.match(page, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
@@ -93,6 +96,8 @@ test('Expert Teams runner defines structured expert communication', () => {
     'Moderator protocol',
     'api.modelChatCompletionsProxy',
     'resolveDefaultModelSlot',
+    'resolveMaxParallel',
+    'maxParallel',
   ]) {
     assert.match(runner, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }

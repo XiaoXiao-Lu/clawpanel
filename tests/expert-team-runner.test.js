@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildExpertMessages, buildExpertTeamPlan, buildModeratorMessages, resolveDefaultModelSlot, resolveMembers } from '../src/lib/expert-team-runner.js'
+import { buildExpertMessages, buildExpertTeamPlan, buildModeratorMessages, resolveDefaultModelSlot, resolveMaxParallel, resolveMembers } from '../src/lib/expert-team-runner.js'
 
 const experts = [
   { id: 'planner', name: 'Planner', title: 'Product Planner', enabled: true, systemPrompt: 'Plan product work.' },
@@ -77,4 +77,11 @@ test('default OpenClaw model slot resolves provider and primary model', () => {
 
 test('resolveMembers skips missing and disabled experts', () => {
   assert.deepEqual(resolveMembers(group, experts).map(expert => expert.id), ['planner', 'reviewer'])
+})
+
+test('resolveMaxParallel clamps unsafe team settings', () => {
+  assert.equal(resolveMaxParallel({ maxParallel: 3 }), 3)
+  assert.equal(resolveMaxParallel({ maxParallel: 0 }), 1)
+  assert.equal(resolveMaxParallel({ maxParallel: 99 }), 8)
+  assert.equal(resolveMaxParallel({}), 1)
 })

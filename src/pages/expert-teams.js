@@ -89,6 +89,8 @@ export async function render() {
     runBusy: false,
     runEvents: [],
     runFinal: null,
+    runPlan: null,
+    runAbortController: null,
     loading: true,
   }
 
@@ -132,6 +134,7 @@ function bindEvents(page, state) {
     else if (action === 'save') await saveCurrent(page, state)
     else if (action === 'delete') await deleteCurrent(page, state)
     else if (action === 'run-team') await runCurrentTeam(page, state)
+    else if (action === 'stop-run') stopCurrentRun(state)
   })
 
   page.addEventListener('input', (e) => {
@@ -374,17 +377,33 @@ function renderRunPanel(group, state) {
           <h3>${t('expertTeams.runTitle')}</h3>
           <p>${t('expertTeams.runDesc')}</p>
         </div>
-        <button class="btn btn-sm btn-primary" type="button" data-action="run-team" ${canRun ? '' : 'disabled'}>
-          ${state.runBusy ? icon('loader-2', 14) : icon('play', 14)} ${state.runBusy ? t('expertTeams.running') : t('expertTeams.run')}
-        </button>
+        <div class="expert-run-actions">
+          ${state.runBusy ? `<button class="btn btn-sm btn-secondary" type="button" data-action="stop-run">${icon('square', 14)} ${t('expertTeams.stopRun')}</button>` : ''}
+          <button class="btn btn-sm btn-primary" type="button" data-action="run-team" ${canRun ? '' : 'disabled'}>
+            ${state.runBusy ? icon('loader-2', 14) : icon('play', 14)} ${state.runBusy ? t('expertTeams.running') : t('expertTeams.run')}
+          </button>
+        </div>
       </div>
       <textarea class="form-input expert-textarea expert-run-task" id="expert-team-task" rows="5" placeholder="${escapeAttr(t('expertTeams.taskPlaceholder'))}" ${state.runBusy ? 'disabled' : ''}>${escapeHtml(state.runTask || '')}</textarea>
+      ${renderRunMeta(state)}
       ${state.draftGroup ? `<div class="form-hint">${t('expertTeams.saveBeforeRun')}</div>` : ''}
       ${!memberCount ? `<div class="form-hint">${t('expertTeams.selectMembersBeforeRun')}</div>` : ''}
       <div class="expert-run-transcript" id="expert-run-transcript">
         ${renderRunTranscript(state)}
       </div>
     </section>
+  `
+}
+
+function renderRunMeta(state) {
+  const plan = state.runPlan
+  if (!plan) return ''
+  return `
+    <div class="expert-run-meta">
+      <span>${icon('users', 13)} ${t('expertTeams.runMembers', { count: plan.members?.length || 0 })}</span>
+      <span>${icon('network', 13)} ${escapeHtml(plan.model?.provider || '-')}/${escapeHtml(plan.model?.model || '-')}</span>
+      <span>${icon('git-branch', 13)} ${t('expertTeams.runParallel', { count: plan.maxParallel || 1 })}</span>
+    </div>
   `
 }
 
@@ -401,6 +420,8 @@ function renderRunTranscript(state) {
       rows.push(renderRunEvent(event.message?.expertName || event.message?.expertId || t('expertTeams.expert'), event.message?.content || '', 'expert'))
     } else if (event.type === 'moderator_start') {
       rows.push(renderRunEvent(t('expertTeams.moderatorSynthesizing'), '', 'pending'))
+    } else if (event.type === 'stopped') {
+      rows.push(renderRunEvent(t('expertTeams.runStopped'), event.message || '', 'stopped'))
     } else if (event.type === 'error') {
       rows.push(renderRunEvent(t('common.error'), event.message || '', 'error'))
     }
@@ -668,15 +689,20 @@ async function runCurrentTeam(page, state) {
   state.runBusy = true
   state.runEvents = []
   state.runFinal = null
+  state.runPlan = null
+  state.runAbortController = new AbortController()
   renderEditor(page, state)
   try {
     const result = await runExpertTeam({
       group,
       experts: state.experts,
       task: state.runTask,
+      signal: state.runAbortController.signal,
       onEvent: (event) => {
         if (event.type === 'done') {
           state.runFinal = event.final || null
+        } else if (event.type === 'start') {
+          state.runPlan = event.plan || null
         } else if (event.type !== 'start') {
           state.runEvents.push(event)
         }
@@ -686,12 +712,22 @@ async function runCurrentTeam(page, state) {
     state.runFinal = result.final || state.runFinal
     toast(t('expertTeams.runSuccess'), 'success')
   } catch (e) {
-    state.runEvents.push({ type: 'error', message: humanizeError(e, t('expertTeams.runFailed')) })
-    toast(humanizeError(e, t('expertTeams.runFailed')), 'error')
+    if (e?.name === 'AbortError') {
+      state.runEvents.push({ type: 'stopped', message: t('expertTeams.runStoppedDesc') })
+      toast(t('expertTeams.runStopped'), 'info')
+    } else {
+      state.runEvents.push({ type: 'error', message: humanizeError(e, t('expertTeams.runFailed')) })
+      toast(humanizeError(e, t('expertTeams.runFailed')), 'error')
+    }
   } finally {
     state.runBusy = false
+    state.runAbortController = null
     renderEditor(page, state)
   }
+}
+
+function stopCurrentRun(state) {
+  state.runAbortController?.abort()
 }
 
 function renderRunPanelOnly(page, state) {

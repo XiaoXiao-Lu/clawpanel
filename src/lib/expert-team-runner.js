@@ -18,33 +18,44 @@ export function buildExpertTeamPlan({ group, experts, task }) {
   }
 }
 
-export async function runExpertTeam({ group, experts, task, onEvent } = {}) {
+export async function runExpertTeam({ group, experts, task, onEvent, signal } = {}) {
   const config = await api.readOpenclawConfig()
   const slot = resolveDefaultModelSlot(config)
   const plan = buildExpertTeamPlan({ group, experts, task })
   emit(onEvent, { type: 'start', plan: summarizePlan(plan, slot) })
 
   const contributions = []
-  for (const expert of plan.members) {
-    emit(onEvent, { type: 'expert_start', expertId: expert.id, expertName: expert.name || expert.id })
-    const messages = buildExpertMessages({ plan, expert, previous: contributions })
-    const content = await callChatModel(slot, messages, { maxTokens: 1800 })
-    const contribution = {
-      id: `msg-${contributions.length + 1}`,
-      role: 'expert',
-      expertId: expert.id,
-      expertName: expert.name || expert.id,
-      content,
-      createdAt: new Date().toISOString(),
+  for (const batch of chunk(plan.members, resolveMaxParallel(plan.group))) {
+    throwIfAborted(signal)
+    const previous = contributions.slice()
+    for (const expert of batch) {
+      emit(onEvent, { type: 'expert_start', expertId: expert.id, expertName: expert.name || expert.id })
     }
-    contributions.push(contribution)
-    plan.blackboard.push(contribution)
-    emit(onEvent, { type: 'expert_done', message: contribution })
+    const batchResults = await Promise.all(batch.map(async (expert) => {
+      const messages = buildExpertMessages({ plan, expert, previous })
+      const content = await callChatModel(slot, messages, { maxTokens: 1800 })
+      throwIfAborted(signal)
+      return {
+        role: 'expert',
+        expertId: expert.id,
+        expertName: expert.name || expert.id,
+        content,
+        createdAt: new Date().toISOString(),
+      }
+    }))
+    for (const contribution of batchResults) {
+      contribution.id = `msg-${contributions.length + 1}`
+      contributions.push(contribution)
+      plan.blackboard.push(contribution)
+      emit(onEvent, { type: 'expert_done', message: contribution })
+    }
   }
 
+  throwIfAborted(signal)
   emit(onEvent, { type: 'moderator_start', expertId: plan.moderator?.id || '' })
   const finalMessages = buildModeratorMessages({ plan, contributions })
   const final = await callChatModel(slot, finalMessages, { maxTokens: 2600 })
+  throwIfAborted(signal)
   const finalMessage = {
     id: `msg-${contributions.length + 1}`,
     role: 'moderator',
@@ -107,6 +118,12 @@ export function resolveMembers(group = {}, experts = []) {
     .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
     .map(member => byId.get(member.expertId))
     .filter(expert => expert && expert.enabled !== false)
+}
+
+export function resolveMaxParallel(group = {}) {
+  const parsed = Number.parseInt(group.maxParallel, 10)
+  if (!Number.isFinite(parsed)) return 1
+  return Math.max(1, Math.min(parsed, 8))
 }
 
 function resolveModerator(group = {}, members = []) {
@@ -197,6 +214,7 @@ function summarizePlan(plan, slot) {
     groupId: plan.group.id || '',
     groupName: plan.group.name || '',
     mode: plan.group.mode || 'panel',
+    maxParallel: resolveMaxParallel(plan.group),
     members: plan.members.map(expert => ({ id: expert.id, name: expert.name || expert.id, title: expert.title || '' })),
     moderator: plan.moderator ? { id: plan.moderator.id, name: plan.moderator.name || plan.moderator.id } : null,
     model: { provider: slot.provider, model: slot.model, apiType: slot.apiType },
@@ -227,4 +245,15 @@ function cleanBaseUrl(raw) {
 
 function emit(onEvent, event) {
   if (typeof onEvent === 'function') onEvent(event)
+}
+
+function chunk(items, size) {
+  const batches = []
+  for (let i = 0; i < items.length; i += size) batches.push(items.slice(i, i + size))
+  return batches
+}
+
+function throwIfAborted(signal) {
+  if (!signal?.aborted) return
+  throw new DOMException('Expert team run stopped', 'AbortError')
 }
