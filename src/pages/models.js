@@ -855,6 +855,15 @@ export function cleanupDeletedProviderReferences(state, providerKey) {
   removeModelReferences(state, full => full.startsWith(prefix))
 }
 
+// 替换模型引用（编辑模型 ID 后更新 primary/fallbacks 中的旧引用）
+function replaceModelReferences(state, oldFull, newFull) {
+  const modelConfig = ensureDefaultModelConfig(state)
+  if (modelConfig.primary === oldFull) {
+    modelConfig.primary = newFull
+  }
+  modelConfig.fallbacks = (modelConfig.fallbacks || []).map(f => f === oldFull ? newFull : f)
+}
+
 // 排序模型列表
 function sortModels(models, sortBy) {
   if (!sortBy || sortBy === 'default') return models
@@ -954,6 +963,7 @@ function renderProviders(page, state) {
             <button class="btn btn-sm btn-secondary" data-action="fetch-models" title="${esc(t('models.fetchModels'))}">↻</button>
             <button class="btn btn-sm btn-secondary" data-action="add-model" title="${esc(t('models.addModel'))}">+</button>
             <button class="btn btn-sm btn-secondary" data-action="edit-provider" title="${esc(t('models.editProvider'))}">···</button>
+            <button class="btn btn-sm btn-danger" data-action="delete-provider" title="${esc(t('models.deleteProvider'))}">${icon('trash', 12)}</button>
           </div>
         </div>
         <div class="provider-card__body" style="${collapsed ? 'display:none' : ''}">
@@ -2045,10 +2055,17 @@ function editModel(page, state, providerKey, idx) {
     onConfirm: (vals) => {
       if (!vals.id) return
       pushUndo(state)
+      const oldId = m.id
       m.id = vals.id.trim()
       m.name = vals.name?.trim() || vals.id.trim()
       m.reasoning = !!vals.reasoning
       if (vals.contextWindow) m.contextWindow = parseInt(vals.contextWindow) || 0
+      // 如果模型 ID 发生变化，更新 primary/fallbacks 中的旧引用
+      if (oldId && oldId !== m.id) {
+        const oldFull = `${providerKey}/${oldId}`
+        const newFull = `${providerKey}/${m.id}`
+        replaceModelReferences(state, oldFull, newFull)
+      }
       renderProviders(page, state)
       renderDefaultBar(page, state)
       updateUndoBtn(page, state)
@@ -2070,7 +2087,7 @@ function handleSelectAll(section) {
 
 // 批量删除选中的模型
 async function handleBatchDelete(section, page, state, providerKey) {
-  const checked = [...section.querySelectorAll('.model-checkbox:checked')]
+  const checked = [...section.querySelectorAll('.model-item__cb:checked')]
   if (!checked.length) { toast(t('models.batchSelectHint'), 'warning'); return }
   const ids = checked.map(cb => cb.dataset.modelId)
   const yes = await showConfirm({
@@ -2108,7 +2125,7 @@ async function handleBatchTest(section, state, providerKey) {
   }
 
   const provider = state.config.models.providers[providerKey]
-  const checked = [...section.querySelectorAll('.model-checkbox:checked')]
+  const checked = [...section.querySelectorAll('.model-item__cb:checked')]
   const ids = checked.length
     ? checked.map(cb => cb.dataset.modelId)
     : (provider.models || []).map(m => typeof m === 'string' ? m : m.id)
