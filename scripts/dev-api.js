@@ -2304,6 +2304,86 @@ function writeOpenclawConfigFile(config) {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(cleaned, null, 2))
 }
 
+function panelStateDir() {
+  return path.join(OPENCLAW_DIR, 'clawpanel')
+}
+
+function expertProfilesPath() {
+  return path.join(panelStateDir(), 'experts.json')
+}
+
+function expertGroupsPath() {
+  return path.join(panelStateDir(), 'expert-groups.json')
+}
+
+function readJsonArrayFile(filePath) {
+  if (!fs.existsSync(filePath)) return []
+  const value = readJsonFileRelaxed(filePath)
+  if (!Array.isArray(value)) throw new Error(`${path.basename(filePath)} 顶层必须是数组`)
+  return value
+}
+
+function writeJsonArrayFile(filePath, items) {
+  const dir = path.dirname(filePath)
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  fs.writeFileSync(filePath, JSON.stringify(items, null, 2))
+}
+
+function validateExpertObjectId(id, label) {
+  const value = String(id || '').trim()
+  if (!value) throw new Error(`${label} ID 不能为空`)
+  if (value.length > 80) throw new Error(`${label} ID 不能超过 80 个字符`)
+  if (!/^[A-Za-z0-9_.-]+$/.test(value)) throw new Error(`${label} ID 只能包含字母、数字、点、下划线和短横线`)
+  return value
+}
+
+function normalizeExpertObject(value, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} 必须是对象`)
+  const now = new Date().toISOString()
+  const next = { ...value, id: validateExpertObjectId(value.id, label), updatedAt: now }
+  if (!next.createdAt) next.createdAt = now
+  return next
+}
+
+function upsertExpertObject(filePath, value, label) {
+  const next = normalizeExpertObject(value, label)
+  const items = readJsonArrayFile(filePath)
+  const idx = items.findIndex(item => item?.id === next.id)
+  if (idx >= 0) items[idx] = { ...next, createdAt: items[idx].createdAt || next.createdAt }
+  else items.push(next)
+  items.sort((a, b) => String(a?.name || a?.id || '').localeCompare(String(b?.name || b?.id || ''), 'zh-CN'))
+  writeJsonArrayFile(filePath, items)
+  return next
+}
+
+function deleteExpertObject(filePath, id, label) {
+  const normalizedId = validateExpertObjectId(id, label)
+  const items = readJsonArrayFile(filePath)
+  const next = items.filter(item => item?.id !== normalizedId)
+  if (next.length === items.length) throw new Error(`${label}「${normalizedId}」不存在`)
+  writeJsonArrayFile(filePath, next)
+  return { ok: true }
+}
+
+function pruneExpertFromGroups(expertId) {
+  const filePath = expertGroupsPath()
+  const groups = readJsonArrayFile(filePath)
+  let changed = false
+  for (const group of groups) {
+    if (!group || typeof group !== 'object') continue
+    if (group.moderatorExpertId === expertId) {
+      delete group.moderatorExpertId
+      changed = true
+    }
+    if (Array.isArray(group.members)) {
+      const before = group.members.length
+      group.members = group.members.filter(member => member?.expertId !== expertId)
+      changed = changed || before !== group.members.length
+    }
+  }
+  if (changed) writeJsonArrayFile(filePath, groups)
+}
+
 function ensureAgentsList(config) {
   if (!config.agents) config.agents = {}
   if (!Array.isArray(config.agents.list)) config.agents.list = []
@@ -12080,6 +12160,39 @@ const handlers = {
     } catch (e) {
       throw new Error('备份失败: ' + (e.message || e))
     }
+  },
+
+  // === Expert Teams（Web 模式） ===
+
+  list_experts() {
+    return readJsonArrayFile(expertProfilesPath())
+  },
+
+  save_expert({ expert }) {
+    return upsertExpertObject(expertProfilesPath(), expert, '专家')
+  },
+
+  delete_expert({ id }) {
+    const result = deleteExpertObject(expertProfilesPath(), id, '专家')
+    pruneExpertFromGroups(String(id || '').trim())
+    return result
+  },
+
+  list_expert_groups() {
+    return readJsonArrayFile(expertGroupsPath())
+  },
+
+  save_expert_group({ group }) {
+    const next = group && typeof group === 'object' && !Array.isArray(group) ? { ...group } : group
+    if (!next || typeof next !== 'object' || Array.isArray(next)) throw new Error('专家团必须是对象')
+    if (!Array.isArray(next.members)) next.members = []
+    if (!next.mode) next.mode = 'panel'
+    if (!next.budget || typeof next.budget !== 'object' || Array.isArray(next.budget)) next.budget = {}
+    return upsertExpertObject(expertGroupsPath(), next, '专家团')
+  },
+
+  delete_expert_group({ id }) {
+    return deleteExpertObject(expertGroupsPath(), id, '专家团')
   },
 
   // === 初始设置工具（Web 模式） ===

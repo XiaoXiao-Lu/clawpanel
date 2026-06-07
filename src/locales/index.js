@@ -12,6 +12,7 @@ import settings from './modules/settings.js'
 import models from './modules/models.js'
 import agents from './modules/agents.js'
 import agentDetail from './modules/agentDetail.js'
+import expertTeams from './modules/expertTeams.js'
 import gateway from './modules/gateway.js'
 import security from './modules/security.js'
 import communication from './modules/communication.js'
@@ -45,7 +46,7 @@ import kernel from './modules/kernel.js'
 
 const MODULES = {
   common, sidebar, instance, dashboard, services, settings,
-  models, agents, agentDetail, gateway, security, communication, channels,
+  models, agents, agentDetail, expertTeams, gateway, security, communication, channels,
   memory, dreaming, cron, usage, skills, connectors, chat, chatDebug, setup, about,
   ext, logs, assistant, toast, modal, engagement, diagnose, routeMap, extensions,
   engine, ciaoBug, cliConflict, glossary, hermesLazyDeps, notifications, kernel,

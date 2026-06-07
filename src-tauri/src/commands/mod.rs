@@ -29,6 +29,7 @@ pub mod pairing;
 pub mod service;
 pub mod skillhub;
 pub mod skills;
+pub mod team;
 pub mod update;
 
 /// 默认 OpenClaw 配置目录

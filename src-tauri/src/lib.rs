@@ -5,7 +5,7 @@ mod utils;
 
 use commands::{
     agent, assistant, cli_conflict, config, device, diagnose, extensions, hermes, hermes_providers,
-    logs, memory, messaging, pairing, service, skills, update,
+    logs, memory, messaging, pairing, service, skills, team, update,
 };
 
 pub fn run() {
@@ -178,6 +178,13 @@ pub fn run() {
             agent::update_agent_identity,
             agent::update_agent_model,
             agent::backup_agent,
+            // Expert Teams
+            team::list_experts,
+            team::save_expert,
+            team::delete_expert,
+            team::list_expert_groups,
+            team::save_expert_group,
+            team::delete_expert_group,
             // AI 助手工具
             assistant::assistant_exec,
             assistant::assistant_read_file,

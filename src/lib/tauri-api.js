@@ -353,6 +353,14 @@ export const api = {
   updateAgentModel: (id, model) => { invalidate('list_agents', 'get_agent_detail'); return invoke('update_agent_model', { id, model }) },
   backupAgent: (id) => invoke('backup_agent', { id }),
 
+  // Expert teams
+  listExperts: () => cachedInvoke('list_experts', {}, 5000),
+  saveExpert: (expert) => { invalidate('list_experts', 'list_expert_groups'); return invoke('save_expert', { expert }) },
+  deleteExpert: (id) => { invalidate('list_experts', 'list_expert_groups'); return invoke('delete_expert', { id }) },
+  listExpertGroups: () => cachedInvoke('list_expert_groups', {}, 5000),
+  saveExpertGroup: (group) => { invalidate('list_expert_groups'); return invoke('save_expert_group', { group }) },
+  deleteExpertGroup: (id) => { invalidate('list_expert_groups'); return invoke('delete_expert_group', { id }) },
+
   // 日志（短缓存）
   readLogTail: (logName, lines = 100) => cachedInvoke('read_log_tail', { logName, lines }, 5000),
   searchLog: (logName, query, maxResults = 50) => invoke('search_log', { logName, query, maxResults }),

@@ -44,6 +44,7 @@ import './style/pages/channels.css'
 import './style/pages/settings.css'
 import './style/pages/memory.css'
 import './style/pages/notifications.css'
+import './style/pages/expert-teams.css'
 import './style/pages/glossary.css'
 import './style/pages/misc.css'
 // Layer 6: Chat & Assistant
