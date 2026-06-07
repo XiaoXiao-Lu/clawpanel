@@ -385,12 +385,23 @@ async function saveTools(container, state) {
 function renderSkills(container, state) {
   const selected = new Set(Array.isArray(state.detail?.skills) ? state.detail.skills : [])
   const skills = state.skillsCatalog || []
+  const selectableCount = skills.filter(skill => skill.disabled !== true).length
+  const selectedCount = skills.filter(skill => skill.disabled !== true && selected.has(skill.name)).length
 
   container.innerHTML = `
     <div class="agent-overview">
       <section class="agent-section">
         <h3 class="agent-section-title">${t('agentDetail.skillsTitle')}</h3>
         <p class="agent-section-desc">${t('agentDetail.skillsDesc')}</p>
+        ${skills.length ? `
+          <div class="agent-skills-toolbar">
+            <span class="agent-skills-count" id="agent-skills-count">${t('agentDetail.skillsSelectedCount', { selected: selectedCount, total: selectableCount })}</span>
+            <div class="agent-skills-actions">
+              <button class="btn btn-secondary btn-sm" id="btn-select-all-skills" type="button">${t('agentDetail.selectAllSkills')}</button>
+              <button class="btn btn-secondary btn-sm" id="btn-clear-skills" type="button">${t('agentDetail.clearSkills')}</button>
+            </div>
+          </div>
+        ` : ''}
         <div class="agent-skills-list">
           ${skills.length ? skills.map(skill => renderSkillCard(skill, selected.has(skill.name))).join('') : `<div class="agent-hint">${t('agentDetail.noSkills')}</div>`}
         </div>
@@ -402,6 +413,24 @@ function renderSkills(container, state) {
   `
 
   container.querySelector('#btn-save-skills').addEventListener('click', () => saveSkills(container, state))
+  const refreshSkillCount = () => {
+    const countEl = container.querySelector('#agent-skills-count')
+    if (!countEl) return
+    const checked = container.querySelectorAll('.agent-skill-checkbox:not(:disabled):checked').length
+    const total = container.querySelectorAll('.agent-skill-checkbox:not(:disabled)').length
+    countEl.textContent = t('agentDetail.skillsSelectedCount', { selected: checked, total })
+  }
+  container.querySelector('#btn-select-all-skills')?.addEventListener('click', () => {
+    container.querySelectorAll('.agent-skill-checkbox:not(:disabled)').forEach(input => { input.checked = true })
+    refreshSkillCount()
+  })
+  container.querySelector('#btn-clear-skills')?.addEventListener('click', () => {
+    container.querySelectorAll('.agent-skill-checkbox:not(:disabled)').forEach(input => { input.checked = false })
+    refreshSkillCount()
+  })
+  container.querySelectorAll('.agent-skill-checkbox').forEach(input => {
+    input.addEventListener('change', refreshSkillCount)
+  })
 
   // 点击技能卡片（非 checkbox）弹出预览
   container.querySelectorAll('.agent-skill-card').forEach(card => {

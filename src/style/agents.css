@@ -1632,6 +1632,31 @@
   gap: 10px;
 }
 
+.agent-skills-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.agent-skills-count {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.agent-skills-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .agent-skill-card {
   display: flex;
   gap: 10px;
@@ -1682,4 +1707,16 @@
   background: var(--warning-muted);
   padding: 2px 8px;
   border-radius: var(--radius-pill);
+}
+
+@media (max-width: 600px) {
+  .agent-skills-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .agent-skills-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }

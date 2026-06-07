@@ -614,6 +614,9 @@
     "skillsDesc": "Choose which Skills this Agent may use. Empty means no skill allowlist is enforced.",
     "saveSkills": "Save Skill Config",
     "skillsSaved": "Skill config saved",
+    "selectAllSkills": "Select All Available",
+    "clearSkills": "Clear Selection",
+    "skillsSelectedCount": "{selected} / {total} available skills selected",
     "noSkills": "No Skills available",
     "skillDisabled": "Disabled",
     "skillUnavailable": "Unavailable"
