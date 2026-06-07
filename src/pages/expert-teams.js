@@ -401,8 +401,8 @@ function renderRunMeta(state) {
   return `
     <div class="expert-run-meta">
       <span>${icon('users', 13)} ${t('expertTeams.runMembers', { count: plan.members?.length || 0 })}</span>
-      <span>${icon('network', 13)} ${escapeHtml(plan.model?.provider || '-')}/${escapeHtml(plan.model?.model || '-')}</span>
-      <span>${icon('git-branch', 13)} ${t('expertTeams.runParallel', { count: plan.maxParallel || 1 })}</span>
+      <span>${icon('box', 13)} ${escapeHtml(modelLabel(plan.model))}</span>
+      <span>${icon('list', 13)} ${t('expertTeams.runParallel', { count: plan.maxParallel || 1 })}</span>
     </div>
   `
 }
@@ -415,28 +415,42 @@ function renderRunTranscript(state) {
   const rows = []
   for (const event of events) {
     if (event.type === 'expert_start') {
-      rows.push(renderRunEvent(t('expertTeams.expertSpeaking', { name: event.expertName || event.expertId }), '', 'pending'))
+      rows.push(renderRunEvent(t('expertTeams.expertSpeaking', { name: event.expertName || event.expertId }), '', 'pending', event.model))
     } else if (event.type === 'expert_done') {
-      rows.push(renderRunEvent(event.message?.expertName || event.message?.expertId || t('expertTeams.expert'), event.message?.content || '', 'expert'))
+      rows.push(renderRunEvent(event.message?.expertName || event.message?.expertId || t('expertTeams.expert'), event.message?.content || '', 'expert', event.message?.model))
     } else if (event.type === 'moderator_start') {
-      rows.push(renderRunEvent(t('expertTeams.moderatorSynthesizing'), '', 'pending'))
+      rows.push(renderRunEvent(t('expertTeams.moderatorSynthesizing'), '', 'pending', event.model))
     } else if (event.type === 'stopped') {
       rows.push(renderRunEvent(t('expertTeams.runStopped'), event.message || '', 'stopped'))
     } else if (event.type === 'error') {
       rows.push(renderRunEvent(t('common.error'), event.message || '', 'error'))
     }
   }
-  if (state.runFinal) rows.push(renderRunEvent(state.runFinal.expertName || t('expertTeams.finalModerator'), state.runFinal.content || '', 'final'))
+  if (state.runFinal) rows.push(renderRunEvent(state.runFinal.expertName || t('expertTeams.finalModerator'), state.runFinal.content || '', 'final', state.runFinal.model))
   return rows.join('')
 }
 
-function renderRunEvent(title, content, kind) {
+function renderRunEvent(title, content, kind, model) {
   return `
     <article class="expert-run-message expert-run-message--${escapeAttr(kind)}">
-      <strong>${escapeHtml(title)}</strong>
+      <div class="expert-run-message-head">
+        <strong>${escapeHtml(title)}</strong>
+        ${renderModelBadge(model)}
+      </div>
       ${content ? `<pre>${escapeHtml(content)}</pre>` : `<span>${t('common.loading')}</span>`}
     </article>
   `
+}
+
+function renderModelBadge(model) {
+  if (!model?.provider || !model?.model) return ''
+  const source = model.source === 'expert' ? t('expertTeams.expertModel') : t('expertTeams.defaultModel')
+  return `<small class="expert-run-model">${escapeHtml(source)} · ${escapeHtml(modelLabel(model))}</small>`
+}
+
+function modelLabel(model) {
+  if (!model?.provider && !model?.model) return '-'
+  return `${model.provider || '-'}/${model.model || '-'}`
 }
 
 function renderGroupEditor(group, state) {

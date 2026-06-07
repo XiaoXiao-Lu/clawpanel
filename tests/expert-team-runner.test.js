@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildExpertMessages, buildExpertTeamPlan, buildModeratorMessages, resolveDefaultModelSlot, resolveMaxParallel, resolveMembers } from '../src/lib/expert-team-runner.js'
+import { buildExpertMessages, buildExpertTeamPlan, buildModeratorMessages, resolveDefaultModelSlot, resolveExpertModelSlot, resolveMaxParallel, resolveMembers } from '../src/lib/expert-team-runner.js'
 
 const experts = [
   { id: 'planner', name: 'Planner', title: 'Product Planner', enabled: true, systemPrompt: 'Plan product work.' },
@@ -57,22 +57,33 @@ test('moderator prompt synthesizes all expert contributions', () => {
 })
 
 test('default OpenClaw model slot resolves provider and primary model', () => {
-  const slot = resolveDefaultModelSlot({
-    agents: { defaults: { model: { primary: 'newapi/claude-opus-4-6' } } },
-    models: {
-      providers: {
-        newapi: {
-          api: 'openai-completions',
-          baseUrl: 'https://example.test/v1/chat/completions',
-          apiKey: 'secret',
-          models: ['claude-opus-4-6'],
-        },
-      },
-    },
-  })
+  const slot = resolveDefaultModelSlot(modelConfig())
   assert.equal(slot.provider, 'newapi')
   assert.equal(slot.model, 'claude-opus-4-6')
   assert.equal(slot.baseUrl, 'https://example.test/v1')
+})
+
+test('expert model slot inherits default or uses fixed provider/model', () => {
+  const config = modelConfig()
+  const fallback = resolveDefaultModelSlot(config)
+  const inherited = resolveExpertModelSlot(config, experts[0], fallback)
+  const fixed = resolveExpertModelSlot(config, {
+    ...experts[1],
+    model: { inheritDefault: false, modelId: 'deepseek/deepseek-chat' },
+  }, fallback)
+  assert.equal(inherited.provider, 'newapi')
+  assert.equal(inherited.source, 'default')
+  assert.equal(fixed.provider, 'deepseek')
+  assert.equal(fixed.model, 'deepseek-chat')
+  assert.equal(fixed.source, 'expert')
+  assert.equal(fixed.baseUrl, 'https://deepseek.example/v1')
+})
+
+test('expert fixed model requires provider/model', () => {
+  assert.throws(() => resolveExpertModelSlot(modelConfig(), {
+    ...experts[1],
+    model: { inheritDefault: false, modelId: 'bad-model-name' },
+  }), /provider\/model/)
 })
 
 test('resolveMembers skips missing and disabled experts', () => {
@@ -85,3 +96,25 @@ test('resolveMaxParallel clamps unsafe team settings', () => {
   assert.equal(resolveMaxParallel({ maxParallel: 99 }), 8)
   assert.equal(resolveMaxParallel({}), 1)
 })
+
+function modelConfig() {
+  return {
+    agents: { defaults: { model: { primary: 'newapi/claude-opus-4-6' } } },
+    models: {
+      providers: {
+        newapi: {
+          api: 'openai-completions',
+          baseUrl: 'https://example.test/v1/chat/completions',
+          apiKey: 'secret',
+          models: ['claude-opus-4-6'],
+        },
+        deepseek: {
+          api: 'openai-completions',
+          baseUrl: 'https://deepseek.example/v1/chat/completions',
+          apiKey: 'secret',
+          models: ['deepseek-chat'],
+        },
+      },
+    },
+  }
+}

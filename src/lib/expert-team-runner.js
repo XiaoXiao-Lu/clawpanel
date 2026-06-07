@@ -20,18 +20,22 @@ export function buildExpertTeamPlan({ group, experts, task }) {
 
 export async function runExpertTeam({ group, experts, task, onEvent, signal } = {}) {
   const config = await api.readOpenclawConfig()
-  const slot = resolveDefaultModelSlot(config)
+  const defaultSlot = resolveDefaultModelSlot(config)
   const plan = buildExpertTeamPlan({ group, experts, task })
-  emit(onEvent, { type: 'start', plan: summarizePlan(plan, slot) })
+  emit(onEvent, { type: 'start', plan: summarizePlan(plan, defaultSlot, config) })
 
   const contributions = []
   for (const batch of chunk(plan.members, resolveMaxParallel(plan.group))) {
     throwIfAborted(signal)
     const previous = contributions.slice()
-    for (const expert of batch) {
-      emit(onEvent, { type: 'expert_start', expertId: expert.id, expertName: expert.name || expert.id })
+    const entries = batch.map(expert => ({
+      expert,
+      slot: resolveExpertModelSlot(config, expert, defaultSlot),
+    }))
+    for (const { expert, slot } of entries) {
+      emit(onEvent, { type: 'expert_start', expertId: expert.id, expertName: expert.name || expert.id, model: summarizeSlot(slot) })
     }
-    const batchResults = await Promise.all(batch.map(async (expert) => {
+    const batchResults = await Promise.all(entries.map(async ({ expert, slot }) => {
       const messages = buildExpertMessages({ plan, expert, previous })
       const content = await callChatModel(slot, messages, { maxTokens: 1800 })
       throwIfAborted(signal)
@@ -40,6 +44,7 @@ export async function runExpertTeam({ group, experts, task, onEvent, signal } = 
         expertId: expert.id,
         expertName: expert.name || expert.id,
         content,
+        model: summarizeSlot(slot),
         createdAt: new Date().toISOString(),
       }
     }))
@@ -52,9 +57,10 @@ export async function runExpertTeam({ group, experts, task, onEvent, signal } = 
   }
 
   throwIfAborted(signal)
-  emit(onEvent, { type: 'moderator_start', expertId: plan.moderator?.id || '' })
+  const moderatorSlot = resolveExpertModelSlot(config, plan.moderator, defaultSlot)
+  emit(onEvent, { type: 'moderator_start', expertId: plan.moderator?.id || '', model: summarizeSlot(moderatorSlot) })
   const finalMessages = buildModeratorMessages({ plan, contributions })
-  const final = await callChatModel(slot, finalMessages, { maxTokens: 2600 })
+  const final = await callChatModel(moderatorSlot, finalMessages, { maxTokens: 2600 })
   throwIfAborted(signal)
   const finalMessage = {
     id: `msg-${contributions.length + 1}`,
@@ -62,11 +68,12 @@ export async function runExpertTeam({ group, experts, task, onEvent, signal } = 
     expertId: plan.moderator?.id || '',
     expertName: plan.moderator?.name || 'Moderator',
     content: final,
+    model: summarizeSlot(moderatorSlot),
     createdAt: new Date().toISOString(),
   }
   plan.blackboard.push(finalMessage)
   emit(onEvent, { type: 'done', final: finalMessage, transcript: plan.blackboard })
-  return { plan: summarizePlan(plan, slot), transcript: plan.blackboard, final: finalMessage }
+  return { plan: summarizePlan(plan, defaultSlot, config), transcript: plan.blackboard, final: finalMessage }
 }
 
 export function buildExpertMessages({ plan, expert, previous = [] }) {
@@ -108,6 +115,31 @@ export function resolveDefaultModelSlot(config = {}) {
     apiKey: provider.apiKey || '',
     apiType: normalizeApiType(provider.api),
     model,
+    source: 'default',
+  }
+}
+
+export function resolveExpertModelSlot(config = {}, expert = {}, defaultSlot = null) {
+  const fallback = defaultSlot || resolveDefaultModelSlot(config)
+  const modelConfig = expert?.model && typeof expert.model === 'object' ? expert.model : {}
+  const fixedRef = String(modelConfig.modelId || '').trim()
+  if (modelConfig.inheritDefault !== false || !fixedRef) return { ...fallback, source: 'default' }
+
+  const parsed = parseModelRef(fixedRef)
+  if (!parsed.provider || !parsed.model) {
+    throw new Error(`Expert ${expert?.name || expert?.id || ''} fixed model must use provider/model`)
+  }
+  const provider = config?.models?.providers?.[parsed.provider]
+  if (!provider?.baseUrl) {
+    throw new Error(`Expert ${expert?.name || expert?.id || ''} fixed model provider is not configured: ${parsed.provider}`)
+  }
+  return {
+    provider: parsed.provider,
+    baseUrl: cleanBaseUrl(provider.baseUrl),
+    apiKey: provider.apiKey || '',
+    apiType: normalizeApiType(provider.api),
+    model: parsed.model,
+    source: 'expert',
   }
 }
 
@@ -188,6 +220,9 @@ function formatMessages(messages) {
 }
 
 async function callChatModel(slot, messages, opts = {}) {
+  if (slot.apiType !== 'openai-completions') {
+    throw new Error(`Expert team runtime currently supports OpenAI-compatible Chat Completions only: ${slot.provider}/${slot.model}`)
+  }
   const body = {
     model: slot.model,
     messages,
@@ -207,7 +242,7 @@ function parseProxyBody(result) {
   return JSON.parse(body)
 }
 
-function summarizePlan(plan, slot) {
+function summarizePlan(plan, slot, config = {}) {
   return {
     id: plan.id,
     task: plan.task,
@@ -215,9 +250,18 @@ function summarizePlan(plan, slot) {
     groupName: plan.group.name || '',
     mode: plan.group.mode || 'panel',
     maxParallel: resolveMaxParallel(plan.group),
-    members: plan.members.map(expert => ({ id: expert.id, name: expert.name || expert.id, title: expert.title || '' })),
-    moderator: plan.moderator ? { id: plan.moderator.id, name: plan.moderator.name || plan.moderator.id } : null,
-    model: { provider: slot.provider, model: slot.model, apiType: slot.apiType },
+    members: plan.members.map(expert => ({
+      id: expert.id,
+      name: expert.name || expert.id,
+      title: expert.title || '',
+      model: summarizeSlot(resolveExpertModelSlot(config, expert, slot)),
+    })),
+    moderator: plan.moderator ? {
+      id: plan.moderator.id,
+      name: plan.moderator.name || plan.moderator.id,
+      model: summarizeSlot(resolveExpertModelSlot(config, plan.moderator, slot)),
+    } : null,
+    model: summarizeSlot(slot),
   }
 }
 
@@ -241,6 +285,22 @@ function cleanBaseUrl(raw) {
   base = base.replace(/\/models\/?$/, '')
   if (/:(11434)$/i.test(base) && !base.endsWith('/v1')) return `${base}/v1`
   return base
+}
+
+function parseModelRef(raw) {
+  const text = String(raw || '').trim()
+  const slash = text.indexOf('/')
+  if (slash <= 0 || slash === text.length - 1) return { provider: '', model: '' }
+  return { provider: text.slice(0, slash), model: text.slice(slash + 1) }
+}
+
+function summarizeSlot(slot = {}) {
+  return {
+    provider: slot.provider || '',
+    model: slot.model || '',
+    apiType: slot.apiType || 'openai-completions',
+    source: slot.source || 'default',
+  }
 }
 
 function emit(onEvent, event) {

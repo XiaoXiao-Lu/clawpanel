@@ -66,6 +66,8 @@ export default {
   stopRun: _('停止', 'Stop'),
   runMembers: _('{count} 位专家', '{count} experts'),
   runParallel: _('并发 {count}', 'Parallel {count}'),
+  defaultModel: _('默认模型', 'Default model'),
+  expertModel: _('专家模型', 'Expert model'),
   taskPlaceholder: _('写下要交给专家团处理的任务、目标、约束和期望输出。', 'Write the task, goal, constraints, and expected output for this expert team.'),
   saveBeforeRun: _('请先保存专家团配置，再运行。', 'Save the team configuration before running it.'),
   selectMembersBeforeRun: _('请先为专家团选择至少一位成员。', 'Select at least one team member before running it.'),
