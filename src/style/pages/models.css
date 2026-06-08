@@ -1610,6 +1610,10 @@
   20%, 70% { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 }
 
+.model-row-highlight {
+  animation: model-row-highlight 1.8s ease-out;
+}
+
 /* ===== Provider Tabs + Table View ===== */
 
 .models-provider-tabs {
@@ -1668,6 +1672,23 @@
 .models-provider-tab.active .models-provider-tab__count {
   background: var(--accent-muted);
   color: var(--accent);
+}
+
+/* Provider tab actions (edit/delete/fetch per-provider) */
+.models-provider-tab-actions {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  margin-left: auto;
+  padding-left: var(--space-sm);
+  border-left: 1px solid var(--border-secondary);
+}
+
+.models-provider-tab-actions__divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border-secondary);
+  margin: 0 4px;
 }
 
 /* Table */
@@ -1736,11 +1757,17 @@
 }
 
 /* Table columns */
+.col-cb { width: 40px; text-align: center; }
 .col-model { width: auto; }
 .col-provider { width: 180px; }
 .col-status { width: 100px; text-align: center; }
 .col-latency { width: 100px; text-align: center; }
 .col-actions { width: 160px; text-align: right; }
+
+.models-row-cb {
+  cursor: pointer;
+  accent-color: var(--accent);
+}
 
 .models-table-model {
   display: flex;

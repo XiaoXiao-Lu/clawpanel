@@ -163,6 +163,8 @@ export async function render() {
     _fallback_candidates_collapsed: {},
     _providerFilter: 'all',
   }
+  // 暴露 state 给 locateModel 等函数使用
+  page.__modelsState = state
   // 非阻塞:先返回 DOM,后台加载数据
   loadConfig(page, state)
   bindTopActions(page, state)
@@ -944,13 +946,14 @@ function locateModel(page, full) {
   if (slash <= 0) return
   const providerKey = full.slice(0, slash)
   const modelId = full.slice(slash + 1)
-  const section = page.querySelector(`[data-provider="${cssEscape(providerKey)}"]`)
-  if (!section) return
-  const collapsed = section.querySelector('.provider-body')?.style.display === 'none'
-  if (collapsed) {
-    const toggle = section.querySelector('[data-action="toggle-provider"]')
-    toggle?.click()
+
+  // 切换到对应服务商的 Tab
+  const state = page.__modelsState
+  if (state) {
+    state._providerFilter = providerKey
+    renderProviders(page, state)
   }
+
   requestAnimationFrame(() => {
     const card = page.querySelector(`.models-table-row[data-provider="${cssEscape(providerKey)}"][data-model-id="${cssEscape(modelId)}"]`)
     if (!card) return
@@ -1072,8 +1075,8 @@ function renderProviders(page, state) {
     return
   }
 
-  // 收集所有模型数据（平铺）
-  let allModels = []
+  // 收集所有模型数据（平铺），先不过滤 Tab，用于 Tab 计数
+  let allModelsUnfiltered = []
   keys.forEach(key => {
     const p = providers[key]
     ;(p.models || []).forEach(m => {
@@ -1084,36 +1087,51 @@ function renderProviders(page, state) {
         const q = search
         if (!id.toLowerCase().includes(q) && !name.toLowerCase().includes(q)) return
       }
-      allModels.push({ key, provider: p, model: m, id, name, full })
+      allModelsUnfiltered.push({ key, provider: p, model: m, id, name, full })
     })
   })
 
   // Tab 过滤
-  if (providerFilter !== 'all') {
-    allModels = allModels.filter(m => m.key === providerFilter)
-  }
+  let allModels = providerFilter !== 'all'
+    ? allModelsUnfiltered.filter(m => m.key === providerFilter)
+    : allModelsUnfiltered
 
   // 排序
   allModels = sortModels(allModels, sortBy)
 
-  // Tab 导航 HTML
+  // 计算每个 Tab 的模型数
+  const tabCounts = { all: allModelsUnfiltered.length }
+  keys.forEach(key => {
+    tabCounts[key] = (providers[key].models || []).length
+  })
+
+  // Tab 导航 HTML + 服务商操作按钮（当选中具体服务商时显示）
   const tabHtml = `
     <div class="models-provider-tabs">
       <button class="models-provider-tab${providerFilter === 'all' ? ' active' : ''}" data-provider-tab="all">
         ${t('models.allProviders')}
-        <span class="models-provider-tab__count">${allModels.length}</span>
+        <span class="models-provider-tab__count">${tabCounts.all}</span>
       </button>
       ${keys.map(key => {
-        const p = providers[key]
-        const count = (p.models || []).length
         const isActive = providerFilter === key
         return `
           <button class="models-provider-tab${isActive ? ' active' : ''}" data-provider-tab="${escapeHtml(key)}">
             ${escapeHtml(key)}
-            <span class="models-provider-tab__count">${count}</span>
+            <span class="models-provider-tab__count">${tabCounts[key] || 0}</span>
           </button>
         `
       }).join('')}
+      ${providerFilter !== 'all' ? `
+        <div class="models-provider-tab-actions">
+          <button class="btn-icon" data-action="add-model" title="${t('models.addModel')}">${icon('plus', 14)}</button>
+          <button class="btn-icon" data-action="fetch-models" title="${t('models.fetchList')}">${icon('download', 14)}</button>
+          <button class="btn-icon" data-action="batch-test" title="${t('models.batchTest')}">${icon('activity', 14)}</button>
+          <button class="btn-icon btn-icon--danger" data-action="batch-delete" title="${t('models.batchDeleteBtn')}">${icon('trash', 14)}</button>
+          <span class="models-provider-tab-actions__divider"></span>
+          <button class="btn-icon" data-action="edit-provider" title="${t('models.editProvider')}">${icon('edit', 14)}</button>
+          <button class="btn-icon btn-icon--danger" data-action="delete-provider" title="${t('models.deleteProvider')}">${icon('trash', 14)}</button>
+        </div>
+      ` : ''}
     </div>
   `
 
@@ -1125,6 +1143,7 @@ function renderProviders(page, state) {
         <table class="models-table">
           <thead>
             <tr>
+              <th class="col-cb"><input type="checkbox" id="models-select-all"></th>
               <th class="col-model">${t('models.colModel')}</th>
               <th class="col-provider">${t('models.colProvider')}</th>
               <th class="col-status">${t('models.colStatus')}</th>
@@ -1144,7 +1163,7 @@ function renderProviders(page, state) {
               } else if (model.latency != null) {
                 statusHtml = `<span class="models-table-status models-table-status--ok">${t('models.normal')}</span>`
               } else {
-                statusHtml = `<span class="models-table-status models-table-status--neutral">${t('models.untested')}</span>`
+                statusHtml = `<span class="models-table-status models-table-status--neutral">${t('models.notTested')}</span>`
               }
 
               // 延迟
@@ -1163,6 +1182,7 @@ function renderProviders(page, state) {
 
               return `
                 <tr class="models-table-row ${rowClass}" data-model-id="${escapeHtml(id)}" data-full="${escapeHtml(full)}" data-provider="${escapeHtml(key)}">
+                  <td class="col-cb"><input type="checkbox" class="models-row-cb" data-model-id="${escapeHtml(id)}"></td>
                   <td class="col-model">
                     <div class="models-table-model">
                       <span class="models-table-model__name" title="${escapeHtml(id)}">${escapeHtml(name)}</span>
@@ -1195,65 +1215,6 @@ function renderProviders(page, state) {
 
   // 绑定事件
   bindProviderButtons(listEl, page, state)
-}
-
-// 渲染模型列表项
-function renderModelRows(providerKey, models, primary, search, fallbackSet = new Set()) {
-  if (!models.length) {
-    return `<div class="model-item model-item--empty">${t('models.noModel')}</div>`
-  }
-  return models.map((m) => {
-    const id = typeof m === 'string' ? m : m.id
-    const name = m.name || id
-    const full = `${providerKey}/${id}`
-    const isPrimary = full === primary
-    const isFallback = !isPrimary && fallbackSet.has(full)
-
-    // meta 信息
-    const metaParts = [escapeHtml(providerKey)]
-    if (m.contextWindow) metaParts.push((m.contextWindow / 1000) + 'K')
-    const metaStr = metaParts.join(' · ')
-
-    // 延迟状态
-    let statusHtml = ''
-    if (m.testStatus === 'fail') {
-      statusHtml = `<span class="model-latency model-latency--err">${t('models.unavailable')}</span>`
-    } else if (m.latency != null) {
-      const cls = m.latency < 3000 ? 'model-latency--ok' : m.latency < 8000 ? 'model-latency--warn' : 'model-latency--err'
-      statusHtml = `<span class="model-latency ${cls}">${(m.latency / 1000).toFixed(1)}s</span>`
-    }
-
-    // 角色标签
-    const badges = []
-    if (isPrimary) badges.push(`<span class="model-tag model-tag--primary">${t('models.primaryModel')}</span>`)
-    if (isFallback) badges.push(`<span class="model-tag model-tag--fb">${t('models.fallbackShort')}</span>`)
-    if (m.reasoning) badges.push(`<span class="model-tag model-tag--rz">${t('models.reasoning')}</span>`)
-
-    const itemClass = `model-item${isPrimary ? ' model-item--primary' : ''}${isFallback ? ' model-item--fallback' : ''}`
-
-    return `
-      <div class="${itemClass}" data-model-id="${escapeHtml(id)}" data-full="${escapeHtml(full)}">
-        <span class="model-item__drag">⋮⋮</span>
-        <input type="checkbox" class="model-item__cb" data-model-id="${escapeHtml(id)}">
-        <div class="model-item__body">
-          <div class="model-item__row">
-            <span class="model-item__name" title="${escapeHtml(id)}">${escapeHtml(id)}</span>
-            ${statusHtml}
-            <div class="model-item__actions">
-              ${!isPrimary ? `<button class="btn-icon" data-action="set-primary" title="${t('models.setPrimary')}">${icon('star', 14)}</button>` : ''}
-              <button class="btn-icon" data-action="test-model" title="${t('models.testBtn')}">${icon('activity', 14)}</button>
-              <button class="btn-icon" data-action="edit-model" title="${t('models.editModel')}">${icon('edit', 14)}</button>
-              <button class="btn-icon btn-icon--danger" data-action="delete-model" title="${t('models.deleteModel')}">${icon('trash', 14)}</button>
-            </div>
-          </div>
-          <div class="model-item__row">
-            <span class="model-item__meta">${metaStr}</span>
-            ${badges.length ? `<span class="model-item__tags">${badges.join('')}</span>` : ''}
-          </div>
-        </div>
-      </div>
-    `
-  }).join('')
 }
 
 // 格式化测试时间为相对时间
@@ -1413,8 +1374,8 @@ function updateUndoBtn(page, state) {
 
 // 渲染完成后,直接给每个 [data-action] 按钮绑定 onclick
 function bindProviderButtons(listEl, page, state) {
-  // 绑定按钮（表格行内）
-  listEl.querySelectorAll('button[data-action]').forEach(btn => {
+  // 绑定表格行内按钮
+  listEl.querySelectorAll('.models-table-row button[data-action]').forEach(btn => {
     const action = btn.dataset.action
     const row = btn.closest('.models-table-row')
     if (!row) return
@@ -1427,6 +1388,32 @@ function bindProviderButtons(listEl, page, state) {
       handleAction(action, btn, row, row, providerKey, provider, page, state)
     }
   })
+
+  // 绑定 Tab 栏上的服务商级别按钮（添加模型、获取远程列表、编辑服务商、删除服务商、批量操作）
+  const providerFilter = state._providerFilter || 'all'
+  if (providerFilter !== 'all') {
+    const providerKey = providerFilter
+    const provider = state.config.models.providers[providerKey]
+    if (provider) {
+      listEl.querySelectorAll('.models-provider-tab-actions button[data-action]').forEach(btn => {
+        const action = btn.dataset.action
+        btn.onclick = (e) => {
+          e.stopPropagation()
+          // 对批量操作，section 传 listEl（用于查找 checkbox）
+          handleAction(action, btn, null, listEl, providerKey, provider, page, state)
+        }
+      })
+    }
+  }
+
+  // 全选 checkbox
+  const selectAllCb = listEl.querySelector('#models-select-all')
+  if (selectAllCb) {
+    selectAllCb.onchange = () => {
+      const checked = selectAllCb.checked
+      listEl.querySelectorAll('.models-row-cb').forEach(cb => { cb.checked = checked })
+    }
+  }
 }
 
 // 统一处理按钮动作
@@ -2150,19 +2137,16 @@ function editModel(page, state, providerKey, idx) {
 
 // 全选/取消全选
 function handleSelectAll(section) {
-  const boxes = section.querySelectorAll('.model-item__cb')
-  const allChecked = [...boxes].every(cb => cb.checked)
+  const boxes = section.querySelectorAll('.models-table-row input[type="checkbox"]')
+  const allChecked = boxes.length > 0 && [...boxes].every(cb => cb.checked)
   boxes.forEach(cb => { cb.checked = !allChecked })
-  // 更新批量删除按钮状态
-  const batchDelBtn = section.querySelector('[data-action="batch-delete"]')
-  if (batchDelBtn) batchDelBtn.disabled = allChecked
 }
 
 // 批量删除选中的模型
 async function handleBatchDelete(section, page, state, providerKey) {
-  const checked = [...section.querySelectorAll('.model-item__cb:checked')]
+  const checked = [...section.querySelectorAll('.models-table-row input[type="checkbox"]:checked')]
   if (!checked.length) { toast(t('models.batchSelectHint'), 'warning'); return }
-  const ids = checked.map(cb => cb.dataset.modelId)
+  const ids = checked.map(cb => cb.closest('.models-table-row')?.dataset.modelId).filter(Boolean)
   const yes = await showConfirm({
     title: t('models.batchDeleteTitle', { count: ids.length }),
     message: t('models.confirmBatchDelete', { count: ids.length, ids: ids.join(', ') }),
@@ -2198,9 +2182,9 @@ async function handleBatchTest(section, state, providerKey) {
   }
 
   const provider = state.config.models.providers[providerKey]
-  const checked = [...section.querySelectorAll('.model-item__cb:checked')]
+  const checked = [...section.querySelectorAll('.models-table-row input[type="checkbox"]:checked')]
   const ids = checked.length
-    ? checked.map(cb => cb.dataset.modelId)
+    ? checked.map(cb => cb.closest('.models-table-row')?.dataset.modelId).filter(Boolean)
     : (provider.models || []).map(m => typeof m === 'string' ? m : m.id)
 
   if (!ids.length) { toast(t('models.noTestModels'), 'warning'); return }
@@ -2222,9 +2206,9 @@ async function handleBatchTest(section, state, providerKey) {
     if (ctrl.abort) break
 
     const model = (provider.models || []).find(m => (typeof m === 'string' ? m : m.id) === modelId)
-    // 标记当前正在测试的卡片
-    const card = section.querySelector(`.model-item[data-model-id="${modelId}"]`)
-    if (card) card.style.outline = '2px solid var(--accent)'
+    // 标记当前正在测试的行
+    const row = section.querySelector(`.models-table-row[data-model-id="${cssEscape(modelId)}"]`)
+    if (row) row.style.outline = '2px solid var(--accent)'
 
     const start = Date.now()
     try {
@@ -2262,8 +2246,8 @@ async function handleBatchTest(section, state, providerKey) {
   // 恢复按钮
   _batchTestAbort = null
   // 重新查找按钮(renderProviders 后 DOM 已更新)
-  const newSection = page?.querySelector(`[data-provider="${providerKey}"]`)
-  const newBtn = newSection?.querySelector('[data-action="batch-test"]')
+  const newList = page?.querySelector('#providers-list')
+  const newBtn = newList?.querySelector('[data-action="batch-test"]')
   if (newBtn) {
     newBtn.disabled = false
     newBtn.classList.remove('btn-loading')
@@ -2396,7 +2380,7 @@ async function fetchRemoteModels(btn, page, state, providerKey) {
         confirmText: t('models.addModel').replace('+ ', ''),
         cancelText: t('common.close'),
       }).then(yes => {
-        if (yes) addModel(btn.closest('.page') || document.querySelector('.page'), { config: state.config, save: state.save }, providerKey)
+        if (yes) addModel(btn.closest('.page') || document.querySelector('.page'), state, providerKey)
       })
     } else {
       toast(t('models.fetchFailed', { error: errStr }), 'error')

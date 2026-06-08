@@ -78,6 +78,8 @@ export default {
   fallbackAdded: _('已加入备选链', 'Added to fallback chain', '已加入備選鏈'),
   fallbackRemoved: _('已移出备选链', 'Removed from fallback chain', '已移出備選鏈'),
   primaryAutoSwitch: _('主模型已自动切换为 {model}', 'Primary model auto-switched to {model}', '主模型已自動切換為 {model}'),
+  choosePrimary: _('选择模型', 'Choose model', '選擇模型'),
+  fallbackCount: _('个备选', 'fallback(s)', '個備選'),
   noProvider: _('暂无服务商，点击「+ 添加服务商」开始配置', 'No providers. Click "+ Add Provider" to get started.', '暫無服務商，点擊「+ 新增服務商」開始設定'),
   noModel: _('暂无模型，点击「+ 模型」添加', 'No models. Click "+ Model" to add.', '暫無模型，点擊「+ 模型」新增'),
   nModels: _('{count} 个模型', '{count} models', '{count} 個模型'),
