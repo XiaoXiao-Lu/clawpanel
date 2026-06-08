@@ -38,11 +38,15 @@ function highlightCode(code, lang) {
 }
 
 function escapeHtml(str) {
-  return str
+  return String(str ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+}
+
+function escapeAttr(str) {
+  return escapeHtml(str).replace(/'/g, '&#39;')
 }
 
 // 预加载 Tauri convertFileSrc
@@ -55,7 +59,7 @@ if (typeof window !== 'undefined' && window.__TAURI_INTERNALS__) {
 function resolveImageSrc(src) {
   if (!src) return src
   // 已经是 http/https/data URL → 直接返回
-  if (/^(https?|data|blob):/.test(src)) return src
+  if (/^(https?|data|blob):/i.test(src)) return src
   // Windows 绝对路径 (C:\... or C:/...)
   const isWinPath = /^[A-Za-z]:[\\/]/.test(src)
   // Unix 绝对路径 (/Users/... /home/... /tmp/...)
@@ -71,19 +75,40 @@ function resolveImageSrc(src) {
   return src
 }
 
+function safeLinkUrl(url) {
+  const value = String(url ?? '').trim()
+  return /^(https?:|mailto:)/i.test(value) ? value : '#'
+}
+
+function hasUnsafeProtocol(value, allowedProtocols) {
+  const raw = String(value ?? '').trim()
+  if (/^[A-Za-z]:[\\/]/.test(raw)) return false
+  const match = raw.match(/^([A-Za-z][A-Za-z0-9+.-]*):/)
+  return Boolean(match && !allowedProtocols.has(match[1].toLowerCase()))
+}
+
+function safeImageSrc(src) {
+  const value = String(src ?? '').trim()
+  if (!value) return null
+  if (/^data:/i.test(value)) {
+    return /^data:image\/(?:png|jpe?g|gif|webp|svg\+xml);/i.test(value) ? value : null
+  }
+  if (hasUnsafeProtocol(value, new Set(['http', 'https', 'blob']))) return null
+  return resolveImageSrc(value)
+}
+
 export function renderMarkdown(text) {
   if (!text) return ''
-  let html = text
+  let html = String(text)
+  const codeBlocks = []
 
   // 代码块
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
     const highlighted = highlightCode(code.trimEnd(), lang)
     const langLabel = lang ? `<span class="code-lang">${escapeHtml(lang)}</span>` : ''
-    return `<pre data-lang="${escapeHtml(lang)}">${langLabel}<button class="code-copy-btn" onclick="window.__copyCode(this)">Copy</button><code>${highlighted}</code></pre>`
+    const block = `<pre data-lang="${escapeAttr(lang)}">${langLabel}<button class="code-copy-btn" onclick="window.__copyCode(this)">Copy</button><code>${highlighted}</code></pre>`
+    return `\x00MDBLOCK${codeBlocks.push(block) - 1}\x00`
   })
-
-  // 行内代码
-  html = html.replace(/`([^`\n]+)`/g, (_, code) => `<code>${escapeHtml(code)}</code>`)
 
   const lines = html.split('\n')
   const result = []
@@ -95,10 +120,9 @@ export function renderMarkdown(text) {
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i]
 
-    // 跳过 pre 块内容
-    if (line.startsWith('<pre')) {
-      result.push(line)
-      while (i < lines.length - 1 && !lines[i].includes('</pre>')) { i++; result.push(lines[i]) }
+    const codeBlockMatch = line.match(/^\x00MDBLOCK(\d+)\x00$/)
+    if (codeBlockMatch) {
+      result.push(codeBlocks[Number(codeBlockMatch[1])] || '')
       continue
     }
 
@@ -167,8 +191,7 @@ export function renderMarkdown(text) {
 
     if (inList) { result.push(`</${listType}>`); inList = false }
     if (line.trim() === '') { result.push(''); continue }
-    if (!line.startsWith('<')) { result.push(`<p>${inlineFormat(line)}</p>`) }
-    else { result.push(line) }
+    result.push(`<p>${inlineFormat(line)}</p>`)
   }
 
   if (inList) result.push(`</${listType}>`)
@@ -236,31 +259,49 @@ function renderTable(rows) {
 }
 
 function inlineFormat(text) {
-  return text
+  const tokens = []
+  const saveToken = (html) => {
+    const index = tokens.push(html) - 1
+    return `\x00MD${index}\x00`
+  }
+
+  let html = String(text ?? '')
+    .replace(/`([^`\n]+)`/g, (_, code) => saveToken(`<code>${escapeHtml(code)}</code>`))
+    .replace(/!\[([^\]]*)\]\(((?:[^()\s]|\\[()]|\([^()\s]*\))+)\)/g, (_, alt, src) => {
+      const safeSrc = safeImageSrc(src)
+      if (!safeSrc) {
+        return saveToken('<span class="msg-img-fallback">[图片已拦截]</span>')
+      }
+      const escapedSrc = escapeAttr(safeSrc).replace(/\\/g, '&#x5c;')
+      const escapedRawSrc = escapeHtml(src)
+      const fallback = `<span class="msg-img-fallback" hidden>[图片无法加载: ${escapedRawSrc}]</span>`
+      return saveToken(`<img src="${escapedSrc}" alt="${escapeAttr(alt)}" class="msg-img" loading="lazy" onerror="this.onerror=null;this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.hidden=false" />${fallback}`)
+    })
+    .replace(/\[([^\]]+)\]\(((?:[^()\s]|\\[()]|\([^()\s]*\))+)\)/g, (_, label, url) => {
+      const safe = safeLinkUrl(url)
+      return saveToken(`<a href="${escapeAttr(safe)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`)
+    })
+
+  html = escapeHtml(html)
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/__(.+?)__/g, '<strong>$1</strong>')
     // 避免 (?<!\w) 负向后查找：旧版 Safari / 部分 WebView 会报 invalid group specifier name
     .replace(/(^|[^A-Za-z0-9_])_(.+?)_(?![A-Za-z0-9_])/g, '$1<em>$2</em>')
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, src) => {
-      const safeSrc = resolveImageSrc(src.trim())
-      const escapedSrc = escapeHtml(src).replace(/\\/g, '&#x5c;')
-      return `<img src="${safeSrc}" alt="${alt}" class="msg-img" onerror="this.onerror=null;this.style.display='none';this.insertAdjacentHTML('afterend','<span style=\\'color:var(--text-tertiary);font-size:12px\\'>[图片无法加载: ${escapedSrc}]</span>')" />`
-    })
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => {
-      const safe = /^https?:|^mailto:/i.test(url.trim()) ? url : '#'
-      return `<a href="${safe}" target="_blank" rel="noopener">${label}</a>`
-    })
+
+  return html.replace(/\x00MD(\d+)\x00/g, (_, index) => tokens[Number(index)] || '')
 }
 
-window.__copyCode = function(btn) {
-  const pre = btn.closest('pre')
-  const code = pre.querySelector('code')
-  navigator.clipboard.writeText(code.innerText).then(() => {
-    btn.textContent = '✓'
-    setTimeout(() => { btn.textContent = 'Copy' }, 1500)
-  }).catch(() => {
-    btn.textContent = '✗'
-    setTimeout(() => { btn.textContent = 'Copy' }, 1500)
-  })
+if (typeof window !== 'undefined') {
+  window.__copyCode = function(btn) {
+    const pre = btn.closest('pre')
+    const code = pre.querySelector('code')
+    navigator.clipboard.writeText(code.innerText).then(() => {
+      btn.textContent = '✓'
+      setTimeout(() => { btn.textContent = 'Copy' }, 1500)
+    }).catch(() => {
+      btn.textContent = '✗'
+      setTimeout(() => { btn.textContent = 'Copy' }, 1500)
+    })
+  }
 }
