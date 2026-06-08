@@ -420,7 +420,7 @@ select,
 
 .models-workbench .models-toolbar { margin-bottom: 0; }
 .models-workbench .models-control-console {
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+  /* .control-console is flex column (models.css), grid properties have no effect here */
 }
 .models-workbench #providers-list {
   display: grid;
@@ -484,7 +484,9 @@ select,
 }
 
 @media (max-width: 980px) {
-  .models-workbench .models-control-console { grid-template-columns: 1fr; }
+  .models-workbench .models-control-console {
+    grid-template-columns: minmax(0, 1fr); /* was: 1fr minmax(280px,380px) — .control-console is flex column, grid-col does nothing */
+  }
   .ast-page {
     display: flex;
     padding: 0 !important;
@@ -535,6 +537,312 @@ select,
     flex-direction: column;
     overflow: hidden;
   }
+}
+
+/* ─── Models page — full design system alignment ─── */
+
+/* ─── Models workbench — desktop layout ─── */
+@media (min-width: 1200px) {
+  .models-workbench {
+    display: grid;
+    grid-template-columns: 400px 1fr;
+    gap: var(--space-4) var(--space-6);
+    align-items: start;
+  }
+
+  .models-workbench > #models-console-container {
+    grid-column: 1;
+    grid-row: 1 / span 20;
+  }
+  .models-workbench > #fallback-waterfall-container { grid-column: 2; grid-row: 1; }
+  .models-workbench > .models-provider-workbench { grid-column: 2; grid-row: 2; }
+
+  .models-control-console {
+    margin-bottom: 0;
+    position: sticky;
+    top: var(--space-4);
+  }
+
+  .models-workbench #fallback-waterfall-container .fallback-workbench {
+    grid-template-columns: minmax(260px, 0.45fr) minmax(320px, 1fr);
+  }
+  .models-workbench #providers-list {
+    grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr));
+  }
+}
+
+/* ─── Control console ─── */
+.models-control-console {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border-1) !important;
+  box-shadow: var(--shadow-1) !important;
+}
+.models-primary-icon {
+  border: 1px solid var(--brand-muted) !important;
+  background: var(--brand-faint) !important;
+  color: var(--brand) !important;
+}
+.models-cb-badge {
+  background: var(--bg-sunken) !important;
+  border-color: var(--border-1) !important;
+  color: var(--text-3) !important;
+}
+.models-console-footer {
+  border-top-color: var(--border-1) !important;
+}
+
+/* ─── Provider tabs ─── */
+.models-provider-tabs {
+  background: var(--bg-base) !important;
+  border-color: var(--border-1) !important;
+}
+.models-provider-tab {
+  color: var(--text-3) !important;
+  border-radius: var(--radius-md) !important;
+}
+.models-provider-tab:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-1) !important;
+}
+.models-provider-tab.active {
+  background: var(--brand) !important;
+  color: var(--text-inverse) !important;
+  box-shadow: var(--shadow-1) !important;
+}
+.models-provider-tab.active .models-provider-tab__count {
+  background: rgba(255,255,255,0.15) !important;
+  color: white !important;
+}
+.models-provider-tab__count {
+  background: var(--border-1) !important;
+  color: var(--text-3) !important;
+}
+
+/* ─── Provider cards ─── */
+.provider-card {
+  background: var(--bg-elevated) !important;
+  border-color: var(--border-1) !important;
+  box-shadow: var(--shadow-1) !important;
+}
+.provider-card__header {
+  border-bottom-color: var(--border-1) !important;
+}
+.provider-card__name {
+  color: var(--text-1) !important;
+}
+.provider-card__count {
+  color: var(--text-3) !important;
+}
+.provider-card__chevron {
+  color: var(--text-3) !important;
+}
+.provider-card__batch {
+  background: var(--bg-sunken) !important;
+  border-top-color: var(--border-1) !important;
+}
+
+/* ─── Model rows (card list view) ─── */
+.model-item {
+  border-bottom-color: var(--border-1) !important;
+}
+.model-item:hover {
+  background: var(--bg-hover) !important;
+}
+.model-item__name {
+  color: var(--text-1) !important;
+}
+.model-item__meta {
+  color: var(--text-3) !important;
+}
+
+/* ─── Model table ─── */
+.models-table-wrap {
+  background: var(--bg-elevated) !important;
+  border-color: var(--border-1) !important;
+  box-shadow: var(--shadow-1) !important;
+}
+.models-table thead {
+  background: var(--bg-sunken) !important;
+}
+.models-table th {
+  color: var(--text-3) !important;
+  border-bottom-color: var(--border-1) !important;
+}
+.models-table td {
+  border-bottom-color: var(--border-1) !important;
+}
+.models-table tbody tr:hover {
+  background: var(--bg-hover) !important;
+}
+.models-table-model__name {
+  color: var(--text-1) !important;
+}
+.models-table-provider-name {
+  color: var(--text-3) !important;
+}
+.models-table-status--neutral {
+  background: var(--bg-sunken) !important;
+  color: var(--text-3) !important;
+}
+
+/* ─── Fallback editor ─── */
+.fallback-editor-panel {
+  background: var(--bg-elevated) !important;
+  border-color: var(--border-1) !important;
+  box-shadow: var(--shadow-1) !important;
+}
+.fallback-best-practice {
+  background: var(--brand-faint) !important;
+  border-left-color: var(--brand) !important;
+  color: var(--text-3) !important;
+}
+.fallback-workbench-pane {
+  background: var(--bg-sunken) !important;
+  border-color: var(--border-1) !important;
+}
+.fallback-pane-title {
+  color: var(--text-1) !important;
+}
+.fallback-pane-subtitle {
+  color: var(--text-3) !important;
+}
+.fallback-chain-item,
+.candidate-item {
+  background: var(--bg-elevated) !important;
+  border-color: var(--border-1) !important;
+}
+.fallback-chain-name,
+.candidate-item span {
+  color: var(--text-1) !important;
+}
+.fallback-drag-handle {
+  color: var(--text-3) !important;
+}
+.fallback-priority {
+  background: var(--brand-faint) !important;
+  color: var(--brand) !important;
+}
+.fallback-empty-state {
+  border-color: var(--border-2) !important;
+  color: var(--text-3) !important;
+}
+
+/* ─── Fallback pills + status ─── */
+.models-fallback-pill,
+.models-empty-fallback,
+.models-status {
+  background: var(--bg-sunken) !important;
+  border-color: var(--border-1) !important;
+  color: var(--text-3) !important;
+}
+.models-fallback-pill span {
+  color: var(--text-3) !important;
+}
+.models-fallback-pill:hover {
+  border-color: var(--brand) !important;
+  color: var(--brand) !important;
+}
+
+/* ─── Preset buttons ─── */
+.models-preset-btn {
+  background: var(--bg-sunken) !important;
+  border-color: var(--border-1) !important;
+  color: var(--text-3) !important;
+  border-radius: var(--radius-sm) !important;
+}
+.models-preset-btn:hover {
+  border-color: var(--brand-muted) !important;
+  background: var(--brand-faint) !important;
+  color: var(--brand) !important;
+}
+
+/* ─── Combobox ─── */
+.hm-combo__input {
+  background: var(--bg-base) !important;
+  border-color: var(--border-1) !important;
+  color: var(--text-1) !important;
+}
+.hm-combo__input:focus {
+  border-color: var(--brand) !important;
+  box-shadow: 0 0 0 2px var(--brand-faint) !important;
+}
+.hm-combo__dropdown {
+  background: var(--bg-elevated) !important;
+  border-color: var(--border-1) !important;
+  box-shadow: var(--shadow-2) !important;
+}
+.hm-combo__option {
+  color: var(--text-3) !important;
+}
+.hm-combo__option:hover,
+.hm-combo__option--active {
+  background: var(--brand-faint) !important;
+  color: var(--brand) !important;
+}
+.hm-combo__option strong {
+  color: var(--text-1) !important;
+}
+.hm-combo__group-header {
+  color: var(--text-3) !important;
+}
+
+/* ─── Reasoning toggle ─── */
+.model-reasoning-toggle {
+  background: var(--bg-sunken) !important;
+  border-color: var(--border-1) !important;
+  color: var(--text-3) !important;
+}
+.model-reasoning-toggle:hover {
+  border-color: var(--brand-muted) !important;
+  color: var(--brand) !important;
+  background: var(--brand-faint) !important;
+}
+
+/* ─── Batch bar ─── */
+.models-batch-bar {
+  background: var(--bg-sunken) !important;
+  border-color: var(--border-1) !important;
+}
+
+/* ─── Stats inline ─── */
+.models-stats-inline {
+  color: var(--text-3) !important;
+}
+.models-stats-inline strong {
+  color: var(--text-1) !important;
+}
+
+/* ─── Route presets ─── */
+.models-route-presets-toggle {
+  color: var(--text-3) !important;
+}
+
+/* ─── Model tags ─── */
+.model-tag--primary {
+  background: var(--success) !important;
+  color: white !important;
+}
+.model-tag--fb {
+  background: var(--info-muted) !important;
+  color: var(--info) !important;
+}
+.model-tag--rz {
+  background: var(--brand-faint) !important;
+  color: var(--brand) !important;
+}
+
+/* ─── Latency badges ─── */
+.model-latency--ok {
+  background: var(--success-muted) !important;
+  color: var(--success) !important;
+}
+.model-latency--warn {
+  background: var(--warning-muted) !important;
+  color: var(--warning) !important;
+}
+.model-latency--err {
+  background: var(--error-muted) !important;
+  color: var(--error) !important;
 }
 
 /* ─── Staggered Reveal (page children animate in sequence) ─── */
