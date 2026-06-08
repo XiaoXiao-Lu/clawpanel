@@ -22,11 +22,18 @@
 
 import { t } from './i18n.js'
 
+const LOOPBACK_GATEWAY_REFUSED_RE =
+  /(?:(?:econnrefused|connection refused|tcp connect)[^\r\n]*(?:127(?:\.\d{1,3}){3}|localhost|\[?::1\]?)[^\r\n]*(?::|\bport\s*)18789\b|(?:127(?:\.\d{1,3}){3}|localhost|\[?::1\]?)[^\r\n]*(?::|\bport\s*)18789\b[^\r\n]*(?:econnrefused|connection refused|tcp connect))/i
+
 const PATTERNS = [
   // Gateway 未启动（特殊的 connection refused / port not listen 情况）
   {
     key: 'gatewayDown',
     re: /(gateway[^a-z]*(not[^a-z]*(running|ready|reachable)|down|offline|未启动)|managed gateway|未运行|gateway[^a-z]*未就绪)/i,
+  },
+  {
+    key: 'gatewayDown',
+    re: LOOPBACK_GATEWAY_REFUSED_RE,
   },
   // 网络
   {
