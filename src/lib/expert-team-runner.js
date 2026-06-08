@@ -132,7 +132,7 @@ export async function runExpertTeamSequential({ group, experts, task, onEvent, s
       const previous = contributions.length ? chainContext[chainContext.length - 1] : plan.task
       const slot = resolveExpertModelSlot(config, expert, defaultSlot)
 
-      emit(onEvent, { ...buildExpertRunEvent('expert_start', expert, slot), round: rounds > 1 ? round + 1 : 0 })
+      emit(onEvent, { ...buildExpertRunEvent('expert_start', expert, slot), round: round + 1 })
 
       const messages = buildSequentialMessages({ plan, expert, previous, contributions, round, rounds })
       let content
@@ -140,9 +140,9 @@ export async function runExpertTeamSequential({ group, experts, task, onEvent, s
         content = await callChatModelWithRetry(slot, messages, {
           maxTokens: expertMaxTokens(plan.group, 2000),
           signal,
-          ...toolRuntimeOptions({ tools, executeTool, onEvent, owner: 'expert', expert, slot, round: rounds > 1 ? round + 1 : 0 }),
-          onDelta: (delta) => emit(onEvent, { ...buildExpertRunEvent('expert_delta', expert, slot), round: rounds > 1 ? round + 1 : 0, delta }),
-          onRetry: (retry) => emit(onEvent, { ...buildExpertRunEvent('expert_retry', expert, slot), round: rounds > 1 ? round + 1 : 0, ...retry }),
+          ...toolRuntimeOptions({ tools, executeTool, onEvent, owner: 'expert', expert, slot, round: round + 1 }),
+          onDelta: (delta) => emit(onEvent, { ...buildExpertRunEvent('expert_delta', expert, slot), round: round + 1, delta }),
+          onRetry: (retry) => emit(onEvent, { ...buildExpertRunEvent('expert_retry', expert, slot), round: round + 1, ...retry }),
         })
         throwIfAborted(signal)
       } catch (error) {
@@ -322,11 +322,12 @@ function normalizeResumePlan(sourcePlan, contributions, experts = []) {
 }
 
 function getResumeRemainingWork(plan, contributions = []) {
-  const doneKeys = new Set(contributions.map(item => resumeContributionKey(item.expertId, item.round || 0)))
+  const sequential = plan.group.mode === 'sequential'
+  const doneKeys = new Set(contributions.map(item => resumeContributionKey(item.expertId, sequential ? (item.round || 1) : (item.round || 0))))
   const rounds = plan.group.mode === 'sequential' ? resolveMaxRounds(plan.group) : 1
   const work = []
   for (let round = 0; round < rounds; round++) {
-    const publicRound = plan.group.mode === 'sequential' && rounds > 1 ? round + 1 : 0
+    const publicRound = plan.group.mode === 'sequential' ? round + 1 : 0
     for (const expert of plan.members || []) {
       if (!expert?.id) continue
       const key = resumeContributionKey(expert.id, publicRound)
@@ -716,9 +717,10 @@ async function buildModeratorFinalOrFallback({ plan, contributions, slot, messag
     const final = await callChatModelWithRetry(slot, messages, {
       maxTokens: moderatorMaxTokens(plan.group, 2600),
       signal,
+      emptyResponseLabel: 'moderator synthesis',
       ...moderatorToolRuntimeOptions({ tools, executeTool, onEvent, plan, slot }),
-      onDelta: (delta) => emit(onEvent, { type: 'moderator_delta', expertId: plan.moderator?.id || '', model: summarizeSlot(slot), delta }),
-      onRetry: (retry) => emit(onEvent, { type: 'moderator_retry', expertId: plan.moderator?.id || '', model: summarizeSlot(slot), ...retry }),
+      onDelta: (delta) => emit(onEvent, { ...buildExpertRunEvent('moderator_delta', plan.moderator, slot), delta }),
+      onRetry: (retry) => emit(onEvent, { ...buildExpertRunEvent('moderator_retry', plan.moderator, slot), ...retry }),
     })
     throwIfAborted(signal)
     return {
@@ -762,16 +764,44 @@ async function buildModeratorFinalOrFallback({ plan, contributions, slot, messag
 }
 
 function buildFallbackSynthesis(plan, contributions, moderatorError) {
+  const usefulContributions = contributions.filter(msg => String(msg?.content || '').trim())
+  const expertNames = usefulContributions.map(msg => msg.expertName || msg.expertId || '专家').filter(Boolean)
+  const reason = moderatorFallbackReason(moderatorError)
   return [
-    '主持专家合成失败，以下是已成功收集的专家意见，供继续判断。',
+    '主持专家这一步没有返回可用的综合结论，系统已根据已完成的专家意见整理临时交付。',
     '',
-    `失败原因：${moderatorError}`,
+    '## 当前状态',
+    `- 已完成专家：${expertNames.length ? expertNames.join('、') : '暂无'}`,
+    `- 主持综合状态：模型未返回有效内容，已自动降级整理`,
+    `- 可选下一步：点击“继续综合”让主持专家重新整理，或基于“完整过程”查看每位专家的完整发言`,
     '',
-    ...contributions.map((msg, index) => [
-      `## ${index + 1}. ${msg.expertName || msg.expertId || '专家'}`,
-      msg.content || '',
+    '## 已保留的专家意见摘要',
+    '',
+    ...usefulContributions.map((msg, index) => [
+      `### ${index + 1}. ${msg.expertName || msg.expertId || '专家'}${msg.expertTitle ? ` · ${msg.expertTitle}` : ''}`,
+      fallbackContributionExcerpt(msg.content),
     ].join('\n')),
+    '',
+    '## 说明',
+    `触发原因：${reason}`,
+    '完整专家发言没有丢失，可在下方“完整过程”中展开查看。',
   ].join('\n')
+}
+
+function fallbackContributionExcerpt(content, limit = 420) {
+  const text = String(content || '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!text) return '该专家没有留下可用文本。'
+  return text.length > limit ? `${text.slice(0, limit)}...` : text
+}
+
+function moderatorFallbackReason(error) {
+  const raw = String(error || '').trim()
+  if (!raw) return '主持模型未返回有效内容'
+  if (/empty\s+(moderator synthesis|expert response)|empty/i.test(raw)) return '主持模型返回空内容'
+  return raw
 }
 
 function expertMaxTokens(_group = {}, fallback) {
@@ -831,13 +861,13 @@ async function callChatModel(slot, messages, opts = {}) {
     if (resp) {
       const content = await readChatCompletionStream(resp, opts.onDelta, opts.signal)
       if (content.trim()) return content.trim()
-      throw new Error('Model returned an empty expert response')
+      throw new Error(`Model returned an empty ${opts.emptyResponseLabel || 'expert response'}`)
     }
   }
   const result = await api.modelChatCompletionsProxy(slot.baseUrl, slot.apiKey || '', slot.apiType, body)
   const parsed = parseProxyBody(result)
   const content = parsed?.choices?.[0]?.message?.content || parsed?.choices?.[0]?.text || ''
-  if (!content.trim()) throw new Error('Model returned an empty expert response')
+  if (!content.trim()) throw new Error(`Model returned an empty ${opts.emptyResponseLabel || 'expert response'}`)
   return content.trim()
 }
 
@@ -867,7 +897,7 @@ async function callChatModelWithToolLoop(slot, messages, opts = {}) {
         if (typeof opts.onDelta === 'function') opts.onDelta(content)
         return content.trim()
       }
-      throw new Error('Model returned an empty expert response')
+      throw new Error(`Model returned an empty ${opts.emptyResponseLabel || 'expert response'}`)
     }
 
     currentMessages.push({
@@ -924,6 +954,7 @@ function toolRuntimeOptions({ tools, executeTool, onEvent, owner, expert, slot, 
       owner,
       expertId: expert?.id || '',
       expertName: expert?.name || expert?.id || '',
+      expertTitle: expert?.title || '',
       model: summarizeSlot(slot),
       ...(round ? { round } : {}),
       ...event,
@@ -941,6 +972,7 @@ function moderatorToolRuntimeOptions({ tools, executeTool, onEvent, plan, slot }
       owner: 'moderator',
       expertId: moderator.id || '',
       expertName: moderator.name || '主持专家',
+      expertTitle: moderator.title || '主持专家',
       model: summarizeSlot(slot),
       ...event,
     }),
@@ -1133,6 +1165,7 @@ function summarizePlan(plan, slot, config = {}) {
     moderator: plan.moderator ? {
       id: plan.moderator.id,
       name: plan.moderator.name || plan.moderator.id,
+      title: plan.moderator.title || '',
       model: summarizeSlot(resolveExpertModelSlot(config, plan.moderator, slot)),
     } : null,
     model: summarizeSlot(slot),

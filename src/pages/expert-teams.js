@@ -153,9 +153,14 @@ function bindEvents(page, state) {
       updateGroupMemberControls(page, state)
       return
     }
-    if (e.target.id === 'group-mode') {
+    if (e.target.id === 'group-mode' || e.target.id === 'group-max-rounds' || e.target.id === 'group-max-parallel') {
       updateGroupWorkflowGuide(page)
     }
+  })
+
+  page.addEventListener('input', (e) => {
+    if (!['group-max-rounds', 'group-max-parallel'].includes(e.target.id)) return
+    updateGroupWorkflowGuide(page)
   })
 
   page.addEventListener('dragstart', (e) => {
@@ -515,6 +520,8 @@ function updateGroupWorkflowGuide(page) {
   if (!guide) return
   const current = currentGroupFromForm(page)
   guide.innerHTML = renderWorkflowGuide(current)
+  page.querySelector('#group-max-rounds')?.closest('.form-group')?.classList.toggle('is-muted', current.mode !== 'sequential')
+  page.querySelector('#group-max-parallel')?.closest('.form-group')?.classList.toggle('is-muted', current.mode === 'sequential')
 }
 
 function renderWorkflowGuide(group = {}) {
@@ -525,6 +532,9 @@ function renderWorkflowGuide(group = {}) {
   const execution = mode === 'sequential'
     ? `每位专家会按顺序执行，最多 ${maxRounds} 轮；后一位能看到前面专家输出，下一轮能看到上一轮结果。`
     : `每位专家通常执行 1 次；按最多 ${maxParallel} 位并行分批收集意见，最后由主持专家综合。`
+  const roundMeaning = mode === 'sequential'
+    ? `当前会产生最多 ${maxRounds * Math.max(1, Array.isArray(group.members) ? group.members.length : 1)} 次专家发言；第二轮会基于第一轮黑板继续深化，不会从空白重写。`
+    : '当前模式不使用多轮接力；最大轮次只在“串联接力”中生效。'
   return `
     <div class="expert-workflow-guide">
       <div class="expert-workflow-guide-head">
@@ -550,6 +560,10 @@ function renderWorkflowGuide(group = {}) {
         <span>
           <small>参数建议</small>
           <strong>${escapeHtml(guide.tuning)}</strong>
+        </span>
+        <span class="expert-workflow-grid-wide">
+          <small>轮次说明</small>
+          <strong>${escapeHtml(roundMeaning)}</strong>
         </span>
       </div>
     </div>
@@ -614,6 +628,7 @@ function currentGroupFromForm(page) {
     mode: valueOf(page, '#group-mode') || 'panel',
     maxRounds: valueOf(page, '#group-max-rounds') || 3,
     maxParallel: valueOf(page, '#group-max-parallel') || 3,
+    members: [...page.querySelectorAll('[data-member-row].is-selected')],
   }
 }
 
@@ -689,6 +704,7 @@ function updateGroupMemberControls(page, state) {
     .map(expert => option(expert.id, expert.name || expert.id, current))
     .join('')
   if (!selectedSet.has(current)) moderator.value = ''
+  updateGroupWorkflowGuide(page)
 }
 
 function renumberSelectedMembers(picker) {

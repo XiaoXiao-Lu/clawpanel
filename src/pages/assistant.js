@@ -4319,6 +4319,7 @@ function renderExpertTeamMessage(m, idx) {
   const closeoutHtml = renderExpertTeamCloseout(transcript, plan, progress)
   const resumeActionsHtml = renderExpertTeamResumeActions(m, idx)
   const activityHtml = renderExpertTeamActivityFeed(transcript, m._expertTeamRun, isRunning)
+  const traceHtml = renderExpertTeamOperationTrace(transcript)
 
   const planMeta = plan
     ? `${plan.members?.length || 0}位专家 · ${getModeLabel(plan.mode)}${plan.mode === 'sequential' ? ` · ${plan.maxRounds || 1}轮` : ` · 并行${plan.maxParallel || 1}`}`
@@ -4344,6 +4345,8 @@ function renderExpertTeamMessage(m, idx) {
   const primaryItems = transcript.filter(item => ['final', 'error'].includes(item.type) || (!isRunning && !hasFinal && item.type === 'stopped'))
   const processItems = transcript.filter(item => !['final', 'error', 'stopped'].includes(item.type))
   const primaryHtml = primaryItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('')
+  const topPrimaryHtml = !isRunning && primaryHtml ? primaryHtml : ''
+  const inlinePrimaryHtml = isRunning ? primaryHtml : ''
   const processHtml = processItems.length ? processItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('') : `
     <div class="ast-expert-item ast-expert-item--pending">
       <div class="ast-expert-item-head">
@@ -4396,22 +4399,24 @@ function renderExpertTeamMessage(m, idx) {
         <span class="ast-expert-badge ast-expert-badge--${escAttr(progress.status)}">${escHtml(progress.statusLabel)}</span>
       </div>
       <div class="ast-expert-progress" aria-label="专家团进度">
-        <div class="ast-expert-progress-bar" style="width:${progress.percent}%"></div>
+        <div class="ast-expert-progress-bar ast-expert-progress-bar--${escAttr(progress.status)}" style="width:${progress.percent}%"></div>
       </div>
       ${progress.status === 'running' ? `<div class="ast-expert-run-summary">
         <span>${escHtml(progress.completed)} / ${escHtml(progress.total)} 步</span>
         <span>${escHtml(progress.summary)}</span>
         ${progress.errorCount ? `<span class="ast-expert-run-warning">${escHtml(progress.errorCount)} 个异常已处理</span>` : ''}
       </div>` : ''}
+      ${topPrimaryHtml}
       ${stageHtml}
       ${activeHtml}
       ${activityHtml}
+      ${traceHtml}
       ${liveSynthesisHtml}
+      ${inlinePrimaryHtml}
       ${closeoutHtml}
       ${resumeActionsHtml}
       ${detailsHtml}
       ${planHtml}
-      ${primaryHtml}
       ${processBlock}
       ${runningIndicator}
     </div>
@@ -4453,6 +4458,50 @@ function renderExpertTeamActivityFeed(transcript, run, isRunning) {
       </div>`).join('')}
     </div>
   </div>`
+}
+
+function renderExpertTeamOperationTrace(transcript) {
+  const operations = getExpertTeamOperations(transcript)
+  if (!operations.length) return ''
+  const visible = operations.slice(-5)
+  const hiddenCount = Math.max(0, operations.length - visible.length)
+  return `<div class="ast-expert-trace" aria-label="专家团操作痕迹">
+    <div class="ast-expert-trace-head">
+      ${icon('terminal', 13)}
+      <strong>操作痕迹</strong>
+      <span>${escHtml(hiddenCount ? `${operations.length} 项，显示最近 ${visible.length} 项` : `${operations.length} 项`)}</span>
+    </div>
+    <div class="ast-expert-trace-list">
+      ${visible.map(item => `<div class="ast-expert-trace-row ast-expert-trace-row--${escAttr(item.status)}">
+        <span class="ast-expert-trace-icon">${icon(item.iconName, 12)}</span>
+        <span class="ast-expert-trace-main">
+          <strong>${escHtml(item.title)}</strong>
+          <small title="${escAttr(item.target)}">${escHtml(item.target)}</small>
+        </span>
+        <span class="ast-expert-trace-meta">${escHtml(item.meta)}</span>
+      </div>`).join('')}
+    </div>
+  </div>`
+}
+
+function getExpertTeamOperations(transcript) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const latest = new Map()
+  for (const item of events) {
+    if (!['tool_start', 'tool_done', 'tool_error'].includes(item?.type)) continue
+    latest.set(item.toolCallId || `${item.toolName || 'tool'}-${latest.size}`, item)
+  }
+  return [...latest.values()].map(item => {
+    const status = item.type === 'tool_start' ? 'running' : item.type === 'tool_error' || item.approved === false ? 'error' : 'done'
+    const owner = expertTeamActorLabel({ expertName: item.ownerName, expertTitle: item.ownerTitle })
+    return {
+      status,
+      iconName: expertTeamToolIcon(item.toolName),
+      title: `${owner} · ${expertTeamToolLabel(item.toolName)}`,
+      target: expertTeamToolTarget(item.toolName, item.args),
+      meta: status === 'running' ? '执行中' : status === 'error' ? '已阻止' : '已完成',
+    }
+  })
 }
 
 function buildExpertTeamActivities(transcript, run, isRunning) {
@@ -4548,20 +4597,22 @@ function buildExpertTeamActivities(transcript, run, isRunning) {
     }
     if (item.type === 'moderator_error') {
       activities.push({
-        status: 'error',
-        iconName: 'alert-circle',
-        title: '主持综合异常',
-        detail: item.message || item.error || '将使用降级综合',
-        meta: '降级',
+        status: 'warning',
+        iconName: 'shield',
+        title: '主持综合已降级',
+        detail: item.message || item.error || '主持模型未返回有效内容，已用专家意见整理临时交付',
+        meta: '自动兜底',
       })
       continue
     }
     if (item.type === 'final') {
       activities.push({
-        status: 'done',
+        status: item.status === 'fallback' ? 'warning' : 'done',
         iconName: 'clipboard',
-        title: '生成最终交付',
-        detail: `综合结论已完成，输出 ${expertTeamContentMeta(item.content)}`,
+        title: item.status === 'fallback' ? '生成临时交付' : '生成最终交付',
+        detail: item.status === 'fallback'
+          ? `主持综合已降级，保留输出 ${expertTeamContentMeta(item.content)}`
+          : `综合结论已完成，输出 ${expertTeamContentMeta(item.content)}`,
         meta: modelTextFromSummary(item.model) || '交付',
       })
       continue
@@ -4659,6 +4710,7 @@ function renderExpertTeamCheckpointTimeline(checkpoints) {
 function expertTeamCheckpointStatus(type) {
   if (String(type || '').includes('error')) return 'error'
   if (String(type || '').includes('retry')) return 'warning'
+  if (type === 'moderator_error') return 'warning'
   if (String(type || '').includes('stopped')) return 'stopped'
   if (['done', 'expert_done'].includes(type)) return 'done'
   return 'neutral'
@@ -4712,7 +4764,7 @@ function buildExpertTeamLegacyCheckpoints(message) {
     if (item.type === 'round_start') checkpoints.push({ key: `legacy-round-${item.round || index}`, type: item.type, label: `第${item.round || 1}/${item.total || 1}轮`, ts })
     if (item.type === 'expert_done') checkpoints.push({ key: `legacy-expert-done-${item.expertId || index}-${item.round || 0}`, type: item.type, label: `${item.expertName || item.expertId || '专家'}完成`, ts })
     if (item.type === 'expert_error') checkpoints.push({ key: `legacy-expert-error-${item.expertId || index}-${item.round || 0}`, type: item.type, label: `${item.expertName || item.expertId || '专家'}异常已处理`, ts })
-    if (item.type === 'moderator_error') checkpoints.push({ key: `legacy-moderator-error-${index}`, type: item.type, label: '主持异常，已降级', ts })
+    if (item.type === 'moderator_error') checkpoints.push({ key: `legacy-moderator-error-${index}`, type: item.type, label: '主持空响应，已降级', ts })
     if (item.type === 'final') checkpoints.push({ key: 'legacy-done', type: 'done', label: '交付完成', ts })
     if (item.type === 'stopped') checkpoints.push({ key: 'legacy-stopped', type: 'stopped', label: '用户停止运行', ts })
     if (item.type === 'error') checkpoints.push({ key: 'legacy-error', type: 'error', label: '运行失败', ts })
@@ -4723,6 +4775,7 @@ function buildExpertTeamLegacyCheckpoints(message) {
 function expertTeamLegacyPhase(message, progress) {
   if (message?._expertTeamRunning) return progress?.status === 'running' ? 'running' : 'expert_work'
   const events = Array.isArray(message?._expertTeamTranscript) ? message._expertTeamTranscript : []
+  if (hasExpertTeamModeratorFallback(events)) return 'degraded'
   if (events.some(item => item.type === 'final')) return 'closed'
   if (events.some(item => item.type === 'stopped')) return 'stopped'
   if (events.some(item => item.type === 'error')) return 'failed'
@@ -4781,13 +4834,16 @@ function renderExpertTeamCloseout(transcript, plan, progress) {
   const finalDone = events.some(item => item.type === 'final')
   const stopped = events.some(item => item.type === 'stopped')
   const failed = events.some(item => item.type === 'error')
+  const fallback = hasExpertTeamModeratorFallback(events)
   const expertDone = events.filter(item => item.type === 'expert_done').length
   const errorCount = events.filter(item => item.type === 'expert_error' || item.type === 'moderator_error' || item.type === 'error').length
   const moderatorName = plan?.moderator?.name || plan?.moderator?.id || '主持专家'
-  const status = failed ? 'error' : finalDone ? 'done' : stopped && progress.status !== 'running' ? 'stopped' : progress.status
+  const status = failed ? 'error' : fallback ? 'degraded' : finalDone ? 'done' : stopped && progress.status !== 'running' ? 'stopped' : progress.status
   const nextStep = failed
     ? '可查看错误并重新发起'
-    : finalDone
+    : fallback
+      ? '建议重新综合生成正式交付'
+      : finalDone
       ? '可继续追问或复制交付结果'
       : stopped
         ? '已保留专家意见，可继续主持综合'
@@ -4800,7 +4856,7 @@ function renderExpertTeamCloseout(transcript, plan, progress) {
     </div>
     <div class="ast-expert-closeout-grid">
       <span><small>专家意见</small><strong>${escHtml(expertDone)}份</strong></span>
-      <span><small>质量门禁</small><strong>${escHtml(finalDone ? `${moderatorName}已综合` : `${moderatorName}待综合`)}</strong></span>
+      <span><small>质量门禁</small><strong>${escHtml(fallback ? `${moderatorName}临时交付` : finalDone ? `${moderatorName}已综合` : `${moderatorName}待综合`)}</strong></span>
       <span><small>异常处理</small><strong>${escHtml(errorCount ? `${errorCount}个` : '无')}</strong></span>
       <span><small>下一步</small><strong>${escHtml(nextStep)}</strong></span>
     </div>
@@ -4810,15 +4866,18 @@ function renderExpertTeamCloseout(transcript, plan, progress) {
 function canResumeExpertTeamSynthesis(message) {
   const transcript = Array.isArray(message?._expertTeamTranscript) ? message._expertTeamTranscript : []
   if (!message || message._expertTeamRunning) return false
+  if (message._expertTeamResumeInFlight) return false
   if (!message._expertTeamPlan?.task) return false
-  if (!transcript.some(item => item.type === 'stopped')) return false
-  if (transcript.some(item => item.type === 'final')) return false
+  const fallback = hasExpertTeamModeratorFallback(transcript)
+  if (!transcript.some(item => item.type === 'stopped') && !fallback) return false
+  if (transcript.some(item => item.type === 'final') && !fallback) return false
   return getExpertTeamContributions(message).length > 0
 }
 
 function canResumeExpertTeamRun(message) {
   const transcript = Array.isArray(message?._expertTeamTranscript) ? message._expertTeamTranscript : []
   if (!message || message._expertTeamRunning) return false
+  if (message._expertTeamResumeInFlight) return false
   if (!message._expertTeamPlan?.task) return false
   if (!transcript.some(item => item.type === 'stopped')) return false
   if (transcript.some(item => item.type === 'final')) return false
@@ -4835,6 +4894,7 @@ function getExpertTeamContributions(message) {
       id: item.id || `resume-${item.expertId || index}-${item.round || 0}`,
       expertId: item.expertId || item.expertName || `expert-${index + 1}`,
       expertName: item.expertName || item.expertId || `专家${index + 1}`,
+      expertTitle: item.expertTitle || '',
       content: item.content || '',
       model: item.model,
       round: item.round || 0,
@@ -4847,10 +4907,10 @@ function getExpertTeamRemainingMembers(message) {
   const members = Array.isArray(plan?.members) ? plan.members : []
   const contributions = getExpertTeamContributions(message)
   const rounds = plan?.mode === 'sequential' ? Math.max(1, Number.parseInt(plan.maxRounds || 1, 10) || 1) : 1
-  const done = new Set(contributions.map(item => `${item.expertId || ''}::${item.round || 0}`))
+  const done = new Set(contributions.map(item => `${item.expertId || ''}::${plan?.mode === 'sequential' ? (item.round || 1) : (item.round || 0)}`))
   const missing = []
   for (let round = 0; round < rounds; round++) {
-    const publicRound = plan?.mode === 'sequential' && rounds > 1 ? round + 1 : 0
+    const publicRound = plan?.mode === 'sequential' ? round + 1 : 0
     for (const member of members) {
       const id = member.id || member.expertId || ''
       if (!id) continue
@@ -4867,17 +4927,24 @@ function renderExpertTeamResumeActions(message, idx) {
   if (!canRun && !canSynthesize) return ''
   const count = getExpertTeamContributions(message).length
   const missing = getExpertTeamRemainingMembers(message).length
+  const fallback = hasExpertTeamModeratorFallback(message?._expertTeamTranscript)
   return `<div class="ast-expert-resume-actions" aria-label="专家团恢复操作">
-    <span>${escHtml(missing ? `${count ? `已保留 ${count} 份意见，` : ''}还有 ${missing} 位/轮专家可补跑` : `已保留 ${count} 份专家意见，可只继续主持综合`)}</span>
+    <span>${escHtml(fallback ? `主持综合返回空内容，已保留 ${count} 份意见，可重新综合生成正式交付` : missing ? `${count ? `已保留 ${count} 份意见，` : ''}还有 ${missing} 位/轮专家可补跑` : `已保留 ${count} 份专家意见，可只继续主持综合`)}</span>
     ${canRun ? `<button type="button" class="ast-expert-resume-btn" data-action="resume-expert-run" data-msg-idx="${escAttr(idx)}" title="补跑缺失专家，再进入主持综合">
       ${icon('refresh-cw', 13)}
       <span>继续剩余专家</span>
     </button>` : ''}
     ${canSynthesize ? `<button type="button" class="ast-expert-resume-btn ast-expert-resume-btn--ghost" data-action="resume-expert-synthesis" data-msg-idx="${escAttr(idx)}" title="不重跑专家，直接进入主持综合">
       ${icon('play', 13)}
-      <span>继续综合</span>
+      <span>${escHtml(fallback ? '重新综合' : '继续综合')}</span>
     </button>` : ''}
   </div>`
+}
+
+function hasExpertTeamModeratorFallback(transcript) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const final = [...events].reverse().find(item => item.type === 'final')
+  return events.some(item => item.type === 'moderator_error') && (!final || final.status === 'fallback' || /临时交付|自动降级|主持模型返回空内容|主持专家合成失败/.test(String(final.content || '')))
 }
 
 function getExpertTeamStages(transcript, plan, isRunning, progress) {
@@ -4889,22 +4956,26 @@ function getExpertTeamStages(transcript, plan, isRunning, progress) {
   const moderatorLive = events.some(item => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(item.type))
   const moderatorError = events.some(item => item.type === 'moderator_error')
   const finalDone = events.some(item => item.type === 'final')
+  const fallback = hasExpertTeamModeratorFallback(events)
   const stopped = events.some(item => item.type === 'stopped')
   const failed = events.some(item => item.type === 'error')
   const effectiveStopped = stopped && !isRunning && !finalDone && !failed
   const memberCount = Array.isArray(plan?.members) ? plan.members.length : 0
-  const expertTarget = Math.max(memberCount || expertDone || (expertLive ? 1 : 0), 1)
+  const rounds = plan?.mode === 'sequential' ? Math.max(1, Number.parseInt(plan.maxRounds || 1, 10) || 1) : 1
+  const expertTarget = Math.max((memberCount * rounds) || expertDone || (expertLive ? 1 : 0), 1)
   const expertStatus = failed ? 'error'
     : effectiveStopped ? 'stopped'
       : finalDone || expertDone >= expertTarget ? 'done'
         : expertLive ? 'running'
           : hasPlan ? 'waiting' : 'waiting'
-  const moderatorStatus = failed || moderatorError ? 'error'
+  const moderatorStatus = failed ? 'error'
+    : fallback || moderatorError ? 'warning'
     : effectiveStopped ? 'stopped'
       : finalDone ? 'done'
         : moderatorLive ? 'running'
           : expertDone > 0 || expertLive ? 'waiting' : 'waiting'
   const closeoutStatus = failed ? 'error'
+    : fallback ? 'degraded'
     : effectiveStopped ? 'stopped'
       : finalDone ? 'done'
         : isRunning ? 'waiting' : 'waiting'
@@ -4932,14 +5003,14 @@ function getExpertTeamStages(transcript, plan, isRunning, progress) {
     },
     {
       name: '主持综合',
-      detail: finalDone ? '结论已生成' : '等待专家意见',
+      detail: fallback ? '模型空响应，已临时交付' : finalDone ? '结论已生成' : '等待专家意见',
       status: moderatorStatus,
       label: expertTeamStageStatusLabel(moderatorStatus),
       icon: icon('crown', 13),
     },
     {
       name: '交付复盘',
-      detail: finalDone ? '闭环完成' : effectiveStopped ? '已退出专家团' : '等待质量门禁',
+      detail: fallback ? '可重新综合' : finalDone ? '闭环完成' : effectiveStopped ? '已退出专家团' : '等待质量门禁',
       status: closeoutStatus,
       label: expertTeamStageStatusLabel(closeoutStatus),
       icon: icon('clipboard', 13),
@@ -4996,20 +5067,22 @@ function renderExpertTeamEventItem(item, eventIndex) {
     return renderExpertTeamToolItem(item)
   }
   if (item.type === 'moderator_error') {
-    return `<div class="ast-expert-item ast-expert-item--error">
+    return `<div class="ast-expert-item ast-expert-item--warning">
       <div class="ast-expert-item-head">
-        <span class="ast-expert-status-icon">${icon('alert-circle', 13)}</span>
-        <strong>主持综合失败</strong>
+        <span class="ast-expert-status-icon">${icon('shield', 13)}</span>
+        <strong>主持综合已自动降级</strong>
         ${expertTeamModelPill(item.model)}
       </div>
-      <div class="ast-expert-item-body">${escHtml(item.message || '将使用已收集的专家意见生成降级结果。')}</div>
+      <div class="ast-expert-item-body">${escHtml(item.message || '主持模型未返回有效内容，系统已根据已收集的专家意见生成临时交付。')}</div>
     </div>`
   }
   if (item.type === 'final') {
+    const isFallback = item.status === 'fallback' || /临时交付|自动降级|主持模型返回空内容|主持专家合成失败/.test(String(item.content || ''))
     return `<div class="ast-expert-item ast-expert-item--final ast-expert-final-card">
       <div class="ast-expert-item-head">
-        <span class="ast-expert-status-icon">${icon('crown', 14)}</span>
-        <strong>综合结论</strong>
+        <span class="ast-expert-status-icon">${icon(isFallback ? 'shield' : 'crown', 14)}</span>
+        <strong>${escHtml(isFallback ? '临时交付' : '综合结论')}</strong>
+        ${isFallback ? '<span class="ast-expert-identity-pill ast-expert-identity-pill--warning">可重新综合</span>' : ''}
         ${expertTeamModelPill(item.model)}
       </div>
       <div class="ast-expert-item-body ast-expert-final-body">${renderMarkdown(item.content)}</div>
@@ -5244,14 +5317,16 @@ function getExpertTeamProgress(transcript, plan, isRunning) {
   const moderatorTotal = plan?.moderator ? 1 : 0
   const total = Math.max(1, expertTotal + moderatorTotal)
   const finalDone = events.some(item => item.type === 'final')
+  const fallback = hasExpertTeamModeratorFallback(events)
   const moderatorDone = moderatorTotal && (finalDone || events.some(item => item.type === 'moderator_error')) ? 1 : 0
   const completed = finalDone ? total : Math.min(total, completedExpertEvents + moderatorDone)
   const percent = finalDone ? 100 : Math.max(isRunning ? 8 : 0, Math.round((completed / total) * 100))
-  const errorCount = events.filter(item => item.type === 'expert_error' || item.type === 'moderator_error' || item.type === 'error').length
+  const errorCount = events.filter(item => item.type === 'expert_error' || item.type === 'error').length
+  const warningCount = events.filter(item => item.type === 'moderator_error').length
   const stopped = events.some(item => item.type === 'stopped')
   const failed = events.some(item => item.type === 'error') && !isRunning
   let status = isRunning ? 'running' : 'idle'
-  if (finalDone && !isRunning) status = 'done'
+  if (finalDone && !isRunning) status = fallback ? 'degraded' : 'done'
   if (failed) status = 'error'
   if (stopped && !isRunning && !finalDone && !failed) status = 'stopped'
   const active = isRunning ? [...events].reverse().find(item => ['moderator_stream', 'moderator_start', 'moderator_retry', 'expert_stream', 'expert_start', 'expert_retry'].includes(item.type)) : null
@@ -5259,7 +5334,9 @@ function getExpertTeamProgress(transcript, plan, isRunning) {
     ? expertTeamCurrentLabel(active)
     : failed
       ? '专家团运行失败'
-      : finalDone
+      : fallback
+        ? '已生成临时交付，可重新综合'
+        : finalDone
         ? '专家团已完成综合'
         : stopped && !isRunning ? '运行已停止，后续按普通对话发送'
           : isRunning ? '正在调度专家' : '专家团结果'
@@ -5271,22 +5348,23 @@ function getExpertTeamProgress(transcript, plan, isRunning) {
     statusLabel: expertTeamStatusLabel(status),
     currentLabel,
     errorCount,
-    summary: finalDone ? '最终结论已生成' : isRunning ? '中间意见默认折叠，当前输出实时更新' : '可展开查看专家明细',
+    warningCount,
+    summary: fallback ? '主持综合已降级，可重新综合' : finalDone ? '最终结论已生成' : isRunning ? '中间意见默认折叠，当前输出实时更新' : '可展开查看专家明细',
   }
 }
 
 function expertTeamStatusLabel(status) {
-  const map = { running: '运行中', done: '已完成', error: '出错', stopped: '已停止', idle: '待查看' }
+  const map = { running: '运行中', done: '已完成', degraded: '已降级', error: '出错', stopped: '已停止', idle: '待查看' }
   return map[status] || '运行中'
 }
 
 function expertTeamRunIcon(status) {
-  const map = { running: 'radio', done: 'check-circle', error: 'alert-circle', stopped: 'stop', idle: 'users' }
+  const map = { running: 'radio', done: 'check-circle', degraded: 'shield', error: 'alert-circle', stopped: 'stop', idle: 'users' }
   return icon(map[status] || 'users', 16)
 }
 
 function expertTeamStageStatusLabel(status) {
-  const map = { done: '已完成', running: '进行中', waiting: '等待中', error: '异常', stopped: '已停止' }
+  const map = { done: '已完成', degraded: '已降级', running: '进行中', waiting: '等待中', warning: '需复核', error: '异常', stopped: '已停止' }
   return map[status] || '等待中'
 }
 
@@ -5307,6 +5385,7 @@ function expertTeamPhaseLabel(phase) {
     expert_work: '专家生成',
     moderator: '主持综合',
     closed: '交付完成',
+    degraded: '临时交付',
     stopped: '已停止',
     failed: '运行失败',
     running: '运行中',
@@ -5343,6 +5422,8 @@ function expertTeamStageStatusIcon(status) {
     done: 'check-circle',
     running: 'radio',
     waiting: 'clock',
+    warning: 'shield',
+    degraded: 'shield',
     error: 'alert-circle',
     stopped: 'stop',
   }
@@ -6989,7 +7070,7 @@ function updateExpertTeamRunMeta(aiMsg, event = {}) {
 
   const phase = expertTeamRunPhase(event.type)
   if (phase) run.phase = phase
-  if (event.type === 'done') run.status = 'done'
+  if (event.type === 'done') run.status = event.final?.status === 'fallback' ? 'degraded' : 'done'
   else if (event.type === 'stopped') run.status = 'stopped'
   else if (event.type === 'error') run.status = 'error'
   else if (event.type) run.status = 'running'
@@ -7175,6 +7256,7 @@ function handleExpertTeamRunEvent(aiMsg, event = {}) {
   if (event.type === 'start' || event.type === 'resume_start') {
     if (event.plan) aiMsg._expertTeamPlan = event.plan
     aiMsg._expertTeamRunning = true
+    if (event.type === 'resume_start') removeExpertTeamFallbackFinal(aiMsg._expertTeamTranscript)
   }
   if (event.type === 'round_start') {
     aiMsg._expertTeamTranscript.push({
@@ -7270,9 +7352,13 @@ function handleExpertTeamRunEvent(aiMsg, event = {}) {
   if (event.type === 'done') {
     const pendingIdx = aiMsg._expertTeamTranscript.findIndex(t => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(t.type))
     if (pendingIdx >= 0) aiMsg._expertTeamTranscript.splice(pendingIdx, 1)
+    for (let i = aiMsg._expertTeamTranscript.length - 1; i >= 0; i--) {
+      if (aiMsg._expertTeamTranscript[i]?.type === 'final') aiMsg._expertTeamTranscript.splice(i, 1)
+    }
     aiMsg._expertTeamTranscript.push({
       type: 'final',
       content: event.final?.content || '',
+      status: event.final?.status || '',
       expertName: event.final?.expertName || '主持专家',
       expertTitle: event.final?.expertTitle || '主持专家',
       model: event.final?.model,
@@ -7298,6 +7384,14 @@ function handleExpertTeamRunEvent(aiMsg, event = {}) {
     aiMsg._expertTeamResumeInFlight = false
   }
   return { shouldRender, shouldPersistNow }
+}
+
+function removeExpertTeamFallbackFinal(transcript) {
+  if (!Array.isArray(transcript)) return
+  if (!hasExpertTeamModeratorFallback(transcript)) return
+  for (let i = transcript.length - 1; i >= 0; i--) {
+    if (transcript[i]?.type === 'final') transcript.splice(i, 1)
+  }
 }
 
 function bindExpertTeamEvents(page) {

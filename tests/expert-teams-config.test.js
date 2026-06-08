@@ -92,6 +92,11 @@ test('Expert Teams page supports expert editing and team member selection', () =
     'group-max-rounds',
     'group-max-parallel',
     'group-approval-policy',
+    'expert-workflow-grid-wide',
+    '轮次说明',
+    '当前模式不使用多轮接力',
+    '不会从空白重写',
+    'classList.toggle(\'is-muted\'',
     'availableSkills',
     'normalizeSkillOptions',
     'skillOptionsForExpert',
@@ -156,6 +161,11 @@ test('Expert Teams runner defines structured expert communication', () => {
     'buildExpertFailure',
     'buildModeratorFinalOrFallback',
     'buildFallbackSynthesis',
+    'emptyResponseLabel',
+    "emptyResponseLabel: 'moderator synthesis'",
+    "buildExpertRunEvent('moderator_delta', plan.moderator, slot)",
+    "buildExpertRunEvent('moderator_retry', plan.moderator, slot)",
+    '系统已根据已完成的专家意见整理临时交付',
     'resumeExpertTeamRun',
     'resumeExpertTeamSynthesis',
     'resume_start',
@@ -199,12 +209,20 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'document.removeEventListener(\'click\', _expertTeamOutsideClickHandler)',
     'event.type === \'expert_error\'',
     'event.type === \'moderator_error\'',
+    '主持综合已自动降级',
+    '临时交付',
+    '主持专家合成失败',
+    'ast-expert-item--warning',
     'event.type === \'expert_retry\'',
     'event.type === \'moderator_retry\'',
     'event.type === \'expert_delta\'',
     'event.type === \'moderator_delta\'',
     'appendExpertRunDelta',
     'appendModeratorRunDelta',
+    'renderExpertTeamOperationTrace',
+    'getExpertTeamOperations',
+    'ast-expert-trace',
+    '操作痕迹',
     '_expertTeamRun',
     'initExpertTeamRunMeta',
     'updateExpertTeamRunMeta',
@@ -237,6 +255,7 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'renderExpertTeamResumeActions',
     'canResumeExpertTeamSynthesis',
     'canResumeExpertTeamRun',
+    'hasExpertTeamModeratorFallback',
     'getExpertTeamContributions',
     'getExpertTeamRemainingMembers',
     'resumeExpertTeamMessage',
@@ -249,6 +268,11 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     '当前专家团记录无法继续剩余专家',
     'resume_start',
     '继续综合',
+    '重新综合',
+    '已降级',
+    '可重新综合',
+    'final.status',
+    "status: event.final?.status || ''",
     'getExpertTeamActiveAgents',
     'isRunning ? getExpertTeamActiveAgents(transcript) : []',
     'clearActiveExpertGroupSelection',
@@ -278,6 +302,9 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
   assert.match(assistant, /event\.type === 'moderator_delta'[\s\S]*scheduleExpertTeamLiveDomUpdate\(aiMsg,\s*event,\s*'moderator'\)/)
   assert.match(assistant, /const \{ shouldRender,\s*shouldPersistNow \}\s*=\s*handleExpertTeamRunEvent\(aiMsg,\s*event\)/)
   assert.match(assistant, /const effectiveStopped = stopped && !isRunning && !finalDone && !failed/)
+  assert.match(assistant, /fallback \? 'degraded' : finalDone \? 'done'/)
+  assert.match(assistant, /hasExpertTeamModeratorFallback\(transcript\)[\s\S]*transcript\.some\(item => item\.type === 'final'\) && !fallback/)
+  assert.match(assistant, /\$\{topPrimaryHtml\}[\s\S]*\$\{stageHtml\}[\s\S]*\$\{activityHtml\}[\s\S]*\$\{traceHtml\}[\s\S]*\$\{inlinePrimaryHtml\}[\s\S]*\$\{closeoutHtml\}[\s\S]*\$\{resumeActionsHtml\}[\s\S]*\$\{detailsHtml\}/)
   assert.match(assistant, /<details class="ast-expert-run-details">/)
 })
 
@@ -290,6 +317,11 @@ test('Assistant Expert Teams resume controls expose complete and synthesis-only 
   assert.match(assistant, /const resumeRunner = mode === 'run' \? resumeExpertTeamRun : resumeExpertTeamSynthesis/)
   assert.match(assistant, /resumeExpertTeamMessage\(Number\.parseInt\(resumeRunBtn\.dataset\.msgIdx,\s*10\),\s*'run'\)/)
   assert.match(assistantCss, /\.ast-expert-resume-btn--ghost/)
+  assert.match(assistantCss, /\.ast-expert-badge--degraded/)
+  assert.match(assistantCss, /\.ast-expert-stage-row--warning/)
+  assert.match(assistantCss, /\.ast-expert-closeout--degraded/)
+  assert.match(assistantCss, /\.ast-expert-trace/)
+  assert.match(assistantCss, /\.ast-expert-identity-pill--warning/)
   assert.match(assistantCss, /\.ast-expert-run-details-summary/)
 })
 
@@ -298,9 +330,12 @@ test('Expert Teams styling keeps a responsive workbench layout', () => {
   assert.match(cssBlock('.expert-member-picker'), /grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(260px,\s*1fr\)\)/)
   assert.match(cssBlock('.expert-member-row'), /grid-template-columns:\s*18px\s*32px\s*minmax\(0,\s*1fr\)\s*auto/)
   assert.match(cssBlock('.expert-member-order-wrap'), /justify-content:\s*flex-end/)
+  assert.match(cssBlock('.expert-member-order-label'), /border-radius:\s*var\(--radius-full\)/)
   assert.match(cssBlock('.expert-member-drag'), /cursor:\s*grab/)
   assert.match(cssBlock('.expert-member-row.is-dragging'), /opacity:\s*\.72/)
   assert.match(cssBlock('.expert-workflow-grid'), /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/)
+  assert.match(cssBlock('.expert-workflow-grid-wide'), /grid-column:\s*1\s*\/\s*-1/)
+  assert.match(css, /\.expert-form-section \.form-group\.is-muted/)
   assert.doesNotMatch(css, /\.expert-run-/)
   assert.match(css, /@media \(max-width:\s*1120px\)[\s\S]*\.expert-teams-shell\s*\{[\s\S]*grid-template-columns:\s*1fr/)
 })

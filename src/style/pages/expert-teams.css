@@ -276,6 +276,17 @@
   margin-bottom: var(--space-3);
 }
 
+.expert-form-section .form-group.is-muted {
+  opacity: 0.58;
+}
+
+.expert-form-section .form-group.is-muted .form-label::after {
+  content: '（当前模式不生效）';
+  margin-left: 4px;
+  color: var(--text-3);
+  font-weight: 500;
+}
+
 .expert-color-field input[type="color"] {
   padding: 4px;
 }
@@ -395,6 +406,11 @@
   border-left: 0;
 }
 
+.expert-workflow-grid-wide {
+  grid-column: 1 / -1;
+  border-left: 0 !important;
+}
+
 .expert-workflow-grid small {
   color: var(--text-3);
   font-size: var(--font-size-xs);
@@ -506,11 +522,12 @@
   align-items: center;
   min-height: 30px;
   padding: 0 10px;
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
-  color: var(--text-3);
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, var(--border-1));
+  border-radius: var(--radius-full);
+  background: var(--brand-faint);
+  color: var(--brand);
   font-size: var(--font-size-xs);
+  font-weight: 800;
   white-space: nowrap;
 }
 
