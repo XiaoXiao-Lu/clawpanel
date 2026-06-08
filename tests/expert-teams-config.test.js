@@ -240,6 +240,11 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'expertTeamRunElapsed',
     'renderExpertTeamRunMeta',
     'renderExpertTeamRunDetails',
+    'renderExpertTeamFocus',
+    'getExpertTeamFocus',
+    'renderExpertTeamWorkboard',
+    'getExpertTeamWorkboard',
+    'getExpertTeamMemberStatuses',
     'renderExpertTeamLiveSynthesis',
     'expertTeamDomId',
     'expertTeamLiveDomId',
@@ -248,6 +253,9 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'data-expert-live-id',
     'data-expert-active-id',
     'ast-expert-progress',
+    'ast-expert-focus',
+    'ast-expert-workboard',
+    'ast-expert-member-track',
     'ast-expert-run-meta',
     'ast-expert-run-details',
     'ast-expert-live-synthesis',
@@ -293,7 +301,9 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     '运行编号',
     '交付复盘',
     '质量门禁',
-    '模型、自治、检查点',
+    '团队配置、操作痕迹、复盘',
+    '执行队列',
+    'expertTeamToolTargetBrief',
     '完整过程',
     '默认收起',
     '专家团运行已停止。后续消息将按普通对话发送。',
@@ -313,7 +323,10 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
   assert.match(assistant, /const effectiveStopped = stopped && !isRunning && !finalDone && !failed/)
   assert.match(assistant, /fallback \? 'degraded' : finalDone \? 'done'/)
   assert.match(assistant, /hasExpertTeamModeratorFallback\(transcript\)[\s\S]*transcript\.some\(item => item\.type === 'final'\) && !fallback/)
-  assert.match(assistant, /\$\{topPrimaryHtml\}[\s\S]*\$\{stageHtml\}[\s\S]*\$\{activityHtml\}[\s\S]*\$\{traceHtml\}[\s\S]*\$\{inlinePrimaryHtml\}[\s\S]*\$\{closeoutHtml\}[\s\S]*\$\{resumeActionsHtml\}[\s\S]*\$\{detailsHtml\}/)
+  assert.match(assistant, /\$\{focusHtml\}[\s\S]*\$\{topPrimaryHtml\}[\s\S]*\$\{showWorkboard \? workboardHtml : ''\}[\s\S]*\$\{inlinePrimaryHtml\}[\s\S]*\$\{resumeActionsHtml\}[\s\S]*\$\{detailsHtml\}[\s\S]*\$\{processBlock\}/)
+  assert.match(assistant, /renderExpertTeamRunDetails\(\{[\s\S]*activityHtml[\s\S]*closeoutHtml: isRunning \? '' : closeoutHtml[\s\S]*planHtml[\s\S]*traceHtml/)
+  const renderedExpertTeamMessage = assistant.slice(assistant.indexOf('return `<div class="ast-msg ast-msg-ai ast-msg-expert-team"'), assistant.indexOf('function renderExpertTeamFocus'))
+  assert.doesNotMatch(renderedExpertTeamMessage, /\$\{stageHtml\}/)
   assert.match(assistant, /<details class="ast-expert-run-details">/)
 })
 
@@ -327,6 +340,9 @@ test('Assistant Expert Teams resume controls expose complete and synthesis-only 
   assert.match(assistant, /resumeExpertTeamMessage\(Number\.parseInt\(resumeRunBtn\.dataset\.msgIdx,\s*10\),\s*'run'\)/)
   assert.match(assistantCss, /\.ast-expert-resume-btn--ghost/)
   assert.match(assistantCss, /\.ast-expert-badge--degraded/)
+  assert.match(assistantCss, /\.ast-expert-workboard/)
+  assert.match(assistantCss, /\.ast-expert-member-chip--running/)
+  assert.match(assistantCss, /\.ast-expert-focus/)
   assert.match(assistantCss, /\.ast-expert-stage-row--warning/)
   assert.match(assistantCss, /\.ast-expert-closeout--degraded/)
   assert.match(assistantCss, /\.ast-expert-trace/)
