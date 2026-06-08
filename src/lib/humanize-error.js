@@ -23,15 +23,15 @@
 import { t } from './i18n.js'
 
 const PATTERNS = [
-  // 网络
-  {
-    key: 'network',
-    re: /(failed to fetch|networkerror|networkfailure|enetunreach|econnreset|econnrefused|ehostunreach|err_network|fetch failed|connection refused|connection reset|getaddrinfo|dns error|no route to host|aborted|broken pipe|connect timed out|tcp connect|backend service is not running|web deployment mode|后端服务未运行)/i,
-  },
   // Gateway 未启动（特殊的 connection refused / port not listen 情况）
   {
     key: 'gatewayDown',
     re: /(gateway[^a-z]*(not[^a-z]*(running|ready|reachable)|down|offline|未启动)|managed gateway|未运行|gateway[^a-z]*未就绪)/i,
+  },
+  // 网络
+  {
+    key: 'network',
+    re: /(failed to fetch|networkerror|networkfailure|enetunreach|econnreset|econnrefused|ehostunreach|err_network|fetch failed|connection refused|connection reset|getaddrinfo|dns error|no route to host|aborted|broken pipe|connect timed out|tcp connect|backend service is not running|web deployment mode|后端服务未运行)/i,
   },
   // 命令未找到 / 二进制丢失
   {
