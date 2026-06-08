@@ -104,7 +104,7 @@ export function renderSidebar(el) {
     const hasTitle = section.section && section.section.trim()
     const sectionId = `nav-section-${sectionIndex++}`
     html += `<div class="nav-section" data-section-id="${sectionId}">
-      ${hasTitle ? `<div class="nav-section-title" data-toggle="${sectionId}">
+      ${hasTitle ? `<div class="nav-section-title" data-toggle="${sectionId}" role="button" tabindex="0" aria-expanded="true">
         <span>${section.section}</span>
         <svg class="nav-section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
       </div>` : ''}
@@ -178,6 +178,15 @@ export function renderSidebar(el) {
   // 事件委托：只绑定一次，避免重复绑定
   if (!_delegated) {
     _delegated = true
+    // ESC 键关闭移动端侧边栏
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const sidebar = document.getElementById('sidebar')
+        if (sidebar && sidebar.classList.contains('sidebar-open')) {
+          _closeMobileSidebar()
+        }
+      }
+    })
     el.addEventListener('click', async (e) => {
       // 导航点击
       const navItem = e.target.closest('.nav-item[data-route]')
@@ -194,6 +203,7 @@ export function renderSidebar(el) {
         const section = sectionToggle.closest('.nav-section')
         if (items) items.classList.toggle('collapsed')
         if (section) section.classList.toggle('section-collapsed')
+        sectionToggle.setAttribute('aria-expanded', items && !items.classList.contains('collapsed'))
         return
       }
       // 移动端关闭按钮
@@ -349,6 +359,17 @@ export function renderSidebar(el) {
         })
       })
     }
+
+    // 分区折叠键盘支持 (Enter/Space)
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        const sectionToggle = e.target.closest('[data-toggle]')
+        if (sectionToggle) {
+          e.preventDefault()
+          sectionToggle.click()
+        }
+      }
+    })
 
   }
 }

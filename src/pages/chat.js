@@ -471,6 +471,16 @@ function bindEvents(page) {
     sidebar.classList.remove('open')
     setSidebarOpen(false)
   })
+  // ESC 键关闭浮层侧边栏
+  page.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const sidebar = page.querySelector('#chat-sidebar')
+      if (sidebar && sidebar.classList.contains('open') && window.innerWidth <= 1200) {
+        sidebar.classList.remove('open')
+        setSidebarOpen(false)
+      }
+    }
+  })
   page.querySelector('#btn-new-session').addEventListener('click', () => showNewSessionDialog())
   page.querySelector('#btn-cmd').addEventListener('click', () => toggleCmdPanel())
   page.querySelector('#btn-reset-session').addEventListener('click', () => resetCurrentSession())

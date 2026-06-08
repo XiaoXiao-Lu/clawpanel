@@ -954,15 +954,15 @@
 
 /* 附件按钮 */
 .chat-attach-btn {
-  width: 46px;
-  height: 46px;
-  min-width: 46px;
-  min-height: 46px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   color: var(--text-secondary);
   cursor: pointer;
-  border-radius: var(--radius-lg, 12px);
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1410,24 +1410,7 @@
   color: var(--text-secondary);
 }
 
-/* 文件上传 */
-.chat-attach-btn {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 8px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.chat-attach-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
+/* 文件上传（已被上方 .chat-attach-btn 统一覆盖，此处为历史兼容） */
 
 .chat-attachments-preview {
   display: flex;

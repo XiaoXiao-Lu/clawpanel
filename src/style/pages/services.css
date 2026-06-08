@@ -87,13 +87,13 @@
 }
 
 .service-cancel-btn {
-  font-size: var(--font-size-xs) !important;
-  color: var(--text-tertiary) !important;
-  padding: 2px 8px !important;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  padding: 2px 8px;
   transition: color var(--transition-fast);
 }
 .service-cancel-btn:hover {
-  color: var(--error) !important;
+  color: var(--error);
 }
 
 /* 状态点：加载中脉冲动画 */
@@ -202,7 +202,7 @@
   top: 0;
   left: 0;
   right: 0;
-  z-index: 9999;
+  z-index: var(--z-max);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -382,6 +382,7 @@
   cursor: pointer;
   font-size: var(--font-size-sm);
   line-height: 1;
+  color: inherit;
   transition: all var(--transition-fast);
 }
 .btn-icon:hover {
@@ -389,10 +390,10 @@
   border-color: var(--border-focus);
 }
 .btn-icon.danger:hover {
-  background: rgba(239,68,68,.1);
-  border-color: #ef4444;
+  background: var(--error-muted);
+  border-color: var(--error);
 }
-.btn-icon:disabled { opacity: .4; pointer-events: none; }
+.btn-icon:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
 
 /* 弹窗 */
 .docker-dialog-overlay {
@@ -402,7 +403,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal);
   animation: fadeIn 150ms ease;
 }
 .docker-dialog {
