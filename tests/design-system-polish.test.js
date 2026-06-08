@@ -30,9 +30,10 @@ test('global controls keep polished focus and touch affordances', () => {
 test('main app shell has restrained commercial surfaces', () => {
   assert.match(cssBlock(variablesCss, ':root'), /--radius-lg:\s*8px/)
   assert.match(cssBlock(variablesCss, ':root'), /--radius-xl:\s*10px/)
+  assert.match(cssBlock(variablesCss, ':root'), /--accent:\s*var\(--brand\)/)
   assert.match(cssBlock(layoutCss, '#content'), /background-image:\s*linear-gradient/)
   assert.match(cssBlock(layoutCss, '.nav-item'), /min-height:\s*36px/)
-  assert.match(cssBlock(layoutCss, '.nav-item.active'), /box-shadow:\s*inset 3px 0 0 var\(--accent\)/)
+  assert.match(cssBlock(layoutCss, '.nav-item.active'), /box-shadow:\s*inset 3px 0 0 var\(--(?:brand|accent)\)/)
 })
 
 test('dashboard and skill marketplace use raised surfaces with stable list hierarchy', () => {
