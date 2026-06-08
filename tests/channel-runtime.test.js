@@ -25,6 +25,29 @@ test('getChannelRuntimeSummary preserves normalized unsupported status', () => {
   assert.deepEqual(summary.accounts, [])
 })
 
+test('normalizeChannelRuntimeStatus preserves explicit unsupported RPC results', () => {
+  const status = normalizeChannelRuntimeStatus({
+    supported: false,
+    ts: 3000,
+    channelOrder: ['telegram'],
+    channelLabels: { telegram: 'Telegram' },
+    channelAccounts: {
+      telegram: [
+        { accountId: 'bot-a', configured: true, connected: true },
+      ],
+    },
+  })
+  const summary = getChannelRuntimeSummary(status, 'telegram')
+
+  assert.equal(status.supported, false)
+  assert.equal(status.ts, 3000)
+  assert.deepEqual(status.channelOrder, ['telegram'])
+  assert.equal(summary.supported, false)
+  assert.equal(summary.state, 'unsupported')
+  assert.equal(summary.label, 'Telegram')
+  assert.equal(summary.counts.connected, 1)
+})
+
 test('getChannelRuntimeSummary prefers account errors over connected state', () => {
   const status = normalizeChannelRuntimeStatus({
     ts: 1000,
