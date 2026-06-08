@@ -9,7 +9,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  min-height: 36px;
+  min-height: 38px;
   padding: 0 var(--space-4);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
@@ -77,7 +77,7 @@
 }
 
 .btn-sm {
-  min-height: 30px;
+  min-height: 32px;
   padding: 0 var(--space-3);
   font-size: var(--text-xs);
 }
@@ -92,7 +92,7 @@
 .btn:focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
-  box-shadow: none;
+  box-shadow: var(--shadow-glow);
 }
 
 /* Button loading */
@@ -210,7 +210,7 @@
 .input,
 .form-input {
   width: 100%;
-  min-height: 36px;
+  min-height: 38px;
   padding: 8px 12px;
   background: var(--bg-sunken);
   border: 1px solid var(--border-1);
@@ -319,7 +319,7 @@ select.form-input:disabled {
   overflow-x: auto;
 }
 .tab {
-  min-height: 36px;
+  min-height: 38px;
   padding: 0 var(--space-4);
   display: inline-flex;
   align-items: center;

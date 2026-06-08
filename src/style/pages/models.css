@@ -593,7 +593,7 @@
 
 .fallback-workbench {
   display: grid;
-  grid-template-columns: minmax(240px, 0.6fr) minmax(320px, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.92fr);
   gap: var(--space-md);
 }
 
@@ -1865,5 +1865,4 @@
     gap: 2px;
   }
 }
-
 
