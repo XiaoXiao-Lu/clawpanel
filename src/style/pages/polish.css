@@ -1,33 +1,28 @@
 /* ============================================================
-   Polish — 视觉润色层（轻量、克制）
-   ============================================================
-   规则：
-   1. 不再用超大选择器列表覆盖所有组件
-   2. 不再用 !important
-   3. 不再强制给所有卡片加渐变顶边
-   4. 仅处理引擎特定的差异化样式和少量全局微调
+   Polish — Precision Noir visual refinements
    ============================================================ */
 
-/* ─── 内容区背景微调 ─── */
+/* ─── Content area ambient gradient ─── */
 #content {
   background: var(--bg-base);
 }
 
-/* ─── 页面最大宽度 ─── */
+/* ─── Page max-width ─── */
 .page:not([data-engine="hermes"]):not([data-engine="xintian"]) {
   max-width: 1400px;
 }
 
-/* ─── 标题字体统一 ─── */
+/* ─── Title typography ─── */
 .page-title,
 .config-section-title,
 .models-primary-name,
 .connectors-console-title,
 .skills-hero-title {
-  letter-spacing: -0.01em;
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
 }
 
-/* ─── 卡片 hover 微升（可选）─── */
+/* ─── Card hover — subtle lift ─── */
 .card:hover,
 .stat-card:hover,
 .overview-card:hover,
@@ -43,9 +38,10 @@
 .gw-option-card:hover {
   border-color: var(--border-1);
   box-shadow: var(--shadow-2);
+  transform: translateY(-1px);
 }
 
-/* ─── 主按钮统一样式 ─── */
+/* ─── Primary buttons ─── */
 .btn-primary,
 .dashboard-next-action,
 .chat-send-btn,
@@ -60,10 +56,11 @@
 .btn-primary:hover,
 .dashboard-next-action:hover {
   background: var(--brand-light);
-  box-shadow: var(--shadow-2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -4px rgba(99, 102, 241, 0.30);
 }
 
-/* ─── 次级按钮统一样式 ─── */
+/* ─── Secondary buttons ─── */
 .btn-secondary,
 .btn-ghost,
 .models-preset-btn,
@@ -497,12 +494,13 @@ select,
   }
   .ast-sidebar.open {
     position: fixed;
-    left: var(--sidebar-width, 220px);
-    top: 0;
-    z-index: 850;
-    width: min(260px, calc(100vw - var(--sidebar-width, 220px) - 16px));
+    left: 0;
+    top: var(--topbar-height, 56px);
+    bottom: 0;
+    z-index: calc(var(--z-drawer) + 1);
+    width: min(320px, calc(100vw - 72px));
     min-width: 0;
-    height: 100vh;
+    height: auto;
     border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
   }
   .ast-main {
@@ -536,5 +534,37 @@ select,
     display: flex;
     flex-direction: column;
     overflow: hidden;
+  }
+}
+
+/* ─── Staggered Reveal (page children animate in sequence) ─── */
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page > :where(.dashboard-header, .stat-cards, .dashboard-health-card, .overview-grid, .quick-actions, .config-section, .card, .tab-bar, .services-workbench, .models-workbench, .channels-layout, .form-group, .page-header) {
+  animation: revealUp 350ms var(--ease-out) both;
+}
+
+.page > :nth-child(1) { animation-delay: 0ms; }
+.page > :nth-child(2) { animation-delay: 50ms; }
+.page > :nth-child(3) { animation-delay: 100ms; }
+.page > :nth-child(4) { animation-delay: 150ms; }
+.page > :nth-child(5) { animation-delay: 200ms; }
+.page > :nth-child(6) { animation-delay: 250ms; }
+.page > :nth-child(7) { animation-delay: 300ms; }
+.page > :nth-child(n+8) { animation-delay: 350ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .page > * {
+    animation: none !important;
+    opacity: 1 !important;
   }
 }

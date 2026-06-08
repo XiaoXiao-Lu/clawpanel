@@ -92,7 +92,7 @@ export async function render() {
   page.className = 'page'
 
   page.innerHTML = `
-    <div class="page-header"><h1>${t('security.title')}</h1></div>
+    <div class="page-header"><h1 class="page-title">${t('security.title')}</h1></div>
     <div id="security-content">
       <div class="config-section loading-placeholder" style="height:120px"></div>
     </div>

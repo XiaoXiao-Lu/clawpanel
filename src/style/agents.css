@@ -6,7 +6,9 @@
 }
 
 .agents-page .page-header {
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-2);
 }
 
 .agents-page .page-title {

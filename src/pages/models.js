@@ -23,6 +23,96 @@ function cssEscape(value) {
   return String(value).replace(/["\\]/g, '\\$&')
 }
 
+/**
+ * 通用拖拽排序（Pointer Events 实现，兼容 Tauri WebView2/WKWebView）
+ * @param {HTMLElement} container - 可拖拽列表的容器
+ * @param {object} options
+ * @param {string} options.handleSelector - 拖拽手柄的选择器
+ * @param {string} options.itemSelector - 拖拽项的选择器
+ * @param {string} [options.placeholderStyle] - 占位符的内联样式
+ * @param {string} [options.dragStyle] - 拖拽项浮动时的附加样式
+ * @param {function(HTMLElement[]): void} options.onReorder - 拖拽完成后的回调，传入排序后的项列表
+ */
+function createDragSortable(container, options) {
+  const { handleSelector, itemSelector, placeholderStyle, dragStyle, onReorder } = options
+  let dragged = null
+  let placeholder = null
+  let startY = 0
+
+  container.addEventListener('pointerdown', e => {
+    const handle = e.target.closest(handleSelector)
+    if (!handle) return
+    const item = handle.closest(itemSelector)
+    if (!item) return
+
+    e.preventDefault()
+    dragged = item
+    startY = e.clientY
+
+    placeholder = document.createElement('div')
+    placeholder.style.cssText = placeholderStyle || `height:${item.offsetHeight}px;border:2px dashed var(--border);border-radius:var(--radius-md);margin-bottom:8px;background:var(--bg-secondary)`
+    item.after(placeholder)
+
+    const rect = item.getBoundingClientRect()
+    item.style.position = 'fixed'
+    item.style.left = rect.left + 'px'
+    item.style.top = rect.top + 'px'
+    item.style.width = rect.width + 'px'
+    item.style.zIndex = '9999'
+    item.style.opacity = '0.85'
+    if (dragStyle) Object.assign(item.style, dragStyle)
+    item.style.pointerEvents = 'none'
+    item.setPointerCapture(e.pointerId)
+  })
+
+  container.addEventListener('pointermove', e => {
+    if (!dragged || !placeholder) return
+    e.preventDefault()
+
+    const dy = e.clientY - startY
+    const origTop = parseFloat(dragged.style.top)
+    dragged.style.top = (origTop + dy) + 'px'
+    startY = e.clientY
+
+    const siblings = [...container.querySelectorAll(itemSelector)].filter(c => c !== dragged && c.style.position !== 'fixed')
+    for (const sibling of siblings) {
+      const rect = sibling.getBoundingClientRect()
+      if (e.clientY < rect.top + rect.height / 2) {
+        sibling.before(placeholder)
+        return
+      }
+    }
+    if (siblings.length) siblings[siblings.length - 1].after(placeholder)
+  })
+
+  container.addEventListener('pointerup', () => {
+    if (!dragged || !placeholder) return
+
+    dragged.style.position = ''
+    dragged.style.left = ''
+    dragged.style.top = ''
+    dragged.style.width = ''
+    dragged.style.zIndex = ''
+    dragged.style.opacity = ''
+    dragged.style.pointerEvents = ''
+    if (dragStyle) {
+      for (const key of Object.keys(dragStyle)) dragged.style[key] = ''
+    }
+    if (dragged.style.boxShadow) dragged.style.boxShadow = ''
+
+    placeholder.before(dragged)
+    placeholder.remove()
+
+    if (onReorder) {
+      const items = [...container.querySelectorAll(itemSelector)]
+      onReorder(items)
+    }
+
+    dragged = null
+    placeholder = null
+  })
+}
+
 export async function render() {
   const page = document.createElement('div')
   page.className = 'page models-page'
@@ -37,9 +127,8 @@ export async function render() {
         <button class="btn btn-primary btn-sm" id="btn-add-provider">${t('models.addProvider')}</button>
       </div>
     </div>
-    <div id="qtcool-body" style="display:none;padding:8px 12px;margin-bottom:12px;border:1px solid var(--border-primary);border-radius:var(--radius-md);background:var(--bg-secondary);font-size:12px">
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input class="form-input" id="qtcool-apikey" placeholder="${t('models.qtcoolKeyPlaceholder')}" style="font-size:12px;padding:5px 8px;flex:1;min-width:160px">
+    <div id="qtcool-body" class="models-qtcool-body models-qtcool-body--hidden">
+      <div class="models-qtcool-body-inner"><input class="form-input" id="qtcool-apikey" placeholder="${t('models.qtcoolKeyPlaceholder')}">
         <button class="btn btn-primary btn-sm" id="btn-qtcool-oneclick">${icon('plus', 12)} ${t('models.qtcoolFetchModels')}</button>
       </div>
     </div>
@@ -63,7 +152,17 @@ export async function render() {
     </div>
   `
 
-  const state = { config: null, search: '', undoStack: [], _fallbacks_expanded: false }
+  /** @type {{ config: object|null, search: string, undoStack: object[], sortBy: string, _collapsed: Object<string,boolean>, _fallbacks_expanded: boolean, _fallback_candidates_collapsed: Object<string,boolean>, _providerFilter: string }} */
+  const state = {
+    config: null,
+    search: '',
+    undoStack: [],
+    sortBy: 'default',
+    _collapsed: {},
+    _fallbacks_expanded: false,
+    _fallback_candidates_collapsed: {},
+    _providerFilter: 'all',
+  }
   // 非阻塞:先返回 DOM,后台加载数据
   loadConfig(page, state)
   bindTopActions(page, state)
@@ -77,12 +176,24 @@ export async function render() {
   // 可折叠推广横幅
   page.querySelector('#btn-toggle-qtcool').onclick = () => {
     const body = page.querySelector('#qtcool-body')
-    if (body.style.display === 'none') {
-      body.style.display = ''
-    } else {
-      body.style.display = 'none'
-    }
+    body.classList.toggle('models-qtcool-body--hidden')
   }
+
+  // 点击外部关闭 Provider 操作菜单
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.provider-card__actions')) {
+      page.querySelectorAll('.provider-card__actions.menu-open').forEach(el => el.classList.remove('menu-open'))
+    }
+  })
+
+  // Provider Tab 切换
+  page.addEventListener('click', (e) => {
+    const tab = e.target.closest('[data-provider-tab]')
+    if (tab) {
+      state._providerFilter = tab.dataset.providerTab
+      renderProviders(page, state)
+    }
+  })
 
   return page
 }
@@ -367,8 +478,6 @@ function renderFallbackWaterfall(state) {
     }
   })
 
-  if (!state._fallback_candidates_collapsed) state._fallback_candidates_collapsed = {}
-
   return `
     <div class="fallback-editor-panel">
       <div class="fallback-best-practice">
@@ -417,7 +526,7 @@ function renderFallbackWaterfall(state) {
                 return `
                   <div class="candidate-provider-group" data-provider="${pKey}">
                     <div class="candidate-provider-header">
-                      <span class="chevron">${collapsed ? '▸' : '▾'}</span>
+                      <span class="chevron${collapsed ? '' : ' chevron--open'}">${icon('chevron-down', 12)}</span>
                       <span>${pKey}</span>
                       <span>${mIds.length}</span>
                     </div>
@@ -449,6 +558,78 @@ function renderConsole(page, state) {
   const entry = getModelObject(state.config, primary)
   const reasoning = !!entry?.model?.reasoning
 
+  // 如果控制台已存在，走增量更新路径（避免 Combobox 销毁重建）
+  const existing = container.querySelector('.models-control-console')
+  if (existing) {
+    // 增量更新：只更新变化的文本/属性
+    const nameEl = existing.querySelector('.models-primary-name')
+    if (nameEl) { nameEl.textContent = primary || t('models.notConfigured'); nameEl.title = primary || '' }
+    const metaEl = existing.querySelector('.models-primary-meta')
+    if (metaEl) metaEl.textContent = modelMetaLine(entry)
+
+    const badges = existing.querySelectorAll('.models-cb-badge')
+    if (badges[0]) badges[0].textContent = `${fallbacks.length} ${t('models.fallbackCount')}`
+    if (badges[1]) badges[1].textContent = `${collectAllModels(state.config).length} ${t('models.totalModels')}`
+
+    const cb = existing.querySelector('.models-switch-left [data-action="toggle-reasoning"] input')
+    if (cb && cb.checked !== reasoning) cb.checked = reasoning
+
+    // 更新备选 pill 列表
+    const fbInline = existing.querySelector('.models-fallback-inline')
+    if (fbInline) {
+      fbInline.innerHTML = `
+        ${fallbacks.length > 0
+          ? fallbacks.map(f => {
+              const fEntry = getModelObject(state.config, f)
+              return `<span class="models-fallback-pill" data-action="toggle-fallback" data-full="${escapeHtml(f)}" title="${t('models.removeFallback')}">${escapeHtml(fEntry?.modelId || f)} <span>×</span></span>`
+            }).join('')
+          : `<span class="models-empty-fallback">${t('models.noFallback')}</span>`
+        }
+        <button class="btn btn-sm btn-ghost" id="models-toggle-fallbacks">${icon('layers', 12)} ${t('models.manageFallbacks')}</button>
+      `
+      // 重新绑定备选 pill 点击
+      fbInline.querySelectorAll('[data-action="toggle-fallback"]').forEach(pill => {
+        pill.onclick = () => {
+          const full = pill.dataset.full
+          if (!full) return
+          pushUndo(state)
+          toggleFallbackModel(state, full)
+          renderDefaultBar(page, state)
+          renderProviders(page, state)
+          renderConsole(page, state)
+          renderWaterfall(page, state)
+          updateUndoBtn(page, state)
+          autoSave(state)
+        }
+      })
+      const toggleFbBtn = fbInline.querySelector('#models-toggle-fallbacks')
+      if (toggleFbBtn) {
+        toggleFbBtn.onclick = () => {
+          state._fallbacks_expanded = !state._fallbacks_expanded
+          renderWaterfall(page, state)
+        }
+      }
+    }
+
+    // 更新 Combobox 值（不销毁重建）
+    if (_globalPrimaryCombo) {
+      const providers = state.config?.models?.providers || {}
+      const items = []
+      Object.entries(providers).forEach(([providerKey, provider]) => {
+        ;(provider.models || []).forEach((model) => {
+          const modelId = typeof model === 'string' ? model : model.id
+          const name = typeof model === 'string' ? model : (model.name || model.id)
+          const full = `${providerKey}/${modelId}`
+          items.push({ value: full, label: name && name !== modelId ? `${name} · ${modelId}` : modelId, group: providerKey })
+        })
+      })
+      _globalPrimaryCombo.setModels(items)
+      if (primary) _globalPrimaryCombo.setValue(primary)
+    }
+    return
+  }
+
+  // 首次渲染：创建完整 DOM
   container.innerHTML = `
     <div class="models-control-console">
       <div class="models-console-header">
@@ -464,7 +645,13 @@ function renderConsole(page, state) {
       </div>
 
       <div class="models-switch-row">
-        <div id="models-primary-combobox-container" class="form-input-container"></div>
+        <div class="models-switch-left">
+          <div id="models-primary-combobox-container" class="form-input-container"></div>
+          <label class="model-reasoning-toggle" data-action="toggle-reasoning" title="${t('models.reasoningHint')}">
+            <input type="checkbox" ${reasoning ? 'checked' : ''}>
+            <span>${t('models.isReasoningLabel')}</span>
+          </label>
+        </div>
         <div class="models-switch-actions">
           <button class="btn btn-sm btn-secondary" id="models-test-primary" title="${t('models.testPrimary')}">${icon('activity', 14)} ${t('models.testPrimary')}</button>
           <button class="btn btn-sm btn-secondary" id="models-locate-primary" title="${t('models.locateModel')}">${icon('map-pin', 14)} ${t('models.locateModel')}</button>
@@ -473,20 +660,17 @@ function renderConsole(page, state) {
       </div>
 
       <div class="models-console-footer">
-        <div class="models-route-presets">
-          <span>${t('models.quickRoute')}</span>
-          <button class="models-preset-btn" data-preset="fast">${t('models.routeFast')}</button>
-          <button class="models-preset-btn" data-preset="stable">${t('models.routeStable')}</button>
-          <button class="models-preset-btn" data-preset="context">${t('models.routeContext')}</button>
-          <button class="models-preset-btn" data-preset="reasoning">${t('models.routeReasoning')}</button>
-        </div>
+        <details class="models-route-presets-details">
+          <summary class="models-route-presets-toggle">${t('models.quickRoute')}</summary>
+          <div class="models-route-presets">
+            <button class="models-preset-btn" data-preset="fast">${t('models.routeFast')}</button>
+            <button class="models-preset-btn" data-preset="stable">${t('models.routeStable')}</button>
+            <button class="models-preset-btn" data-preset="context">${t('models.routeContext')}</button>
+            <button class="models-preset-btn" data-preset="reasoning">${t('models.routeReasoning')}</button>
+          </div>
+        </details>
 
         <div class="models-console-meta">
-          <label class="model-reasoning-toggle" data-action="toggle-reasoning" title="${t('models.reasoningHint')}">
-            <input type="checkbox" ${reasoning ? 'checked' : ''}>
-            <span>${t('models.isReasoningLabel')}</span>
-          </label>
-
           <div class="models-fallback-inline">
             ${fallbacks.length > 0
               ? fallbacks.map(f => {
@@ -638,13 +822,29 @@ function renderConsole(page, state) {
 function renderWaterfall(page, state) {
   const container = page.querySelector('#fallback-waterfall-container')
   if (!container) return
-  if (!state._fallbacks_expanded) {
-    container.style.display = 'none'
-    return
+
+  if (state._fallbacks_expanded) {
+    container.innerHTML = renderFallbackWaterfall(state)
+    // 用 JS 计算 scrollHeight 替代固定 max-height，使动画时长自然
+    requestAnimationFrame(() => {
+      container.style.maxHeight = container.scrollHeight + 'px'
+      container.style.opacity = '1'
+      container.style.marginBottom = '20px'
+    })
+    container.classList.remove('models-waterfall-hidden')
+    container.classList.add('models-waterfall-visible')
+    bindWaterfallActions(page, state)
+  } else {
+    // 折叠时先设置当前高度，再动画到 0
+    container.style.maxHeight = container.scrollHeight + 'px'
+    requestAnimationFrame(() => {
+      container.style.maxHeight = '0'
+      container.style.opacity = '0'
+      container.style.marginBottom = '0'
+    })
+    container.classList.remove('models-waterfall-visible')
+    container.classList.add('models-waterfall-hidden')
   }
-  container.style.display = 'block'
-  container.innerHTML = renderFallbackWaterfall(state)
-  bindWaterfallActions(page, state)
 }
 
 function bindWaterfallActions(page, state) {
@@ -720,86 +920,21 @@ function bindWaterfallActions(page, state) {
   // 拖拽排序逻辑 (适配当前列表)
   const chainContainer = container.querySelector('#active-fallback-list')
   if (chainContainer && state.config.agents.defaults.model.fallbacks?.length > 1) {
-    let dragged = null
-    let placeholder = null
-    let startY = 0
-
-    chainContainer.addEventListener('pointerdown', e => {
-      const handle = e.target.closest('.fallback-drag-handle')
-      if (!handle) return
-      const item = handle.closest('.fallback-chain-item')
-      if (!item) return
-
-      e.preventDefault()
-      dragged = item
-      startY = e.clientY
-
-      placeholder = document.createElement('div')
-      placeholder.style.cssText = `height:${item.offsetHeight}px;border:1px dashed var(--primary);border-radius:4px;margin-bottom:4px;background:var(--bg-tertiary)`
-      item.after(placeholder)
-
-      const rect = item.getBoundingClientRect()
-      item.style.position = 'fixed'
-      item.style.left = rect.left + 'px'
-      item.style.top = rect.top + 'px'
-      item.style.width = rect.width + 'px'
-      item.style.zIndex = '10000'
-      item.style.opacity = '0.9'
-      item.style.pointerEvents = 'none'
-      item.setPointerCapture(e.pointerId)
-    })
-
-    chainContainer.addEventListener('pointermove', e => {
-      if (!dragged || !placeholder) return
-      e.preventDefault()
-
-      const dy = e.clientY - startY
-      itemMove(dragged, dy)
-      startY = e.clientY
-
-      const siblings = [...chainContainer.querySelectorAll('.fallback-chain-item:not([style*="position: fixed"])')]
-      for (const sibling of siblings) {
-        const rect = sibling.getBoundingClientRect()
-        if (e.clientY < rect.top + rect.height / 2) {
-          sibling.before(placeholder)
-          return
+    createDragSortable(chainContainer, {
+      handleSelector: '.fallback-drag-handle',
+      itemSelector: '.fallback-chain-item',
+      placeholderStyle: `height:${chainContainer.querySelector('.fallback-chain-item')?.offsetHeight || 40}px;border:1px dashed var(--primary);border-radius:4px;margin-bottom:4px;background:var(--bg-tertiary)`,
+      onReorder(items) {
+        const newOrderIds = items.map(el => el.dataset.id)
+        const modelConfig = ensureDefaultModelConfig(state)
+        if (newOrderIds.join('\n') !== modelConfig.fallbacks.join('\n')) {
+          pushUndo(state)
+          modelConfig.fallbacks = newOrderIds
+          updateUndoBtn(page, state)
+          autoSave(state)
         }
-      }
-      if (siblings.length) siblings[siblings.length - 1].after(placeholder)
-    })
-
-    function itemMove(el, dy) {
-      const top = parseFloat(el.style.top)
-      el.style.top = (top + dy) + 'px'
-    }
-
-    chainContainer.addEventListener('pointerup', e => {
-      if (!dragged || !placeholder) return
-
-      dragged.style.position = ''
-      dragged.style.left = ''
-      dragged.style.top = ''
-      dragged.style.width = ''
-      dragged.style.zIndex = ''
-      dragged.style.opacity = ''
-      dragged.style.pointerEvents = ''
-
-      placeholder.before(dragged)
-      placeholder.remove()
-
-      // 更新顺序
-      const newOrderIds = [...chainContainer.querySelectorAll('.fallback-chain-item')].map(el => el.dataset.id)
-      const modelConfig = ensureDefaultModelConfig(state)
-      if (newOrderIds.join('\n') !== modelConfig.fallbacks.join('\n')) {
-        pushUndo(state)
-        modelConfig.fallbacks = newOrderIds
-        updateUndoBtn(page, state)
-        autoSave(state)
-      }
-
-      dragged = null
-      placeholder = null
-      renderDefaultBar(page, state) // 刷新索引数字
+        renderDefaultBar(page, state)
+      },
     })
   }
 }
@@ -817,7 +952,7 @@ function locateModel(page, full) {
     toggle?.click()
   }
   requestAnimationFrame(() => {
-    const card = page.querySelector(`[data-provider="${cssEscape(providerKey)}"] .model-item[data-model-id="${cssEscape(modelId)}"]`)
+    const card = page.querySelector(`.models-table-row[data-provider="${cssEscape(providerKey)}"][data-model-id="${cssEscape(modelId)}"]`)
     if (!card) return
     card.scrollIntoView({ behavior: 'smooth', block: 'center' })
     card.classList.add('model-row-highlight')
@@ -921,71 +1056,144 @@ function sortModels(models, sortBy) {
   return sorted
 }
 
-// 渲染服务商列表(渲染完后直接绑定事件)
+// 渲染服务商列表 — Tab + 统一表格视图
 function renderProviders(page, state) {
   const listEl = page.querySelector('#providers-list')
   const providers = state.config?.models?.providers || {}
   const keys = Object.keys(providers)
   const primary = getCurrentPrimary(state.config)
   const search = state.search || ''
-  const sortBy = state.sortBy || 'default'
+  const sortBy = state.sortBy
   const fallbackSet = new Set(state.config?.agents?.defaults?.model?.fallbacks || [])
+  const providerFilter = state._providerFilter || 'all'
 
   if (!keys.length) {
-    listEl.innerHTML = `
-      <div style="color:var(--text-tertiary);padding:20px;text-align:center">
-        ${t('models.noProvider')}
-      </div>`
+    listEl.innerHTML = `<div class="models-empty-state">${t('models.noProvider')}</div>`
     return
   }
 
-  if (!state._collapsed) state._collapsed = {}
-
-  listEl.innerHTML = keys.map(key => {
+  // 收集所有模型数据（平铺）
+  let allModels = []
+  keys.forEach(key => {
     const p = providers[key]
-    const models = p.models || []
-    const filtered = search
-      ? models.filter((m) => {
-          const id = (typeof m === 'string' ? m : m.id).toLowerCase()
-          const name = (typeof m === 'string' ? '' : (m.name || '')).toLowerCase()
-          return id.includes(search) || name.includes(search)
-        })
-      : models
-    const sorted = sortModels(filtered, sortBy)
-    const hiddenCount = models.length - sorted.length
-    const collapsed = !!state._collapsed[key]
+    ;(p.models || []).forEach(m => {
+      const id = typeof m === 'string' ? m : m.id
+      const name = m.name || id
+      const full = `${key}/${id}`
+      if (search) {
+        const q = search
+        if (!id.toLowerCase().includes(q) && !name.toLowerCase().includes(q)) return
+      }
+      allModels.push({ key, provider: p, model: m, id, name, full })
+    })
+  })
 
-    function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
+  // Tab 过滤
+  if (providerFilter !== 'all') {
+    allModels = allModels.filter(m => m.key === providerFilter)
+  }
 
-    return `
-      <div class="provider-card" data-provider="${key}">
-        <div class="provider-card__header" data-action="toggle-provider">
-          <span class="provider-card__chevron">${collapsed ? '▸' : '▾'}</span>
-          <span class="provider-card__name">${esc(key)}</span>
-          <span class="badge badge-api-type">${getApiTypeLabel(p.api)}</span>
-          <span class="provider-card__count">${models.length}</span>
-          <div class="provider-card__actions" onclick="event.stopPropagation()">
-            <button class="btn btn-sm btn-secondary" data-action="fetch-models" title="${esc(t('models.fetchModels'))}">↻</button>
-            <button class="btn btn-sm btn-secondary" data-action="add-model" title="${esc(t('models.addModel'))}">+</button>
-            <button class="btn btn-sm btn-secondary" data-action="edit-provider" title="${esc(t('models.editProvider'))}">···</button>
-            <button class="btn btn-sm btn-danger" data-action="delete-provider" title="${esc(t('models.deleteProvider'))}">${icon('trash', 12)}</button>
-          </div>
-        </div>
-        <div class="provider-card__body" style="${collapsed ? 'display:none' : ''}">
-          ${renderModelRows(key, sorted, primary, search, fallbackSet)}
-          ${hiddenCount > 0 ? `<div class="provider-card__more">${t('models.hiddenModels', { count: hiddenCount })}</div>` : ''}
-          ${models.length >= 2 ? `
-          <div class="provider-card__batch">
-            <button class="btn btn-sm btn-secondary" data-action="batch-test">${t('models.batchTest')}</button>
-            <button class="btn btn-sm btn-secondary" data-action="select-all">${t('models.selectAll')}</button>
-            <button class="btn btn-sm btn-danger" data-action="batch-delete">${t('models.batchDelete')}</button>
-          </div>` : ''}
-        </div>
+  // 排序
+  allModels = sortModels(allModels, sortBy)
+
+  // Tab 导航 HTML
+  const tabHtml = `
+    <div class="models-provider-tabs">
+      <button class="models-provider-tab${providerFilter === 'all' ? ' active' : ''}" data-provider-tab="all">
+        ${t('models.allProviders')}
+        <span class="models-provider-tab__count">${allModels.length}</span>
+      </button>
+      ${keys.map(key => {
+        const p = providers[key]
+        const count = (p.models || []).length
+        const isActive = providerFilter === key
+        return `
+          <button class="models-provider-tab${isActive ? ' active' : ''}" data-provider-tab="${escapeHtml(key)}">
+            ${escapeHtml(key)}
+            <span class="models-provider-tab__count">${count}</span>
+          </button>
+        `
+      }).join('')}
+    </div>
+  `
+
+  // 表格 HTML
+  const tableHtml = allModels.length === 0
+    ? `<div class="models-table-empty">${t('models.noModel')}</div>`
+    : `
+      <div class="models-table-wrap">
+        <table class="models-table">
+          <thead>
+            <tr>
+              <th class="col-model">${t('models.colModel')}</th>
+              <th class="col-provider">${t('models.colProvider')}</th>
+              <th class="col-status">${t('models.colStatus')}</th>
+              <th class="col-latency">${t('models.colLatency')}</th>
+              <th class="col-actions">${t('models.colActions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${allModels.map(({ key, provider, model, id, name, full }) => {
+              const isPrimary = full === primary
+              const isFallback = !isPrimary && fallbackSet.has(full)
+
+              // 状态
+              let statusHtml = ''
+              if (model.testStatus === 'fail') {
+                statusHtml = `<span class="models-table-status models-table-status--error">${t('models.unavailable')}</span>`
+              } else if (model.latency != null) {
+                statusHtml = `<span class="models-table-status models-table-status--ok">${t('models.normal')}</span>`
+              } else {
+                statusHtml = `<span class="models-table-status models-table-status--neutral">${t('models.untested')}</span>`
+              }
+
+              // 延迟
+              let latencyHtml = '—'
+              if (model.latency != null) {
+                latencyHtml = `${(model.latency / 1000).toFixed(1)}s`
+              }
+
+              // 标签
+              const badges = []
+              if (isPrimary) badges.push(`<span class="model-tag model-tag--primary">${t('models.primaryModel')}</span>`)
+              if (isFallback) badges.push(`<span class="model-tag model-tag--fb">${t('models.fallbackShort')}</span>`)
+              if (model.reasoning) badges.push(`<span class="model-tag model-tag--rz">${t('models.reasoning')}</span>`)
+
+              const rowClass = isPrimary ? 'models-table-row--primary' : isFallback ? 'models-table-row--fallback' : ''
+
+              return `
+                <tr class="models-table-row ${rowClass}" data-model-id="${escapeHtml(id)}" data-full="${escapeHtml(full)}" data-provider="${escapeHtml(key)}">
+                  <td class="col-model">
+                    <div class="models-table-model">
+                      <span class="models-table-model__name" title="${escapeHtml(id)}">${escapeHtml(name)}</span>
+                      ${badges.length ? `<div class="models-table-model__badges">${badges.join('')}</div>` : ''}
+                    </div>
+                  </td>
+                  <td class="col-provider">
+                    <span class="badge badge-api-type">${getApiTypeLabel(provider.api)}</span>
+                    <span class="models-table-provider-name">${escapeHtml(key)}</span>
+                  </td>
+                  <td class="col-status">${statusHtml}</td>
+                  <td class="col-latency">${latencyHtml}</td>
+                  <td class="col-actions">
+                    <div class="models-table-actions">
+                      ${!isPrimary ? `<button class="btn-icon" data-action="set-primary" title="${t('models.setPrimary')}">${icon('star', 14)}</button>` : ''}
+                      <button class="btn-icon" data-action="test-model" title="${t('models.testBtn')}">${icon('activity', 14)}</button>
+                      <button class="btn-icon" data-action="edit-model" title="${t('models.editModel')}">${icon('edit', 14)}</button>
+                      <button class="btn-icon btn-icon--danger" data-action="delete-model" title="${t('models.deleteModel')}">${icon('trash', 14)}</button>
+                    </div>
+                  </td>
+                </tr>
+              `
+            }).join('')}
+          </tbody>
+        </table>
       </div>
     `
-  }).join('')
 
-  // innerHTML 完成后,直接给每个按钮绑定 onclick
+  listEl.innerHTML = tabHtml + tableHtml
+
+  // 绑定事件
   bindProviderButtons(listEl, page, state)
 }
 
@@ -1019,7 +1227,7 @@ function renderModelRows(providerKey, models, primary, search, fallbackSet = new
     const badges = []
     if (isPrimary) badges.push(`<span class="model-tag model-tag--primary">${t('models.primaryModel')}</span>`)
     if (isFallback) badges.push(`<span class="model-tag model-tag--fb">${t('models.fallbackShort')}</span>`)
-    if (m.reasoning) badges.push(`<span class="model-tag model-tag--rz">推理</span>`)
+    if (m.reasoning) badges.push(`<span class="model-tag model-tag--rz">${t('models.reasoning')}</span>`)
 
     const itemClass = `model-item${isPrimary ? ' model-item--primary' : ''}${isFallback ? ' model-item--fallback' : ''}`
 
@@ -1032,10 +1240,10 @@ function renderModelRows(providerKey, models, primary, search, fallbackSet = new
             <span class="model-item__name" title="${escapeHtml(id)}">${escapeHtml(id)}</span>
             ${statusHtml}
             <div class="model-item__actions">
-              ${!isPrimary ? `<button class="btn btn-sm btn-secondary" data-action="set-primary">${t('models.setPrimary')}</button>` : ''}
-              <button class="btn btn-sm btn-secondary" data-action="test-model">${t('models.testBtn')}</button>
-              <button class="btn btn-sm btn-secondary" data-action="edit-model">${t('models.editModel')}</button>
-              <button class="btn btn-sm btn-danger" data-action="delete-model">${t('models.deleteModel')}</button>
+              ${!isPrimary ? `<button class="btn-icon" data-action="set-primary" title="${t('models.setPrimary')}">${icon('star', 14)}</button>` : ''}
+              <button class="btn-icon" data-action="test-model" title="${t('models.testBtn')}">${icon('activity', 14)}</button>
+              <button class="btn-icon" data-action="edit-model" title="${t('models.editModel')}">${icon('edit', 14)}</button>
+              <button class="btn-icon btn-icon--danger" data-action="delete-model" title="${t('models.deleteModel')}">${icon('trash', 14)}</button>
             </div>
           </div>
           <div class="model-item__row">
@@ -1205,132 +1413,18 @@ function updateUndoBtn(page, state) {
 
 // 渲染完成后,直接给每个 [data-action] 按钮绑定 onclick
 function bindProviderButtons(listEl, page, state) {
-  // 绑定拖拽排序(Pointer 事件实现,兼容 Tauri WebView2/WKWebView)
-  listEl.querySelectorAll('.provider-card__body').forEach(container => {
-    let dragged = null
-    let placeholder = null
-    let startY = 0
-
-    // 仅从拖拽手柄启动
-    container.addEventListener('pointerdown', e => {
-      const handle = e.target.closest('.model-item__drag')
-      if (!handle) return
-      const card = handle.closest('.model-item')
-      if (!card) return
-
-      e.preventDefault()
-      dragged = card
-      startY = e.clientY
-
-      // 创建占位符
-      placeholder = document.createElement('div')
-      placeholder.style.cssText = `height:${card.offsetHeight}px;border:2px dashed var(--border);border-radius:var(--radius-md);margin-bottom:8px;background:var(--bg-secondary)`
-      card.after(placeholder)
-
-      // 浮动拖拽元素
-      const rect = card.getBoundingClientRect()
-      card.style.position = 'fixed'
-      card.style.left = rect.left + 'px'
-      card.style.top = rect.top + 'px'
-      card.style.width = rect.width + 'px'
-      card.style.zIndex = '9999'
-      card.style.opacity = '0.85'
-      card.style.boxShadow = '0 8px 24px rgba(0,0,0,0.2)'
-      card.style.pointerEvents = 'none'
-      card.setPointerCapture(e.pointerId)
-    })
-
-    container.addEventListener('pointermove', e => {
-      if (!dragged || !placeholder) return
-      e.preventDefault()
-
-      // 移动浮动元素
-      const dy = e.clientY - startY
-      const origTop = parseFloat(dragged.style.top)
-      dragged.style.top = (origTop + dy) + 'px'
-      startY = e.clientY
-
-      // 查找目标位置
-      const siblings = [...container.querySelectorAll('.model-item:not([style*="position: fixed"])')].filter(c => c !== dragged)
-      for (const sibling of siblings) {
-        const rect = sibling.getBoundingClientRect()
-        const midY = rect.top + rect.height / 2
-        if (e.clientY < midY) {
-          sibling.before(placeholder)
-          return
-        }
-      }
-      // 放到最后
-      if (siblings.length) siblings[siblings.length - 1].after(placeholder)
-    })
-
-    container.addEventListener('pointerup', e => {
-      if (!dragged || !placeholder) return
-
-      // 恢复样式
-      dragged.style.position = ''
-      dragged.style.left = ''
-      dragged.style.top = ''
-      dragged.style.width = ''
-      dragged.style.zIndex = ''
-      dragged.style.opacity = ''
-      dragged.style.boxShadow = ''
-      dragged.style.pointerEvents = ''
-
-      // 把卡片放到占位符位置
-      placeholder.before(dragged)
-      placeholder.remove()
-
-      // 保存新顺序
-      const section = container.closest('[data-provider]')
-      if (section) {
-        const providerKey = section.dataset.provider
-        const provider = state.config.models.providers[providerKey]
-        if (provider) {
-          const newOrderIds = [...container.querySelectorAll('.model-item')].map(c => c.dataset.modelId)
-          pushUndo(state)
-          const oldModels = [...provider.models]
-          provider.models = newOrderIds.map(id => oldModels.find(m => (typeof m === 'string' ? m : m.id) === id))
-          autoSave(state)
-        }
-      }
-
-      dragged = null
-      placeholder = null
-    })
-  })
-
-  // 折叠/展开服务商
-  listEl.querySelectorAll('[data-action="toggle-provider"]').forEach(span => {
-    span.onclick = () => {
-      const section = span.closest('[data-provider]')
-      if (!section) return
-      const key = section.dataset.provider
-      state._collapsed[key] = !state._collapsed[key]
-      renderProviders(page, state)
-    }
-  })
-
-  // 绑定按钮
-  listEl.querySelectorAll('button[data-action], input[data-action]').forEach(btn => {
+  // 绑定按钮（表格行内）
+  listEl.querySelectorAll('button[data-action]').forEach(btn => {
     const action = btn.dataset.action
-    const section = btn.closest('[data-provider]')
-    if (!section) return
-    const providerKey = section.dataset.provider
+    const row = btn.closest('.models-table-row')
+    if (!row) return
+    const providerKey = row.dataset.provider
     const provider = state.config.models.providers[providerKey]
     if (!provider) return
-    const card = btn.closest('.model-item')
 
-        // checkbox 改变时不需要阻止冒泡,由 handleAction 内部处理
-    if (btn.type === 'checkbox') {
-      btn.onchange = (e) => {
-        handleAction(action, btn, card, section, providerKey, provider, page, state)
-      }
-    } else {
-      btn.onclick = (e) => {
-        e.stopPropagation()
-        handleAction(action, btn, card, section, providerKey, provider, page, state)
-      }
+    btn.onclick = (e) => {
+      e.stopPropagation()
+      handleAction(action, btn, row, row, providerKey, provider, page, state)
     }
   })
 }

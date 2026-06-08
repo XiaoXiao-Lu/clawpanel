@@ -51,7 +51,7 @@ export function NAV_ITEMS_FULL() { return [
     ]
   },
   {
-    section: '',
+    section: t('sidebar.sectionSystem'),
     items: [
       { route: '/settings', label: t('sidebar.settings'), icon: 'settings' },
       { route: '/chat-debug', label: t('sidebar.checkRepair'), icon: 'diagnose' },

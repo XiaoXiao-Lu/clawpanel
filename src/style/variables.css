@@ -1,271 +1,310 @@
 /* ============================================================
-   ClawPanel Design System — Variables
-   ============================================================
-   新变量 + 旧变量兼容层（逐步迁移中）
+   ChatCraw Design System — "Precision Noir"
+   Warm dark · Editorial typography · Intentional whitespace
    ============================================================ */
 
-/* ─── 品牌色 ─── */
 :root {
-  --brand:           #4f46e5;
-  --brand-indigo:    var(--brand);
-  --brand-light:     #6366f1;
-  --brand-muted:     rgba(79, 70, 229, 0.08);
-  --brand-faint:     rgba(79, 70, 229, 0.04);
+  /* ═══ Brand — Electric Indigo + Warm Amber ═══ */
+  --brand:              #818cf8;
+  --brand-400:          #a5b4fc;
+  --brand-500:          #818cf8;
+  --brand-600:          #6366f1;
+  --brand-light:        var(--brand-400);
+  --brand-muted:        rgba(129, 140, 248, 0.10);
+  --brand-faint:        rgba(129, 140, 248, 0.05);
+  --brand-glow:         0 0 28px -6px rgba(129, 140, 248, 0.35);
 
-  --accent-warm:     #f59e0b;
-  --brand-orange:    var(--accent-warm);
-  --brand-orange-muted: rgba(245, 158, 11, 0.08);
+  --accent-warm:        #f59e0b;
+  --accent-warm-light:  #fbbf24;
+  --accent-warm-muted:  rgba(245, 158, 11, 0.10);
+  --accent-warm-faint:  rgba(245, 158, 11, 0.05);
 
-  /* ─── 背景层级 ─── */
-  --bg-base:         #f3f4f6;
-  --bg-primary:      var(--bg-base);
-  --bg-elevated:     #ffffff;
-  --bg-secondary:    var(--bg-elevated);
-  --bg-sunken:       #e5e7eb;
-  --bg-tertiary:     var(--bg-sunken);
-  --bg-card:         var(--bg-elevated);
-  --bg-card-hover:   #f9fafb;
-  --bg-hover:        rgba(0, 0, 0, 0.035);
-  --bg-glass:        rgba(0, 0, 0, 0.03);
-  --bg-glass-hover:  rgba(0, 0, 0, 0.06);
-  --surface-raised:  var(--bg-elevated);
-  --surface-sunken:  var(--bg-sunken);
+  /* ═══ Backgrounds — Warm Ink ═══ */
+  --bg-root:            #0A0A14;
+  --bg-base:            #0E0E1C;
+  --bg-primary:         var(--bg-base);
+  --bg-elevated:        #151528;
+  --bg-secondary:       var(--bg-elevated);
+  --bg-sunken:          #1A1A30;
+  --bg-tertiary:        var(--bg-sunken);
+  --bg-card:            #121224;
+  --bg-card-hover:      #181830;
+  --bg-hover:           rgba(255, 255, 255, 0.04);
+  --bg-glass:           rgba(255, 255, 255, 0.025);
+  --bg-glass-hover:     rgba(255, 255, 255, 0.05);
+  --surface-raised:     var(--bg-elevated);
+  --surface-sunken:     var(--bg-sunken);
 
-  /* ─── 文字层级 ─── */
-  --text-1:          #111827;
-  --text-primary:    var(--text-1);
-  --text-2:          #4b5563;
-  --text-secondary:  var(--text-2);
-  --text-3:          #9ca3af;
-  --text-tertiary:   var(--text-3);
-  --text-inverse:    #ffffff;
+  /* ═══ Text — Warm Silver Hierarchy ═══ */
+  --text-1:             #EBEBF5;
+  --text-primary:       var(--text-1);
+  --text-2:             #8E8EA8;
+  --text-secondary:     var(--text-2);
+  --text-3:             #6868A0;
+  --text-tertiary:      var(--text-3);
+  --text-inverse:       #0F0F18;
+  --text-muted:         var(--text-3);
 
-  /* ─── 边框 ─── */
-  --border-1:        rgba(0, 0, 0, 0.08);
-  --border-primary:  var(--border-1);
-  --border-2:        rgba(0, 0, 0, 0.05);
-  --border-secondary: var(--border-2);
-  --border-color:    var(--border-1);
-  --border-focus:    rgba(79, 70, 229, 0.4);
+  /* ═══ Borders — Crisp Rings ═══ */
+  --border-1:           rgba(255, 255, 255, 0.08);
+  --border-primary:     var(--border-1);
+  --border-2:           rgba(255, 255, 255, 0.05);
+  --border-secondary:   var(--border-2);
+  --border-color:       var(--border-1);
+  --border-focus:       rgba(99, 102, 241, 0.40);
+  --border-subtle:      rgba(255, 255, 255, 0.03);
 
-  /* ─── 语义色 ─── */
-  --success:         #16a34a;
-  --success-rgb:     22, 163, 74;
-  --success-muted:   rgba(22, 163, 74, 0.08);
-  --warning:         #d97706;
-  --warning-rgb:     217, 119, 6;
-  --warning-muted:   rgba(217, 119, 6, 0.08);
-  --error:           #dc2626;
-  --error-rgb:       220, 38, 38;
-  --error-muted:     rgba(220, 38, 38, 0.08);
-  --info:            #0891b2;
-  --info-rgb:        8, 145, 178;
-  --info-muted:      rgba(8, 145, 178, 0.08);
+  /* ═══ Semantic Colors ═══ */
+  --success:            #10b981;
+  --success-rgb:        16, 185, 129;
+  --success-muted:      rgba(16, 185, 129, 0.10);
+  --warning:            #f59e0b;
+  --warning-rgb:        245, 158, 11;
+  --warning-muted:      rgba(245, 158, 11, 0.10);
+  --error:              #ef4444;
+  --error-rgb:          239, 68, 68;
+  --error-muted:        rgba(239, 68, 68, 0.10);
+  --info:               #06b6d4;
+  --info-rgb:           6, 182, 212;
+  --info-muted:         rgba(6, 182, 212, 0.10);
 
-  /* ─── 语法高亮 ─── */
-  --hl-keyword:      #c678dd;
-  --hl-string:       #98c379;
-  --hl-comment:      #5c6370;
-  --hl-number:       #d19a66;
-  --hl-func:         #61afef;
-  --hl-type:         #e5c07b;
+  /* ═══ Code Highlighting ═══ */
+  --hl-keyword:         #c084fc;
+  --hl-string:          #86efac;
+  --hl-comment:         #52526e;
+  --hl-number:          #fbbf24;
+  --hl-func:            #60a5fa;
+  --hl-type:            #fbbf24;
+  --hl-variable:        #f9a8d4;
+  --bg-code:            #10101E;
 
-  /* ─── 导航图标色 ─── */
-  --nav-assistant:   #8b5cf6;
-  --nav-chat:        #ec4899;
-  --nav-route-map:   #10b981;
-  --nav-services:    #f59e0b;
-  --nav-logs:        #6b7280;
-  --nav-models:      #ef4444;
-  --nav-agents:      #6366f1;
-  --nav-gateway:     #06b6d4;
-  --nav-channels:    #22c55e;
-  --nav-memory:      #d97706;
-  --nav-dreaming:    #a855f7;
-  --nav-clock:       #14b8a6;
-  --nav-bar-chart:   #f97316;
-  --nav-skills:      #e11d48;
-  --nav-connectors:  #0ea5e9;
-  --nav-extensions:  #d946ef;
+  /* ═══ Navigation Icon Colors ═══ */
+  --nav-assistant:      #a78bfa;
+  --nav-chat:           #f472b6;
+  --nav-route-map:      #34d399;
+  --nav-services:       #fbbf24;
+  --nav-logs:           #9ca3af;
+  --nav-models:         #f87171;
+  --nav-agents:         #818cf8;
+  --nav-gateway:        #22d3ee;
+  --nav-channels:       #4ade80;
+  --nav-memory:         #fbbf24;
+  --nav-dreaming:       #c084fc;
+  --nav-clock:          #2dd4bf;
+  --nav-bar-chart:      #fb923c;
+  --nav-skills:         #fb7185;
+  --nav-connectors:     #38bdf8;
+  --nav-extensions:     #e879f9;
 
-  /* ─── 阴影 ─── */
-  --shadow-1:        0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.02);
-  --shadow-sm:       var(--shadow-1);
-  --shadow-2:        0 4px 12px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.03);
-  --shadow-md:       var(--shadow-2);
-  --shadow-3:        0 8px 24px rgba(0, 0, 0, 0.06), 0 4px 8px rgba(0, 0, 0, 0.04);
-  --shadow-lg:       var(--shadow-3);
-  --shadow-glow:     0 0 0 3px var(--brand-muted);
+  /* ═══ Shadows — Subtle Depth ═══ */
+  --shadow-1:           0 1px 2px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(0, 0, 0, 0.15);
+  --shadow-sm:          var(--shadow-1);
+  --shadow-2:           0 4px 12px rgba(0, 0, 0, 0.40), 0 1px 3px rgba(0, 0, 0, 0.25);
+  --shadow-md:          var(--shadow-2);
+  --shadow-3:           0 8px 28px rgba(0, 0, 0, 0.48), 0 2px 6px rgba(0, 0, 0, 0.30);
+  --shadow-lg:          var(--shadow-3);
+  --shadow-xl:          0 16px 48px rgba(0, 0, 0, 0.55);
+  --shadow-glow:        0 0 0 2px var(--brand-muted);
+  --shadow-glow-strong: 0 0 20px -6px rgba(99, 102, 241, 0.35);
 
-  /* ─── Sidebar ─── */
-  --sidebar-bg:      var(--bg-elevated);
-  --sidebar-text:    var(--text-1);
+  /* ═══ Sidebar ═══ */
+  --sidebar-bg:         #080812;
+  --sidebar-text:       var(--text-1);
+  --sidebar-text-2:     var(--text-2);
   --sidebar-text-secondary: var(--text-2);
-  --sidebar-border:  var(--border-1);
-  --sidebar-hover:   var(--bg-hover);
+  --sidebar-border:     rgba(255, 255, 255, 0.06);
+  --sidebar-hover:      rgba(129, 140, 248, 0.08);
+  --sidebar-active:     rgba(129, 140, 248, 0.12);
 
-  /* ─── 间距（新 + 旧兼容）─── */
-  --space-1:  4px;
-  --space-xs: var(--space-1);
-  --space-2:  8px;
-  --space-sm: var(--space-2);
-  --space-3:  12px;
-  --space-md: var(--space-3);
-  --space-4:  16px;
-  --space-lg: var(--space-4);
-  --space-5:  20px;
-  --space-6:  24px;
-  --space-xl: var(--space-6);
-  --space-8:  32px;
-  --space-2xl: var(--space-8);
-  --space-10: 40px;
-  --space-3xl: var(--space-10);
-  --space-12: 48px;
-  --space-4xl: var(--space-12);
-  --space-16: 64px;
+  /* ═══ Spacing ═══ */
+  --space-0:    2px;
+  --space-1:    4px;
+  --space-xs:   var(--space-1);
+  --space-2:    8px;
+  --space-sm:   var(--space-2);
+  --space-3:    12px;
+  --space-md:   var(--space-3);
+  --space-4:    16px;
+  --space-lg:   var(--space-4);
+  --space-5:    20px;
+  --space-6:    24px;
+  --space-xl:   var(--space-6);
+  --space-8:    32px;
+  --space-2xl:  var(--space-8);
+  --space-10:   40px;
+  --space-3xl:  var(--space-10);
+  --space-12:   48px;
+  --space-4xl:  var(--space-12);
+  --space-16:   64px;
 
-  /* ─── 圆角（新 + 旧兼容）─── */
-  --radius-sm:  6px;
-  --radius-md:  8px;
-  --radius-lg:  8px;
-  --radius-xl:  10px;
-  --radius-pill: 999px;
-  --radius-full: var(--radius-pill);
-  --radius-card: var(--radius-lg);
+  /* ═══ Radii — Softer ═══ */
+  --radius-sm:     6px;
+  --radius-md:     8px;
+  --radius-lg:     12px;
+  --radius-xl:     16px;
+  --radius-2xl:    20px;
+  --radius-pill:   999px;
+  --radius-full:   var(--radius-pill);
+  --radius-card:   var(--radius-lg);
   --radius-button: var(--radius-md);
-  --radius-input: var(--radius-md);
+  --radius-input:  var(--radius-sm);
 
-  /* ─── 排版（新 + 旧兼容）─── */
-  --font-sans:  -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --font-display: var(--font-sans);
-  --font-mono:  'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+  /* ═══ Typography — Distinctive ═══ */
+  --font-display:  'PingFang SC', 'Microsoft YaHei', -apple-system, 'Helvetica Neue', sans-serif;
+  --font-sans:     'PingFang SC', 'Microsoft YaHei', -apple-system, sans-serif;
+  --font-mono:     'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
 
-  --text-xs:  11px;
+  --text-xs:   11px;
   --font-size-xs: var(--text-xs);
-  --text-sm:  13px;
+  --text-sm:   13px;
   --font-size-sm: var(--text-sm);
   --text-base: 14px;
   --font-size-md: var(--text-base);
-  --text-lg:  16px;
+  --text-lg:   16px;
   --font-size-lg: var(--text-lg);
-  --text-xl:  20px;
+  --text-xl:   20px;
   --font-size-xl: var(--text-xl);
-  --text-2xl: 24px;
+  --text-2xl:  24px;
   --font-size-2xl: var(--text-2xl);
+  --text-3xl:  30px;
+  --font-size-3xl: var(--text-3xl);
 
-  /* ─── 过渡（新 + 旧兼容）─── */
-  --ease-fast:    150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-fast: var(--ease-fast);
-  --ease-normal:  250ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: var(--ease-normal);
-  --ease-slow:    350ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: var(--ease-slow);
-  --transition-theme: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* ═══ Transitions ═══ */
+  --ease-fast:           150ms cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-fast:     var(--ease-fast);
+  --ease-normal:         250ms cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-normal:   var(--ease-normal);
+  --ease-slow:           400ms cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-slow:     var(--ease-slow);
+  --ease-spring:         500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out:            300ms cubic-bezier(0, 0, 0.16, 1);
+  --transition-theme:    500ms cubic-bezier(0.22, 1, 0.36, 1);
 
-  /* ─── 布局 ─── */
-  --sidebar-width: 220px;
-  --sidebar-collapsed: 56px;
-  --header-height: 52px;
+  /* ═══ Layout ═══ */
+  --sidebar-width:      240px;
+  --sidebar-collapsed:  56px;
+  --header-height:      52px;
 
-  /* ─── z-index 层级系统 ─── */
-  --z-base:       0;
-  --z-dropdown:   100;
-  --z-sticky:     200;
-  --z-drawer:     300;
-  --z-modal:      400;
-  --z-popover:    500;
-  --z-tooltip:    600;
-  --z-toast:      700;
-  --z-command:    800;
-  --z-overlay:    900;
-  --z-max:        1000;
+  /* ═══ Z-Index ═══ */
+  --z-base:        0;
+  --z-dropdown:    100;
+  --z-sticky:      200;
+  --z-drawer:      300;
+  --z-modal:       400;
+  --z-popover:     500;
+  --z-tooltip:     600;
+  --z-toast:       700;
+  --z-command:     800;
+  --z-overlay:     900;
+  --z-max:         1000;
 
-  /* ─── 旧变量兼容 ─── */
-  --accent: var(--brand);
-  --accent-hover: var(--brand-light);
-  --accent-muted: var(--brand-muted);
-  --primary: var(--brand);
-  --primary-hover: var(--brand-light);
-  --border: var(--border-1);
-  --border-color: var(--border-1);
+  /* ─── Legacy Compatibility ─── */
+  --accent:           var(--brand);
+  --accent-hover:     var(--brand-400);
+  --accent-muted:     var(--brand-muted);
+  --accent-rgb:       99, 102, 241;
+  --primary:          var(--brand);
+  --primary-hover:    var(--brand-400);
+  --border:           var(--border-1);
+  --danger:           var(--error);
+  --danger-rgb:       var(--error-rgb);
+
+  /* ─── Ambient ─── */
+  --noise-opacity: 0.018;
 }
 
-/* ─── 暗色主题 ─── */
+/* ══════════════════════════════════════
+   Light Theme (auto via prefers-color-scheme)
+   ══════════════════════════════════════ */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg-root:           #F8F8FC;
+    --bg-base:           #F3F4F8;
+    --bg-primary:        var(--bg-base);
+    --bg-elevated:       #FFFFFF;
+    --bg-secondary:      var(--bg-elevated);
+    --bg-sunken:         #EBECF0;
+    --bg-tertiary:       var(--bg-sunken);
+    --bg-card:           #FFFFFF;
+    --bg-card-hover:     #F6F7FA;
+    --bg-hover:          rgba(0, 0, 0, 0.03);
+    --bg-glass:          rgba(0, 0, 0, 0.02);
+    --bg-glass-hover:    rgba(0, 0, 0, 0.05);
+
+    --text-1:            #111827;
+    --text-primary:      var(--text-1);
+    --text-2:            #4b5563;
+    --text-secondary:    var(--text-2);
+    --text-3:            #a6a6b8;
+    --text-tertiary:     var(--text-3);
+    --text-inverse:      #ffffff;
+    --text-muted:        var(--text-3);
+
+    --border-1:          rgba(0, 0, 0, 0.08);
+    --border-2:          rgba(0, 0, 0, 0.04);
+    --border-subtle:     rgba(0, 0, 0, 0.03);
+
+    --shadow-1:          0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-2:          0 4px 12px rgba(0, 0, 0, 0.06);
+    --shadow-3:          0 8px 24px rgba(0, 0, 0, 0.08);
+    --shadow-xl:         0 16px 48px rgba(0, 0, 0, 0.10);
+    --shadow-glow:       0 0 0 2px rgba(99, 102, 241, 0.10);
+    --shadow-glow-strong:0 0 20px -4px rgba(79, 70, 229, 0.18);
+
+    --sidebar-bg:        #F8F8FC;
+    --bg-code:           #1e1e2e;
+
+    --brand:             #4f46e5;
+    --brand-400:         #6366f1;
+    --brand-light:       var(--brand-400);
+    --brand-muted:       rgba(79, 70, 229, 0.08);
+    --brand-faint:       rgba(79, 70, 229, 0.04);
+    --brand-glow:        0 0 16px -4px rgba(79, 70, 229, 0.12);
+
+    --sidebar-hover:    rgba(0, 0, 0, 0.03);
+    --sidebar-active:   rgba(79, 70, 229, 0.08);
+
+    --noise-opacity:     0.012;
+  }
+}
+
+/* ══════════════════════════════════════
+   Dark Theme (explicit)
+   ══════════════════════════════════════ */
 [data-theme="dark"] {
-  --brand:           #818cf8;
-  --brand-indigo:    var(--brand);
-  --brand-light:     #a5b4fc;
-  --brand-muted:     rgba(129, 140, 248, 0.12);
-  --brand-faint:     rgba(129, 140, 248, 0.05);
+  --bg-root:            #0A0A14;
+  --bg-base:            #0E0E1C;
+  --bg-elevated:        #151528;
+  --bg-sunken:          #1A1A30;
+  --bg-card:            #121224;
+  --bg-card-hover:      #181830;
 
-  --accent-warm:     #fbbf24;
-  --brand-orange:    var(--accent-warm);
-  --brand-orange-muted: rgba(251, 191, 36, 0.1);
+  --text-1:             #EBEBF5;
+  --text-2:             #8E8EA8;
+  --text-3:             #6868A0;
 
-  --bg-base:         #0f1117;
-  --bg-primary:      var(--bg-base);
-  --bg-elevated:     #181b23;
-  --bg-secondary:    var(--bg-elevated);
-  --bg-sunken:       #1f2230;
-  --bg-tertiary:     var(--bg-sunken);
-  --bg-card:         #111722;
-  --bg-card-hover:   #171d2a;
-  --bg-hover:        rgba(255, 255, 255, 0.04);
-  --bg-glass:        rgba(255, 255, 255, 0.04);
-  --bg-glass-hover:  rgba(255, 255, 255, 0.07);
-  --surface-raised:  var(--bg-elevated);
-  --surface-sunken:  var(--bg-sunken);
+  --border-1:           rgba(255, 255, 255, 0.08);
+  --border-2:           rgba(255, 255, 255, 0.05);
 
-  --text-1:          #f3f4f6;
-  --text-primary:    var(--text-1);
-  --text-2:          #9ca3af;
-  --text-secondary:  var(--text-2);
-  --text-3:          #6b7280;
-  --text-tertiary:   var(--text-3);
-  --text-inverse:    #111827;
+  --shadow-1:           0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-2:           0 4px 12px rgba(0, 0, 0, 0.40);
+  --shadow-3:           0 8px 28px rgba(0, 0, 0, 0.48);
+  --shadow-xl:          0 16px 48px rgba(0, 0, 0, 0.55);
 
-  --border-1:        rgba(255, 255, 255, 0.08);
-  --border-primary:  var(--border-1);
-  --border-2:        rgba(255, 255, 255, 0.05);
-  --border-secondary: var(--border-2);
-  --border-color:    var(--border-1);
-  --border-focus:    rgba(129, 140, 248, 0.5);
+  --sidebar-bg:         #080812;
+  --bg-code:            #10101E;
 
-  --success:         #4ade80;
-  --success-rgb:     74, 222, 128;
-  --success-muted:   rgba(74, 222, 128, 0.12);
-  --warning:         #fbbf24;
-  --warning-rgb:     251, 191, 36;
-  --warning-muted:   rgba(251, 191, 36, 0.12);
-  --error:           #f87171;
-  --error-rgb:       248, 113, 113;
-  --error-muted:     rgba(248, 113, 113, 0.12);
-  --info:            #22d3ee;
-  --info-rgb:        34, 211, 238;
-  --info-muted:      rgba(34, 211, 238, 0.12);
+  --brand:              #818cf8;
+  --brand-400:          #a5b4fc;
+  --brand-muted:        rgba(129, 140, 248, 0.10);
+  --brand-glow:         0 0 28px -6px rgba(129, 140, 248, 0.35);
 
-  --shadow-1:        0 1px 2px rgba(0, 0, 0, 0.2), 0 1px 1px rgba(0, 0, 0, 0.1);
-  --shadow-sm:       var(--shadow-1);
-  --shadow-2:        0 4px 12px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.15);
-  --shadow-md:       var(--shadow-2);
-  --shadow-3:        0 8px 24px rgba(0, 0, 0, 0.3), 0 4px 8px rgba(0, 0, 0, 0.2);
-  --shadow-lg:       var(--shadow-3);
-  --shadow-glow:     0 0 0 3px var(--brand-muted);
-
-  --sidebar-bg:      #13161f;
-  --sidebar-text:    var(--text-1);
-  --sidebar-text-secondary: var(--text-2);
-  --sidebar-border:  var(--border-1);
-  --sidebar-hover:   var(--bg-hover);
-
-  --accent: var(--brand);
-  --accent-hover: var(--brand-light);
-  --accent-muted: var(--brand-muted);
-  --primary: var(--brand);
-  --primary-hover: var(--brand-light);
+  --noise-opacity:      0.02;
 }
 
-/* ─── 主题切换动画 ─── */
+/* ══════════════════════════════════════
+   Theme Transition — circle reveal
+   ══════════════════════════════════════ */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
@@ -273,7 +312,7 @@
 }
 ::view-transition-new(root) {
   z-index: 1;
-  animation: themeCircleReveal 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: themeCircleReveal 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 ::view-transition-old(root) { z-index: 0; }
 

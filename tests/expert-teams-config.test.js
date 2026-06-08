@@ -69,22 +69,66 @@ test('Expert Teams page supports expert editing and team member selection', () =
     'api.listExpertGroups',
     'api.saveExpertGroup',
     'api.deleteExpertGroup',
+    'api.skillsList',
     'expert-member-picker',
     'data-member-toggle',
     'data-member-order',
+    'data-member-drag',
+    'expert-member-order-label',
+    'memberDragLabel',
     'moderatorExpertId',
     'group-moderator',
+    'renderTopSummary',
+    'groupCountSummary',
+    'currentGroupMembersSummary',
+    'memberSlotSummary',
+    'memberOrderHint',
+    'memberOrderLabel',
+    'renumberSelectedMembers',
+    'dragstart',
+    'dragover',
     'expert-communication-note',
+    'formWorkflow',
+    'group-max-rounds',
+    'group-max-parallel',
+    'group-approval-policy',
+    'availableSkills',
+    'normalizeSkillOptions',
+    'skillOptionsForExpert',
+    'mergeSelectedTagOptions',
+    'renderWorkflowGuide',
+    'workflowGuide',
+    'updateGroupWorkflowGuide',
+    'expert-workflow-guide',
+    '执行次数',
+    '沟通方式',
+    '适合任务',
+    '参数建议',
+    '每位专家通常执行 1 次',
+    '最多 ${maxRounds} 轮',
+    'memberOrderLabel',
+    'syncMemberOrderLabel',
+  ]) {
+    assert.match(page, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
+
+  assert.doesNotMatch(page, /group-max-tokens/)
+  assert.doesNotMatch(page, /总 Token 预算/)
+
+  for (const token of [
     'expert-run-panel',
     'data-action="run-team"',
     'data-action="stop-run"',
-    'expert-run-meta',
-    'expert-run-model',
-    'renderModelBadge',
     'runAbortController',
+    'RUN_HISTORY_KEY',
+    'renderRunHistory',
+    'saveCurrentRunRecord',
+    'viewRunHistory',
+    'clearCurrentRunHistory',
     'runExpertTeam',
+    'runExpertTeamSequential',
   ]) {
-    assert.match(page, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+    assert.doesNotMatch(page, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
 })
 
@@ -100,17 +144,163 @@ test('Expert Teams runner defines structured expert communication', () => {
     'resolveDefaultModelSlot',
     'resolveExpertModelSlot',
     'resolveMaxParallel',
+    'resolveMaxRounds',
+    'Promise.allSettled',
+    'callChatModelWithRetry',
+    'modelChatCompletionsProxyStream',
+    'readChatCompletionStream',
+    'expert_delta',
+    'moderator_delta',
+    'onDelta',
+    'DEFAULT_RETRY_ATTEMPTS',
+    'buildExpertFailure',
+    'buildModeratorFinalOrFallback',
+    'buildFallbackSynthesis',
+    'resumeExpertTeamRun',
+    'resumeExpertTeamSynthesis',
+    'resume_start',
+    'normalizeResumePlan',
+    'getResumeRemainingWork',
+    'resumeParallelExperts',
+    'resumeSequentialExperts',
+    'Expert team plan is required to resume run',
+    'No expert contributions available to resume synthesis',
+    'expert_error',
+    'moderator_error',
+    'All expert responses failed',
     'maxParallel',
+    'maxRounds',
+    'Declared capability context',
+    'Mode guidance',
+    'closeout report',
+    'final decision',
+    'validation checks',
     'modelId',
   ]) {
     assert.match(runner, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
 })
 
+test('Assistant Expert Teams entry loads arrays, persists selection, and cleans remount listener', () => {
+  const assistant = readFileSync(new URL('../src/pages/assistant.js', import.meta.url), 'utf8')
+  for (const token of [
+    'EXPERT_TEAM_SELECTION_KEY',
+    'normalizeExpertListResponse(groupRes, \'groups\')',
+    'normalizeExpertListResponse(expertRes, \'experts\')',
+    'syncActiveExpertGroup',
+    'hasRunnableExpertGroup',
+    'persistActiveExpertGroupId',
+    'resolveMaxRounds(group)',
+    'runExpertTeam',
+    'runExpertTeamSequential',
+    'resumeExpertTeamRun',
+    'resumeExpertTeamSynthesis',
+    '_expertTeamOutsideClickHandler',
+    'document.removeEventListener(\'click\', _expertTeamOutsideClickHandler)',
+    'event.type === \'expert_error\'',
+    'event.type === \'moderator_error\'',
+    'event.type === \'expert_retry\'',
+    'event.type === \'moderator_retry\'',
+    'event.type === \'expert_delta\'',
+    'event.type === \'moderator_delta\'',
+    'appendExpertRunDelta',
+    'appendModeratorRunDelta',
+    '_expertTeamRun',
+    'initExpertTeamRunMeta',
+    'updateExpertTeamRunMeta',
+    'appendExpertTeamCheckpoint',
+    'expertTeamCheckpointFromEvent',
+    'getExpertTeamRunMeta',
+    'buildExpertTeamLegacyCheckpoints',
+    'expertTeamLegacyPhase',
+    'expertTeamPhaseLabel',
+    'expertTeamRunElapsed',
+    'renderExpertTeamRunMeta',
+    'renderExpertTeamRunDetails',
+    'renderExpertTeamLiveSynthesis',
+    'expertTeamDomId',
+    'expertTeamLiveDomId',
+    'scheduleExpertTeamLiveDomUpdate',
+    'applyExpertTeamLiveDomUpdate',
+    'data-expert-live-id',
+    'data-expert-active-id',
+    'ast-expert-progress',
+    'ast-expert-run-meta',
+    'ast-expert-run-details',
+    'ast-expert-live-synthesis',
+    'ast-expert-stage-board',
+    'ast-expert-governance',
+    'ast-expert-closeout',
+    'getExpertTeamStages',
+    'getExpertTeamGovernance',
+    'renderExpertTeamCloseout',
+    'renderExpertTeamResumeActions',
+    'canResumeExpertTeamSynthesis',
+    'canResumeExpertTeamRun',
+    'getExpertTeamContributions',
+    'getExpertTeamRemainingMembers',
+    'resumeExpertTeamMessage',
+    'assistantExpertTeamSlot',
+    'handleExpertTeamRunEvent',
+    'data-action="resume-expert-synthesis"',
+    'data-action="resume-expert-run"',
+    'ast-expert-resume-actions',
+    '继续剩余专家',
+    '当前专家团记录无法继续剩余专家',
+    'resume_start',
+    '继续综合',
+    'getExpertTeamActiveAgents',
+    'isRunning ? getExpertTeamActiveAgents(transcript) : []',
+    'clearActiveExpertGroupSelection',
+    'ast-expert-disclosure',
+    'ast-expert-live-text',
+    'ast-expert-final-card',
+    '<details class="ast-expert-item ast-expert-item--done ast-expert-disclosure"',
+    '协作拓扑',
+    '自治级别',
+    '检查点',
+    '运行编号',
+    '交付复盘',
+    '质量门禁',
+    '模型、自治、检查点',
+    '完整过程',
+    '默认收起',
+    '专家团运行已停止。后续消息将按普通对话发送。',
+    '专家团续跑已停止。后续消息将按普通对话发送。',
+  ]) {
+    assert.match(assistant, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
+  assert.doesNotMatch(assistant, /function\s+expertTeamPreview/)
+  assert.match(assistant, /_isStreaming\s*=\s*true[\s\S]*clearActiveExpertGroupSelection\(\)/)
+  assert.match(assistant, /event\.type === 'expert_delta'[\s\S]*shouldRender\s*=\s*false/)
+  assert.match(assistant, /event\.type === 'moderator_delta'[\s\S]*shouldRender\s*=\s*false/)
+  assert.match(assistant, /event\.type === 'expert_delta'[\s\S]*scheduleExpertTeamLiveDomUpdate\(aiMsg,\s*event,\s*'expert'\)/)
+  assert.match(assistant, /event\.type === 'moderator_delta'[\s\S]*scheduleExpertTeamLiveDomUpdate\(aiMsg,\s*event,\s*'moderator'\)/)
+  assert.match(assistant, /const \{ shouldRender,\s*shouldPersistNow \}\s*=\s*handleExpertTeamRunEvent\(aiMsg,\s*event\)/)
+  assert.match(assistant, /const effectiveStopped = stopped && !isRunning && !finalDone && !failed/)
+  assert.match(assistant, /<details class="ast-expert-run-details">/)
+})
+
+test('Assistant Expert Teams resume controls expose complete and synthesis-only paths', () => {
+  const assistant = readFileSync(new URL('../src/pages/assistant.js', import.meta.url), 'utf8')
+  const assistantCss = readFileSync(new URL('../src/style/assistant.css', import.meta.url), 'utf8')
+  assert.match(assistant, /getExpertTeamRemainingMembers\(message\)\.length\s*>\s*0/)
+  assert.match(assistant, /function canResumeExpertTeamRun\(message\)[\s\S]*transcript\.some\(item => item\.type === 'stopped'\)[\s\S]*getExpertTeamRemainingMembers\(message\)\.length\s*>\s*0/)
+  assert.doesNotMatch(assistant, /function canResumeExpertTeamRun\(message\)\s*\{\s*if \(!canResumeExpertTeamSynthesis\(message\)\)/)
+  assert.match(assistant, /const resumeRunner = mode === 'run' \? resumeExpertTeamRun : resumeExpertTeamSynthesis/)
+  assert.match(assistant, /resumeExpertTeamMessage\(Number\.parseInt\(resumeRunBtn\.dataset\.msgIdx,\s*10\),\s*'run'\)/)
+  assert.match(assistantCss, /\.ast-expert-resume-btn--ghost/)
+  assert.match(assistantCss, /\.ast-expert-run-details-summary/)
+})
+
 test('Expert Teams styling keeps a responsive workbench layout', () => {
   assert.match(cssBlock('.expert-teams-shell'), /grid-template-columns:\s*minmax\(280px,\s*360px\)\s*minmax\(0,\s*1fr\)/)
   assert.match(cssBlock('.expert-member-picker'), /grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(260px,\s*1fr\)\)/)
-  assert.match(cssBlock('.expert-member-row'), /grid-template-columns:\s*18px\s*32px\s*minmax\(0,\s*1fr\)\s*64px/)
-  assert.match(cssBlock('.expert-run-panel'), /background:\s*var\(--bg-base\)/)
+  assert.match(cssBlock('.expert-member-row'), /grid-template-columns:\s*18px\s*32px\s*minmax\(0,\s*1fr\)\s*auto/)
+  assert.match(cssBlock('.expert-member-order-wrap'), /justify-content:\s*flex-end/)
+  assert.match(cssBlock('.expert-member-drag'), /cursor:\s*grab/)
+  assert.match(cssBlock('.expert-member-row.is-dragging'), /opacity:\s*\.72/)
+  assert.match(cssBlock('.expert-workflow-grid'), /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/)
+  assert.doesNotMatch(css, /\.expert-run-/)
   assert.match(css, /@media \(max-width:\s*1120px\)[\s\S]*\.expert-teams-shell\s*\{[\s\S]*grid-template-columns:\s*1fr/)
 })

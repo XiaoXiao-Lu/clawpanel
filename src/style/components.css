@@ -1,8 +1,6 @@
 /* ============================================================
-   Components — 统一组件样式
-   ============================================================
-   设计原则：克制、清晰、一致。
-   去掉过度装饰：强渐变顶边、多层阴影、统一上浮动效。
+   Components — Precision Noir
+   Refined, intentional, editorial.
    ============================================================ */
 
 /* ─── Button ─── */
@@ -11,16 +9,19 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  min-height: 38px;
+  min-height: 36px;
   padding: 0 var(--space-4);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 500;
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
   line-height: 1;
   border: 1px solid transparent;
   cursor: pointer;
   transition: background var(--ease-fast), border-color var(--ease-fast), color var(--ease-fast), box-shadow var(--ease-fast), transform var(--ease-fast);
   white-space: nowrap;
+  position: relative;
 }
 
 .btn-primary {
@@ -31,10 +32,11 @@
 .btn-primary:hover {
   background: var(--brand-light);
   border-color: var(--brand-light);
-  box-shadow: var(--shadow-2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -4px rgba(99, 102, 241, 0.35);
 }
 .btn-primary:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: translateY(0) scale(0.98);
 }
 
 .btn-secondary {
@@ -43,18 +45,19 @@
   color: var(--text-2);
 }
 .btn-secondary:hover {
-  background: var(--bg-hover);
-  border-color: var(--border-1);
+  background: var(--bg-card-hover);
+  border-color: rgba(255, 255, 255, 0.12);
   color: var(--text-1);
 }
 
 .btn-danger {
   background: var(--error-muted);
-  border-color: rgba(220, 38, 38, 0.2);
+  border-color: rgba(239, 68, 68, 0.18);
   color: var(--error);
 }
 .btn-danger:hover {
-  background: rgba(220, 38, 38, 0.12);
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.30);
 }
 
 .btn-ghost {
@@ -68,13 +71,13 @@
 }
 
 .btn:disabled, .btn[disabled] {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
   pointer-events: none;
 }
 
 .btn-sm {
-  min-height: 32px;
+  min-height: 30px;
   padding: 0 var(--space-3);
   font-size: var(--text-xs);
 }
@@ -82,7 +85,7 @@
 .btn-xs {
   min-height: 24px;
   padding: 0 8px;
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
   border-radius: var(--radius-sm);
 }
 
@@ -114,11 +117,11 @@
 /* ─── Card ─── */
 .card {
   background: var(--bg-elevated);
-  border: 1px solid var(--border-1);
+  border: 1px solid var(--border-2);
   border-radius: var(--radius-lg);
-  padding: var(--space-4);
+  padding: var(--space-5);
   box-shadow: var(--shadow-1);
-  transition: border-color var(--ease-fast), box-shadow var(--ease-fast);
+  transition: border-color var(--ease-normal), box-shadow var(--ease-normal), transform var(--ease-normal);
   position: relative;
 }
 .card:hover {
@@ -135,18 +138,19 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--space-3);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-5);
 }
 
 .stat-card {
   background: var(--bg-elevated);
-  border: 1px solid var(--border-1);
+  border: 1px solid var(--border-2);
   border-radius: var(--radius-lg);
-  padding: var(--space-4);
+  padding: var(--space-5);
   box-shadow: var(--shadow-1);
-  transition: border-color var(--ease-fast), box-shadow var(--ease-fast);
+  transition: border-color var(--ease-normal), box-shadow var(--ease-normal);
 }
 .stat-card:hover {
+  border-color: var(--border-1);
   box-shadow: var(--shadow-2);
 }
 
@@ -159,21 +163,23 @@
 .stat-card-label {
   font-size: var(--text-xs);
   color: var(--text-3);
-  font-weight: 600;
+  font-weight: 500;
+  font-family: var(--font-display);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
 }
 .stat-card-value {
   font-size: var(--text-xl);
   font-weight: 700;
-  letter-spacing: -0.01em;
-  line-height: 1.2;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
   color: var(--text-1);
+  font-family: var(--font-display);
 }
 .stat-card-meta {
   font-size: var(--text-xs);
   color: var(--text-3);
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .status-dot {
@@ -193,34 +199,37 @@
 .form-label {
   display: block;
   font-size: var(--text-sm);
+  font-family: var(--font-display);
   color: var(--text-2);
   margin-bottom: var(--space-2);
   font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .input,
 .form-input {
   width: 100%;
-  min-height: 38px;
+  min-height: 36px;
   padding: 8px 12px;
-  background: var(--bg-base);
+  background: var(--bg-sunken);
   border: 1px solid var(--border-1);
   border-radius: var(--radius-md);
   color: var(--text-1);
   font-size: var(--text-base);
+  font-family: var(--font-sans);
   transition: border-color var(--ease-fast), background var(--ease-fast), box-shadow var(--ease-fast);
   outline: none;
 }
 .input:hover,
 .form-input:hover {
-  border-color: var(--border-1);
+  border-color: rgba(255, 255, 255, 0.12);
   background: var(--bg-elevated);
 }
 .input:focus,
 .form-input:focus {
   border-color: var(--brand);
   background: var(--bg-elevated);
-  box-shadow: var(--shadow-glow);
+  box-shadow: 0 0 0 3px var(--brand-muted);
 }
 .input:focus-visible,
 .form-input:focus-visible {
@@ -236,35 +245,100 @@ select.form-input, select.input {
   background-position: right 10px center;
 }
 
+/* ─── Form States (error / success / disabled) ─── */
+.input--error,
+.form-input--error,
+.input:user-invalid,
+.form-input:user-invalid {
+  border-color: var(--error);
+  box-shadow: 0 0 0 3px var(--error-muted);
+}
+.input--error:focus,
+.form-input--error:focus,
+.input:user-invalid:focus,
+.form-input:user-invalid:focus {
+  border-color: var(--error);
+  box-shadow: 0 0 0 3px var(--error-muted);
+}
+
+.input--success,
+.form-input--success,
+.input:valid,
+.form-input:valid {
+  border-color: var(--success-muted);
+}
+.input--success:focus,
+.form-input--success:focus,
+.input:valid:focus,
+.form-input:valid:focus {
+  border-color: var(--success);
+  box-shadow: 0 0 0 3px var(--success-muted);
+}
+
+.input:disabled,
+.form-input:disabled,
+select.input:disabled,
+select.form-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: var(--bg-base);
+}
+.input:disabled::placeholder,
+.form-input:disabled::placeholder {
+  color: var(--text-3);
+}
+
+/* ─── Form hints & errors ─── */
+.form-hint {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  margin-top: var(--space-1);
+  line-height: 1.5;
+}
+.form-error {
+  font-size: var(--text-xs);
+  color: var(--error);
+  margin-top: var(--space-1);
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.form-error svg {
+  flex-shrink: 0;
+}
+
 /* ─── Tab ─── */
 .tab-bar {
   display: flex;
-  gap: var(--space-1);
-  border-bottom: 1px solid var(--border-1);
-  margin-bottom: var(--space-4);
+  gap: var(--space-0);
+  border-bottom: 1px solid var(--border-2);
+  margin-bottom: var(--space-5);
   overflow-x: auto;
 }
 .tab {
-  min-height: 38px;
+  min-height: 36px;
   padding: 0 var(--space-4);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: var(--text-sm);
+  font-family: var(--font-display);
   color: var(--text-2);
   border-bottom: 2px solid transparent;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border-radius: 0;
   cursor: pointer;
-  transition: color var(--ease-fast), background var(--ease-fast), border-color var(--ease-fast);
+  transition: color var(--ease-fast), border-color var(--ease-fast);
   white-space: nowrap;
   background: none;
   border-top: none;
   border-left: none;
   border-right: none;
+  margin-bottom: -1px;
 }
 .tab:hover {
   color: var(--text-1);
-  background: var(--bg-hover);
 }
 .tab.active {
   color: var(--brand);
@@ -278,10 +352,12 @@ select.form-input, select.input {
   align-items: center;
   gap: 4px;
   min-height: 20px;
-  padding: 2px 8px;
+  padding: 2px 10px;
   border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
-  font-weight: 600;
+  font-weight: 500;
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
   line-height: 1.4;
   white-space: nowrap;
 }
@@ -354,8 +430,8 @@ select.form-input, select.input {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(3px);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -367,12 +443,13 @@ select.form-input, select.input {
   border: 1px solid var(--border-1);
   border-radius: var(--radius-xl);
   padding: var(--space-6);
-  min-width: 360px;
-  max-width: 500px;
+  min-width: 380px;
+  max-width: 520px;
   max-height: calc(100vh - 60px);
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-3);
+  animation: modalIn 200ms var(--ease-out);
 }
 .modal-body, .modal-content-body { flex: 1; overflow-y: auto; min-height: 0; }
 .modal-title {
@@ -401,6 +478,10 @@ select.form-input, select.input {
 }
 
 @keyframes fadeInModal { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.97) translateY(4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
 
 /* ─── Empty State ─── */
 .empty-state {

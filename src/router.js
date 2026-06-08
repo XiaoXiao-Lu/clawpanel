@@ -13,6 +13,49 @@ let _initialized = false
 
 let _defaultRoute = '/dashboard'
 
+// Route → section + label mapping (for context bar)
+const _routeContext = {
+  '/dashboard':     ['sectionMonitor',    'dashboard'],
+  '/assistant':     ['sectionMonitor',    'assistant'],
+  '/chat':          ['sectionMonitor',    'chat'],
+  '/route-map':     ['sectionMonitor',    'routeMap'],
+  '/services':      ['sectionMonitor',    'services'],
+  '/logs':          ['sectionMonitor',    'logs'],
+  '/models':        ['sectionConfig',     'models'],
+  '/agents':        ['sectionConfig',     'agents'],
+  '/expert-teams':  ['sectionConfig',     'expertTeams'],
+  '/gateway':       ['sectionConfig',     'gateway'],
+  '/channels':      ['sectionConfig',     'channels'],
+  '/communication': ['sectionConfig',     'communication'],
+  '/security':      ['sectionConfig',     'security'],
+  '/memory':        ['sectionData',       'memory'],
+  '/dreaming':      ['sectionData',       'dreaming'],
+  '/cron':          ['sectionData',       'cron'],
+  '/usage':         ['sectionData',       'usage'],
+  '/skills':        ['sectionExtension',  'skills'],
+  '/connectors':    ['sectionExtension',  'connectors'],
+  '/plugin-hub':    ['sectionExtension',  'pluginHub'],
+  '/settings':      ['sectionSystem',     'settings'],
+  '/chat-debug':    ['sectionSystem',     'checkRepair'],
+  '/diagnose':      ['sectionSystem',     'checkRepair'],
+  '/about':         ['sectionSystem',     'about'],
+  '/setup':         ['',                  'setup'],
+  '/glossary':      ['',                  'glossary'],
+}
+
+function updateContextBar(routePath) {
+  const bar = document.getElementById('context-bar')
+  if (!bar) return
+  const ctx = _routeContext[routePath]
+  if (!ctx) { bar.innerHTML = ''; return }
+  const [sectionKey, labelKey] = ctx
+  const sectionLabel = sectionKey ? t('sidebar.' + sectionKey) : ''
+  const pageLabel = t('sidebar.' + labelKey)
+  bar.innerHTML = sectionLabel
+    ? `<span class="context-bar-path">${escHtml(sectionLabel)}</span><span class="context-bar-sep">/</span><span class="context-bar-title">${escHtml(pageLabel)}</span>`
+    : `<span class="context-bar-title">${escHtml(pageLabel)}</span>`
+}
+
 export function registerRoute(path, loader) {
   routes[path] = loader
 }
@@ -113,6 +156,9 @@ async function loadRoute() {
   document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.toggle('active', item.dataset.route === routePath)
   })
+
+  // 更新上下文栏
+  updateContextBar(routePath)
 }
 
 async function retryLoad(loader, maxRetries, delayMs) {

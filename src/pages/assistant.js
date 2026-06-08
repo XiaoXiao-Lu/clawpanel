@@ -16,10 +16,12 @@ import { getActiveEngineId } from '../lib/engine-manager.js'
 import { enhanceModelCallError } from '../lib/model-error-diagnosis.js'
 import { getFieldSchema } from '../lib/config-schema.js'
 import { wsClient } from '../lib/ws-client.js'
+import { resolveMaxRounds, resumeExpertTeamRun, resumeExpertTeamSynthesis, runExpertTeam, runExpertTeamSequential } from '../lib/expert-team-runner.js'
 
 // ── 常量 ──
 const STORAGE_KEY = 'clawpanel-assistant'
 const SESSIONS_KEY = 'clawpanel-assistant-sessions'
+const EXPERT_TEAM_SELECTION_KEY = 'clawpanel-assistant-expert-team'
 const MAX_SESSIONS = 50
 const MAX_CONTEXT_TOKENS = 30 // 最近 N 条消息作为上下文
 const AUTO_MODEL_VALUE = '__auto__'
@@ -2283,6 +2285,12 @@ let _modelPoolSlots = []
 let _modelSelectSlotMap = new Map()
 let _lastAutoModelLabel = ''
 let _lastAutoModelReason = ''
+let _activeExpertGroupId = null    // 选中的专家团 ID（null = 直接对话）
+let _expertGroups = []             // 已保存的专家团列表
+let _expertProfiles = []           // 已保存的专家档案列表
+let _expertTeamOutsideClickHandler = null
+const _expertTeamDomUpdateTimers = new Map()
+const _expertTeamDomUpdatePayloads = new Map()
 
 // ── 节流保存 ──
 function throttledSave() {
@@ -3824,6 +3832,10 @@ async function executeToolWithSafety(toolName, args, tcForConfirm) {
   return { result, approved }
 }
 
+async function executeExpertTeamTool({ name, args, toolCall } = {}) {
+  return await executeToolWithSafety(name, args || {}, toolCall || { function: { name, arguments: JSON.stringify(args || {}) } })
+}
+
 // 带工具调用的 AI 请求（流式，支持 tool_calls 循环 + 打字机效果）
 async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
   const apiType = normalizeApiType(_config.apiType)
@@ -4292,6 +4304,1170 @@ function renderErrorBanner() {
   _messagesEl.insertBefore(banner, _messagesEl.firstChild)
 }
 
+function renderExpertTeamMessage(m, idx) {
+  const transcript = m._expertTeamTranscript || []
+  const isRunning = m._expertTeamRunning || false
+  const groupName = escHtml(m._expertTeamName || '专家团')
+  const plan = m._expertTeamPlan
+  const progress = getExpertTeamProgress(transcript, plan, isRunning)
+  const stages = getExpertTeamStages(transcript, plan, isRunning, progress)
+  const activeAgents = isRunning ? getExpertTeamActiveAgents(transcript) : []
+  const governanceHtml = renderExpertTeamGovernance(getExpertTeamGovernance(plan, transcript, progress))
+  const runMetaHtml = renderExpertTeamRunMeta(getExpertTeamRunMeta(m, progress), progress)
+  const detailsHtml = renderExpertTeamRunDetails(runMetaHtml, governanceHtml)
+  const liveSynthesisHtml = renderExpertTeamLiveSynthesis(transcript, isRunning)
+  const closeoutHtml = renderExpertTeamCloseout(transcript, plan, progress)
+  const resumeActionsHtml = renderExpertTeamResumeActions(m, idx)
+  const activityHtml = renderExpertTeamActivityFeed(transcript, m._expertTeamRun, isRunning)
+
+  const planMeta = plan
+    ? `${plan.members?.length || 0}位专家 · ${getModeLabel(plan.mode)}${plan.mode === 'sequential' ? ` · ${plan.maxRounds || 1}轮` : ` · 并行${plan.maxParallel || 1}`}`
+    : ''
+  const planHtml = plan ? `
+    <details class="ast-expert-plan">
+      <summary class="ast-expert-plan-head">
+        <strong>${escHtml(planMeta)}</strong>
+        <span>${icon('chevron-down', 13)}</span>
+      </summary>
+      <div class="ast-expert-plan-members">
+        ${(plan.members || []).map(member => `
+          <span class="ast-expert-plan-member" style="--expert-color:${escAttr(getExpertColor(member.id))}" title="${escAttr(`${member.name || member.id}${member.title ? ` · ${member.title}` : ''}`)}">
+            <span>${escHtml(member.name || member.id)}</span>
+            ${member.title ? `<small>${escHtml(member.title)}</small>` : ''}
+          </span>
+        `).join('')}
+      </div>
+    </details>
+  ` : ''
+
+  const hasFinal = transcript.some(item => item.type === 'final')
+  const primaryItems = transcript.filter(item => ['final', 'error'].includes(item.type) || (!isRunning && !hasFinal && item.type === 'stopped'))
+  const processItems = transcript.filter(item => !['final', 'error', 'stopped'].includes(item.type))
+  const primaryHtml = primaryItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('')
+  const processHtml = processItems.length ? processItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('') : `
+    <div class="ast-expert-item ast-expert-item--pending">
+      <div class="ast-expert-item-head">
+        <span class="ast-expert-status-dot"></span>
+        <strong>正在准备专家团</strong>
+      </div>
+      <div class="ast-expert-skeleton"><span></span><span></span></div>
+    </div>
+  `
+  const processOpenAttr = ''
+  const processCount = processItems.filter(item => item.type !== 'round_start').length || (processItems.length ? processItems.length : 1)
+  const processBlock = `<details class="ast-expert-process"${processOpenAttr}>
+    <summary class="ast-expert-process-summary">
+      <span>${icon('list', 13)} 完整过程</span>
+      <small>${escHtml(processCount)} 条记录 · 默认收起</small>
+      <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
+    </summary>
+    <div class="ast-expert-items">${processHtml}</div>
+  </details>`
+
+  const stageHtml = `<div class="ast-expert-stage-board" role="table" aria-label="专家团阶段">
+    <div class="ast-expert-stage-row ast-expert-stage-row--head" role="row">
+      <span role="columnheader">阶段</span>
+      <span role="columnheader">状态</span>
+    </div>
+    ${stages.map(stage => `<div class="ast-expert-stage-row ast-expert-stage-row--${escAttr(stage.status)}" role="row">
+      <span class="ast-expert-stage-name" role="cell">${stage.icon}<span>${escHtml(stage.name)}</span>${stage.detail ? `<small>${escHtml(stage.detail)}</small>` : ''}</span>
+      <span class="ast-expert-stage-status" role="cell">${expertTeamStageStatusIcon(stage.status)}${escHtml(stage.label)}</span>
+    </div>`).join('')}
+  </div>`
+  const activeHtml = activeAgents.length ? `<div class="ast-expert-active-agents">
+    ${activeAgents.map(agent => `<span class="ast-expert-agent-chip ast-expert-agent-chip--${escAttr(agent.status)}" data-expert-active-id="${escAttr(agent.liveId)}" style="--expert-color:${escAttr(getExpertColor(agent.expertId))}" title="${escAttr(agent.title)}">
+      <span class="ast-expert-agent-avatar">${escHtml(agent.initial)}</span>
+      <span>${escHtml(agent.name)}</span>
+      <small>${escHtml(agent.identity || agent.label)}</small>
+    </span>`).join('')}
+  </div>` : ''
+  const runningIndicator = isRunning ? '<div class="ast-expert-running"></div>' : ''
+
+  return `<div class="ast-msg ast-msg-ai ast-msg-expert-team" data-msg-idx="${idx}" data-expert-dom-id="${escAttr(expertTeamDomId(m))}">
+    <div class="ast-expert-team-run ast-expert-copy-source">
+      <div class="ast-expert-team-header">
+        <div class="ast-expert-team-title">
+          <span class="ast-expert-team-icon">${expertTeamRunIcon(progress.status)}</span>
+          <div>
+            <strong>${groupName}</strong>
+            <span>${escHtml(progress.currentLabel)}</span>
+          </div>
+        </div>
+        <span class="ast-expert-badge ast-expert-badge--${escAttr(progress.status)}">${escHtml(progress.statusLabel)}</span>
+      </div>
+      <div class="ast-expert-progress" aria-label="专家团进度">
+        <div class="ast-expert-progress-bar" style="width:${progress.percent}%"></div>
+      </div>
+      ${progress.status === 'running' ? `<div class="ast-expert-run-summary">
+        <span>${escHtml(progress.completed)} / ${escHtml(progress.total)} 步</span>
+        <span>${escHtml(progress.summary)}</span>
+        ${progress.errorCount ? `<span class="ast-expert-run-warning">${escHtml(progress.errorCount)} 个异常已处理</span>` : ''}
+      </div>` : ''}
+      ${stageHtml}
+      ${activeHtml}
+      ${activityHtml}
+      ${liveSynthesisHtml}
+      ${closeoutHtml}
+      ${resumeActionsHtml}
+      ${detailsHtml}
+      ${planHtml}
+      ${primaryHtml}
+      ${processBlock}
+      ${runningIndicator}
+    </div>
+    <div class="ast-msg-meta"><button class="msg-copy-btn" title="${t('common.copy')}">${icon('copy', 12)}</button></div>
+  </div>`
+}
+
+function renderExpertTeamRunDetails(runMetaHtml, governanceHtml) {
+  if (!runMetaHtml && !governanceHtml) return ''
+  return `<details class="ast-expert-run-details">
+    <summary class="ast-expert-run-details-summary">
+      <span>${icon('settings', 13)} 运行详情</span>
+      <small>模型、自治、检查点</small>
+      <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
+    </summary>
+    ${governanceHtml}
+    ${runMetaHtml}
+  </details>`
+}
+
+function renderExpertTeamActivityFeed(transcript, run, isRunning) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const activities = buildExpertTeamActivities(events, run, isRunning)
+  if (!activities.length) return ''
+  return `<div class="ast-expert-activity" aria-label="专家团实时活动">
+    <div class="ast-expert-activity-head">
+      ${icon('activity', 13)}
+      <strong>实时活动</strong>
+      <span>${escHtml(isRunning ? '正在更新' : '已记录')}</span>
+    </div>
+    <div class="ast-expert-activity-list">
+      ${activities.map(item => `<div class="ast-expert-activity-row ast-expert-activity-row--${escAttr(item.status)}">
+        <span class="ast-expert-activity-icon">${icon(item.iconName, 12)}</span>
+        <span class="ast-expert-activity-main">
+          <strong>${escHtml(item.title)}</strong>
+          <small>${escHtml(item.detail)}</small>
+        </span>
+        <span class="ast-expert-activity-meta">${escHtml(item.meta)}</span>
+      </div>`).join('')}
+    </div>
+  </div>`
+}
+
+function buildExpertTeamActivities(transcript, run, isRunning) {
+  const activities = []
+  const events = Array.isArray(transcript) ? transcript : []
+  const started = run?.startedAt || events[0]?.createdAt || Date.now()
+  if (run || events.length || isRunning) {
+    activities.push({
+      status: 'done',
+      iconName: 'zap',
+      title: '接收任务',
+      detail: '创建运行记录并加载专家团配置',
+      meta: formatExpertTeamActivityTime(started),
+    })
+  }
+  for (const item of events) {
+    if (item.type === 'round_start') {
+      activities.push({
+        status: 'running',
+        iconName: 'refresh-cw',
+        title: `进入第${item.round || 1}轮`,
+        detail: `共${item.total || 1}轮协作链路`,
+        meta: '轮次',
+      })
+      continue
+    }
+    if (['expert_start', 'expert_stream', 'expert_retry'].includes(item.type)) {
+      const retry = item.type === 'expert_retry'
+      const hasOutput = String(item.content || '').trim().length > 0
+      activities.push({
+        status: retry ? 'warning' : 'running',
+        iconName: retry ? 'refresh-cw' : 'radio',
+        title: `${expertTeamActorLabel(item)}${expertTeamRoundLabel(item)}`,
+        detail: retry
+          ? `模型请求失败，正在第${item.attempt || 1}次重试`
+          : hasOutput
+            ? `正在生成意见，已输出 ${expertTeamContentMeta(item.content)}`
+            : `向模型发送专家上下文，等待首段输出`,
+        meta: modelTextFromSummary(item.model) || '模型',
+      })
+      continue
+    }
+    if (item.type === 'expert_done') {
+      activities.push({
+        status: 'done',
+        iconName: 'check-circle',
+        title: `${expertTeamActorLabel(item)}完成`,
+        detail: `已写入专家黑板，输出 ${expertTeamContentMeta(item.content)}`,
+        meta: modelTextFromSummary(item.model) || '完成',
+      })
+      continue
+    }
+    if (item.type === 'expert_error') {
+      activities.push({
+        status: 'error',
+        iconName: 'alert-circle',
+        title: `${expertTeamActorLabel(item)}异常`,
+        detail: item.message || item.error || '该专家调用失败，已跳过并继续',
+        meta: '异常',
+      })
+      continue
+    }
+    if (['tool_start', 'tool_done', 'tool_error'].includes(item.type)) {
+      const status = item.type === 'tool_start' ? 'running' : item.type === 'tool_error' || item.approved === false ? 'error' : 'done'
+      activities.push({
+        status,
+        iconName: expertTeamToolIcon(item.toolName),
+        title: `${expertTeamActorLabel({ expertName: item.ownerName, expertTitle: item.ownerTitle })} 调用 ${expertTeamToolLabel(item.toolName)}`,
+        detail: item.type === 'tool_start'
+          ? expertTeamToolTarget(item.toolName, item.args)
+          : item.approved === false
+            ? '用户拒绝或策略阻止了该操作'
+            : expertTeamToolResultSummary(item.result),
+        meta: expertTeamToolTargetMeta(item.toolName, item.args),
+      })
+      continue
+    }
+    if (['moderator_start', 'moderator_stream', 'moderator_retry'].includes(item.type)) {
+      const retry = item.type === 'moderator_retry'
+      const hasOutput = String(item.content || '').trim().length > 0
+      activities.push({
+        status: retry ? 'warning' : 'running',
+        iconName: retry ? 'refresh-cw' : 'crown',
+        title: '主持综合',
+        detail: retry
+          ? `主持模型请求失败，正在第${item.attempt || 1}次重试`
+          : hasOutput
+            ? `正在综合专家意见，已输出 ${expertTeamContentMeta(item.content)}`
+            : '汇总专家黑板，等待综合结论',
+        meta: modelTextFromSummary(item.model) || '模型',
+      })
+      continue
+    }
+    if (item.type === 'moderator_error') {
+      activities.push({
+        status: 'error',
+        iconName: 'alert-circle',
+        title: '主持综合异常',
+        detail: item.message || item.error || '将使用降级综合',
+        meta: '降级',
+      })
+      continue
+    }
+    if (item.type === 'final') {
+      activities.push({
+        status: 'done',
+        iconName: 'clipboard',
+        title: '生成最终交付',
+        detail: `综合结论已完成，输出 ${expertTeamContentMeta(item.content)}`,
+        meta: modelTextFromSummary(item.model) || '交付',
+      })
+      continue
+    }
+    if (item.type === 'stopped') {
+      activities.push({
+        status: 'stopped',
+        iconName: 'stop',
+        title: '用户停止',
+        detail: item.message || '运行已停止，保留已完成记录',
+        meta: '停止',
+      })
+      continue
+    }
+    if (item.type === 'error') {
+      activities.push({
+        status: 'error',
+        iconName: 'alert-circle',
+        title: '运行失败',
+        detail: item.message || '专家团运行失败',
+        meta: '失败',
+      })
+    }
+  }
+  return compactExpertTeamActivities(activities).slice(-6)
+}
+
+function compactExpertTeamActivities(activities) {
+  const compacted = []
+  for (const activity of activities) {
+    const prev = compacted[compacted.length - 1]
+    if (prev && prev.title === activity.title && prev.status === activity.status && prev.meta === activity.meta) {
+      compacted[compacted.length - 1] = activity
+    } else {
+      compacted.push(activity)
+    }
+  }
+  return compacted
+}
+
+function formatExpertTeamActivityTime(value) {
+  const time = typeof value === 'number' ? value : Date.parse(value || '')
+  if (!Number.isFinite(time)) return '刚刚'
+  try {
+    return new Date(time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  } catch {
+    return '刚刚'
+  }
+}
+
+function renderExpertTeamRunMeta(run, progress) {
+  if (!run) return ''
+  const checkpoints = Array.isArray(run.checkpoints) ? run.checkpoints : []
+  const lastCheckpoint = checkpoints[checkpoints.length - 1]
+  const phase = expertTeamPhaseLabel(run.phase || progress?.status)
+  const elapsed = expertTeamRunElapsed(run)
+  const runId = expertTeamShortRunId(run.id)
+  const checkpointLabel = lastCheckpoint?.label || '等待首个检查点'
+  return `<div class="ast-expert-run-meta" aria-label="专家团运行元数据">
+    <span title="运行编号">
+      ${icon('hash', 12)}
+      <small>运行</small>
+      <strong>${escHtml(runId)}</strong>
+    </span>
+    <span title="当前阶段">
+      ${icon('target', 12)}
+      <small>阶段</small>
+      <strong>${escHtml(phase)}</strong>
+    </span>
+    <span title="运行耗时">
+      ${icon('clock', 12)}
+      <small>耗时</small>
+      <strong>${escHtml(elapsed)}</strong>
+    </span>
+    <span title="${escAttr(checkpointLabel)}">
+      ${icon('list', 12)}
+      <small>检查点</small>
+      <strong>${escHtml(checkpoints.length ? `${checkpoints.length}个 · ${checkpointLabel}` : '等待记录')}</strong>
+    </span>
+  </div>
+  ${renderExpertTeamCheckpointTimeline(checkpoints)}`
+}
+
+function renderExpertTeamCheckpointTimeline(checkpoints) {
+  const items = Array.isArray(checkpoints) ? checkpoints.slice(-10) : []
+  if (!items.length) return ''
+  return `<div class="ast-expert-checkpoints" aria-label="专家团检查点">
+    ${items.map(item => `<span class="ast-expert-checkpoint ast-expert-checkpoint--${escAttr(expertTeamCheckpointStatus(item.type))}">
+      <small>${escHtml(formatExpertTeamActivityTime(item.ts))}</small>
+      <strong>${escHtml(item.label || '检查点')}</strong>
+    </span>`).join('')}
+  </div>`
+}
+
+function expertTeamCheckpointStatus(type) {
+  if (String(type || '').includes('error')) return 'error'
+  if (String(type || '').includes('retry')) return 'warning'
+  if (String(type || '').includes('stopped')) return 'stopped'
+  if (['done', 'expert_done'].includes(type)) return 'done'
+  return 'neutral'
+}
+
+function renderExpertTeamLiveSynthesis(transcript, isRunning) {
+  if (!isRunning) return ''
+  const events = Array.isArray(transcript) ? transcript : []
+  const item = [...events].reverse().find(t => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(t.type))
+  if (!item) return ''
+  const isRetry = item.type === 'moderator_retry'
+  const content = expertTeamLiveText(item.content, 1200)
+  return `<div class="ast-expert-live-synthesis ast-expert-live-synthesis--${isRetry ? 'retry' : 'running'}">
+    <div class="ast-expert-live-synthesis-head">
+      ${icon(isRetry ? 'refresh-cw' : 'crown', 13)}
+      <strong>${escHtml(isRetry ? '主持综合重试中' : '综合结论生成中')}</strong>
+      ${expertTeamModelPill(item.model)}
+    </div>
+    <div class="ast-expert-live-slot" data-expert-live-id="${escAttr(expertTeamLiveDomId('moderator', 'moderator', 0))}">
+      ${content ? `<div class="ast-expert-live-text">${escHtml(content)}</div>` : '<div class="ast-expert-skeleton"><span></span><span></span></div>'}
+    </div>
+  </div>`
+}
+
+function getExpertTeamRunMeta(message, progress) {
+  if (message?._expertTeamRun) return message._expertTeamRun
+  if (!message?._expertTeamTranscript?.length && !message?._expertTeamPlan) return null
+  const ts = message.ts || Date.now()
+  const checkpoints = buildExpertTeamLegacyCheckpoints(message)
+  const status = progress?.status || (message._expertTeamRunning ? 'running' : 'idle')
+  return {
+    id: message._expertTeamPlan?.id || `history-${ts}`,
+    groupId: message._expertTeamId || message._expertTeamPlan?.groupId || '',
+    groupName: message._expertTeamName || message._expertTeamPlan?.groupName || '',
+    status,
+    phase: expertTeamLegacyPhase(message, progress),
+    startedAt: ts,
+    updatedAt: ts,
+    endedAt: message._expertTeamRunning ? null : ts,
+    legacy: true,
+    checkpoints,
+  }
+}
+
+function buildExpertTeamLegacyCheckpoints(message) {
+  const transcript = Array.isArray(message?._expertTeamTranscript) ? message._expertTeamTranscript : []
+  const checkpoints = []
+  if (message?._expertTeamPlan) checkpoints.push({ key: 'legacy-start', type: 'start', label: '历史计划', ts: message.ts || Date.now() })
+  transcript.forEach((item, index) => {
+    const ts = message.ts || Date.now()
+    if (item.type === 'round_start') checkpoints.push({ key: `legacy-round-${item.round || index}`, type: item.type, label: `第${item.round || 1}/${item.total || 1}轮`, ts })
+    if (item.type === 'expert_done') checkpoints.push({ key: `legacy-expert-done-${item.expertId || index}-${item.round || 0}`, type: item.type, label: `${item.expertName || item.expertId || '专家'}完成`, ts })
+    if (item.type === 'expert_error') checkpoints.push({ key: `legacy-expert-error-${item.expertId || index}-${item.round || 0}`, type: item.type, label: `${item.expertName || item.expertId || '专家'}异常已处理`, ts })
+    if (item.type === 'moderator_error') checkpoints.push({ key: `legacy-moderator-error-${index}`, type: item.type, label: '主持异常，已降级', ts })
+    if (item.type === 'final') checkpoints.push({ key: 'legacy-done', type: 'done', label: '交付完成', ts })
+    if (item.type === 'stopped') checkpoints.push({ key: 'legacy-stopped', type: 'stopped', label: '用户停止运行', ts })
+    if (item.type === 'error') checkpoints.push({ key: 'legacy-error', type: 'error', label: '运行失败', ts })
+  })
+  return checkpoints.slice(-32)
+}
+
+function expertTeamLegacyPhase(message, progress) {
+  if (message?._expertTeamRunning) return progress?.status === 'running' ? 'running' : 'expert_work'
+  const events = Array.isArray(message?._expertTeamTranscript) ? message._expertTeamTranscript : []
+  if (events.some(item => item.type === 'final')) return 'closed'
+  if (events.some(item => item.type === 'stopped')) return 'stopped'
+  if (events.some(item => item.type === 'error')) return 'failed'
+  if (events.some(item => item.type?.startsWith('moderator'))) return 'moderator'
+  if (events.some(item => item.type?.startsWith('expert'))) return 'expert_work'
+  return 'queued'
+}
+
+function getExpertTeamGovernance(plan, transcript, progress) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const memberCount = Array.isArray(plan?.members) ? plan.members.length : 0
+  const skillCount = Array.isArray(plan?.members)
+    ? plan.members.reduce((sum, member) => sum + (member.skills?.length || 0) + (member.tools?.length || 0), 0)
+    : 0
+  const topology = plan
+    ? plan.mode === 'sequential'
+      ? `${getModeLabel(plan.mode)} · ${plan.maxRounds || 1}轮`
+      : `${getModeLabel(plan.mode)} · 并行${plan.maxParallel || 1}`
+    : '等待团队拓扑'
+  return [
+    {
+      label: '协作拓扑',
+      value: topology,
+      iconName: 'target',
+    },
+    {
+      label: '角色配置',
+      value: memberCount ? `${memberCount}位专家${skillCount ? ` · ${skillCount}项能力` : ''}` : '加载成员',
+      iconName: 'users',
+    },
+    {
+      label: '自治级别',
+      value: expertTeamApprovalLabel(plan?.approvalPolicy),
+      iconName: 'shield',
+    },
+    {
+      label: '运行状态',
+      value: `${progress.statusLabel}${events.length ? ` · ${events.length}条记录` : ''}`,
+      iconName: 'bar-chart',
+    },
+  ]
+}
+
+function renderExpertTeamGovernance(items) {
+  return `<div class="ast-expert-governance" aria-label="专家团治理摘要">
+    ${items.map(item => `<span class="ast-expert-governance-chip">
+      ${icon(item.iconName, 13)}
+      <span>${escHtml(item.label)}</span>
+      <strong>${escHtml(item.value)}</strong>
+    </span>`).join('')}
+  </div>`
+}
+
+function renderExpertTeamCloseout(transcript, plan, progress) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const finalDone = events.some(item => item.type === 'final')
+  const stopped = events.some(item => item.type === 'stopped')
+  const failed = events.some(item => item.type === 'error')
+  const expertDone = events.filter(item => item.type === 'expert_done').length
+  const errorCount = events.filter(item => item.type === 'expert_error' || item.type === 'moderator_error' || item.type === 'error').length
+  const moderatorName = plan?.moderator?.name || plan?.moderator?.id || '主持专家'
+  const status = failed ? 'error' : finalDone ? 'done' : stopped && progress.status !== 'running' ? 'stopped' : progress.status
+  const nextStep = failed
+    ? '可查看错误并重新发起'
+    : finalDone
+      ? '可继续追问或复制交付结果'
+      : stopped
+        ? '已保留专家意见，可继续主持综合'
+        : '等待质量门禁完成'
+  return `<div class="ast-expert-closeout ast-expert-closeout--${escAttr(status)}">
+    <div class="ast-expert-closeout-head">
+      ${icon('clipboard', 14)}
+      <strong>交付复盘</strong>
+      <span>${escHtml(expertTeamStageStatusLabel(status))}</span>
+    </div>
+    <div class="ast-expert-closeout-grid">
+      <span><small>专家意见</small><strong>${escHtml(expertDone)}份</strong></span>
+      <span><small>质量门禁</small><strong>${escHtml(finalDone ? `${moderatorName}已综合` : `${moderatorName}待综合`)}</strong></span>
+      <span><small>异常处理</small><strong>${escHtml(errorCount ? `${errorCount}个` : '无')}</strong></span>
+      <span><small>下一步</small><strong>${escHtml(nextStep)}</strong></span>
+    </div>
+  </div>`
+}
+
+function canResumeExpertTeamSynthesis(message) {
+  const transcript = Array.isArray(message?._expertTeamTranscript) ? message._expertTeamTranscript : []
+  if (!message || message._expertTeamRunning) return false
+  if (!message._expertTeamPlan?.task) return false
+  if (!transcript.some(item => item.type === 'stopped')) return false
+  if (transcript.some(item => item.type === 'final')) return false
+  return getExpertTeamContributions(message).length > 0
+}
+
+function canResumeExpertTeamRun(message) {
+  const transcript = Array.isArray(message?._expertTeamTranscript) ? message._expertTeamTranscript : []
+  if (!message || message._expertTeamRunning) return false
+  if (!message._expertTeamPlan?.task) return false
+  if (!transcript.some(item => item.type === 'stopped')) return false
+  if (transcript.some(item => item.type === 'final')) return false
+  return getExpertTeamRemainingMembers(message).length > 0
+}
+
+function getExpertTeamContributions(message) {
+  const transcript = Array.isArray(message?._expertTeamTranscript) ? message._expertTeamTranscript : []
+  const baseTs = Number.isFinite(message?.ts) ? message.ts : Date.now()
+  return transcript
+    .filter(item => item.type === 'expert_done' && String(item.content || '').trim())
+    .map((item, index) => ({
+      role: 'expert',
+      id: item.id || `resume-${item.expertId || index}-${item.round || 0}`,
+      expertId: item.expertId || item.expertName || `expert-${index + 1}`,
+      expertName: item.expertName || item.expertId || `专家${index + 1}`,
+      content: item.content || '',
+      model: item.model,
+      round: item.round || 0,
+      createdAt: item.createdAt || new Date(baseTs).toISOString(),
+    }))
+}
+
+function getExpertTeamRemainingMembers(message) {
+  const plan = message?._expertTeamPlan
+  const members = Array.isArray(plan?.members) ? plan.members : []
+  const contributions = getExpertTeamContributions(message)
+  const rounds = plan?.mode === 'sequential' ? Math.max(1, Number.parseInt(plan.maxRounds || 1, 10) || 1) : 1
+  const done = new Set(contributions.map(item => `${item.expertId || ''}::${item.round || 0}`))
+  const missing = []
+  for (let round = 0; round < rounds; round++) {
+    const publicRound = plan?.mode === 'sequential' && rounds > 1 ? round + 1 : 0
+    for (const member of members) {
+      const id = member.id || member.expertId || ''
+      if (!id) continue
+      const key = `${id}::${publicRound}`
+      if (!done.has(key)) missing.push({ ...member, round: publicRound })
+    }
+  }
+  return missing
+}
+
+function renderExpertTeamResumeActions(message, idx) {
+  const canRun = canResumeExpertTeamRun(message)
+  const canSynthesize = canResumeExpertTeamSynthesis(message)
+  if (!canRun && !canSynthesize) return ''
+  const count = getExpertTeamContributions(message).length
+  const missing = getExpertTeamRemainingMembers(message).length
+  return `<div class="ast-expert-resume-actions" aria-label="专家团恢复操作">
+    <span>${escHtml(missing ? `${count ? `已保留 ${count} 份意见，` : ''}还有 ${missing} 位/轮专家可补跑` : `已保留 ${count} 份专家意见，可只继续主持综合`)}</span>
+    ${canRun ? `<button type="button" class="ast-expert-resume-btn" data-action="resume-expert-run" data-msg-idx="${escAttr(idx)}" title="补跑缺失专家，再进入主持综合">
+      ${icon('refresh-cw', 13)}
+      <span>继续剩余专家</span>
+    </button>` : ''}
+    ${canSynthesize ? `<button type="button" class="ast-expert-resume-btn ast-expert-resume-btn--ghost" data-action="resume-expert-synthesis" data-msg-idx="${escAttr(idx)}" title="不重跑专家，直接进入主持综合">
+      ${icon('play', 13)}
+      <span>继续综合</span>
+    </button>` : ''}
+  </div>`
+}
+
+function getExpertTeamStages(transcript, plan, isRunning, progress) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const hasPlan = !!plan || events.length > 0 || isRunning
+  const expertEvents = events.filter(item => item.type?.startsWith('expert_'))
+  const expertDone = expertEvents.filter(item => item.type === 'expert_done' || item.type === 'expert_error').length
+  const expertLive = expertEvents.some(item => ['expert_start', 'expert_stream', 'expert_retry'].includes(item.type))
+  const moderatorLive = events.some(item => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(item.type))
+  const moderatorError = events.some(item => item.type === 'moderator_error')
+  const finalDone = events.some(item => item.type === 'final')
+  const stopped = events.some(item => item.type === 'stopped')
+  const failed = events.some(item => item.type === 'error')
+  const effectiveStopped = stopped && !isRunning && !finalDone && !failed
+  const memberCount = Array.isArray(plan?.members) ? plan.members.length : 0
+  const expertTarget = Math.max(memberCount || expertDone || (expertLive ? 1 : 0), 1)
+  const expertStatus = failed ? 'error'
+    : effectiveStopped ? 'stopped'
+      : finalDone || expertDone >= expertTarget ? 'done'
+        : expertLive ? 'running'
+          : hasPlan ? 'waiting' : 'waiting'
+  const moderatorStatus = failed || moderatorError ? 'error'
+    : effectiveStopped ? 'stopped'
+      : finalDone ? 'done'
+        : moderatorLive ? 'running'
+          : expertDone > 0 || expertLive ? 'waiting' : 'waiting'
+  const closeoutStatus = failed ? 'error'
+    : effectiveStopped ? 'stopped'
+      : finalDone ? 'done'
+        : isRunning ? 'waiting' : 'waiting'
+  return [
+    {
+      name: '快速模式启动',
+      detail: progress?.status === 'idle' ? '等待查看' : '任务已接收',
+      status: hasPlan ? 'done' : 'running',
+      label: hasPlan ? '已完成' : '进行中',
+      icon: icon('zap', 13),
+    },
+    {
+      name: '创建团队',
+      detail: memberCount ? `${memberCount} 位专家` : '加载成员配置',
+      status: plan ? 'done' : 'running',
+      label: plan ? '已创建' : '创建中',
+      icon: icon('users', 13),
+    },
+    {
+      name: '专家协作',
+      detail: `${Math.min(expertDone, expertTarget)} / ${expertTarget} 已完成`,
+      status: expertStatus,
+      label: expertTeamStageStatusLabel(expertStatus),
+      icon: icon('hammer', 13),
+    },
+    {
+      name: '主持综合',
+      detail: finalDone ? '结论已生成' : '等待专家意见',
+      status: moderatorStatus,
+      label: expertTeamStageStatusLabel(moderatorStatus),
+      icon: icon('crown', 13),
+    },
+    {
+      name: '交付复盘',
+      detail: finalDone ? '闭环完成' : effectiveStopped ? '已退出专家团' : '等待质量门禁',
+      status: closeoutStatus,
+      label: expertTeamStageStatusLabel(closeoutStatus),
+      icon: icon('clipboard', 13),
+    },
+  ]
+}
+
+function getExpertTeamActiveAgents(transcript) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const liveTypes = ['expert_start', 'expert_stream', 'expert_retry', 'moderator_start', 'moderator_stream', 'moderator_retry']
+  return events
+    .filter(item => liveTypes.includes(item.type))
+    .map(item => {
+      const isModerator = item.type?.startsWith('moderator')
+      const name = isModerator ? (item.expertName || '主持综合') : (item.expertName || item.expertId || '专家')
+      const identity = item.expertTitle || (isModerator ? '主持专家' : '')
+      const retry = item.type?.endsWith('_retry')
+      return {
+        expertId: isModerator ? 'moderator' : item.expertId,
+        name,
+        initial: name.trim().slice(0, 1) || '专',
+        status: retry ? 'retry' : 'running',
+        label: retry ? '重试中' : '进行中',
+        identity: identity ? `${identity} · ${retry ? '重试中' : '进行中'}` : (retry ? '重试中' : '进行中'),
+        title: `${expertTeamActorLabel(item)}${expertTeamRoundLabel(item)} · ${retry ? '重试中' : '进行中'}`,
+        liveId: expertTeamLiveDomId(isModerator ? 'moderator' : 'expert', isModerator ? 'moderator' : item.expertId, item.round || 0),
+      }
+    })
+}
+
+function renderExpertTeamEventItem(item, eventIndex) {
+  if (!item) return ''
+  if (item.type === 'round_start') {
+      return `<div class="ast-expert-item ast-expert-item--round">
+        <div class="ast-expert-item-head">
+          <span class="ast-expert-status-icon">${icon('refresh-cw', 12)}</span>
+          <strong>第${escHtml(item.round)}轮 / 共${escHtml(item.total)}轮</strong>
+        </div>
+      </div>`
+  }
+  if (['expert_start', 'expert_stream', 'expert_retry'].includes(item.type)) {
+    return renderExpertTeamLiveItem(item)
+  }
+  if (item.type === 'expert_done') {
+    return renderExpertTeamDoneItem(item, eventIndex)
+  }
+  if (item.type === 'expert_error') {
+    return renderExpertTeamErrorItem(item, item.message || '该专家调用失败，已跳过并继续运行。')
+  }
+  if (['moderator_start', 'moderator_stream', 'moderator_retry'].includes(item.type)) {
+    return renderExpertTeamModeratorLiveItem(item)
+  }
+  if (['tool_start', 'tool_done', 'tool_error'].includes(item.type)) {
+    return renderExpertTeamToolItem(item)
+  }
+  if (item.type === 'moderator_error') {
+    return `<div class="ast-expert-item ast-expert-item--error">
+      <div class="ast-expert-item-head">
+        <span class="ast-expert-status-icon">${icon('alert-circle', 13)}</span>
+        <strong>主持综合失败</strong>
+        ${expertTeamModelPill(item.model)}
+      </div>
+      <div class="ast-expert-item-body">${escHtml(item.message || '将使用已收集的专家意见生成降级结果。')}</div>
+    </div>`
+  }
+  if (item.type === 'final') {
+    return `<div class="ast-expert-item ast-expert-item--final ast-expert-final-card">
+      <div class="ast-expert-item-head">
+        <span class="ast-expert-status-icon">${icon('crown', 14)}</span>
+        <strong>综合结论</strong>
+        ${expertTeamModelPill(item.model)}
+      </div>
+      <div class="ast-expert-item-body ast-expert-final-body">${renderMarkdown(item.content)}</div>
+    </div>`
+  }
+  if (item.type === 'error') {
+    return `<div class="ast-expert-item ast-expert-item--error">
+      <div class="ast-expert-item-head">
+        <span class="ast-expert-status-icon">${icon('alert-circle', 13)}</span>
+        <strong>错误</strong>
+      </div>
+      <div class="ast-expert-item-body">${escHtml(item.message)}</div>
+    </div>`
+  }
+  if (item.type === 'stopped') {
+    return `<div class="ast-expert-item ast-expert-item--stopped">
+      <div class="ast-expert-item-head">
+        <span class="ast-expert-status-icon">${icon('stop', 13)}</span>
+        <strong>已停止</strong>
+      </div>
+      <div class="ast-expert-item-body">${escHtml(item.message || '专家团运行已停止。后续消息将按普通对话发送。')}</div>
+    </div>`
+  }
+  return ''
+}
+
+function renderExpertTeamToolItem(item) {
+  const done = item.type === 'tool_done'
+  const denied = item.type === 'tool_error' || item.approved === false
+  const stateClass = done && !denied ? 'done' : denied ? 'error' : 'pending'
+  return `<details class="ast-expert-item ast-expert-item--tool ast-expert-item--tool-${escAttr(stateClass)}">
+    <summary class="ast-expert-tool-summary">
+      <span class="ast-expert-status-icon">${icon(expertTeamToolIcon(item.toolName), 13)}</span>
+      <span class="ast-expert-summary-main">
+        <span class="ast-expert-summary-title">
+          <strong>${escHtml(expertTeamActorLabel({ expertName: item.ownerName, expertTitle: item.ownerTitle }))} · ${escHtml(expertTeamToolLabel(item.toolName))}</strong>
+          ${expertTeamIdentityPill(item.ownerTitle)}
+        </span>
+        <span class="ast-expert-preview">${escHtml(expertTeamToolTarget(item.toolName, item.args))}</span>
+      </span>
+      <span class="ast-expert-summary-meta">${escHtml(done ? '已完成' : denied ? '已阻止' : '执行中')}</span>
+      <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
+    </summary>
+    <div class="ast-expert-tool-detail">
+      <div class="ast-expert-tool-kv"><small>参数</small><code>${escHtml(JSON.stringify(item.args || {}, null, 2))}</code></div>
+      ${item.result ? `<div class="ast-expert-tool-kv"><small>结果</small><pre>${escHtml(String(item.result))}</pre></div>` : ''}
+    </div>
+  </details>`
+}
+
+function normalizeExpertTeamToolEvent(event = {}) {
+  const ownerName = event.owner === 'moderator'
+    ? '主持专家'
+    : (event.expertName || event.expertId || '专家')
+  const ownerTitle = event.owner === 'moderator'
+    ? (event.expertTitle || '主持专家')
+    : (event.expertTitle || '')
+  return {
+    type: event.type,
+    owner: event.owner || 'expert',
+    ownerName,
+    ownerTitle,
+    expertName: event.expertName || '',
+    expertTitle: event.expertTitle || '',
+    expertId: event.expertId || '',
+    toolName: event.toolName || '',
+    toolCallId: event.toolCallId || `${event.toolName || 'tool'}-${Date.now()}`,
+    args: event.args || {},
+    result: event.result || '',
+    approved: event.approved !== false,
+    model: event.model,
+    round: event.round || 0,
+    createdAt: new Date().toISOString(),
+  }
+}
+
+function expertTeamToolLabel(name) {
+  return {
+    run_command: '执行命令',
+    read_file: '读取文件',
+    write_file: '写入文件',
+    list_directory: '列出目录',
+    get_system_info: '系统信息',
+    list_processes: '进程列表',
+    check_port: '检测端口',
+    get_openclaw_context: '读取 OpenClaw 实况',
+    diagnose_openclaw: '诊断 OpenClaw',
+    get_openclaw_schema_graph: 'OpenClaw Schema',
+    browser_action: '浏览器操作',
+    web_search: '网页搜索',
+    fetch_url: '抓取网页',
+    skills_list: 'Skills 列表',
+    skills_info: 'Skill 信息',
+    skills_check: '检查 Skills',
+    skills_install_dep: '安装依赖',
+    skillhub_search: '搜索 SkillHub',
+    skillhub_install: '安装 Skill',
+  }[name] || name || '工具'
+}
+
+function expertTeamToolIcon(name) {
+  return {
+    run_command: 'terminal',
+    read_file: 'file',
+    write_file: 'edit',
+    list_directory: 'folder',
+    get_system_info: 'monitor',
+    list_processes: 'list',
+    check_port: 'plug',
+    get_openclaw_context: 'info',
+    diagnose_openclaw: 'shield',
+    get_openclaw_schema_graph: 'hash',
+    browser_action: 'globe',
+    web_search: 'search',
+    fetch_url: 'globe',
+    skills_list: 'box',
+    skills_info: 'box',
+    skills_check: 'box',
+    skills_install_dep: 'download',
+    skillhub_search: 'search',
+    skillhub_install: 'download',
+  }[name] || 'wrench'
+}
+
+function expertTeamToolTarget(name, args = {}) {
+  if (name === 'run_command') return args.cwd ? `${args.command || ''} · ${args.cwd}` : (args.command || '执行命令')
+  if (name === 'read_file' || name === 'write_file') return args.path || '文件路径'
+  if (name === 'list_directory') return args.path || '目录路径'
+  if (name === 'check_port') return `端口 ${args.port || ''}`.trim()
+  if (name === 'list_processes') return args.filter ? `过滤 ${args.filter}` : '全部进程'
+  if (name === 'browser_action') return [args.action, args.url || args.ref].filter(Boolean).join(' · ') || '浏览器动作'
+  if (name === 'web_search') return args.query || '搜索'
+  if (name === 'fetch_url') return args.url || 'URL'
+  if (name === 'skills_info') return args.name || 'Skill'
+  if (name === 'skills_install_dep') return `${args.kind || ''} ${args.spec?.formula || args.spec?.package || args.spec?.module || ''}`.trim() || '依赖'
+  if (name === 'skillhub_search') return args.query || '搜索'
+  if (name === 'skillhub_install') return args.slug || 'Skill'
+  return Object.keys(args || {}).length ? JSON.stringify(args).slice(0, 120) : '无参数'
+}
+
+function expertTeamToolTargetMeta(name, args = {}) {
+  if (name === 'read_file' || name === 'write_file') return '文件'
+  if (name === 'run_command') return '命令'
+  if (name === 'list_directory') return '目录'
+  if (name === 'browser_action') return '浏览器'
+  if (name === 'web_search' || name === 'fetch_url') return '网络'
+  return expertTeamToolLabel(name)
+}
+
+function expertTeamToolResultSummary(result) {
+  const raw = String(result || '').trim()
+  if (!raw) return '执行完成，无文本结果'
+  const compact = raw.replace(/\s+/g, ' ')
+  return compact.length > 160 ? `${compact.slice(0, 160)}...` : compact
+}
+
+function renderExpertTeamLiveItem(item) {
+  const roundLabel = expertTeamRoundLabel(item)
+  const isRetry = item.type === 'expert_retry'
+  const content = expertTeamLiveText(item.content)
+  return `<div class="ast-expert-item ${isRetry ? 'ast-expert-item--retry' : 'ast-expert-item--pending'}" style="--expert-color:${escAttr(getExpertColor(item.expertId))}">
+    <div class="ast-expert-item-head">
+      <span class="ast-expert-status-dot"></span>
+      <strong>${escHtml(expertTeamActorLabel(item))}${roundLabel}</strong>
+      ${expertTeamIdentityPill(item.expertTitle)}
+      ${expertTeamModelPill(item.model)}
+    </div>
+    ${isRetry ? `<div class="ast-expert-item-loading">模型调用失败，正在重试第${escHtml(item.attempt || 1)}次...</div>` : ''}
+    <div class="ast-expert-live-slot" data-expert-live-id="${escAttr(expertTeamLiveDomId('expert', item.expertId, item.round || 0))}">
+      ${content ? `<div class="ast-expert-live-text">${escHtml(content)}</div>` : '<div class="ast-expert-skeleton"><span></span><span></span></div>'}
+    </div>
+  </div>`
+}
+
+function renderExpertTeamModeratorLiveItem(item) {
+  const isRetry = item.type === 'moderator_retry'
+  const content = expertTeamLiveText(item.content)
+  return `<div class="ast-expert-item ${isRetry ? 'ast-expert-item--retry' : 'ast-expert-item--moderating'}">
+    <div class="ast-expert-item-head">
+      <span class="ast-expert-status-dot"></span>
+      <strong>${escHtml(expertTeamActorLabel({ expertName: item.expertName || '主持综合', expertTitle: item.expertTitle || '主持专家' }))}</strong>
+      ${expertTeamIdentityPill(item.expertTitle || '主持专家')}
+      ${expertTeamModelPill(item.model)}
+    </div>
+    ${isRetry ? `<div class="ast-expert-item-loading">模型调用失败，正在重试第${escHtml(item.attempt || 1)}次...</div>` : ''}
+    <div class="ast-expert-live-slot" data-expert-live-id="${escAttr(expertTeamLiveDomId('moderator', 'moderator', 0))}">
+      ${content ? `<div class="ast-expert-live-text">${escHtml(content)}</div>` : '<div class="ast-expert-skeleton"><span></span><span></span></div>'}
+    </div>
+  </div>`
+}
+
+function renderExpertTeamDoneItem(item, eventIndex) {
+  const roundLabel = expertTeamRoundLabel(item)
+  return `<details class="ast-expert-item ast-expert-item--done ast-expert-disclosure" style="--expert-color:${escAttr(getExpertColor(item.expertId))}">
+    <summary class="ast-expert-summary">
+      <span class="ast-expert-status-icon">${icon('check-circle', 13)}</span>
+      <span class="ast-expert-summary-main">
+        <span class="ast-expert-summary-title">
+          <strong>${escHtml(expertTeamActorLabel(item))}${roundLabel}</strong>
+          ${expertTeamIdentityPill(item.expertTitle)}
+          ${expertTeamModelPill(item.model)}
+        </span>
+        <span class="ast-expert-preview">已完成，可展开查看完整发言</span>
+      </span>
+      <span class="ast-expert-summary-meta">${escHtml(expertTeamContentMeta(item.content))}</span>
+      <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
+    </summary>
+    <div class="ast-expert-item-body ast-expert-detail-body" id="ast-expert-detail-${eventIndex}">${renderMarkdown(item.content)}</div>
+  </details>`
+}
+
+function renderExpertTeamErrorItem(item, message) {
+  const roundLabel = expertTeamRoundLabel(item)
+  return `<div class="ast-expert-item ast-expert-item--error" style="--expert-color:${escAttr(getExpertColor(item.expertId))}">
+    <div class="ast-expert-item-head">
+      <span class="ast-expert-status-icon">${icon('alert-circle', 13)}</span>
+      <strong>${escHtml(expertTeamActorLabel(item))}${roundLabel}</strong>
+      ${expertTeamIdentityPill(item.expertTitle)}
+      ${expertTeamModelPill(item.model)}
+    </div>
+    <div class="ast-expert-item-body">${escHtml(message)}</div>
+  </div>`
+}
+
+function getExpertTeamProgress(transcript, plan, isRunning) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const rounds = plan?.mode === 'sequential' ? Math.max(1, Number.parseInt(plan.maxRounds || 1, 10) || 1) : 1
+  const plannedExperts = Array.isArray(plan?.members) ? plan.members.length * rounds : 0
+  const completedExpertEvents = events.filter(item => item.type === 'expert_done' || item.type === 'expert_error').length
+  const liveExpertEvents = events.filter(item => ['expert_start', 'expert_stream', 'expert_retry'].includes(item.type)).length
+  const expertTotal = Math.max(plannedExperts, completedExpertEvents + liveExpertEvents, 1)
+  const moderatorTotal = plan?.moderator ? 1 : 0
+  const total = Math.max(1, expertTotal + moderatorTotal)
+  const finalDone = events.some(item => item.type === 'final')
+  const moderatorDone = moderatorTotal && (finalDone || events.some(item => item.type === 'moderator_error')) ? 1 : 0
+  const completed = finalDone ? total : Math.min(total, completedExpertEvents + moderatorDone)
+  const percent = finalDone ? 100 : Math.max(isRunning ? 8 : 0, Math.round((completed / total) * 100))
+  const errorCount = events.filter(item => item.type === 'expert_error' || item.type === 'moderator_error' || item.type === 'error').length
+  const stopped = events.some(item => item.type === 'stopped')
+  const failed = events.some(item => item.type === 'error') && !isRunning
+  let status = isRunning ? 'running' : 'idle'
+  if (finalDone && !isRunning) status = 'done'
+  if (failed) status = 'error'
+  if (stopped && !isRunning && !finalDone && !failed) status = 'stopped'
+  const active = isRunning ? [...events].reverse().find(item => ['moderator_stream', 'moderator_start', 'moderator_retry', 'expert_stream', 'expert_start', 'expert_retry'].includes(item.type)) : null
+  const currentLabel = active
+    ? expertTeamCurrentLabel(active)
+    : failed
+      ? '专家团运行失败'
+      : finalDone
+        ? '专家团已完成综合'
+        : stopped && !isRunning ? '运行已停止，后续按普通对话发送'
+          : isRunning ? '正在调度专家' : '专家团结果'
+  return {
+    completed,
+    total,
+    percent: Math.max(0, Math.min(100, percent)),
+    status,
+    statusLabel: expertTeamStatusLabel(status),
+    currentLabel,
+    errorCount,
+    summary: finalDone ? '最终结论已生成' : isRunning ? '中间意见默认折叠，当前输出实时更新' : '可展开查看专家明细',
+  }
+}
+
+function expertTeamStatusLabel(status) {
+  const map = { running: '运行中', done: '已完成', error: '出错', stopped: '已停止', idle: '待查看' }
+  return map[status] || '运行中'
+}
+
+function expertTeamRunIcon(status) {
+  const map = { running: 'radio', done: 'check-circle', error: 'alert-circle', stopped: 'stop', idle: 'users' }
+  return icon(map[status] || 'users', 16)
+}
+
+function expertTeamStageStatusLabel(status) {
+  const map = { done: '已完成', running: '进行中', waiting: '等待中', error: '异常', stopped: '已停止' }
+  return map[status] || '等待中'
+}
+
+function expertTeamApprovalLabel(policy) {
+  const map = {
+    none: '自动闭环',
+    before_final: '交付前确认',
+    before_tools: '工具前确认',
+  }
+  return map[policy || 'none'] || '自定义确认'
+}
+
+function expertTeamPhaseLabel(phase) {
+  const map = {
+    queued: '排队准备',
+    planning: '规划团队',
+    expert_round: '专家协作',
+    expert_work: '专家生成',
+    moderator: '主持综合',
+    closed: '交付完成',
+    stopped: '已停止',
+    failed: '运行失败',
+    running: '运行中',
+    done: '已完成',
+    error: '运行失败',
+    idle: '待查看',
+  }
+  return map[phase || 'queued'] || '运行中'
+}
+
+function expertTeamRunElapsed(run) {
+  if (!run?.startedAt) return '刚开始'
+  const end = run.endedAt || run.updatedAt || Date.now()
+  const seconds = Math.max(0, Math.round((end - run.startedAt) / 1000))
+  if (seconds < 1) return '刚开始'
+  if (seconds < 60) return `${seconds}秒`
+  const minutes = Math.floor(seconds / 60)
+  const rest = seconds % 60
+  if (minutes < 60) return rest ? `${minutes}分${rest}秒` : `${minutes}分钟`
+  const hours = Math.floor(minutes / 60)
+  const minuteRest = minutes % 60
+  return minuteRest ? `${hours}小时${minuteRest}分` : `${hours}小时`
+}
+
+function expertTeamShortRunId(id) {
+  const raw = String(id || '').trim()
+  if (!raw) return '未记录'
+  if (raw.length <= 12) return raw
+  return raw.slice(-10)
+}
+
+function expertTeamStageStatusIcon(status) {
+  const map = {
+    done: 'check-circle',
+    running: 'radio',
+    waiting: 'clock',
+    error: 'alert-circle',
+    stopped: 'stop',
+  }
+  return icon(map[status] || 'clock', 13)
+}
+
+function expertTeamCurrentLabel(item) {
+  if (item.type?.startsWith('moderator')) return item.type === 'moderator_retry' ? '主持综合正在重试' : '主持正在综合结论'
+  const name = item.expertName || item.expertId || '专家'
+  const action = item.type === 'expert_retry' ? '正在重试' : '正在生成'
+  return `${name}${expertTeamRoundLabel(item)}${action}`
+}
+
+function expertTeamRoundLabel(item) {
+  return item?.round && item.round > 0 ? ` (第${item.round}轮)` : ''
+}
+
+function expertTeamModelPill(model) {
+  const label = modelBadgeHtml(model)
+  return label ? `<span class="ast-expert-model-pill">${label}</span>` : ''
+}
+
+function expertTeamActorLabel(item = {}) {
+  const name = item.expertName || item.ownerName || item.expertId || '专家'
+  const title = item.expertTitle || item.ownerTitle || ''
+  return title && !String(name).includes(title) ? `${name} · ${title}` : name
+}
+
+function expertTeamIdentityPill(title) {
+  const text = String(title || '').trim()
+  return text ? `<span class="ast-expert-identity-pill">${escHtml(text)}</span>` : ''
+}
+
+function expertTeamContentMeta(content) {
+  const plain = expertTeamPlainText(content)
+  if (!plain) return '0字'
+  const chars = [...plain].length
+  const lines = String(content || '').split(/\r?\n/).filter(line => line.trim()).length
+  return `${chars}字 · ${lines || 1}行`
+}
+
+function expertTeamPlainText(content) {
+  return String(content || '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/[#>*_~|\[\]-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function expertTeamLiveText(content, limit = 900) {
+  const raw = String(content || '').trim()
+  if (!raw) return ''
+  return raw.length > limit ? `...${raw.slice(raw.length - limit)}` : raw
+}
+
+function expertTeamDomId(message) {
+  return `expert-msg-${message?._expertTeamRun?.id || message?._expertTeamPlan?.id || message?.ts || 'current'}`
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+}
+
+function expertTeamLiveDomId(kind, expertId, round = 0) {
+  return `${kind || 'expert'}-${expertId || 'unknown'}-${round || 0}`.replace(/[^a-zA-Z0-9_-]/g, '-')
+}
+
+function scheduleExpertTeamLiveDomUpdate(aiMsg, event, kind) {
+  if (!_messagesEl || !aiMsg || !event) return
+  const messageId = expertTeamDomId(aiMsg)
+  const liveId = expertTeamLiveDomId(kind, kind === 'moderator' ? 'moderator' : event.expertId, event.round || 0)
+  const key = `${messageId}:${liveId}`
+  const transcript = aiMsg._expertTeamTranscript || []
+  const item = kind === 'moderator'
+    ? transcript.find(t => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(t.type))
+    : transcript.find(t => ['expert_start', 'expert_stream', 'expert_retry'].includes(t.type) && sameExpertRun(t, event.expertId, event.round || 0))
+  _expertTeamDomUpdatePayloads.set(key, {
+    messageId,
+    liveId,
+    content: expertTeamLiveText(item?.content || ''),
+    meta: item?.content ? expertTeamContentMeta(item.content) : '生成中',
+  })
+  if (_expertTeamDomUpdateTimers.has(key)) return
+  _expertTeamDomUpdateTimers.set(key, setTimeout(() => {
+    _expertTeamDomUpdateTimers.delete(key)
+    const payload = _expertTeamDomUpdatePayloads.get(key)
+    _expertTeamDomUpdatePayloads.delete(key)
+    applyExpertTeamLiveDomUpdate(payload)
+  }, 120))
+}
+
+function applyExpertTeamLiveDomUpdate(payload) {
+  if (!_messagesEl || !payload?.messageId || !payload.liveId) return
+  const root = _messagesEl.querySelector(`[data-expert-dom-id="${cssEscape(payload.messageId)}"]`)
+  if (!root) return
+  const slot = root.querySelector(`[data-expert-live-id="${cssEscape(payload.liveId)}"]`)
+  if (slot) {
+    slot.innerHTML = payload.content
+      ? `<div class="ast-expert-live-text">${escHtml(payload.content)}</div>`
+      : '<div class="ast-expert-skeleton"><span></span><span></span></div>'
+  }
+  const chip = root.querySelector(`[data-expert-active-id="${cssEscape(payload.liveId)}"] small`)
+  if (chip && payload.meta) chip.textContent = payload.meta
+}
+
+function cssEscape(value) {
+  if (window.CSS?.escape) return window.CSS.escape(String(value))
+  return String(value).replace(/["\\]/g, '\\$&')
+}
+
+function getExpertColor(expertId) {
+  const expert = _expertProfiles.find(e => e.id === expertId)
+  return expert?.color || '#6b7280'
+}
+
+function modelBadgeHtml(model) {
+  if (!model?.provider && !model?.model) return ''
+  return `${escHtml(model.provider || '')}/${escHtml(model.model || '')}`
+}
+
+function modelTextFromSummary(model) {
+  if (!model?.provider && !model?.model) return ''
+  return [model.provider, model.model].filter(Boolean).join('/')
+}
+
 function renderMessages() {
   const session = getCurrentSession()
   if (!_messagesEl) return
@@ -4337,7 +5513,13 @@ function renderMessages() {
     } else if (m.role === 'assistant') {
       // 跳过空的 AI 消息（历史脏数据），除非正在流式中（最后一条是占位符）
       const isLastMsg = idx === session.messages.length - 1
-      if (!m.content && !m.toolHistory?.length && !(isLastMsg && _isStreaming)) return ''
+      if (!m.content && !m.toolHistory?.length && !m._expertTeamTranscript?.length && !m._expertTeamRunning && !(isLastMsg && _isStreaming)) return ''
+
+      // ── 专家团消息渲染 ──
+      if (m._expertTeamTranscript?.length || m._expertTeamRunning) {
+        return renderExpertTeamMessage(m, idx)
+      }
+
       const toolHtml = renderToolBlocks(m.toolHistory)
       return `<div class="ast-msg ast-msg-ai" data-msg-idx="${idx}">${toolHtml}<div class="ast-msg-bubble ast-msg-bubble-ai">${renderMarkdown(m.content)}</div><div class="ast-msg-meta"><button class="msg-copy-btn" title="${t('common.copy')}">${icon('copy', 12)}</button></div></div>`
     }
@@ -5669,6 +6851,665 @@ function updateModelBadge() {
   renderModelSelectOptions()
 }
 
+// ── 专家团集成 ──
+
+async function loadExpertGroups() {
+  try {
+    const [groupRes, expertRes] = await Promise.all([
+      api.listExpertGroups(),
+      api.listExperts(),
+    ])
+    _expertGroups = normalizeExpertListResponse(groupRes, 'groups')
+    _expertProfiles = normalizeExpertListResponse(expertRes, 'experts')
+    syncActiveExpertGroup()
+  } catch (e) {
+    console.warn('加载专家团列表失败:', e)
+    _expertGroups = []
+    _expertProfiles = []
+    syncActiveExpertGroup()
+  }
+  renderExpertTeamMenu()
+}
+
+function normalizeExpertListResponse(value, key) {
+  if (Array.isArray(value)) return value
+  if (Array.isArray(value?.[key])) return value[key]
+  return []
+}
+
+function loadActiveExpertGroupId() {
+  try {
+    const value = localStorage.getItem(EXPERT_TEAM_SELECTION_KEY)
+    _activeExpertGroupId = value || null
+  } catch {
+    _activeExpertGroupId = null
+  }
+}
+
+function persistActiveExpertGroupId() {
+  try {
+    if (_activeExpertGroupId) localStorage.setItem(EXPERT_TEAM_SELECTION_KEY, _activeExpertGroupId)
+    else localStorage.removeItem(EXPERT_TEAM_SELECTION_KEY)
+  } catch {
+    // localStorage may be unavailable; the in-memory selection still works.
+  }
+}
+
+function clearActiveExpertGroupSelection() {
+  if (!_activeExpertGroupId) return
+  _activeExpertGroupId = null
+  persistActiveExpertGroupId()
+  renderExpertTeamMenu()
+}
+
+function hasRunnableExpertGroup(group) {
+  if (!group) return false
+  const members = Array.isArray(group.members) ? group.members : []
+  return members.some(member => _expertProfiles.some(expert => expert.id === member.expertId && expert.enabled !== false))
+}
+
+function syncActiveExpertGroup() {
+  if (!_activeExpertGroupId) return
+  const group = _expertGroups.find(g => g.id === _activeExpertGroupId)
+  if (hasRunnableExpertGroup(group)) return
+  _activeExpertGroupId = null
+  persistActiveExpertGroupId()
+}
+
+function renderExpertTeamMenu() {
+  const menu = _page?.querySelector('#ast-expert-team-menu')
+  const label = _page?.querySelector('#ast-expert-team-trigger-label')
+  if (!menu || !label) return
+
+  const directHtml = `<button class="ast-expert-team-option ${!_activeExpertGroupId ? 'active' : ''}" type="button" role="option" data-group-id="">直接对话<span>不启用专家团，直接与模型对话</span></button>`
+
+  const groups = _expertGroups.map(g => {
+    const memberCount = countRunnableMembers(g)
+    const modeLabel = getModeLabel(g.mode)
+    const disabled = memberCount ? '' : 'disabled aria-disabled="true"'
+    return `<button class="ast-expert-team-option ${_activeExpertGroupId === g.id ? 'active' : ''}" type="button" role="option" data-group-id="${escAttr(g.id)}" ${disabled}>
+      <span>${escHtml(g.name || g.id)}</span>
+      <small>${memberCount ? `${memberCount}人 · ${modeLabel}` : '无可用成员'}</small>
+    </button>`
+  }).join('')
+
+  menu.innerHTML = directHtml + groups
+
+  // 更新触发按钮标签
+  if (_activeExpertGroupId) {
+    const g = _expertGroups.find(g => g.id === _activeExpertGroupId)
+    label.textContent = g ? (g.name || g.id) : '专家团'
+  } else {
+    label.textContent = '直接对话'
+  }
+}
+
+function countRunnableMembers(group) {
+  const members = Array.isArray(group?.members) ? group.members : []
+  return members.filter(member => _expertProfiles.some(expert => expert.id === member.expertId && expert.enabled !== false)).length
+}
+
+function getModeLabel(mode) {
+  const map = { panel: '专家会诊', creation: '团队创作', debate: '辩论评审', review: '交叉审稿', research: '并行调研', sequential: '串联接力' }
+  return map[mode] || mode || '专家会诊'
+}
+
+function initExpertTeamRunMeta(group = {}) {
+  const now = Date.now()
+  return {
+    id: `run-${now}`,
+    groupId: group.id || '',
+    groupName: group.name || group.id || '',
+    status: 'running',
+    phase: 'queued',
+    startedAt: now,
+    updatedAt: now,
+    endedAt: null,
+    checkpoints: [],
+  }
+}
+
+function updateExpertTeamRunMeta(aiMsg, event = {}) {
+  if (!aiMsg) return null
+  if (!aiMsg._expertTeamRun) {
+    aiMsg._expertTeamRun = initExpertTeamRunMeta({
+      id: aiMsg._expertTeamId,
+      name: aiMsg._expertTeamName,
+    })
+  }
+
+  const run = aiMsg._expertTeamRun
+  const now = Date.now()
+  if ((event.type === 'start' || event.type === 'resume_start') && event.plan) {
+    run.id = event.plan.id || run.id
+    run.groupId = event.plan.groupId || run.groupId
+    run.groupName = event.plan.groupName || run.groupName
+    run.endedAt = null
+  }
+
+  const phase = expertTeamRunPhase(event.type)
+  if (phase) run.phase = phase
+  if (event.type === 'done') run.status = 'done'
+  else if (event.type === 'stopped') run.status = 'stopped'
+  else if (event.type === 'error') run.status = 'error'
+  else if (event.type) run.status = 'running'
+
+  run.updatedAt = now
+  if (['done', 'stopped', 'error'].includes(event.type)) run.endedAt = run.endedAt || now
+
+  const checkpoint = expertTeamCheckpointFromEvent(event)
+  if (checkpoint) appendExpertTeamCheckpoint(run, { ...checkpoint, ts: now })
+  return run
+}
+
+function expertTeamRunPhase(type) {
+  const map = {
+    start: 'planning',
+    resume_start: 'moderator',
+    round_start: 'expert_round',
+    expert_start: 'expert_work',
+    expert_delta: 'expert_work',
+    expert_retry: 'expert_work',
+    expert_done: 'expert_work',
+    expert_error: 'expert_work',
+    moderator_start: 'moderator',
+    moderator_delta: 'moderator',
+    moderator_retry: 'moderator',
+    moderator_error: 'moderator',
+    done: 'closed',
+    stopped: 'stopped',
+    error: 'failed',
+  }
+  return map[type] || ''
+}
+
+function expertTeamCheckpointFromEvent(event = {}) {
+  if (event.type === 'start') {
+    return { type: event.type, key: 'start', label: '团队计划已创建' }
+  }
+  if (event.type === 'resume_start') {
+    return { type: event.type, key: `resume-${event.plan?.id || event.contributionCount || 'current'}`, label: `继续综合 ${event.contributionCount || 0} 份意见` }
+  }
+  if (event.type === 'round_start') {
+    return { type: event.type, key: `round-${event.round || 0}`, label: `第${event.round || 1}/${event.total || 1}轮开始` }
+  }
+  if (event.type === 'expert_done') {
+    const name = event.message?.expertName || event.message?.expertId || '专家'
+    return { type: event.type, key: `expert-done-${event.message?.expertId || name}-${event.message?.round || 0}`, label: `${name}完成` }
+  }
+  if (event.type === 'expert_error') {
+    const name = event.message?.expertName || event.message?.expertId || '专家'
+    return { type: event.type, key: `expert-error-${event.message?.expertId || name}-${event.message?.round || 0}`, label: `${name}异常已处理` }
+  }
+  if (event.type === 'moderator_start') {
+    return { type: event.type, key: 'moderator-start', label: '主持开始综合' }
+  }
+  if (event.type === 'moderator_error') {
+    return { type: event.type, key: 'moderator-error', label: '主持异常，启用降级综合' }
+  }
+  if (event.type === 'done') {
+    return { type: event.type, key: 'done', label: '交付完成' }
+  }
+  if (event.type === 'stopped') {
+    return { type: event.type, key: 'stopped', label: '用户停止运行' }
+  }
+  if (event.type === 'error') {
+    return { type: event.type, key: 'error', label: '运行失败' }
+  }
+  return null
+}
+
+function appendExpertTeamCheckpoint(run, checkpoint) {
+  if (!run || !checkpoint) return null
+  if (!Array.isArray(run.checkpoints)) run.checkpoints = []
+  if (checkpoint.key && run.checkpoints.some(item => item.key === checkpoint.key)) return run.checkpoints[run.checkpoints.length - 1] || null
+  const next = {
+    key: checkpoint.key || `${checkpoint.type || 'checkpoint'}-${run.checkpoints.length + 1}`,
+    type: checkpoint.type || 'checkpoint',
+    label: checkpoint.label || '检查点',
+    ts: checkpoint.ts || Date.now(),
+  }
+  run.checkpoints.push(next)
+  if (run.checkpoints.length > 32) run.checkpoints = run.checkpoints.slice(-32)
+  return next
+}
+
+function sameExpertRun(item, expertId, round) {
+  if (!item || item.expertId !== expertId) return false
+  const targetRound = round || 0
+  return (item.round || 0) === targetRound
+}
+
+function findExpertRunItem(transcript, expertId, round, types = ['expert_start', 'expert_stream', 'expert_retry']) {
+  return transcript.findIndex(item => types.includes(item.type) && sameExpertRun(item, expertId, round))
+}
+
+function findExpertRunResultItem(transcript, expertId, round) {
+  const exactIdx = findExpertRunItem(transcript, expertId, round || 0)
+  if (exactIdx >= 0) return exactIdx
+  return transcript.findIndex(item => ['expert_start', 'expert_stream', 'expert_retry'].includes(item.type) && item.expertId === expertId)
+}
+
+function upsertExpertRunItem(transcript, event, type, patch = {}) {
+  const round = event.round || 0
+  const expertId = event.expertId
+  const idx = findExpertRunItem(transcript, expertId, round)
+  const next = {
+    type,
+    expertName: event.expertName || expertId,
+    expertTitle: event.expertTitle || '',
+    expertId,
+    model: event.model,
+    round,
+    content: '',
+    ...patch,
+  }
+  if (idx >= 0) {
+    transcript[idx] = {
+      ...transcript[idx],
+      ...next,
+      content: patch.content !== undefined ? patch.content : transcript[idx].content,
+    }
+    return transcript[idx]
+  }
+  transcript.push(next)
+  return next
+}
+
+function appendExpertRunDelta(transcript, event) {
+  const round = event.round || 0
+  const delta = event.delta || ''
+  const item = upsertExpertRunItem(transcript, event, 'expert_stream')
+  item.content = `${item.content || ''}${delta}`
+  item.round = round
+}
+
+function upsertModeratorRunItem(transcript, event, type, patch = {}) {
+  const idx = transcript.findIndex(item => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(item.type))
+  const next = {
+    type,
+    expertName: event.expertName || '主持综合',
+    expertTitle: event.expertTitle || '主持专家',
+    expertId: event.expertId || '',
+    model: event.model,
+    content: '',
+    ...patch,
+  }
+  if (idx >= 0) {
+    transcript[idx] = {
+      ...transcript[idx],
+      ...next,
+      content: patch.content !== undefined ? patch.content : transcript[idx].content,
+    }
+    return transcript[idx]
+  }
+  transcript.push(next)
+  return next
+}
+
+function appendModeratorRunDelta(transcript, event) {
+  const item = upsertModeratorRunItem(transcript, event, 'moderator_stream')
+  item.content = `${item.content || ''}${event.delta || ''}`
+}
+
+function assistantExpertTeamSlot() {
+  const apiType = normalizeApiType(_config?.apiType)
+  return {
+    provider: apiType === 'anthropic-messages' ? 'anthropic' :
+              apiType === 'google-generative-ai' ? 'google' :
+              apiType === 'ollama' ? 'ollama' : 'openai',
+    model: _config?.model || '',
+    apiKey: _config?.apiKey || '',
+    baseUrl: _config?.baseUrl || '',
+    apiType: _config?.apiType || 'openai-completions',
+  }
+}
+
+function handleExpertTeamRunEvent(aiMsg, event = {}) {
+  let shouldRender = true
+  let shouldPersistNow = true
+  if (!aiMsg) return { shouldRender: false, shouldPersistNow: false }
+  if (!Array.isArray(aiMsg._expertTeamTranscript)) aiMsg._expertTeamTranscript = []
+
+  updateExpertTeamRunMeta(aiMsg, event)
+  if (event.type === 'start' || event.type === 'resume_start') {
+    if (event.plan) aiMsg._expertTeamPlan = event.plan
+    aiMsg._expertTeamRunning = true
+  }
+  if (event.type === 'round_start') {
+    aiMsg._expertTeamTranscript.push({
+      type: 'round_start',
+      round: event.round,
+      total: event.total,
+    })
+  }
+  if (event.type === 'expert_start') {
+    upsertExpertRunItem(aiMsg._expertTeamTranscript, event, 'expert_start')
+  }
+  if (event.type === 'expert_delta') {
+    appendExpertRunDelta(aiMsg._expertTeamTranscript, event)
+    scheduleExpertTeamLiveDomUpdate(aiMsg, event, 'expert')
+    shouldPersistNow = false
+    shouldRender = false
+  }
+  if (event.type === 'expert_retry') {
+    const existingIdx = findExpertRunItem(aiMsg._expertTeamTranscript, event.expertId, event.round || 0)
+    const content = existingIdx >= 0 ? aiMsg._expertTeamTranscript[existingIdx].content || '' : ''
+    upsertExpertRunItem(aiMsg._expertTeamTranscript, event, 'expert_retry', {
+      attempt: event.attempt || 1,
+      message: event.message || '',
+      content,
+    })
+  }
+  if (event.type === 'expert_done') {
+    const pendingIdx = findExpertRunResultItem(aiMsg._expertTeamTranscript, event.message?.expertId, event.message?.round || 0)
+    if (pendingIdx >= 0) aiMsg._expertTeamTranscript.splice(pendingIdx, 1)
+    aiMsg._expertTeamTranscript.push({
+      type: 'expert_done',
+      expertName: event.message?.expertName || event.message?.expertId,
+      expertTitle: event.message?.expertTitle || '',
+      expertId: event.message?.expertId,
+      content: event.message?.content || '',
+      model: event.message?.model,
+      round: event.message?.round || 0,
+      createdAt: event.message?.createdAt,
+    })
+  }
+  if (event.type === 'expert_error') {
+    const pendingIdx = findExpertRunResultItem(aiMsg._expertTeamTranscript, event.message?.expertId, event.message?.round || 0)
+    if (pendingIdx >= 0) aiMsg._expertTeamTranscript.splice(pendingIdx, 1)
+    aiMsg._expertTeamTranscript.push({
+      type: 'expert_error',
+      expertName: event.message?.expertName || event.message?.expertId,
+      expertTitle: event.message?.expertTitle || '',
+      expertId: event.message?.expertId,
+      message: event.message?.error || '该专家调用失败，已跳过并继续运行。',
+      model: event.message?.model,
+      round: event.message?.round || 0,
+    })
+  }
+  if (['tool_start', 'tool_done', 'tool_error'].includes(event.type)) {
+    const toolEvent = normalizeExpertTeamToolEvent(event)
+    const existingIdx = aiMsg._expertTeamTranscript.findIndex(t => t.type === 'tool_start' && t.toolCallId === toolEvent.toolCallId)
+    if (event.type === 'tool_start' || existingIdx < 0) {
+      aiMsg._expertTeamTranscript.push(toolEvent)
+    } else {
+      aiMsg._expertTeamTranscript[existingIdx] = {
+        ...aiMsg._expertTeamTranscript[existingIdx],
+        ...toolEvent,
+      }
+    }
+  }
+  if (event.type === 'moderator_start') {
+    upsertModeratorRunItem(aiMsg._expertTeamTranscript, event, 'moderator_start', { content: '' })
+  }
+  if (event.type === 'moderator_delta') {
+    appendModeratorRunDelta(aiMsg._expertTeamTranscript, event)
+    scheduleExpertTeamLiveDomUpdate(aiMsg, event, 'moderator')
+    shouldPersistNow = false
+    shouldRender = false
+  }
+  if (event.type === 'moderator_retry') {
+    const existingIdx = aiMsg._expertTeamTranscript.findIndex(t => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(t.type))
+    const content = existingIdx >= 0 ? aiMsg._expertTeamTranscript[existingIdx].content || '' : ''
+    upsertModeratorRunItem(aiMsg._expertTeamTranscript, event, 'moderator_retry', {
+      attempt: event.attempt || 1,
+      message: event.message || '',
+      content,
+    })
+  }
+  if (event.type === 'moderator_error') {
+    const pendingIdx = aiMsg._expertTeamTranscript.findIndex(t => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(t.type))
+    if (pendingIdx >= 0) aiMsg._expertTeamTranscript.splice(pendingIdx, 1)
+    aiMsg._expertTeamTranscript.push({
+      type: 'moderator_error',
+      message: event.message?.error || '主持综合失败，将使用降级结果。',
+      model: event.message?.model,
+    })
+  }
+  if (event.type === 'done') {
+    const pendingIdx = aiMsg._expertTeamTranscript.findIndex(t => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(t.type))
+    if (pendingIdx >= 0) aiMsg._expertTeamTranscript.splice(pendingIdx, 1)
+    aiMsg._expertTeamTranscript.push({
+      type: 'final',
+      content: event.final?.content || '',
+      expertName: event.final?.expertName || '主持专家',
+      expertTitle: event.final?.expertTitle || '主持专家',
+      model: event.final?.model,
+    })
+    aiMsg.content = event.final?.content || ''
+    aiMsg._expertTeamRunning = false
+    aiMsg._expertTeamResumeInFlight = false
+  }
+  if (event.type === 'error') {
+    aiMsg._expertTeamTranscript.push({
+      type: 'error',
+      message: event.message || '运行出错',
+    })
+    aiMsg._expertTeamRunning = false
+    aiMsg._expertTeamResumeInFlight = false
+  }
+  if (event.type === 'stopped') {
+    aiMsg._expertTeamTranscript.push({
+      type: 'stopped',
+      message: event.message || '专家团运行已停止。后续消息将按普通对话发送。',
+    })
+    aiMsg._expertTeamRunning = false
+    aiMsg._expertTeamResumeInFlight = false
+  }
+  return { shouldRender, shouldPersistNow }
+}
+
+function bindExpertTeamEvents(page) {
+  const trigger = page.querySelector('#ast-expert-team-trigger')
+  const menu = page.querySelector('#ast-expert-team-menu')
+
+  if (!trigger || !menu) return
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation()
+    const isOpen = !menu.hidden
+    menu.hidden = isOpen
+    if (!isOpen) renderExpertTeamMenu()
+  })
+
+  if (_expertTeamOutsideClickHandler) document.removeEventListener('click', _expertTeamOutsideClickHandler)
+  _expertTeamOutsideClickHandler = (e) => {
+    if (!menu.hidden && !trigger.contains(e.target) && !menu.contains(e.target)) {
+      menu.hidden = true
+    }
+  }
+  document.addEventListener('click', _expertTeamOutsideClickHandler)
+
+  menu.addEventListener('click', (e) => {
+    const option = e.target.closest('[data-group-id]')
+    if (!option || option.disabled) return
+    const groupId = option.dataset.groupId || null
+    _activeExpertGroupId = groupId || null
+    persistActiveExpertGroupId()
+    menu.hidden = true
+    renderExpertTeamMenu()
+  })
+}
+
+async function sendViaExpertTeam(text, images) {
+  const session = getCurrentSession()
+  if (!session) return
+
+  const textContent = String(text || '').trim()
+  if (!textContent) {
+    toast('请先写下要交给专家团处理的任务', 'warning')
+    return
+  }
+
+  let group = _expertGroups.find(g => g.id === _activeExpertGroupId)
+  if (!group && _activeExpertGroupId) {
+    await loadExpertGroups()
+    group = _expertGroups.find(g => g.id === _activeExpertGroupId)
+  }
+  if (!hasRunnableExpertGroup(group)) {
+    _activeExpertGroupId = null
+    persistActiveExpertGroupId()
+    renderExpertTeamMenu()
+    toast('未找到选中的专家团', 'error')
+    return
+  }
+
+  // 添加用户消息
+  const msgContent = buildMessageContent(textContent, images)
+  const userMsg = { role: 'user', content: msgContent, ts: Date.now() }
+  if (images.length > 0) {
+    userMsg._images = images.map(i => {
+      const dbId = 'img_' + i.id
+      saveImageToFile(dbId, i.dataUrl)
+      return { dbId, dataUrl: i.dataUrl, name: i.name, width: i.width, height: i.height }
+    })
+  }
+  if (textContent) userMsg._text = textContent
+  session.messages.push(userMsg)
+  autoTitle(session)
+  session.updatedAt = Date.now()
+  saveSessions()
+
+  // 添加 assistant 消息占位（带专家团标识）
+  const aiMsg = {
+    role: 'assistant',
+    content: '',
+    ts: Date.now(),
+    _expertTeamId: group.id,
+    _expertTeamName: group.name || group.id,
+    _expertTeamTranscript: [],
+    _expertTeamRunning: true,
+    _expertTeamRun: initExpertTeamRunMeta(group),
+  }
+  session.messages.push(aiMsg)
+  saveSessions()
+  renderMessages()
+
+  _isStreaming = true
+  clearActiveExpertGroupSelection()
+  _abortController = new AbortController()
+  if (_sendBtn) _sendBtn.innerHTML = stopIcon()
+  setSessionStatus(session.id, 'streaming')
+
+  // 构建 model slot 使用助手当前配置
+  const slot = assistantExpertTeamSlot()
+
+  const signal = _abortController?.signal
+  try {
+    const runner = group.mode === 'sequential' ? runExpertTeamSequential : runExpertTeam
+    await runner({
+      group,
+      experts: _expertProfiles,
+      task: textContent,
+      signal,
+      externalSlot: slot,
+      tools: getEnabledTools(),
+      executeTool: executeExpertTeamTool,
+      maxRounds: group.mode === 'sequential' ? resolveMaxRounds(group) : undefined,
+      onEvent: (event) => {
+        const { shouldRender, shouldPersistNow } = handleExpertTeamRunEvent(aiMsg, event)
+        if (shouldPersistNow) saveSessions()
+        else throttledSave()
+        if (shouldRender) {
+          renderMessages()
+          _lastRenderTime = Date.now()
+        }
+      },
+    })
+  } catch (e) {
+    if (e?.name === 'AbortError') {
+      handleExpertTeamRunEvent(aiMsg, { type: 'stopped', message: '专家团运行已停止。后续消息将按普通对话发送。' })
+    } else {
+      const message = humanizeError(e, '专家团运行失败')
+      handleExpertTeamRunEvent(aiMsg, { type: 'error', message })
+    }
+    aiMsg._expertTeamRunning = false
+    saveSessions()
+    renderMessages()
+  } finally {
+    _isStreaming = false
+    _abortController = null
+    if (_sendBtn) _sendBtn.innerHTML = sendIcon()
+    setSessionStatus(session.id, 'idle')
+    saveSessions()
+  }
+}
+
+async function resumeExpertTeamMessage(idx, mode = 'synthesis') {
+  if (_isStreaming) {
+    toast('请等待当前回复完成后再继续综合', 'info')
+    return
+  }
+
+  const session = getCurrentSession()
+  const aiMsg = session?.messages?.[idx]
+  const canResume = mode === 'run' ? canResumeExpertTeamRun(aiMsg) : canResumeExpertTeamSynthesis(aiMsg)
+  if (!session || !aiMsg || !canResume) {
+    toast(mode === 'run' ? '当前专家团记录无法继续剩余专家' : '当前专家团记录无法继续综合', 'warning')
+    return
+  }
+
+  const contributions = getExpertTeamContributions(aiMsg)
+  const signalController = new AbortController()
+  aiMsg._expertTeamRunning = true
+  aiMsg._expertTeamResumeInFlight = true
+  updateExpertTeamRunMeta(aiMsg, {
+    type: 'resume_start',
+    plan: aiMsg._expertTeamPlan,
+    contributionCount: contributions.length,
+  })
+  session.updatedAt = Date.now()
+  saveSessions()
+  renderMessages()
+
+  _isStreaming = true
+  _abortController = signalController
+  if (_sendBtn) _sendBtn.innerHTML = stopIcon()
+  setSessionStatus(session.id, 'streaming')
+
+  try {
+    const resumeRunner = mode === 'run' ? resumeExpertTeamRun : resumeExpertTeamSynthesis
+    await resumeRunner({
+      plan: aiMsg._expertTeamPlan,
+      contributions,
+      experts: _expertProfiles,
+      signal: signalController.signal,
+      externalSlot: assistantExpertTeamSlot(),
+      tools: getEnabledTools(),
+      executeTool: executeExpertTeamTool,
+      onEvent: (event) => {
+        const { shouldRender, shouldPersistNow } = handleExpertTeamRunEvent(aiMsg, event)
+        if (shouldPersistNow) saveSessions()
+        else throttledSave()
+        if (shouldRender) {
+          renderMessages()
+          _lastRenderTime = Date.now()
+        }
+      },
+    })
+  } catch (e) {
+    if (e?.name === 'AbortError') {
+      handleExpertTeamRunEvent(aiMsg, { type: 'stopped', message: mode === 'run' ? '专家团续跑已停止。后续消息将按普通对话发送。' : '专家团继续综合已停止。后续消息将按普通对话发送。' })
+    } else {
+      const message = humanizeError(e, mode === 'run' ? '专家团续跑失败' : '专家团继续综合失败')
+      handleExpertTeamRunEvent(aiMsg, { type: 'error', message })
+    }
+    saveSessions()
+    renderMessages()
+  } finally {
+    aiMsg._expertTeamRunning = false
+    aiMsg._expertTeamResumeInFlight = false
+    _isStreaming = false
+    if (_abortController === signalController) _abortController = null
+    if (_sendBtn) _sendBtn.innerHTML = sendIcon()
+    setSessionStatus(session.id, 'idle')
+    session.updatedAt = Date.now()
+    saveSessions()
+    renderMessages()
+  }
+}
+
 // ── 发送消息 ──
 function sendMessage(text) {
   const hasContent = text.trim() || _pendingImages.length > 0
@@ -5704,6 +7545,12 @@ async function sendMessageDirect(text) {
   // 收集当前附件图片
   const images = [..._pendingImages]
   clearPendingImages()
+
+  // ── 专家团模式分支 ──
+  if (_activeExpertGroupId) {
+    sendViaExpertTeam(text, images)
+    return
+  }
 
   // 添加用户消息（多模态或纯文本）
   const textContent = text.trim()
@@ -6086,6 +7933,10 @@ function escHtml(str) {
   return d.innerHTML
 }
 
+function escAttr(str) {
+  return escHtml(str).replace(/"/g, '&quot;')
+}
+
 function sendIcon() {
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'
 }
@@ -6102,6 +7953,7 @@ function handleAssistantErrorInjected() {
 // ── 页面渲染 ──
 export async function render() {
   loadConfig()
+  loadActiveExpertGroupId()
   // During an in-flight reply, the stream writes into the live session objects.
   // Replacing _sessions on remount would detach later chunks from the page state.
   if (!_isStreaming) loadSessions()
@@ -6119,8 +7971,9 @@ export async function render() {
   _page = page
 
   // 从 localStorage 获取侧边栏的持久化状态，如果不存在，窄屏（≤980px）默认关闭，宽屏默认开启
+  const isNarrowScreen = window.matchMedia?.('(max-width: 980px)')?.matches
   const savedState = localStorage.getItem('clawpanel-assistant-sidebar')
-  const isSidebarOpen = savedState !== null ? savedState === 'true' : !(window.matchMedia?.('(max-width: 980px)')?.matches)
+  const isSidebarOpen = isNarrowScreen ? false : (savedState !== null ? savedState === 'true' : true)
   const sidebarOpenClass = isSidebarOpen ? ' open' : ''
 
   page.innerHTML = `
@@ -6133,6 +7986,7 @@ export async function render() {
       </div>
       <div class="ast-session-list" id="ast-session-list"></div>
     </div>
+    <button class="ast-sidebar-backdrop" id="ast-sidebar-backdrop" type="button" aria-label="${t('common.close') || 'Close'}"></button>
     <div class="ast-main">
       <div class="ast-header">
         <div class="ast-header-left">
@@ -6141,6 +7995,14 @@ export async function render() {
           </button>
           <span class="ast-title">${_config?.assistantName || DEFAULT_NAME}</span>
           <span class="ast-model-badge ${_config.model ? 'configured' : 'unconfigured'}" id="ast-model-badge">${_config.model || t('assistant.notConfigured')}</span>
+          <div class="ast-expert-team-selector" id="ast-expert-team-selector">
+            <button class="ast-expert-team-trigger" id="ast-expert-team-trigger" type="button" title="专家团">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+              <span class="ast-expert-team-trigger-label" id="ast-expert-team-trigger-label">直接对话</span>
+              <svg class="ast-expert-team-trigger-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="ast-expert-team-menu" id="ast-expert-team-menu" role="listbox" hidden></div>
+          </div>
         </div>
         <div class="ast-header-actions">
           <button class="btn btn-sm btn-ghost" id="ast-btn-settings" title="${t('assistant.settingsTitle')}">
@@ -6208,6 +8070,7 @@ export async function render() {
   updateModelBadge()
   renderModelSelectOptions()
   refreshModelPoolOptions()
+  loadExpertGroups()           // 加载专家团列表
   // 滑块需要等 DOM 绘制完毕才能获取正确位置
   requestAnimationFrame(() => positionModeSlider(page, currentMode()))
 
@@ -6243,13 +8106,29 @@ export async function render() {
 
   // 复制按钮（事件委托）
   _messagesEl.addEventListener('click', (e) => {
+    const resumeRunBtn = e.target.closest('[data-action="resume-expert-run"]')
+    if (resumeRunBtn) {
+      e.preventDefault()
+      e.stopPropagation()
+      resumeExpertTeamMessage(Number.parseInt(resumeRunBtn.dataset.msgIdx, 10), 'run')
+      return
+    }
+
+    const resumeBtn = e.target.closest('[data-action="resume-expert-synthesis"]')
+    if (resumeBtn) {
+      e.preventDefault()
+      e.stopPropagation()
+      resumeExpertTeamMessage(Number.parseInt(resumeBtn.dataset.msgIdx, 10), 'synthesis')
+      return
+    }
+
     const copyBtn = e.target.closest('.msg-copy-btn')
     if (!copyBtn) return
     e.stopPropagation()
     const msgWrap = copyBtn.closest('.ast-msg')
-    const bubble = msgWrap?.querySelector('.ast-msg-bubble')
-    if (bubble) {
-      const text = bubble.innerText || bubble.textContent || ''
+    const contentEl = msgWrap?.querySelector('.ast-msg-bubble, .ast-expert-copy-source')
+    if (contentEl) {
+      const text = contentEl.innerText || contentEl.textContent || ''
       navigator.clipboard.writeText(text.trim()).then(() => {
         copyBtn.classList.add('copied')
         copyBtn.innerHTML = icon('check', 12)
@@ -6405,11 +8284,17 @@ export async function render() {
   })
 
   // 侧边栏切换
+  const closeSidebar = () => {
+    const sidebar = page.querySelector('#ast-sidebar')
+    sidebar?.classList.remove('open')
+    localStorage.setItem('clawpanel-assistant-sidebar', 'false')
+  }
   page.querySelector('#ast-btn-toggle').addEventListener('click', () => {
     const sidebar = page.querySelector('#ast-sidebar')
     const isOpen = sidebar.classList.toggle('open')
     localStorage.setItem('clawpanel-assistant-sidebar', isOpen ? 'true' : 'false')
   })
+  page.querySelector('#ast-sidebar-backdrop')?.addEventListener('click', closeSidebar)
 
   // 新建会话
   page.querySelector('#ast-btn-new').addEventListener('click', () => {
@@ -6488,6 +8373,7 @@ export async function render() {
       _currentSessionId = item.dataset.id
       renderSessionList()
       renderMessages()
+      if (window.matchMedia?.('(max-width: 768px)')?.matches) closeSidebar()
       // 切换到正在流式的会话时，启动刷新
       if (_isStreaming && getSessionStatus(_currentSessionId) === 'streaming') {
         startStreamRefresh()
@@ -6523,6 +8409,9 @@ export async function render() {
     }
   })
 
+  // ── 专家团选择器事件 ──
+  bindExpertTeamEvents(page)
+
   return page
 }
 
@@ -6543,5 +8432,9 @@ export function cleanup() {
   _textarea = null
   _sendBtn = null
   _sessionListEl = null
+  if (_expertTeamOutsideClickHandler) {
+    document.removeEventListener('click', _expertTeamOutsideClickHandler)
+    _expertTeamOutsideClickHandler = null
+  }
   window.removeEventListener('assistant-error-injected', handleAssistantErrorInjected)
 }

@@ -86,6 +86,10 @@ export function renderSidebar(el) {
       <button class="sidebar-close-btn" id="btn-sidebar-close" title="${t('sidebar.closeMenu')}">&times;</button>
     </div>
     ${renderEngineSwitcher()}
+    <div class="sidebar-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="sidebar-search-input" id="sidebar-search" type="text" placeholder="搜索..." autocomplete="off">
+    </div>
     <nav class="sidebar-nav">
   `
 
@@ -95,20 +99,27 @@ export function renderSidebar(el) {
     ? NAV_ITEMS_ENGINE_SELECT()
     : (engine ? engine.getNavItems() : (isOpenclawReady() ? NAV_ITEMS_FULL() : NAV_ITEMS_SETUP()))
 
+  let sectionIndex = 0
   for (const section of navItems) {
-    html += `<div class="nav-section">
-      <div class="nav-section-title">${section.section}</div>`
+    const hasTitle = section.section && section.section.trim()
+    const sectionId = `nav-section-${sectionIndex++}`
+    html += `<div class="nav-section" data-section-id="${sectionId}">
+      ${hasTitle ? `<div class="nav-section-title" data-toggle="${sectionId}">
+        <span>${section.section}</span>
+        <svg class="nav-section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>` : ''}
+      <div class="nav-section-items" id="${sectionId}">`
 
     for (const item of section.items) {
       if (item.gate && engine && !engine.isFeatureAvailable(item.gate)) continue
       if (item.gate && !engine && !isFeatureAvailable(item.gate)) continue
       const active = current === item.route ? ' active' : ''
-      html += `<div class="nav-item${active}" data-route="${item.route}" data-nav-icon="${item.icon || ''}">
+      html += `<div class="nav-item${active}" data-route="${item.route}" data-nav-icon="${item.icon || ''}" data-nav-label="${item.label.toLowerCase()}">
         ${ICONS[item.icon] || ''}
         <span>${item.label}</span>
       </div>`
     }
-    html += '</div>'
+    html += `</div></div>`
   }
 
   html += '</nav>'
@@ -173,6 +184,16 @@ export function renderSidebar(el) {
       if (navItem) {
         navigate(navItem.dataset.route)
         _closeMobileSidebar()
+        return
+      }
+      // 分区折叠
+      const sectionToggle = e.target.closest('[data-toggle]')
+      if (sectionToggle) {
+        const id = sectionToggle.dataset.toggle
+        const items = el.querySelector(`#${id}`)
+        const section = sectionToggle.closest('.nav-section')
+        if (items) items.classList.toggle('collapsed')
+        if (section) section.classList.toggle('section-collapsed')
         return
       }
       // 移动端关闭按钮
@@ -305,6 +326,29 @@ export function renderSidebar(el) {
         _closeLangDropdown()
       }
     })
+
+    // 搜索功能
+    const searchInput = el.querySelector('#sidebar-search')
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        const q = (searchInput.value || '').toLowerCase()
+        el.querySelectorAll('.nav-item[data-nav-label]').forEach(item => {
+          const label = (item.dataset.navLabel || '')
+          item.style.display = q && !label.includes(q) ? 'none' : ''
+        })
+        // 展开所有包含匹配项的分区
+        el.querySelectorAll('.nav-section').forEach(sec => {
+          if (!q) { sec.classList.add('section-collapsed'); return }
+          const hasVisible = sec.querySelector('.nav-item[data-nav-label][style*="display: none"]')
+          if (!hasVisible) {
+            const items = sec.querySelector('.nav-section-items')
+            const section = sec
+            if (items) items.classList.remove('collapsed')
+            if (section) section.classList.remove('section-collapsed')
+          }
+        })
+      })
+    }
 
   }
 }

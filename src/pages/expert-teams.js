@@ -1,9 +1,8 @@
 /**
  * Expert Teams configuration page.
  *
- * This page intentionally covers configuration only: custom expert profiles,
- * reusable expert teams, member selection, and moderator/workflow settings.
- * Runtime orchestration can consume the persisted shape in a later phase.
+ * Covers custom expert profiles, reusable expert teams, member selection,
+ * and moderator/workflow settings. Expert teams are executed from Assistant.
  */
 import { api } from '../lib/tauri-api.js'
 import { toast } from '../components/toast.js'
@@ -12,7 +11,19 @@ import { humanizeError } from '../lib/humanize-error.js'
 import { t } from '../lib/i18n.js'
 import { icon } from '../lib/icons.js'
 import { escapeHtml, escapeAttr } from '../lib/utils.js'
-import { runExpertTeam } from '../lib/expert-team-runner.js'
+
+// ── 可用工具分类 ──
+const TOOL_CATEGORIES = [
+  { id: 'system', name: '系统工具', desc: 'shell_exec, python, get_system_info 等' },
+  { id: 'process', name: '流程控制', desc: 'goal, run_script, check_port 等' },
+  { id: 'interaction', name: '交互工具', desc: 'ask_user_question 等' },
+  { id: 'browser', name: '浏览器', desc: 'browser_navigate, browser_click 等' },
+  { id: 'terminal', name: '终端', desc: 'shell_exec（含 MCP 终端）' },
+  { id: 'webSearch', name: '联网搜索', desc: 'web_search, web_fetch 等' },
+  { id: 'fileOps', name: '文件操作', desc: 'list_directory, read_file, write_file 等' },
+  { id: 'skills', name: '技能管理', desc: 'skills_install_dep, skillhub_install 等' },
+  { id: 'openclaw', name: 'OpenClaw 专用', desc: 'get_openclaw_context, diagnose_openclaw 等' },
+]
 
 const TABS = {
   experts: 'experts',
@@ -25,6 +36,7 @@ const GROUP_MODES = [
   ['debate', 'expertTeams.modeDebate'],
   ['review', 'expertTeams.modeReview'],
   ['research', 'expertTeams.modeResearch'],
+  ['sequential', 'expertTeams.modeSequential'],
 ]
 
 const APPROVAL_POLICIES = [
@@ -79,17 +91,13 @@ export async function render() {
     activeTab: TABS.experts,
     experts: [],
     groups: [],
+    availableSkills: [],
+    skillsLoadFailed: false,
     search: '',
     selectedExpertId: null,
     selectedGroupId: null,
     draftExpert: null,
     draftGroup: null,
-    runTask: '',
-    runBusy: false,
-    runEvents: [],
-    runFinal: null,
-    runPlan: null,
-    runAbortController: null,
     loading: true,
   }
 
@@ -132,8 +140,6 @@ function bindEvents(page, state) {
     else if (action === 'duplicate') duplicateCurrent(page, state)
     else if (action === 'save') await saveCurrent(page, state)
     else if (action === 'delete') await deleteCurrent(page, state)
-    else if (action === 'run-team') await runCurrentTeam(page, state)
-    else if (action === 'stop-run') stopCurrentRun(state)
   })
 
   page.addEventListener('input', (e) => {
@@ -142,14 +148,50 @@ function bindEvents(page, state) {
     renderList(page, state)
   })
 
-  page.addEventListener('input', (e) => {
-    if (e.target.id !== 'expert-team-task') return
-    state.runTask = e.target.value
+  page.addEventListener('change', (e) => {
+    if (e.target.matches('[data-member-toggle], [data-member-order]')) {
+      updateGroupMemberControls(page, state)
+      return
+    }
+    if (e.target.id === 'group-mode') {
+      updateGroupWorkflowGuide(page)
+    }
   })
 
-  page.addEventListener('change', (e) => {
-    if (!e.target.matches('[data-member-toggle], [data-member-order]')) return
-    updateGroupMemberControls(page, state)
+  page.addEventListener('dragstart', (e) => {
+    const row = e.target.closest('[data-member-row].is-selected')
+    if (!row || !e.target.closest('[data-member-drag]')) return
+    row.classList.add('is-dragging')
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', row.dataset.memberRow || '')
+  })
+
+  page.addEventListener('dragover', (e) => {
+    const picker = e.target.closest('#expert-member-picker')
+    if (!picker) return
+    const dragging = picker.querySelector('.expert-member-row.is-dragging')
+    const target = e.target.closest('[data-member-row].is-selected')
+    if (!dragging || !target || target === dragging) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    const rect = target.getBoundingClientRect()
+    const afterTarget = e.clientY > rect.top + rect.height / 2
+    picker.insertBefore(dragging, afterTarget ? target.nextSibling : target)
+    renumberSelectedMembers(picker)
+  })
+
+  page.addEventListener('drop', (e) => {
+    const picker = e.target.closest('#expert-member-picker')
+    if (!picker) return
+    e.preventDefault()
+    renumberSelectedMembers(picker)
+  })
+
+  page.addEventListener('dragend', (e) => {
+    const row = e.target.closest('[data-member-row]')
+    row?.classList.remove('is-dragging')
+    const picker = page.querySelector('#expert-member-picker')
+    if (picker) renumberSelectedMembers(picker)
   })
 }
 
@@ -157,12 +199,15 @@ async function loadData(page, state, opts = {}) {
   state.loading = true
   renderAll(page, state)
   try {
-    const [experts, groups] = await Promise.all([
+    const [experts, groups, skillsResult] = await Promise.all([
       api.listExperts(),
       api.listExpertGroups(),
+      api.skillsList().catch(error => ({ error })),
     ])
     state.experts = Array.isArray(experts) ? experts : []
     state.groups = Array.isArray(groups) ? groups : []
+    state.availableSkills = normalizeSkillOptions(skillsResult?.skills || [])
+    state.skillsLoadFailed = !!skillsResult?.error
     state.loading = false
     if (opts.clearDrafts) {
       state.draftExpert = null
@@ -201,8 +246,28 @@ function renderTabs(page, state) {
   page.querySelector('#expert-count').textContent = String(state.experts.length)
   page.querySelector('#group-count').textContent = String(state.groups.length)
   page.querySelector('#expert-teams-summary').innerHTML = `
-    <span>${icon('users', 14)} ${t('expertTeams.membersSelected', { count: totalSelectedMembers(state.groups) })}</span>
+    ${renderTopSummary(state)}
   `
+}
+
+function renderTopSummary(state) {
+  const group = state.groups.find(item => item.id === state.selectedGroupId)
+  const totalSlots = totalSelectedMembers(state.groups)
+  const parts = state.activeTab === TABS.groups
+    ? [
+        t('expertTeams.groupCountSummary', { count: state.groups.length }),
+        group ? t('expertTeams.currentGroupMembersSummary', { count: Array.isArray(group.members) ? group.members.length : 0 }) : null,
+        t('expertTeams.memberSlotSummary', { count: totalSlots }),
+      ]
+    : [
+        t('expertTeams.expertCountSummary', { count: state.experts.length }),
+        t('expertTeams.memberSlotSummary', { count: totalSlots }),
+      ]
+
+  return parts
+    .filter(Boolean)
+    .map(text => `<span>${icon('users', 14)} ${escapeHtml(text)}</span>`)
+    .join('')
 }
 
 function renderList(page, state) {
@@ -254,6 +319,8 @@ function renderExpertListItem(expert, active) {
 
 function renderGroupListItem(group, active, experts) {
   const members = Array.isArray(group.members) ? group.members : []
+  const mode = group.mode || 'panel'
+  const modeLabel = t(GROUP_MODES.find(([value]) => value === mode)?.[1] || 'expertTeams.modePanel')
   const names = members
     .slice()
     .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
@@ -266,7 +333,7 @@ function renderGroupListItem(group, active, experts) {
       <span class="expert-avatar expert-avatar--team"></span>
       <span class="expert-list-main">
         <strong>${escapeHtml(group.name || group.id)}</strong>
-        <small>${escapeHtml(names || group.description || group.id)}</small>
+        <small>${escapeHtml(`${modeLabel} · ${names || group.description || group.id}`)}</small>
       </span>
       <span class="expert-status">${members.length}</span>
     </button>
@@ -283,6 +350,9 @@ function renderEditor(page, state) {
   if (state.activeTab === TABS.experts) {
     const expert = state.draftExpert || state.experts.find(item => item.id === state.selectedExpertId) || null
     editor.innerHTML = renderExpertEditor(expert, state)
+    // 绑定工具和技能选择器
+    bindTagPickerEvents(editor, 'expert-tools', TOOL_CATEGORIES)
+    bindTagPickerEvents(editor, 'expert-skills', skillOptionsForExpert(expert, state))
   } else {
     const group = state.draftGroup || state.groups.find(item => item.id === state.selectedGroupId) || null
     editor.innerHTML = renderGroupEditor(group, state)
@@ -347,100 +417,14 @@ function renderExpertEditor(expert, state) {
           ${field('expert-model-id', t('expertTeams.modelId'), model.modelId || '', { placeholder: 'provider/model' })}
         </div>
         <div class="expert-form-grid expert-form-grid--three">
-          ${textarea('expert-tools', t('expertTeams.tools'), joinLines(expert.tools), { rows: 5 })}
-          ${textarea('expert-skills', t('expertTeams.skills'), joinLines(expert.skills), { rows: 5 })}
+          ${renderTagPicker('expert-tools', t('expertTeams.tools'), TOOL_CATEGORIES, expert.tools || [])}
+          ${renderTagPicker('expert-skills', t('expertTeams.skills'), skillOptionsForExpert(expert, state), expert.skills || [])}
           ${textarea('expert-knowledge', t('expertTeams.knowledgeRefs'), joinLines(expert.knowledgeRefs), { rows: 5 })}
         </div>
         ${textarea('expert-output-schema', t('expertTeams.outputSchema'), expert.outputSchema || '', { rows: 5 })}
       </section>
     </form>
   `
-}
-
-function renderRunPanel(group, state) {
-  const memberCount = Array.isArray(group.members) ? group.members.length : 0
-  const canRun = memberCount > 0 && !state.draftGroup && !state.runBusy
-  return `
-    <section class="expert-run-panel" id="expert-run-panel">
-      <div class="expert-run-head">
-        <div>
-          <h3>${t('expertTeams.runTitle')}</h3>
-          <p>${t('expertTeams.runDesc')}</p>
-        </div>
-        <div class="expert-run-actions">
-          ${state.runBusy ? `<button class="btn btn-sm btn-secondary" type="button" data-action="stop-run">${icon('square', 14)} ${t('expertTeams.stopRun')}</button>` : ''}
-          <button class="btn btn-sm btn-primary" type="button" data-action="run-team" ${canRun ? '' : 'disabled'}>
-            ${state.runBusy ? icon('loader-2', 14) : icon('play', 14)} ${state.runBusy ? t('expertTeams.running') : t('expertTeams.run')}
-          </button>
-        </div>
-      </div>
-      <textarea class="form-input expert-textarea expert-run-task" id="expert-team-task" rows="5" placeholder="${escapeAttr(t('expertTeams.taskPlaceholder'))}" ${state.runBusy ? 'disabled' : ''}>${escapeHtml(state.runTask || '')}</textarea>
-      ${renderRunMeta(state)}
-      ${state.draftGroup ? `<div class="form-hint">${t('expertTeams.saveBeforeRun')}</div>` : ''}
-      ${!memberCount ? `<div class="form-hint">${t('expertTeams.selectMembersBeforeRun')}</div>` : ''}
-      <div class="expert-run-transcript" id="expert-run-transcript">
-        ${renderRunTranscript(state)}
-      </div>
-    </section>
-  `
-}
-
-function renderRunMeta(state) {
-  const plan = state.runPlan
-  if (!plan) return ''
-  return `
-    <div class="expert-run-meta">
-      <span>${icon('users', 13)} ${t('expertTeams.runMembers', { count: plan.members?.length || 0 })}</span>
-      <span>${icon('box', 13)} ${escapeHtml(modelLabel(plan.model))}</span>
-      <span>${icon('list', 13)} ${t('expertTeams.runParallel', { count: plan.maxParallel || 1 })}</span>
-    </div>
-  `
-}
-
-function renderRunTranscript(state) {
-  const events = Array.isArray(state.runEvents) ? state.runEvents : []
-  if (!events.length && !state.runFinal) {
-    return `<div class="expert-run-empty">${t('expertTeams.runEmpty')}</div>`
-  }
-  const rows = []
-  for (const event of events) {
-    if (event.type === 'expert_start') {
-      rows.push(renderRunEvent(t('expertTeams.expertSpeaking', { name: event.expertName || event.expertId }), '', 'pending', event.model))
-    } else if (event.type === 'expert_done') {
-      rows.push(renderRunEvent(event.message?.expertName || event.message?.expertId || t('expertTeams.expert'), event.message?.content || '', 'expert', event.message?.model))
-    } else if (event.type === 'moderator_start') {
-      rows.push(renderRunEvent(t('expertTeams.moderatorSynthesizing'), '', 'pending', event.model))
-    } else if (event.type === 'stopped') {
-      rows.push(renderRunEvent(t('expertTeams.runStopped'), event.message || '', 'stopped'))
-    } else if (event.type === 'error') {
-      rows.push(renderRunEvent(t('common.error'), event.message || '', 'error'))
-    }
-  }
-  if (state.runFinal) rows.push(renderRunEvent(state.runFinal.expertName || t('expertTeams.finalModerator'), state.runFinal.content || '', 'final', state.runFinal.model))
-  return rows.join('')
-}
-
-function renderRunEvent(title, content, kind, model) {
-  return `
-    <article class="expert-run-message expert-run-message--${escapeAttr(kind)}">
-      <div class="expert-run-message-head">
-        <strong>${escapeHtml(title)}</strong>
-        ${renderModelBadge(model)}
-      </div>
-      ${content ? `<pre>${escapeHtml(content)}</pre>` : `<span>${t('common.loading')}</span>`}
-    </article>
-  `
-}
-
-function renderModelBadge(model) {
-  if (!model?.provider || !model?.model) return ''
-  const source = model.source === 'expert' ? t('expertTeams.expertModel') : t('expertTeams.defaultModel')
-  return `<small class="expert-run-model">${escapeHtml(source)} · ${escapeHtml(modelLabel(model))}</small>`
-}
-
-function modelLabel(model) {
-  if (!model?.provider && !model?.model) return '-'
-  return `${model.provider || '-'}/${model.model || '-'}`
 }
 
 function renderGroupEditor(group, state) {
@@ -494,6 +478,7 @@ function renderGroupEditor(group, state) {
             </select>
           </label>
         </div>
+        <p class="expert-member-help">${t('expertTeams.memberOrderHint')}</p>
         <div class="expert-member-picker" id="expert-member-picker">
           ${renderMemberPicker(group, state.experts)}
         </div>
@@ -508,9 +493,8 @@ function renderGroupEditor(group, state) {
               ${GROUP_MODES.map(([value, key]) => option(value, t(key), group.mode || 'panel')).join('')}
             </select>
           </label>
-          ${field('group-max-rounds', t('expertTeams.maxRounds'), group.maxRounds ?? 3, { type: 'number', min: 1, max: 20 })}
-          ${field('group-max-parallel', t('expertTeams.maxParallel'), group.maxParallel ?? 3, { type: 'number', min: 1, max: 20 })}
-          ${field('group-max-tokens', t('expertTeams.maxTokens'), group.budget?.maxTokens ?? 24000, { type: 'number', min: 1000, max: 1000000 })}
+          ${field('group-max-rounds', t('expertTeams.maxRounds'), group.maxRounds ?? 3, { type: 'number', min: 1, max: 10 })}
+          ${field('group-max-parallel', t('expertTeams.maxParallel'), group.maxParallel ?? 3, { type: 'number', min: 1, max: 8 })}
           <label class="form-group">
             <span class="form-label">${t('expertTeams.approvalPolicy')}</span>
             <select class="form-input" id="group-approval-policy">
@@ -518,10 +502,119 @@ function renderGroupEditor(group, state) {
             </select>
           </label>
         </div>
+        <div id="expert-workflow-guide">
+          ${renderWorkflowGuide(group)}
+        </div>
       </section>
     </form>
-    ${renderRunPanel(group, state)}
   `
+}
+
+function updateGroupWorkflowGuide(page) {
+  const guide = page.querySelector('#expert-workflow-guide')
+  if (!guide) return
+  const current = currentGroupFromForm(page)
+  guide.innerHTML = renderWorkflowGuide(current)
+}
+
+function renderWorkflowGuide(group = {}) {
+  const mode = group.mode || 'panel'
+  const guide = workflowGuide(mode)
+  const maxRounds = clampInt(group.maxRounds, 3, 1, 10)
+  const maxParallel = clampInt(group.maxParallel, 3, 1, 8)
+  const execution = mode === 'sequential'
+    ? `每位专家会按顺序执行，最多 ${maxRounds} 轮；后一位能看到前面专家输出，下一轮能看到上一轮结果。`
+    : `每位专家通常执行 1 次；按最多 ${maxParallel} 位并行分批收集意见，最后由主持专家综合。`
+  return `
+    <div class="expert-workflow-guide">
+      <div class="expert-workflow-guide-head">
+        ${icon(guide.icon, 16)}
+        <div>
+          <strong>${escapeHtml(guide.title)}</strong>
+          <span>${escapeHtml(guide.summary)}</span>
+        </div>
+      </div>
+      <div class="expert-workflow-grid">
+        <span>
+          <small>执行次数</small>
+          <strong>${escapeHtml(execution)}</strong>
+        </span>
+        <span>
+          <small>沟通方式</small>
+          <strong>${escapeHtml(guide.communication)}</strong>
+        </span>
+        <span>
+          <small>适合任务</small>
+          <strong>${escapeHtml(guide.bestFor)}</strong>
+        </span>
+        <span>
+          <small>参数建议</small>
+          <strong>${escapeHtml(guide.tuning)}</strong>
+        </span>
+      </div>
+    </div>
+  `
+}
+
+function workflowGuide(mode) {
+  return {
+    panel: {
+      icon: 'users',
+      title: '专家会诊',
+      summary: '多位专家独立看同一个问题，主持人归纳共识和分歧。',
+      communication: '专家之间不自由聊天，通过共享黑板和主持综合间接沟通。',
+      bestFor: '方案判断、疑难问题、需要多视角诊断。',
+      tuning: 'maxParallel 控制同时跑几位专家；一般 2-4 比较稳。',
+    },
+    creation: {
+      icon: 'edit',
+      title: '团队创作',
+      summary: '不同角色分别产出素材、结构、实现建议，再合成可交付结果。',
+      communication: '先分工创作，再由主持人整合成统一版本。',
+      bestFor: '文案、产品方案、功能设计、代码方案草稿。',
+      tuning: '选择互补角色；maxParallel 可稍高以加快产出。',
+    },
+    debate: {
+      icon: 'message-square',
+      title: '辩论评审',
+      summary: '让角色从不同立场挑战方案，暴露反例、风险和权衡。',
+      communication: '专家基于任务和黑板提出观点，主持人保留强分歧。',
+      bestFor: '重大决策、架构选型、商业策略、争议方案。',
+      tuning: '成员最好包含支持方、反对方、风险/成本视角。',
+    },
+    review: {
+      icon: 'shield',
+      title: '交叉审稿',
+      summary: '各专家从质量、风险、测试、体验等角度找问题。',
+      communication: '独立审查为主，主持人按严重度合并问题。',
+      bestFor: '代码评审、PRD 评审、上线前检查、UI 体验检查。',
+      tuning: 'maxParallel 2-3；保留测试/安全/体验等角色。',
+    },
+    research: {
+      icon: 'search',
+      title: '并行调研',
+      summary: '多名专家并行收集线索或分析方向，主持人汇总证据。',
+      communication: '共享黑板记录发现；主持人区分事实、推断和缺口。',
+      bestFor: '资料调研、竞品分析、技术选型前调查。',
+      tuning: '如启用联网工具，建议开启工具前确认或保留只读工具。',
+    },
+    sequential: {
+      icon: 'refresh-cw',
+      title: '串联接力',
+      summary: '专家按顺序接力，后一位必须基于前一位输出推进。',
+      communication: '这是最像“对话接力”的模式；多轮时会反复深化。',
+      bestFor: '复杂创作、架构推演、逐步完善方案、WorkBuddy 式接力流程。',
+      tuning: 'maxRounds 决定每位专家最多执行几轮；轮数越高越慢、成本越高。',
+    },
+  }[mode || 'panel'] || workflowGuide('panel')
+}
+
+function currentGroupFromForm(page) {
+  return {
+    mode: valueOf(page, '#group-mode') || 'panel',
+    maxRounds: valueOf(page, '#group-max-rounds') || 3,
+    maxParallel: valueOf(page, '#group-max-parallel') || 3,
+  }
 }
 
 function renderMemberPicker(group, experts) {
@@ -529,10 +622,19 @@ function renderMemberPicker(group, experts) {
     return `<div class="expert-teams-empty">${t('expertTeams.emptyExpertsHint')}</div>`
   }
   const memberMap = new Map((Array.isArray(group.members) ? group.members : []).map(member => [member.expertId, member]))
-  return experts.map((expert, index) => {
+  const orderedExperts = [...experts].sort((a, b) => {
+    const memberA = memberMap.get(a.id)
+    const memberB = memberMap.get(b.id)
+    if (memberA && memberB) return clampInt(memberA.order, 99, 1, 99) - clampInt(memberB.order, 99, 1, 99)
+    if (memberA) return -1
+    if (memberB) return 1
+    return 0
+  })
+  return orderedExperts.map((expert, index) => {
     const member = memberMap.get(expert.id)
     const checked = !!member
     const order = member?.order ?? index + 1
+    const orderLabel = t('expertTeams.memberOrderLabel', { order })
     return `
       <label class="expert-member-row ${checked ? 'is-selected' : ''}" data-member-row="${escapeAttr(expert.id)}">
         <input type="checkbox" data-member-toggle value="${escapeAttr(expert.id)}" ${checked ? 'checked' : ''}>
@@ -541,7 +643,11 @@ function renderMemberPicker(group, experts) {
           <strong>${escapeHtml(expert.name || expert.id)}</strong>
           <small>${escapeHtml(expert.title || expert.description || expert.id)}</small>
         </span>
-        <input class="form-input expert-member-order" type="number" min="1" max="99" data-member-order value="${escapeAttr(order)}" ${checked ? '' : 'disabled'} aria-label="order">
+        <span class="expert-member-order-wrap">
+          <span class="expert-member-order-label">${escapeHtml(orderLabel)}</span>
+          <button class="expert-member-drag" type="button" data-member-drag draggable="${checked ? 'true' : 'false'}" ${checked ? '' : 'disabled'} aria-label="${escapeAttr(t('expertTeams.memberDragLabel'))}">${icon('grip-vertical', 14)}</button>
+          <input class="expert-member-order" type="hidden" data-member-order value="${escapeAttr(order)}" ${checked ? '' : 'disabled'} aria-label="${escapeAttr(orderLabel)}">
+        </span>
       </label>
     `
   }).join('')
@@ -557,8 +663,15 @@ function updateGroupMemberControls(page, state) {
     const checked = !!checkbox?.checked
     row.classList.toggle('is-selected', checked)
     if (order) order.disabled = !checked
+    const drag = row.querySelector('[data-member-drag]')
+    if (drag) {
+      drag.disabled = !checked
+      drag.draggable = checked
+    }
+    syncMemberOrderLabel(row)
     if (checked) selected.push(checkbox.value)
   }
+  renumberSelectedMembers(page.querySelector('#expert-member-picker'))
 
   const count = page.querySelector('#expert-members-count')
   if (count) {
@@ -576,6 +689,26 @@ function updateGroupMemberControls(page, state) {
     .map(expert => option(expert.id, expert.name || expert.id, current))
     .join('')
   if (!selectedSet.has(current)) moderator.value = ''
+}
+
+function renumberSelectedMembers(picker) {
+  if (!picker) return
+  const selectedRows = [...picker.querySelectorAll('[data-member-row].is-selected')]
+  for (const [index, row] of selectedRows.entries()) {
+    const order = row.querySelector('[data-member-order]')
+    if (order) order.value = String(index + 1)
+    syncMemberOrderLabel(row)
+  }
+}
+
+function syncMemberOrderLabel(row) {
+  const input = row.querySelector('[data-member-order]')
+  const label = row.querySelector('.expert-member-order-label')
+  if (!input || !label) return
+  const order = clampInt(input.value, 1, 1, 99)
+  const text = t('expertTeams.memberOrderLabel', { order })
+  label.textContent = text
+  input.setAttribute('aria-label', text)
 }
 
 function addCurrent(page, state) {
@@ -683,62 +816,6 @@ async function deleteCurrent(page, state) {
   await loadData(page, state)
 }
 
-async function runCurrentTeam(page, state) {
-  const group = currentGroup(state)
-  if (!group || state.draftGroup || state.runBusy) return
-  if (!String(state.runTask || '').trim()) {
-    toast(t('expertTeams.taskRequired'), 'warning')
-    return
-  }
-  state.runBusy = true
-  state.runEvents = []
-  state.runFinal = null
-  state.runPlan = null
-  state.runAbortController = new AbortController()
-  renderEditor(page, state)
-  try {
-    const result = await runExpertTeam({
-      group,
-      experts: state.experts,
-      task: state.runTask,
-      signal: state.runAbortController.signal,
-      onEvent: (event) => {
-        if (event.type === 'done') {
-          state.runFinal = event.final || null
-        } else if (event.type === 'start') {
-          state.runPlan = event.plan || null
-        } else if (event.type !== 'start') {
-          state.runEvents.push(event)
-        }
-        renderRunPanelOnly(page, state)
-      },
-    })
-    state.runFinal = result.final || state.runFinal
-    toast(t('expertTeams.runSuccess'), 'success')
-  } catch (e) {
-    if (e?.name === 'AbortError') {
-      state.runEvents.push({ type: 'stopped', message: t('expertTeams.runStoppedDesc') })
-      toast(t('expertTeams.runStopped'), 'info')
-    } else {
-      state.runEvents.push({ type: 'error', message: humanizeError(e, t('expertTeams.runFailed')) })
-      toast(humanizeError(e, t('expertTeams.runFailed')), 'error')
-    }
-  } finally {
-    state.runBusy = false
-    state.runAbortController = null
-    renderEditor(page, state)
-  }
-}
-
-function stopCurrentRun(state) {
-  state.runAbortController?.abort()
-}
-
-function renderRunPanelOnly(page, state) {
-  const transcript = page.querySelector('#expert-run-transcript')
-  if (transcript) transcript.innerHTML = renderRunTranscript(state)
-}
-
 function collectExpert(page, current = {}) {
   const id = normalizeId(valueOf(page, '#expert-id'), valueOf(page, '#expert-name'), 'expert')
   const name = valueOf(page, '#expert-name')
@@ -761,8 +838,8 @@ function collectExpert(page, current = {}) {
       inheritDefault,
       modelId: valueOf(page, '#expert-model-id'),
     },
-    tools: splitLines(valueOf(page, '#expert-tools')),
-    skills: splitLines(valueOf(page, '#expert-skills')),
+    tools: readTagPicker(page, '#expert-tools-tags'),
+    skills: readTagPicker(page, '#expert-skills-tags'),
     knowledgeRefs: splitLines(valueOf(page, '#expert-knowledge')),
     outputSchema: valueOf(page, '#expert-output-schema'),
   }
@@ -797,12 +874,8 @@ function collectGroup(page, current = {}) {
     mode: valueOf(page, '#group-mode') || 'panel',
     moderatorExpertId: memberIds.has(moderatorExpertId) ? moderatorExpertId : undefined,
     members,
-    maxRounds: clampInt(valueOf(page, '#group-max-rounds'), 3, 1, 20),
-    maxParallel: clampInt(valueOf(page, '#group-max-parallel'), 3, 1, 20),
-    budget: {
-      ...(current?.budget && typeof current.budget === 'object' ? current.budget : {}),
-      maxTokens: clampInt(valueOf(page, '#group-max-tokens'), 24000, 1000, 1000000),
-    },
+    maxRounds: clampInt(valueOf(page, '#group-max-rounds'), 3, 1, 10),
+    maxParallel: clampInt(valueOf(page, '#group-max-parallel'), 3, 1, 8),
     approvalPolicy: valueOf(page, '#group-approval-policy') || 'none',
   }
 }
@@ -842,7 +915,6 @@ function blankGroup() {
     members: [],
     maxRounds: 3,
     maxParallel: 3,
-    budget: { maxTokens: 24000 },
     approvalPolicy: 'none',
   }
 }
@@ -914,6 +986,207 @@ function splitLines(value) {
 
 function joinLines(value) {
   return Array.isArray(value) ? value.filter(Boolean).join('\n') : ''
+}
+
+function normalizeSkillOptions(skills) {
+  return (Array.isArray(skills) ? skills : [])
+    .map(skill => {
+      const id = String(skill?.name || skill?.slug || '').trim()
+      if (!id) return null
+      const state = skill.disabled
+        ? 'disabled'
+        : skill.blockedByAllowlist
+          ? 'blocked'
+          : skill.eligible === false
+            ? 'missing'
+            : 'ready'
+      const suffix = {
+        ready: '',
+        missing: ' · 依赖未满足',
+        disabled: ' · 已禁用',
+        blocked: ' · 受限',
+      }[state]
+      return {
+        id,
+        name: id,
+        desc: `${skill.description || skill.source || ''}${suffix}`.trim(),
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+function skillOptionsForExpert(expert, state) {
+  const options = [...(state.availableSkills || [])]
+  const seen = new Set(options.map(item => item.id))
+  for (const id of Array.isArray(expert?.skills) ? expert.skills : []) {
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    options.push({ id, name: id, desc: state.skillsLoadFailed ? '已选择，Skills 列表加载失败' : '已选择，当前未扫描到' })
+  }
+  return options
+}
+
+function readTagPicker(root, selector) {
+  const tags = root.querySelectorAll(`${selector} .expert-tag-picker-tag`)
+  return [...tags].map(tag => tag.dataset.value).filter(Boolean)
+}
+
+function renderTagPicker(id, label, options, selectedIds) {
+  const selectedSet = new Set(Array.isArray(selectedIds) ? selectedIds : [])
+  const count = selectedSet.size
+  const normalizedOptions = mergeSelectedTagOptions(options, selectedSet)
+  return `
+    <div class="expert-tag-picker" id="${id}-picker" data-picker-id="${id}">
+      <span class="form-label">${escapeHtml(label)}</span>
+      <button type="button" class="expert-tag-picker-trigger" id="${id}-trigger" data-modal="${id}-modal">
+        <span class="expert-tag-picker-count">${count ? `已选 ${count} 项` : '点击选择...'}</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="expert-tag-picker-tags" id="${id}-tags">
+        ${normalizedOptions.filter(o => selectedSet.has(o.id)).map(o => `
+          <span class="expert-tag-picker-tag" data-value="${escapeAttr(o.id)}">${escapeHtml(o.name || o.id)}</span>
+        `).join('')}
+      </div>
+      <div class="expert-tag-modal-overlay" id="${id}-modal" hidden>
+        <div class="expert-tag-modal" role="dialog">
+          <div class="expert-tag-modal-head">
+            <strong>${escapeHtml(label)}</strong>
+            <button type="button" class="expert-tag-modal-close" data-close-modal="${id}-modal">✕</button>
+          </div>
+          <div class="expert-tag-modal-search">
+            <input class="form-input" id="${id}-modal-search" type="text" placeholder="搜索..." autocomplete="off">
+          </div>
+          <div class="expert-tag-modal-actions">
+            <button type="button" class="btn btn-xs btn-ghost" data-action="select-all" data-picker="${id}">全选</button>
+            <button type="button" class="btn btn-xs btn-ghost" data-action="deselect-all" data-picker="${id}">取消全选</button>
+            <button type="button" class="btn btn-xs btn-ghost" data-action="invert" data-picker="${id}">反选</button>
+          </div>
+          <div class="expert-tag-modal-list" id="${id}-modal-list">
+            ${renderModalOptions(normalizedOptions, selectedSet)}
+          </div>
+          <div class="expert-tag-modal-foot">
+            <button type="button" class="btn btn-sm btn-secondary" data-close-modal="${id}-modal">取消</button>
+            <button type="button" class="btn btn-sm btn-primary" data-confirm-modal="${id}-modal">确认</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function mergeSelectedTagOptions(options, selectedSet) {
+  const next = [...(Array.isArray(options) ? options : [])]
+  const seen = new Set(next.map(item => item.id))
+  for (const id of selectedSet) {
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    next.push({ id, name: id, desc: '已选择，当前不在可选列表中' })
+  }
+  return next
+}
+
+function renderModalOptions(options, selectedSet) {
+  return options.map(o => `
+    <label class="expert-tag-modal-option" data-opt-id="${escapeAttr(o.id)}">
+      <input type="checkbox" ${selectedSet.has(o.id) ? 'checked' : ''} data-check-id="${escapeAttr(o.id)}">
+      <div>
+        <strong>${escapeHtml(o.name || o.id)}</strong>
+        <small>${escapeHtml(o.desc || '')}</small>
+      </div>
+    </label>
+  `).join('')
+}
+
+function bindTagPickerEvents(root, id, options) {
+  const picker = root.querySelector(`#${id}-picker`)
+  if (!picker) return
+  let pickerOptions = Array.isArray(options) ? options : []
+
+  const modal = picker.querySelector(`#${id}-modal`)
+  const trigger = picker.querySelector(`#${id}-trigger`)
+  const searchEl = picker.querySelector(`#${id}-modal-search`)
+  const listEl = picker.querySelector(`#${id}-modal-list`)
+  const tagsEl = picker.querySelector(`#${id}-tags`)
+  const countEl = picker.querySelector('.expert-tag-picker-count')
+
+  function getSelectedFromModal() {
+    const checks = modal.querySelectorAll('input[type="checkbox"]:checked')
+    return [...checks].map(c => c.dataset.checkId)
+  }
+
+  function getSelectedFromTags() {
+    return [...tagsEl.querySelectorAll('.expert-tag-picker-tag')]
+      .map(tag => tag.dataset.value)
+      .filter(Boolean)
+  }
+
+  function syncTags(selected) {
+    const set = new Set(selected)
+    pickerOptions = mergeSelectedTagOptions(pickerOptions, set)
+    tagsEl.innerHTML = [...set].map(v => {
+      const opt = pickerOptions.find(o => o.id === v)
+      return `<span class="expert-tag-picker-tag" data-value="${escapeAttr(v)}">${escapeHtml(opt?.name || v)}</span>`
+    }).join('')
+    countEl.textContent = set.size ? `已选 ${set.size} 项` : '点击选择...'
+  }
+
+  function applySearch() {
+    const q = (searchEl?.value || '').toLowerCase()
+    modal.querySelectorAll('.expert-tag-modal-option').forEach(el => {
+      const id = el.dataset.optId || ''
+      const text = el.textContent?.toLowerCase() || ''
+      el.hidden = q && !id.includes(q) && !text.includes(q)
+    })
+  }
+
+  // 打开弹窗
+  trigger.addEventListener('click', () => {
+    // 同步当前选中状态到 modal checkbox
+    const current = getSelectedFromTags()
+    pickerOptions = mergeSelectedTagOptions(pickerOptions, new Set(current))
+    // re-render options with current state
+    listEl.innerHTML = renderModalOptions(pickerOptions, new Set(current))
+    modal.hidden = false
+    searchEl.value = ''
+    applySearch()
+    searchEl.focus()
+  })
+
+  // 关闭弹窗
+  modal.querySelectorAll('[data-close-modal]').forEach(btn => {
+    btn.addEventListener('click', () => { modal.hidden = true })
+  })
+  modal.querySelector('.expert-tag-modal-overlay')?.addEventListener('click', (e) => {
+    if (e.target === modal) modal.hidden = true
+  })
+
+  // 搜索
+  searchEl.addEventListener('input', applySearch)
+
+  // 全选/取消/反选
+  modal.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]')
+    if (!btn) return
+    const pickerId = btn.dataset.picker
+    if (pickerId !== id) return
+    const action = btn.dataset.action
+    const checks = modal.querySelectorAll('input[type="checkbox"]')
+    if (action === 'select-all') {
+      checks.forEach(c => { c.checked = true; c.closest('.expert-tag-modal-option').hidden = false })
+    } else if (action === 'deselect-all') {
+      checks.forEach(c => { c.checked = false })
+    } else if (action === 'invert') {
+      checks.forEach(c => { c.checked = !c.checked })
+    }
+  })
+
+  // 确认
+  modal.querySelector('[data-confirm-modal]')?.addEventListener('click', () => {
+    const selected = getSelectedFromModal()
+    syncTags(selected)
+    modal.hidden = true
+  })
 }
 
 function normalizeId(rawId, name, prefix) {

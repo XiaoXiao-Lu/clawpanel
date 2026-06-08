@@ -1,9 +1,19 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildExpertMessages, buildExpertTeamPlan, buildModeratorMessages, isolateExpertTeamModelConfig, resolveDefaultModelSlot, resolveExpertModelSlot, resolveMaxParallel, resolveMembers } from '../src/lib/expert-team-runner.js'
+import { buildExpertMessages, buildExpertTeamPlan, buildModeratorMessages, isolateExpertTeamModelConfig, resolveDefaultModelSlot, resolveExpertModelSlot, resolveMaxParallel, resolveMaxRounds, resolveMembers, resumeExpertTeamRun, resumeExpertTeamSynthesis } from '../src/lib/expert-team-runner.js'
 
 const experts = [
-  { id: 'planner', name: 'Planner', title: 'Product Planner', enabled: true, systemPrompt: 'Plan product work.' },
+  {
+    id: 'planner',
+    name: 'Planner',
+    title: 'Product Planner',
+    enabled: true,
+    systemPrompt: 'Plan product work.',
+    tools: ['webSearch'],
+    skills: ['playwright-cli'],
+    knowledgeRefs: ['prd://expert-team'],
+    outputSchema: 'Return bullets.',
+  },
   { id: 'reviewer', name: 'Reviewer', title: 'Risk Reviewer', enabled: true, systemPrompt: 'Review risk.' },
   { id: 'disabled', name: 'Disabled', enabled: false },
 ]
@@ -31,11 +41,17 @@ test('expert prompts include task, role, communication protocol, and blackboard'
   const plan = buildExpertTeamPlan({ group, experts, task: 'Ship expert team runtime.' })
   const messages = buildExpertMessages({
     plan,
-    expert: plan.members[1],
+    expert: plan.members[0],
     previous: [{ expertName: 'Planner', content: 'Use sequential first.' }],
   })
   assert.equal(messages[0].role, 'system')
   assert.match(messages[0].content, /Communication protocol/)
+  assert.match(messages[0].content, /Mode guidance: cross review/)
+  assert.match(messages[0].content, /Declared capability context/)
+  assert.match(messages[0].content, /webSearch/)
+  assert.match(messages[0].content, /playwright-cli/)
+  assert.match(messages[0].content, /prd:\/\/expert-team/)
+  assert.match(messages[0].content, /Return bullets/)
   assert.match(messages[1].content, /Ship expert team runtime/)
   assert.match(messages[1].content, /Shared blackboard/)
   assert.match(messages[1].content, /Use sequential first/)
@@ -54,6 +70,24 @@ test('moderator prompt synthesizes all expert contributions', () => {
   assert.match(messages[1].content, /Expert blackboard/)
   assert.match(messages[1].content, /Start simple/)
   assert.match(messages[1].content, /Track risks/)
+})
+
+test('resume synthesis validates plan and existing contributions before model calls', async () => {
+  await assert.rejects(
+    () => resumeExpertTeamSynthesis({ plan: null, contributions: [{ content: 'Keep this.' }] }),
+    /Expert team plan is required/
+  )
+  await assert.rejects(
+    () => resumeExpertTeamSynthesis({ plan: { task: 'Pick architecture.' }, contributions: [] }),
+    /No expert contributions available to resume synthesis/
+  )
+})
+
+test('resume run validates source plan before model calls', async () => {
+  await assert.rejects(
+    () => resumeExpertTeamRun({ plan: null, contributions: [{ content: 'Keep this.' }], experts }),
+    /Expert team plan is required to resume run/
+  )
 })
 
 test('default OpenClaw model slot resolves provider and primary model', () => {
@@ -115,6 +149,13 @@ test('resolveMaxParallel clamps unsafe team settings', () => {
   assert.equal(resolveMaxParallel({ maxParallel: 0 }), 1)
   assert.equal(resolveMaxParallel({ maxParallel: 99 }), 8)
   assert.equal(resolveMaxParallel({}), 1)
+})
+
+test('resolveMaxRounds clamps unsafe sequential settings', () => {
+  assert.equal(resolveMaxRounds({ maxRounds: 3 }), 3)
+  assert.equal(resolveMaxRounds({ maxRounds: 0 }), 1)
+  assert.equal(resolveMaxRounds({ maxRounds: 99 }), 10)
+  assert.equal(resolveMaxRounds({}), 1)
 })
 
 function modelConfig() {

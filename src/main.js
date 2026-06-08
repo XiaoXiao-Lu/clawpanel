@@ -38,6 +38,7 @@ import './style/layout.css'
 import './style/components.css'
 // Layer 5: Pages (by domain, split from pages.css)
 import './style/pages/dashboard.css'
+import './style/pages/about.css'
 import './style/pages/services.css'
 import './style/pages/models.css'
 import './style/pages/channels.css'

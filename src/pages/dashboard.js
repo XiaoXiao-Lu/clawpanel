@@ -40,6 +40,8 @@ export async function render() {
     <div id="cli-conflict-mount"></div>
     <div id="onboarding-mount"></div>
     <div id="dashboard-command-center" class="dashboard-command-center loading-placeholder"></div>
+    <div class="dashboard-section-divider"></div>
+    <div class="stats-heading">${t('dashboard.statsTitle')}</div>
     <div class="stat-cards" id="stat-cards">
       <div class="stat-card loading-placeholder"></div>
       <div class="stat-card loading-placeholder"></div>
@@ -48,16 +50,20 @@ export async function render() {
       <div class="stat-card loading-placeholder"></div>
       <div class="stat-card loading-placeholder"></div>
     </div>
+    <div class="dashboard-section-divider"></div>
+    <div class="stats-heading">${t('dashboard.overviewTitle')}</div>
     <div id="dashboard-overview-container"></div>
+    <div class="dashboard-section-divider"></div>
+    <div class="stats-heading">${t('dashboard.quickActionsTitle')}</div>
     <div class="quick-actions">
       <button class="btn btn-secondary" id="btn-restart-gw">${actionLabel('refresh-cw', 'dashboard.restartGw')}</button>
       <button class="btn btn-secondary" id="btn-check-update">${actionLabel('search', 'dashboard.checkUpdate')}</button>
       <button class="btn btn-secondary" id="btn-create-backup">${actionLabel('download', 'dashboard.createBackup')}</button>
       <button class="btn btn-ghost" id="btn-open-glossary">${icon('scroll', 16)} ${t('glossary.title')}</button>
     </div>
-    <div class="config-section">
-      <div class="config-section-title">${t('dashboard.recentLogs')}</div>
-      <div class="log-viewer dashboard-log-viewer" id="recent-logs"></div>
+    <div class="dashboard-section-divider"></div>
+    <div class="stats-heading">${t('dashboard.recentLogs')}</div>
+    <div class="log-viewer dashboard-log-viewer" id="recent-logs"></div>
     </div>
   `
 

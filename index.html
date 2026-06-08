@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ClawPanel</title>
   <link rel="icon" href="/favicon.ico">
+  <!-- Typography: Google Fonts (may be blocked in CN) + local fallback -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- 样式由 main.js 通过 Vite 统一加载 -->
   <style>
     /* Splash · Boot Manifest · 零依赖、内联渲染、双语支持（zh-CN / en，与应用 localStorage('clawpanel_lang') 共享） */
@@ -13,12 +17,12 @@
       display: flex; align-items: center; justify-content: center;
       overflow: hidden;
       background: #FAFAFA; color: #18181B;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
       transition: opacity .4s ease, visibility .4s ease;
       animation: sp-fade-in .4s ease;
     }
     @keyframes sp-fade-in { from { opacity: 0; } to { opacity: 1; } }
-    @media (prefers-color-scheme: dark) { #splash { background: #09090B; color: #F4F4F5; } }
+    @media (prefers-color-scheme: dark) { #splash { background: #0A0A10; color: #EBEBF5; } }
     #splash.hide { opacity: 0; visibility: hidden; pointer-events: none; }
     #splash [hidden] { display: none !important; }
 
@@ -34,9 +38,9 @@
     }
     @media (prefers-color-scheme: dark) {
       #splash::before {
-        background-image:
-          linear-gradient(rgba(244,244,245,.04) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(244,244,245,.04) 1px, transparent 1px);
+      background-image:
+        linear-gradient(rgba(235,235,245,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(235,235,245,.03) 1px, transparent 1px);
       }
     }
     /* subtle accent glow under the panel */
@@ -464,6 +468,7 @@
     <div id="main-col">
       <div id="update-banner" class="update-banner update-banner-hidden"></div>
       <div id="gw-banner" class="gw-banner gw-banner-hidden"></div>
+      <div id="context-bar" class="context-bar"></div>
       <main id="content"></main>
     </div>
   </div>
