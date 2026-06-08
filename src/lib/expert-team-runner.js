@@ -2,6 +2,7 @@ import { api } from './tauri-api.js'
 
 const DEFAULT_TEMPERATURE = 0.3
 const DEFAULT_RETRY_ATTEMPTS = 1
+const ALL_EXPERTS_EMPTY_LABEL = '专家团没有收到可用的专家回复'
 
 const COLLABORATION_GUIDANCE = {
   panel: [
@@ -99,7 +100,15 @@ export async function runExpertTeam({ group, experts, task, onEvent, signal, ext
   }
 
   throwIfAborted(signal)
-  if (!contributions.length) throw new Error('All expert responses failed')
+  if (!contributions.length) {
+    const finalMessage = buildNoExpertResponseFallback({
+      plan,
+      slot: resolveExpertModelSlot(config, plan.moderator, defaultSlot),
+    })
+    plan.blackboard.push(finalMessage)
+    emit(onEvent, { type: 'done', final: finalMessage, transcript: plan.blackboard })
+    return { plan: summarizePlan(plan, defaultSlot, config), transcript: plan.blackboard, final: finalMessage }
+  }
   const moderatorSlot = resolveExpertModelSlot(config, plan.moderator, defaultSlot)
   emit(onEvent, buildExpertRunEvent('moderator_start', plan.moderator, moderatorSlot))
   const finalMessages = buildModeratorMessages({ plan, contributions })
@@ -168,7 +177,15 @@ export async function runExpertTeamSequential({ group, experts, task, onEvent, s
   }
 
   throwIfAborted(signal)
-  if (!contributions.length) throw new Error('All expert responses failed')
+  if (!contributions.length) {
+    const finalMessage = buildNoExpertResponseFallback({
+      plan,
+      slot: resolveExpertModelSlot(config, plan.moderator, defaultSlot),
+    })
+    plan.blackboard.push(finalMessage)
+    emit(onEvent, { type: 'done', final: finalMessage, transcript: plan.blackboard })
+    return { plan: summarizePlan(plan, defaultSlot, config), transcript: plan.blackboard, final: finalMessage }
+  }
   // 主持综合（如果有主持专家）
   const moderator = plan.moderator
   let finalMessage = contributions[contributions.length - 1]
@@ -240,7 +257,15 @@ export async function resumeExpertTeamRun({ plan: sourcePlan, contributions = []
   }
 
   throwIfAborted(signal)
-  if (!nextContributions.length) throw new Error('All expert responses failed')
+  if (!nextContributions.length) {
+    const finalMessage = buildNoExpertResponseFallback({
+      plan,
+      slot: resolveExpertModelSlot(config, plan.moderator, defaultSlot),
+    })
+    plan.blackboard.push(finalMessage)
+    emit(onEvent, { type: 'done', final: finalMessage, transcript: plan.blackboard, resumed: true })
+    return { plan: summarizePlan(plan, defaultSlot, config), transcript: plan.blackboard, final: finalMessage }
+  }
   const moderator = plan.moderator
   let finalMessage = nextContributions[nextContributions.length - 1]
   if (moderator) {
@@ -788,6 +813,46 @@ function buildFallbackSynthesis(plan, contributions, moderatorError) {
   ].join('\n')
 }
 
+function buildNoExpertResponseFallback({ plan, slot }) {
+  return {
+    id: `fallback-no-experts-${Date.now()}`,
+    role: 'moderator',
+    status: 'fallback',
+    expertId: plan.moderator?.id || '',
+    expertName: plan.moderator?.name || 'Moderator',
+    expertTitle: plan.moderator?.title || '',
+    content: buildNoExpertResponseFallbackContent(plan),
+    model: summarizeSlot(slot),
+    createdAt: new Date().toISOString(),
+  }
+}
+
+function buildNoExpertResponseFallbackContent(plan) {
+  const failures = (Array.isArray(plan.blackboard) ? plan.blackboard : [])
+    .filter(msg => msg?.status === 'error')
+  const experts = (Array.isArray(plan.members) ? plan.members : [])
+    .map(expert => expert.name || expert.id || '专家')
+    .filter(Boolean)
+  const reasons = [...new Set(failures.map(item => moderatorFallbackReason(item.error)).filter(Boolean))]
+  return [
+    `${ALL_EXPERTS_EMPTY_LABEL}，本次没有足够材料生成正式综合结论。`,
+    '',
+    '## 当前状态',
+    `- 已调度专家：${experts.length ? experts.join('、') : '暂无'}`,
+    `- 可用专家意见：0 份`,
+    `- 常见原因：当前模型返回空内容、模型接口格式不兼容、模型服务异常，或模型配置不可用`,
+    '',
+    '## 建议下一步',
+    '- 优先切换到稳定的 OpenAI 兼容 Chat Completions 模型后重新发起。',
+    '- 检查模型配置页里的 baseUrl、模型名、API Key 和服务状态。',
+    '- 如果只在某个模型上复现，说明该模型返回格式需要单独适配。',
+    '',
+    failures.length ? '## 本次错误摘要' : '',
+    ...failures.slice(0, 8).map(item => `- ${item.expertName || item.expertId || '专家'}：${moderatorFallbackReason(item.error)}`),
+    reasons.length ? `\n主要触发原因：${reasons.join('；')}` : '',
+  ].filter(Boolean).join('\n')
+}
+
 function fallbackContributionExcerpt(content, limit = 420) {
   const text = String(content || '')
     .replace(/```[\s\S]*?```/g, ' ')
@@ -800,6 +865,7 @@ function fallbackContributionExcerpt(content, limit = 420) {
 function moderatorFallbackReason(error) {
   const raw = String(error || '').trim()
   if (!raw) return '主持模型未返回有效内容'
+  if (/All expert responses failed/i.test(raw)) return ALL_EXPERTS_EMPTY_LABEL
   if (/empty\s+(moderator synthesis|expert response)|empty/i.test(raw)) return '主持模型返回空内容'
   return raw
 }
@@ -866,7 +932,7 @@ async function callChatModel(slot, messages, opts = {}) {
   }
   const result = await api.modelChatCompletionsProxy(slot.baseUrl, slot.apiKey || '', slot.apiType, body)
   const parsed = parseProxyBody(result)
-  const content = parsed?.choices?.[0]?.message?.content || parsed?.choices?.[0]?.text || ''
+  const content = extractChatMessageContent(parsed)
   if (!content.trim()) throw new Error(`Model returned an empty ${opts.emptyResponseLabel || 'expert response'}`)
   return content.trim()
 }
@@ -889,7 +955,7 @@ async function callChatModelWithToolLoop(slot, messages, opts = {}) {
     const parsed = parseProxyBody(result)
     const choice = parsed?.choices?.[0]
     const message = choice?.message || {}
-    const content = typeof message.content === 'string' ? message.content : ''
+    const content = extractChatMessageContent(parsed)
     const toolCalls = Array.isArray(message.tool_calls) ? message.tool_calls.filter(tc => tc?.function?.name) : []
 
     if (!toolCalls.length) {
@@ -1093,11 +1159,40 @@ function parseChatStreamLine(line) {
   }
 }
 
-function extractChatMessageContent(parsed) {
-  return parsed?.choices?.[0]?.message?.content
-    || parsed?.choices?.[0]?.message?.reasoning_content
-    || parsed?.choices?.[0]?.text
-    || ''
+export function extractChatMessageContent(parsed) {
+  const choice = parsed?.choices?.[0] || {}
+  const message = choice.message || {}
+  return [
+    extractTextContent(message.content),
+    extractTextContent(message.reasoning_content),
+    extractTextContent(choice.text),
+    extractTextContent(parsed?.output_text),
+    extractResponsesOutputText(parsed?.output),
+  ].find(text => String(text || '').trim()) || ''
+}
+
+function extractResponsesOutputText(output) {
+  if (!Array.isArray(output)) return ''
+  return output.map(item => {
+    if (!item) return ''
+    if (item.type === 'message') return extractTextContent(item.content)
+    if (item.type === 'reasoning') return extractTextContent(item.summary || item.content)
+    return extractTextContent(item.content || item.text || item.output_text)
+  }).filter(Boolean).join('')
+}
+
+function extractTextContent(value) {
+  if (value == null) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (Array.isArray(value)) return value.map(extractTextContent).filter(Boolean).join('')
+  if (typeof value !== 'object') return ''
+  if (typeof value.text === 'string') return value.text
+  if (typeof value.output_text === 'string') return value.output_text
+  if (typeof value.value === 'string') return value.value
+  if (value.text && typeof value.text === 'object') return extractTextContent(value.text)
+  if (value.content) return extractTextContent(value.content)
+  return ''
 }
 
 function formatProxyStreamError(status, errText) {

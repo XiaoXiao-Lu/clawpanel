@@ -4342,7 +4342,10 @@ function renderExpertTeamMessage(m, idx) {
   ` : ''
 
   const hasFinal = transcript.some(item => item.type === 'final')
-  const primaryItems = transcript.filter(item => ['final', 'error'].includes(item.type) || (!isRunning && !hasFinal && item.type === 'stopped'))
+  const legacyEmptyFallback = !hasFinal && isExpertTeamEmptyResponseFailure(transcript, isRunning)
+  const primaryItems = legacyEmptyFallback
+    ? [buildExpertTeamNoExpertResponseDisplayItem(transcript, plan)]
+    : transcript.filter(item => ['final', 'error'].includes(item.type) || (!isRunning && !hasFinal && item.type === 'stopped'))
   const processItems = transcript.filter(item => !['final', 'error', 'stopped'].includes(item.type))
   const primaryHtml = primaryItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('')
   const topPrimaryHtml = !isRunning && primaryHtml ? primaryHtml : ''
@@ -4507,6 +4510,7 @@ function getExpertTeamOperations(transcript) {
 function buildExpertTeamActivities(transcript, run, isRunning) {
   const activities = []
   const events = Array.isArray(transcript) ? transcript : []
+  const emptyFailure = isExpertTeamEmptyResponseFailure(events, isRunning)
   const started = run?.startedAt || events[0]?.createdAt || Date.now()
   if (run || events.length || isRunning) {
     activities.push({
@@ -4559,7 +4563,7 @@ function buildExpertTeamActivities(transcript, run, isRunning) {
         status: 'error',
         iconName: 'alert-circle',
         title: `${expertTeamActorLabel(item)}异常`,
-        detail: item.message || item.error || '该专家调用失败，已跳过并继续',
+        detail: expertTeamMessageText(item.message || item.error, '该专家调用失败，已跳过并继续'),
         meta: '异常',
       })
       continue
@@ -4600,7 +4604,7 @@ function buildExpertTeamActivities(transcript, run, isRunning) {
         status: 'warning',
         iconName: 'shield',
         title: '主持综合已降级',
-        detail: item.message || item.error || '主持模型未返回有效内容，已用专家意见整理临时交付',
+        detail: expertTeamMessageText(item.message || item.error, '主持模型未返回有效内容，已用专家意见整理临时交付'),
         meta: '自动兜底',
       })
       continue
@@ -4622,18 +4626,18 @@ function buildExpertTeamActivities(transcript, run, isRunning) {
         status: 'stopped',
         iconName: 'stop',
         title: '用户停止',
-        detail: item.message || '运行已停止，保留已完成记录',
+        detail: expertTeamMessageText(item.message, '运行已停止，保留已完成记录'),
         meta: '停止',
       })
       continue
     }
     if (item.type === 'error') {
       activities.push({
-        status: 'error',
-        iconName: 'alert-circle',
-        title: '运行失败',
-        detail: item.message || '专家团运行失败',
-        meta: '失败',
+        status: emptyFailure ? 'warning' : 'error',
+        iconName: emptyFailure ? 'shield' : 'alert-circle',
+        title: emptyFailure ? '模型无输出诊断' : '运行失败',
+        detail: emptyFailure ? '所有专家调用均未获得可用文本，建议检查或更换当前模型' : expertTeamMessageText(item.message, '专家团运行失败'),
+        meta: emptyFailure ? '已降级' : '失败',
       })
     }
   }
@@ -4833,16 +4837,17 @@ function renderExpertTeamCloseout(transcript, plan, progress) {
   const events = Array.isArray(transcript) ? transcript : []
   const finalDone = events.some(item => item.type === 'final')
   const stopped = events.some(item => item.type === 'stopped')
-  const failed = events.some(item => item.type === 'error')
+  const emptyFailure = isExpertTeamEmptyResponseFailure(events, progress?.status === 'running')
+  const failed = events.some(item => item.type === 'error') && !emptyFailure
   const fallback = hasExpertTeamModeratorFallback(events)
   const expertDone = events.filter(item => item.type === 'expert_done').length
   const errorCount = events.filter(item => item.type === 'expert_error' || item.type === 'moderator_error' || item.type === 'error').length
   const moderatorName = plan?.moderator?.name || plan?.moderator?.id || '主持专家'
-  const status = failed ? 'error' : fallback ? 'degraded' : finalDone ? 'done' : stopped && progress.status !== 'running' ? 'stopped' : progress.status
+  const status = emptyFailure ? 'degraded' : failed ? 'error' : fallback ? 'degraded' : finalDone ? 'done' : stopped && progress.status !== 'running' ? 'stopped' : progress.status
   const nextStep = failed
     ? '可查看错误并重新发起'
-    : fallback
-      ? '建议重新综合生成正式交付'
+    : fallback || emptyFailure
+      ? (emptyFailure ? '建议检查或更换模型后重新发起' : '建议重新综合生成正式交付')
       : finalDone
       ? '可继续追问或复制交付结果'
       : stopped
@@ -4855,8 +4860,8 @@ function renderExpertTeamCloseout(transcript, plan, progress) {
       <span>${escHtml(expertTeamStageStatusLabel(status))}</span>
     </div>
     <div class="ast-expert-closeout-grid">
-      <span><small>专家意见</small><strong>${escHtml(expertDone)}份</strong></span>
-      <span><small>质量门禁</small><strong>${escHtml(fallback ? `${moderatorName}临时交付` : finalDone ? `${moderatorName}已综合` : `${moderatorName}待综合`)}</strong></span>
+      <span><small>专家意见</small><strong>${escHtml(String(expertDone))}份</strong></span>
+      <span><small>质量门禁</small><strong>${escHtml(emptyFailure ? '未获得可用专家输出' : fallback ? `${moderatorName}临时交付` : finalDone ? `${moderatorName}已综合` : `${moderatorName}待综合`)}</strong></span>
       <span><small>异常处理</small><strong>${escHtml(errorCount ? `${errorCount}个` : '无')}</strong></span>
       <span><small>下一步</small><strong>${escHtml(nextStep)}</strong></span>
     </div>
@@ -4947,6 +4952,44 @@ function hasExpertTeamModeratorFallback(transcript) {
   return events.some(item => item.type === 'moderator_error') && (!final || final.status === 'fallback' || /临时交付|自动降级|主持模型返回空内容|主持专家合成失败/.test(String(final.content || '')))
 }
 
+function isExpertTeamEmptyResponseFailure(transcript, isRunning = false) {
+  if (isRunning) return false
+  const events = Array.isArray(transcript) ? transcript : []
+  if (events.some(item => item.type === 'final' || item.type === 'expert_done')) return false
+  const expertErrors = events.filter(item => item.type === 'expert_error')
+  if (!expertErrors.length) return false
+  const runFailed = events.some(item => item.type === 'error')
+  if (!runFailed) return false
+  return expertErrors.every(item => /empty expert response|空专家回复|空内容|没有收到可用/i.test(expertTeamMessageText(item.message || item.error, '')))
+}
+
+function buildExpertTeamNoExpertResponseDisplayItem(transcript, plan) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const expertErrors = events.filter(item => item.type === 'expert_error')
+  const experts = [...new Set(expertErrors
+    .map(item => item.expertName || item.expertId || '专家')
+    .filter(Boolean))]
+  const model = expertErrors.find(item => item.model)?.model || plan?.model
+  return {
+    type: 'final',
+    status: 'fallback',
+    model,
+    content: [
+      '专家团没有收到可用的专家回复，本次没有足够材料生成正式综合结论。',
+      '',
+      '## 当前状态',
+      `- 已调度专家：${experts.length ? experts.join('、') : '暂无'}`,
+      '- 可用专家意见：0 份',
+      '- 常见原因：当前模型返回空内容、模型接口格式不兼容、模型服务异常，或模型配置不可用',
+      '',
+      '## 建议下一步',
+      '- 优先切换到稳定的 OpenAI 兼容 Chat Completions 模型后重新发起。',
+      '- 检查模型配置页里的 baseUrl、模型名、API Key 和服务状态。',
+      '- 如果只在某个模型上复现，说明该模型返回格式需要单独适配。',
+    ].join('\n'),
+  }
+}
+
 function getExpertTeamStages(transcript, plan, isRunning, progress) {
   const events = Array.isArray(transcript) ? transcript : []
   const hasPlan = !!plan || events.length > 0 || isRunning
@@ -4958,7 +5001,8 @@ function getExpertTeamStages(transcript, plan, isRunning, progress) {
   const finalDone = events.some(item => item.type === 'final')
   const fallback = hasExpertTeamModeratorFallback(events)
   const stopped = events.some(item => item.type === 'stopped')
-  const failed = events.some(item => item.type === 'error')
+  const emptyFailure = isExpertTeamEmptyResponseFailure(events, isRunning)
+  const failed = events.some(item => item.type === 'error') && !emptyFailure
   const effectiveStopped = stopped && !isRunning && !finalDone && !failed
   const memberCount = Array.isArray(plan?.members) ? plan.members.length : 0
   const rounds = plan?.mode === 'sequential' ? Math.max(1, Number.parseInt(plan.maxRounds || 1, 10) || 1) : 1
@@ -4969,13 +5013,13 @@ function getExpertTeamStages(transcript, plan, isRunning, progress) {
         : expertLive ? 'running'
           : hasPlan ? 'waiting' : 'waiting'
   const moderatorStatus = failed ? 'error'
-    : fallback || moderatorError ? 'warning'
+    : fallback || moderatorError || emptyFailure ? 'warning'
     : effectiveStopped ? 'stopped'
       : finalDone ? 'done'
         : moderatorLive ? 'running'
           : expertDone > 0 || expertLive ? 'waiting' : 'waiting'
   const closeoutStatus = failed ? 'error'
-    : fallback ? 'degraded'
+    : fallback || emptyFailure ? 'degraded'
     : effectiveStopped ? 'stopped'
       : finalDone ? 'done'
         : isRunning ? 'waiting' : 'waiting'
@@ -5003,14 +5047,14 @@ function getExpertTeamStages(transcript, plan, isRunning, progress) {
     },
     {
       name: '主持综合',
-      detail: fallback ? '模型空响应，已临时交付' : finalDone ? '结论已生成' : '等待专家意见',
+      detail: emptyFailure ? '模型无可用输出' : fallback ? '模型空响应，已临时交付' : finalDone ? '结论已生成' : '等待专家意见',
       status: moderatorStatus,
       label: expertTeamStageStatusLabel(moderatorStatus),
       icon: icon('crown', 13),
     },
     {
       name: '交付复盘',
-      detail: fallback ? '可重新综合' : finalDone ? '闭环完成' : effectiveStopped ? '已退出专家团' : '等待质量门禁',
+      detail: emptyFailure ? '建议更换模型后重试' : fallback ? '可重新综合' : finalDone ? '闭环完成' : effectiveStopped ? '已退出专家团' : '等待质量门禁',
       status: closeoutStatus,
       label: expertTeamStageStatusLabel(closeoutStatus),
       icon: icon('clipboard', 13),
@@ -5058,7 +5102,7 @@ function renderExpertTeamEventItem(item, eventIndex) {
     return renderExpertTeamDoneItem(item, eventIndex)
   }
   if (item.type === 'expert_error') {
-    return renderExpertTeamErrorItem(item, item.message || '该专家调用失败，已跳过并继续运行。')
+    return renderExpertTeamErrorItem(item, expertTeamMessageText(item.message, '该专家调用失败，已跳过并继续运行。'))
   }
   if (['moderator_start', 'moderator_stream', 'moderator_retry'].includes(item.type)) {
     return renderExpertTeamModeratorLiveItem(item)
@@ -5073,7 +5117,7 @@ function renderExpertTeamEventItem(item, eventIndex) {
         <strong>主持综合已自动降级</strong>
         ${expertTeamModelPill(item.model)}
       </div>
-      <div class="ast-expert-item-body">${escHtml(item.message || '主持模型未返回有效内容，系统已根据已收集的专家意见生成临时交付。')}</div>
+      <div class="ast-expert-item-body">${escHtml(expertTeamMessageText(item.message, '主持模型未返回有效内容，系统已根据已收集的专家意见生成临时交付。'))}</div>
     </div>`
   }
   if (item.type === 'final') {
@@ -5094,7 +5138,7 @@ function renderExpertTeamEventItem(item, eventIndex) {
         <span class="ast-expert-status-icon">${icon('alert-circle', 13)}</span>
         <strong>错误</strong>
       </div>
-      <div class="ast-expert-item-body">${escHtml(item.message)}</div>
+      <div class="ast-expert-item-body">${escHtml(expertTeamMessageText(item.message, '专家团运行失败'))}</div>
     </div>`
   }
   if (item.type === 'stopped') {
@@ -5103,7 +5147,7 @@ function renderExpertTeamEventItem(item, eventIndex) {
         <span class="ast-expert-status-icon">${icon('stop', 13)}</span>
         <strong>已停止</strong>
       </div>
-      <div class="ast-expert-item-body">${escHtml(item.message || '专家团运行已停止。后续消息将按普通对话发送。')}</div>
+      <div class="ast-expert-item-body">${escHtml(expertTeamMessageText(item.message, '专家团运行已停止。后续消息将按普通对话发送。'))}</div>
     </div>`
   }
   return ''
@@ -5318,15 +5362,17 @@ function getExpertTeamProgress(transcript, plan, isRunning) {
   const total = Math.max(1, expertTotal + moderatorTotal)
   const finalDone = events.some(item => item.type === 'final')
   const fallback = hasExpertTeamModeratorFallback(events)
+  const emptyFailure = isExpertTeamEmptyResponseFailure(events, isRunning)
   const moderatorDone = moderatorTotal && (finalDone || events.some(item => item.type === 'moderator_error')) ? 1 : 0
-  const completed = finalDone ? total : Math.min(total, completedExpertEvents + moderatorDone)
-  const percent = finalDone ? 100 : Math.max(isRunning ? 8 : 0, Math.round((completed / total) * 100))
+  const completed = finalDone || emptyFailure ? total : Math.min(total, completedExpertEvents + moderatorDone)
+  const percent = finalDone || emptyFailure ? 100 : Math.max(isRunning ? 8 : 0, Math.round((completed / total) * 100))
   const errorCount = events.filter(item => item.type === 'expert_error' || item.type === 'error').length
   const warningCount = events.filter(item => item.type === 'moderator_error').length
   const stopped = events.some(item => item.type === 'stopped')
-  const failed = events.some(item => item.type === 'error') && !isRunning
+  const failed = events.some(item => item.type === 'error') && !isRunning && !emptyFailure
   let status = isRunning ? 'running' : 'idle'
-  if (finalDone && !isRunning) status = fallback ? 'degraded' : 'done'
+  if (emptyFailure && !isRunning) status = 'degraded'
+  else if (finalDone && !isRunning) status = fallback ? 'degraded' : 'done'
   if (failed) status = 'error'
   if (stopped && !isRunning && !finalDone && !failed) status = 'stopped'
   const active = isRunning ? [...events].reverse().find(item => ['moderator_stream', 'moderator_start', 'moderator_retry', 'expert_stream', 'expert_start', 'expert_retry'].includes(item.type)) : null
@@ -5334,6 +5380,8 @@ function getExpertTeamProgress(transcript, plan, isRunning) {
     ? expertTeamCurrentLabel(active)
     : failed
       ? '专家团运行失败'
+      : emptyFailure
+        ? '模型未返回可用专家意见'
       : fallback
         ? '已生成临时交付，可重新综合'
         : finalDone
@@ -5349,7 +5397,7 @@ function getExpertTeamProgress(transcript, plan, isRunning) {
     currentLabel,
     errorCount,
     warningCount,
-    summary: fallback ? '主持综合已降级，可重新综合' : finalDone ? '最终结论已生成' : isRunning ? '中间意见默认折叠，当前输出实时更新' : '可展开查看专家明细',
+    summary: emptyFailure ? '没有收到可用专家回复，请检查或更换模型后重试' : fallback ? '主持综合已降级，可重新综合' : finalDone ? '最终结论已生成' : isRunning ? '中间意见默认折叠，当前输出实时更新' : '可展开查看专家明细',
   }
 }
 
@@ -5480,6 +5528,26 @@ function expertTeamLiveText(content, limit = 900) {
   const raw = String(content || '').trim()
   if (!raw) return ''
   return raw.length > limit ? `...${raw.slice(raw.length - limit)}` : raw
+}
+
+function expertTeamMessageText(value, fallback = '运行出错') {
+  if (value == null) return fallback
+  if (typeof value === 'string') return value.trim() || fallback
+  if (typeof value === 'object') {
+    const parts = [value.message, value.hint].map(part => String(part || '').trim()).filter(Boolean)
+    if (parts.length) return parts.join(' · ')
+    if (typeof value.raw === 'string' && value.raw.trim()) return value.raw.trim()
+    if (typeof value.error === 'string' && value.error.trim()) return value.error.trim()
+  }
+  const text = String(value || '').trim()
+  return text && text !== '[object Object]' ? text : fallback
+}
+
+function expertTeamErrorText(error, context) {
+  const text = expertTeamMessageText(humanizeError(error, context), context || '专家团运行失败')
+  if (/All expert responses failed/i.test(text)) return `${context || '专家团运行失败'} · 专家团没有收到可用的专家回复，请检查或更换当前模型后重试`
+  if (/Model returned an empty expert response/i.test(text)) return `${context || '专家团运行失败'} · 当前模型返回空专家回复，请检查或更换当前模型后重试`
+  return text
 }
 
 function expertTeamDomId(message) {
@@ -7305,7 +7373,7 @@ function handleExpertTeamRunEvent(aiMsg, event = {}) {
       expertName: event.message?.expertName || event.message?.expertId,
       expertTitle: event.message?.expertTitle || '',
       expertId: event.message?.expertId,
-      message: event.message?.error || '该专家调用失败，已跳过并继续运行。',
+      message: expertTeamMessageText(event.message?.error, '该专家调用失败，已跳过并继续运行。'),
       model: event.message?.model,
       round: event.message?.round || 0,
     })
@@ -7345,7 +7413,7 @@ function handleExpertTeamRunEvent(aiMsg, event = {}) {
     if (pendingIdx >= 0) aiMsg._expertTeamTranscript.splice(pendingIdx, 1)
     aiMsg._expertTeamTranscript.push({
       type: 'moderator_error',
-      message: event.message?.error || '主持综合失败，将使用降级结果。',
+      message: expertTeamMessageText(event.message?.error, '主持综合失败，将使用降级结果。'),
       model: event.message?.model,
     })
   }
@@ -7370,7 +7438,7 @@ function handleExpertTeamRunEvent(aiMsg, event = {}) {
   if (event.type === 'error') {
     aiMsg._expertTeamTranscript.push({
       type: 'error',
-      message: event.message || '运行出错',
+      message: expertTeamMessageText(event.message, '运行出错'),
     })
     aiMsg._expertTeamRunning = false
     aiMsg._expertTeamResumeInFlight = false
@@ -7378,7 +7446,7 @@ function handleExpertTeamRunEvent(aiMsg, event = {}) {
   if (event.type === 'stopped') {
     aiMsg._expertTeamTranscript.push({
       type: 'stopped',
-      message: event.message || '专家团运行已停止。后续消息将按普通对话发送。',
+      message: expertTeamMessageText(event.message, '专家团运行已停止。后续消息将按普通对话发送。'),
     })
     aiMsg._expertTeamRunning = false
     aiMsg._expertTeamResumeInFlight = false
@@ -7515,7 +7583,7 @@ async function sendViaExpertTeam(text, images) {
     if (e?.name === 'AbortError') {
       handleExpertTeamRunEvent(aiMsg, { type: 'stopped', message: '专家团运行已停止。后续消息将按普通对话发送。' })
     } else {
-      const message = humanizeError(e, '专家团运行失败')
+      const message = expertTeamErrorText(e, '专家团运行失败')
       handleExpertTeamRunEvent(aiMsg, { type: 'error', message })
     }
     aiMsg._expertTeamRunning = false
@@ -7586,7 +7654,7 @@ async function resumeExpertTeamMessage(idx, mode = 'synthesis') {
     if (e?.name === 'AbortError') {
       handleExpertTeamRunEvent(aiMsg, { type: 'stopped', message: mode === 'run' ? '专家团续跑已停止。后续消息将按普通对话发送。' : '专家团继续综合已停止。后续消息将按普通对话发送。' })
     } else {
-      const message = humanizeError(e, mode === 'run' ? '专家团续跑失败' : '专家团继续综合失败')
+      const message = expertTeamErrorText(e, mode === 'run' ? '专家团续跑失败' : '专家团继续综合失败')
       handleExpertTeamRunEvent(aiMsg, { type: 'error', message })
     }
     saveSessions()

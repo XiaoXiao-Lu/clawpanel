@@ -161,6 +161,11 @@ test('Expert Teams runner defines structured expert communication', () => {
     'buildExpertFailure',
     'buildModeratorFinalOrFallback',
     'buildFallbackSynthesis',
+    'buildNoExpertResponseFallback',
+    'extractChatMessageContent',
+    'extractResponsesOutputText',
+    'reasoning_content',
+    'output_text',
     'emptyResponseLabel',
     "emptyResponseLabel: 'moderator synthesis'",
     "buildExpertRunEvent('moderator_delta', plan.moderator, slot)",
@@ -177,7 +182,7 @@ test('Expert Teams runner defines structured expert communication', () => {
     'No expert contributions available to resume synthesis',
     'expert_error',
     'moderator_error',
-    'All expert responses failed',
+    '专家团没有收到可用的专家回复',
     'maxParallel',
     'maxRounds',
     'Declared capability context',
@@ -261,6 +266,8 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'resumeExpertTeamMessage',
     'assistantExpertTeamSlot',
     'handleExpertTeamRunEvent',
+    'expertTeamMessageText',
+    'expertTeamErrorText',
     'data-action="resume-expert-synthesis"',
     'data-action="resume-expert-run"',
     'ast-expert-resume-actions',
@@ -294,6 +301,8 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
   ]) {
     assert.match(assistant, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
+  assert.doesNotMatch(assistant, /message\s*=\s*humanizeError\(e,\s*mode === 'run'/)
+  assert.doesNotMatch(assistant, /message\s*=\s*humanizeError\(e,\s*'专家团运行失败'\)/)
   assert.doesNotMatch(assistant, /function\s+expertTeamPreview/)
   assert.match(assistant, /_isStreaming\s*=\s*true[\s\S]*clearActiveExpertGroupSelection\(\)/)
   assert.match(assistant, /event\.type === 'expert_delta'[\s\S]*shouldRender\s*=\s*false/)

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildExpertMessages, buildExpertTeamPlan, buildModeratorMessages, isolateExpertTeamModelConfig, resolveDefaultModelSlot, resolveExpertModelSlot, resolveMaxParallel, resolveMaxRounds, resolveMembers, resumeExpertTeamRun, resumeExpertTeamSynthesis } from '../src/lib/expert-team-runner.js'
+import { buildExpertMessages, buildExpertTeamPlan, buildModeratorMessages, extractChatMessageContent, isolateExpertTeamModelConfig, resolveDefaultModelSlot, resolveExpertModelSlot, resolveMaxParallel, resolveMaxRounds, resolveMembers, resumeExpertTeamRun, resumeExpertTeamSynthesis } from '../src/lib/expert-team-runner.js'
 
 const experts = [
   {
@@ -70,6 +70,24 @@ test('moderator prompt synthesizes all expert contributions', () => {
   assert.match(messages[1].content, /Expert blackboard/)
   assert.match(messages[1].content, /Start simple/)
   assert.match(messages[1].content, /Track risks/)
+})
+
+test('chat content extraction supports reasoning and structured provider responses', () => {
+  assert.equal(extractChatMessageContent({
+    choices: [{ message: { reasoning_content: 'Reasoning-only answer.' } }],
+  }), 'Reasoning-only answer.')
+
+  assert.equal(extractChatMessageContent({
+    choices: [{ message: { content: [{ type: 'text', text: 'Part A' }, { text: ' Part B' }] } }],
+  }), 'Part A Part B')
+
+  assert.equal(extractChatMessageContent({
+    output_text: 'Responses API text.',
+  }), 'Responses API text.')
+
+  assert.equal(extractChatMessageContent({
+    output: [{ type: 'message', content: [{ type: 'output_text', text: 'Nested output.' }] }],
+  }), 'Nested output.')
 })
 
 test('resume synthesis validates plan and existing contributions before model calls', async () => {
