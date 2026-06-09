@@ -838,6 +838,9 @@ function collectExpert(page, current = {}) {
   if (!name) throw new Error(t('expertTeams.nameRequired'))
   if (!ID_RE.test(id)) throw new Error(t('expertTeams.idInvalid'))
   const inheritDefault = valueOf(page, '#expert-model-inherit') !== 'fixed'
+  const rawModelId = valueOf(page, '#expert-model-id')
+  const modelId = inheritDefault ? rawModelId : normalizeProviderModelRef(rawModelId)
+  if (!inheritDefault && !modelId) throw new Error(t('expertTeams.modelIdInvalid'))
   const base = { ...(current || {}) }
   delete base.boundAgentId
   return {
@@ -852,7 +855,7 @@ function collectExpert(page, current = {}) {
     model: {
       ...(current?.model && typeof current.model === 'object' ? current.model : {}),
       inheritDefault,
-      modelId: valueOf(page, '#expert-model-id'),
+      modelId,
     },
     tools: readTagPicker(page, '#expert-tools-tags'),
     skills: readTagPicker(page, '#expert-skills-tags'),
@@ -1160,6 +1163,11 @@ function bindTagPickerEvents(root, id, options) {
     })
   }
 
+  function closeModal({ restoreFocus = false } = {}) {
+    modal.hidden = true
+    if (restoreFocus) trigger.focus()
+  }
+
   // 打开弹窗
   trigger.addEventListener('click', () => {
     // 同步当前选中状态到 modal checkbox
@@ -1175,10 +1183,15 @@ function bindTagPickerEvents(root, id, options) {
 
   // 关闭弹窗
   modal.querySelectorAll('[data-close-modal]').forEach(btn => {
-    btn.addEventListener('click', () => { modal.hidden = true })
+    btn.addEventListener('click', () => closeModal({ restoreFocus: true }))
   })
-  modal.querySelector('.expert-tag-modal-overlay')?.addEventListener('click', (e) => {
-    if (e.target === modal) modal.hidden = true
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal({ restoreFocus: true })
+  })
+  modal.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return
+    e.preventDefault()
+    closeModal({ restoreFocus: true })
   })
 
   // 搜索
@@ -1205,7 +1218,7 @@ function bindTagPickerEvents(root, id, options) {
   modal.querySelector('[data-confirm-modal]')?.addEventListener('click', () => {
     const selected = getSelectedFromModal()
     syncTags(selected)
-    modal.hidden = true
+    closeModal({ restoreFocus: true })
   })
 }
 
@@ -1221,6 +1234,20 @@ function normalizeId(rawId, name, prefix) {
     .replace(/^-+|-+$/g, '')
     .slice(0, 60)
   return slug || `${prefix}-${Date.now()}`
+}
+
+function isProviderModelRef(value) {
+  return !!normalizeProviderModelRef(value)
+}
+
+function normalizeProviderModelRef(value) {
+  const text = String(value || '').trim()
+  const slash = text.indexOf('/')
+  if (slash <= 0 || slash === text.length - 1) return ''
+  const provider = text.slice(0, slash).trim()
+  const model = text.slice(slash + 1).trim()
+  if (!provider || !model || /\s/.test(provider) || /\s/.test(model)) return ''
+  return `${provider}/${model}`
 }
 
 function clampInt(value, fallback, min, max) {

@@ -11,6 +11,7 @@ const devApi = readFileSync(new URL('../scripts/dev-api.js', import.meta.url), '
 const engine = readFileSync(new URL('../src/engines/openclaw/index.js', import.meta.url), 'utf8')
 const locales = readFileSync(new URL('../src/locales/index.js', import.meta.url), 'utf8')
 const sidebarLocale = readFileSync(new URL('../src/locales/modules/sidebar.js', import.meta.url), 'utf8')
+const expertTeamsLocale = readFileSync(new URL('../src/locales/modules/expertTeams.js', import.meta.url), 'utf8')
 
 function cssBlock(selector) {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -109,6 +110,15 @@ test('Expert Teams page supports expert editing and team member selection', () =
     'selectedSkillListFailed',
     'selectedSkillNotScanned',
     'selectedTagNotAvailable',
+    'modelIdInvalid',
+    'isProviderModelRef',
+    'normalizeProviderModelRef',
+    'const rawModelId',
+    '!inheritDefault && !modelId',
+    'closeModal({ restoreFocus: true })',
+    "modal.addEventListener('click'",
+    "modal.addEventListener('keydown'",
+    "e.key !== 'Escape'",
     'renderWorkflowGuide',
     'workflowGuide',
     'updateGroupWorkflowGuide',
@@ -135,6 +145,8 @@ test('Expert Teams page supports expert editing and team member selection', () =
   assert.doesNotMatch(page, />确认</)
   assert.doesNotMatch(page, /已选 \$\{[^}]+\} 项/)
   assert.doesNotMatch(page, /点击选择\.\.\./)
+  assert.doesNotMatch(page, /modal\.querySelector\('\.expert-tag-modal-overlay'\)/)
+  assert.match(expertTeamsLocale, /modelIdInvalid/)
 
   for (const token of [
     'expert-run-panel',
