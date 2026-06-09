@@ -196,8 +196,10 @@ export async function render() {
   page.addEventListener('click', (e) => {
     const tab = e.target.closest('[data-provider-tab]')
     if (tab) {
-      state._providerFilter = tab.dataset.providerTab
-      renderProviders(page, state)
+      const nextFilter = tab.dataset.providerTab
+      if (!nextFilter || nextFilter === state._providerFilter) return
+      state._providerFilter = nextFilter
+      renderProvidersKeepingViewport(page, state)
     }
   })
 
@@ -1276,6 +1278,25 @@ function renderProviders(page, state) {
 
   // 绑定事件
   bindProviderButtons(listEl, page, state)
+}
+
+function getModelsScrollContainer(page) {
+  return page.closest('#content') || document.scrollingElement || document.documentElement
+}
+
+function renderProvidersKeepingViewport(page, state) {
+  const scroller = getModelsScrollContainer(page)
+  const anchor = page.querySelector('.models-provider-tabs')
+  const beforeTop = anchor?.getBoundingClientRect?.().top
+
+  renderProviders(page, state)
+
+  const nextAnchor = page.querySelector('.models-provider-tabs')
+  const afterTop = nextAnchor?.getBoundingClientRect?.().top
+  if (!scroller || typeof beforeTop !== 'number' || typeof afterTop !== 'number') return
+
+  const delta = afterTop - beforeTop
+  if (Math.abs(delta) > 0.5) scroller.scrollTop += delta
 }
 
 // 格式化测试时间为相对时间

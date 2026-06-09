@@ -53,6 +53,22 @@ function manualChunks(id) {
   }
 }
 
+function ignoredWatchPath(file) {
+  const normalized = String(file || '').replace(/\\/g, '/')
+  return (
+    normalized.includes('/src-tauri/target/') ||
+    normalized.endsWith('/src-tauri/target') ||
+    normalized.includes('/dist/') ||
+    normalized.endsWith('/dist') ||
+    normalized.includes('/.tmp/') ||
+    normalized.endsWith('/.tmp') ||
+    normalized.includes('/reports/') ||
+    normalized.endsWith('/reports') ||
+    normalized.includes('/screenshots/') ||
+    normalized.endsWith('/screenshots')
+  )
+}
+
 export default defineConfig({
   plugins: [devApiPlugin()],
   define: {
@@ -63,13 +79,7 @@ export default defineConfig({
     port: 1420,
     strictPort: true,
     watch: {
-      ignored: [
-        '**/src-tauri/target/**',
-        '**/dist/**',
-        '**/.tmp/**',
-        '**/reports/**',
-        '**/screenshots/**',
-      ],
+      ignored: ignoredWatchPath,
     },
     proxy: {
       '/ws': {

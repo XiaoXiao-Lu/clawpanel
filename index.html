@@ -5,24 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ClawPanel</title>
   <link rel="icon" href="/favicon.ico">
-  <!-- Typography: Google Fonts (may be blocked in CN) + local fallback -->
+  <!-- Typography: load remote fonts without blocking the splash screen; local fallback is immediate. -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
   <!-- 样式由 main.js 通过 Vite 统一加载 -->
   <style>
-    /* Splash · Boot Manifest · 零依赖、内联渲染、双语支持（zh-CN / en，与应用 localStorage('clawpanel_lang') 共享） */
+    /* Splash · Boot Manifest — Aether Core · 零依赖、内联渲染、双语支持 */
     #splash {
       position: fixed; inset: 0; z-index: 99999;
       display: flex; align-items: center; justify-content: center;
       overflow: hidden;
-      background: #FAFAFA; color: #18181B;
-      font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #F6F7FA; color: #111827;
+      font-family: 'Inter', 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
       transition: opacity .4s ease, visibility .4s ease;
       animation: sp-fade-in .4s ease;
     }
     @keyframes sp-fade-in { from { opacity: 0; } to { opacity: 1; } }
-    @media (prefers-color-scheme: dark) { #splash { background: #0A0A10; color: #EBEBF5; } }
+    @media (prefers-color-scheme: dark) { #splash { background: #060610; color: #EDEDFA; } }
     #splash.hide { opacity: 0; visibility: hidden; pointer-events: none; }
     #splash [hidden] { display: none !important; }
 
@@ -30,28 +31,28 @@
     #splash::before {
       content: ''; position: absolute; inset: 0; pointer-events: none;
       background-image:
-        linear-gradient(rgba(24,24,27,.045) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(24,24,27,.045) 1px, transparent 1px);
-      background-size: 48px 48px;
+        linear-gradient(rgba(17,24,39,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(17,24,39,.035) 1px, transparent 1px);
+      background-size: 52px 52px;
       mask-image: radial-gradient(ellipse 60% 60% at center, #000, transparent 78%);
       -webkit-mask-image: radial-gradient(ellipse 60% 60% at center, #000, transparent 78%);
     }
     @media (prefers-color-scheme: dark) {
       #splash::before {
       background-image:
-        linear-gradient(rgba(235,235,245,.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(235,235,245,.03) 1px, transparent 1px);
+        linear-gradient(rgba(237,237,250,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(237,237,250,.025) 1px, transparent 1px);
       }
     }
-    /* subtle accent glow under the panel */
+    /* cyan accent glow under the panel */
     #splash::after {
-      content: ''; position: absolute; left: 50%; top: 50%; width: 520px; height: 280px;
+      content: ''; position: absolute; left: 50%; top: 50%; width: 560px; height: 300px;
       transform: translate(-50%, -50%); pointer-events: none; z-index: 1;
-      background: radial-gradient(ellipse, rgba(99,102,241,.10), transparent 70%);
-      filter: blur(40px);
+      background: radial-gradient(ellipse, rgba(6,182,212,.08), transparent 70%);
+      filter: blur(48px);
     }
     @media (prefers-color-scheme: dark) {
-      #splash::after { background: radial-gradient(ellipse, rgba(99,102,241,.18), transparent 70%); }
+      #splash::after { background: radial-gradient(ellipse, rgba(6,182,212,.16), transparent 70%); }
     }
 
     /* panel */
@@ -60,14 +61,14 @@
       width: min(540px, calc(100vw - 40px));
       padding: 30px 34px 26px;
       border-radius: 16px;
-      background: rgba(255,255,255, 0.92);  /* fallback */
-      background: rgba(255,255,255,.72);
-      border: 1px solid rgba(24,24,27,.08);
-      backdrop-filter: blur(24px) saturate(140%); -webkit-backdrop-filter: blur(24px) saturate(140%);
+      background: rgba(255,255,255, 0.88);
+      background: rgba(255,255,255,.68);
+      border: 1px solid rgba(17,24,39,.06);
+      backdrop-filter: blur(28px) saturate(140%); -webkit-backdrop-filter: blur(28px) saturate(140%);
       box-shadow:
-        0 1px 0 0 rgba(255,255,255,.7) inset,
-        0 24px 56px -28px rgba(24,24,27,.22),
-        0 4px 16px -8px rgba(24,24,27,.08);
+        0 1px 0 0 rgba(255,255,255,.65) inset,
+        0 24px 56px -28px rgba(17,24,39,.18),
+        0 4px 16px -8px rgba(17,24,39,.06);
       text-align: left;
       animation: sp-panel-in .5s cubic-bezier(.22,.61,.36,1);
     }
@@ -77,13 +78,13 @@
     }
     @media (prefers-color-scheme: dark) {
       .sp-panel {
-        background: rgba(15,15,18, 0.92);  /* fallback */
-        background: rgba(15,15,18,.74);
-        border-color: rgba(244,244,245,.08);
+        background: rgba(10,10,24, 0.90);
+        background: rgba(10,10,24,.72);
+        border-color: rgba(237,237,250,.06);
         box-shadow:
-          0 1px 0 0 rgba(255,255,255,.05) inset,
+          0 1px 0 0 rgba(255,255,255,.04) inset,
           0 24px 56px -28px #000,
-          0 4px 16px -8px rgba(0,0,0,.4);
+          0 4px 16px -8px rgba(0,0,0,.45);
       }
     }
 
@@ -95,10 +96,10 @@
       padding: 4px 9px; border-radius: 5px;
       font: 600 11px/1 ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
       letter-spacing: .02em;
-      background: rgba(24,24,27,.06); color: rgba(24,24,27,.7);
+      background: rgba(6,182,212,.08); color: rgba(8,145,178,.8);
     }
     @media (prefers-color-scheme: dark) {
-      .sp-version { background: rgba(244,244,245,.06); color: rgba(244,244,245,.7); }
+      .sp-version { background: rgba(6,182,212,.10); color: rgba(34,211,238,.8); }
     }
 
     /* steps */
@@ -118,21 +119,21 @@
     .sp-step.is-active { color: #18181B; }
     @media (prefers-color-scheme: dark) { .sp-step.is-active { color: #F4F4F5; } }
 
-    .sp-tick { width: 14px; height: 14px; flex-shrink: 0; color: #16A34A; }
-    .sp-tick--indigo { color: #6366F1; }
+    .sp-tick { width: 14px; height: 14px; flex-shrink: 0; color: #0891B2; }
+    .sp-tick--indigo { color: #06B6D4; }
     .sp-tick--gold { color: #C8A24A; }
     @media (prefers-color-scheme: dark) {
-      .sp-tick { color: #4ADE80; }
-      .sp-tick--indigo { color: #A5B4FC; }
+      .sp-tick { color: #22D3EE; }
+      .sp-tick--indigo { color: #06B6D4; }
       .sp-tick--gold { color: #E1C26A; }
     }
     .sp-spinner {
       width: 12px; height: 12px; flex-shrink: 0;
       border: 1.5px solid currentColor; border-top-color: transparent;
       border-radius: 50%; animation: sp-spin .8s linear infinite;
-      color: #6366F1;
+      color: #06B6D4;
     }
-    @media (prefers-color-scheme: dark) { .sp-spinner { color: #A5B4FC; } }
+    @media (prefers-color-scheme: dark) { .sp-spinner { color: #22D3EE; } }
     @keyframes sp-spin { to { transform: rotate(360deg); } }
 
     /* divider */
@@ -160,14 +161,14 @@
     /* diagnostics */
     .sp-diagnostics {
       margin-top: 14px; padding: 14px 16px; border-radius: 10px;
-      background: rgba(99,102,241,.06); border: 1px solid rgba(99,102,241,.20);
-      color: rgba(24,24,27,.78);
+      background: rgba(6,182,212,.05); border: 1px solid rgba(6,182,212,.18);
+      color: rgba(17,24,39,.74);
       font: 500 12px/1.65 ui-sans-serif, system-ui, 'PingFang SC', 'Microsoft YaHei';
     }
-    .sp-diagnostics strong { color: #18181B; font-weight: 700; }
+    .sp-diagnostics strong { color: #111827; font-weight: 700; }
     @media (prefers-color-scheme: dark) {
-      .sp-diagnostics { background: rgba(99,102,241,.12); border-color: rgba(165,180,252,.25); color: rgba(244,244,245,.85); }
-      .sp-diagnostics strong { color: #F4F4F5; }
+      .sp-diagnostics { background: rgba(6,182,212,.10); border-color: rgba(34,211,238,.22); color: rgba(237,237,250,.82); }
+      .sp-diagnostics strong { color: #EDEDFA; }
     }
 
     /* actions */

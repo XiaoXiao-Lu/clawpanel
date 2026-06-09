@@ -36,6 +36,13 @@ test('OpenClaw models page wires quick model switching and fallback actions', ()
   assert.match(modelsPage, /function locateModel/)
 })
 
+test('Provider tab switching preserves scroll position instead of feeling like a page refresh', () => {
+  assert.match(modelsPage, /function renderProvidersKeepingViewport/)
+  assert.match(modelsPage, /getBoundingClientRect\?\.\(\)\.top/)
+  assert.match(modelsPage, /scroller\.scrollTop\s*\+=\s*delta/)
+  assert.match(modelsPage, /renderProvidersKeepingViewport\(page,\s*state\)/)
+})
+
 test('Model console styling preserves responsive commercial layout', () => {
   assert.match(cssBlock('.models-control-console'), /display:\s*flex/)
   assert.match(cssBlock('.models-control-console'), /flex-direction:\s*column/)

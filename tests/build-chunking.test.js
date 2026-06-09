@@ -55,3 +55,17 @@ test('Vite build splits heavy runtime and locale modules into stable chunks', ()
 
   assert.equal(config.build.chunkSizeWarningLimit, 700)
 })
+
+test('Vite dev server ignores locked Tauri build outputs on Windows paths', () => {
+  const ignored = config?.server?.watch?.ignored
+  assert.equal(typeof ignored, 'function')
+
+  assert.equal(
+    ignored('E:\\Code\\codex\\ChatCraw\\src-tauri\\target\\release\\deps\\clawpanel.exe'),
+    true,
+  )
+  assert.equal(
+    ignored('E:/Code/codex/ChatCraw/src/main.js'),
+    false,
+  )
+})
