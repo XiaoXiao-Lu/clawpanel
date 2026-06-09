@@ -151,6 +151,18 @@ body.has-desktop-chrome #main-col {
 #sidebar.sidebar-collapsed #btn-theme-toggle { justify-content: center; }
 #sidebar.sidebar-collapsed #btn-theme-toggle span { display: none; }
 
+/* 主题按钮 — 需容纳图标+文字，不能限死宽度 */
+#btn-theme-toggle {
+  width: auto;
+  padding: 0 10px;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 500;
+}
+#btn-theme-toggle span {
+  white-space: nowrap;
+}
+
 .sidebar-header {
   padding: 14px 16px;
   display: flex;
