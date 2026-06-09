@@ -585,61 +585,19 @@ function renderConsole(page, state) {
     const metaEl = existing.querySelector('.models-primary-meta')
     if (metaEl) metaEl.textContent = modelMetaLine(entry)
 
-    const badges = existing.querySelectorAll('.models-cb-badge')
+    // 更新徽章
+    const badges = existing.querySelectorAll('.models-cb-badge--count')
     if (badges[0]) badges[0].textContent = `${fallbacks.length} ${t('models.fallbackCount')}`
     if (badges[1]) badges[1].textContent = `${collectAllModels(state.config).length} ${t('models.totalModels')}`
 
-    const cb = existing.querySelector('.models-switch-left [data-action="toggle-reasoning"] input')
+    // 更新推理开关
+    const cb = page.querySelector('.models-switch-left [data-action="toggle-reasoning"] input')
     if (cb && cb.checked !== reasoning) cb.checked = reasoning
 
-    const maxConcurrentInput = existing.querySelector('#models-max-concurrent')
+    // 更新并发数
+    const maxConcurrentInput = page.querySelector('#models-max-concurrent')
     if (maxConcurrentInput && document.activeElement !== maxConcurrentInput && maxConcurrentInput.value !== String(maxConcurrent)) {
       maxConcurrentInput.value = String(maxConcurrent)
-    }
-
-    // 更新备选 pill 列表
-    const fbInline = existing.querySelector('.models-fallback-inline')
-    if (fbInline) {
-      fbInline.innerHTML = `
-        ${fallbacks.length > 0
-          ? fallbacks.map(f => {
-              const fEntry = getModelObject(state.config, f)
-              return `<span class="models-fallback-pill" data-action="toggle-fallback" data-full="${escapeHtml(f)}" title="${t('models.removeFallback')}">${escapeHtml(fEntry?.modelId || f)} <span>×</span></span>`
-            }).join('')
-          : `<span class="models-empty-fallback">${t('models.noFallback')}</span>`
-        }
-        <button class="btn btn-sm models-ghost-btn" id="models-toggle-fallbacks">${icon('layers', 12)} ${t('models.manageFallbacks')}</button>
-      `
-      // 重新绑定备选 pill 点击
-      fbInline.querySelectorAll('[data-action="toggle-fallback"]').forEach(pill => {
-        pill.setAttribute('role', 'button')
-        pill.setAttribute('tabindex', '0')
-        pill.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            e.currentTarget.click()
-          }
-        })
-        pill.onclick = () => {
-          const full = pill.dataset.full
-          if (!full) return
-          pushUndo(state)
-          toggleFallbackModel(state, full)
-          renderDefaultBar(page, state)
-          renderProviders(page, state)
-          renderConsole(page, state)
-          renderWaterfall(page, state)
-          updateUndoBtn(page, state)
-          autoSave(state)
-        }
-      })
-      const toggleFbBtn = fbInline.querySelector('#models-toggle-fallbacks')
-      if (toggleFbBtn) {
-        toggleFbBtn.onclick = () => {
-          state._fallbacks_expanded = !state._fallbacks_expanded
-          renderWaterfall(page, state)
-        }
-      }
     }
 
     // 更新 Combobox 值（不销毁重建）
@@ -663,36 +621,38 @@ function renderConsole(page, state) {
   // 首次渲染：创建完整 DOM
   container.innerHTML = `
     <div class="models-control-console">
-      <div class="models-console-header">
-        <div class="models-primary-icon">${icon('cpu', 20)}</div>
+      <div class="models-console-main">
+        <div class="models-primary-icon">${icon('cpu', 24)}</div>
         <div class="models-primary-copy">
           <div class="models-primary-name" title="${escapeHtml(primary)}">${escapeHtml(primary || t('models.notConfigured'))}</div>
           <div class="models-primary-meta">${escapeHtml(modelMetaLine(entry))}</div>
         </div>
         <div class="models-console-badges">
-          <span class="models-cb-badge">${fallbacks.length} ${t('models.fallbackCount')}</span>
-          <span class="models-cb-badge">${collectAllModels(state.config).length} ${t('models.totalModels')}</span>
+          ${primary ? '<span class="models-cb-badge models-cb-badge--primary">' + t('models.primaryModel') + '</span>' : ''}
+          ${reasoning ? '<span class="models-cb-badge models-cb-badge--reasoning">' + t('models.reasoning') + '</span>' : ''}
+          <span class="models-cb-badge models-cb-badge--count">${fallbacks.length} ${t('models.fallbackCount')}</span>
+          <span class="models-cb-badge models-cb-badge--count">${collectAllModels(state.config).length} ${t('models.totalModels')}</span>
         </div>
       </div>
-
-      <div class="models-switch-row">
-        <div class="models-switch-left">
-          <div id="models-primary-combobox-container" class="form-input-container"></div>
-          <label class="model-reasoning-toggle" data-action="toggle-reasoning" title="${t('models.reasoningHint')}">
-            <input type="checkbox" ${reasoning ? 'checked' : ''}>
-            <span>${t('models.isReasoningLabel')}</span>
-          </label>
-        </div>
-        <div class="models-switch-actions">
-          <button class="btn btn-sm btn-secondary" id="models-test-primary" title="${t('models.testPrimary')}">${icon('activity', 14)} ${t('models.testPrimary')}</button>
-          <button class="btn btn-sm btn-secondary" id="models-locate-primary" title="${t('models.locateModel')}">${icon('map-pin', 14)} ${t('models.locateModel')}</button>
-          <button class="btn btn-sm btn-primary" id="models-apply-gateway" title="${t('models.applyGatewayHint')}">${icon('refresh-cw', 14)} ${t('models.applyGateway')}</button>
-        </div>
+      <div class="models-console-actions">
+        <div id="models-primary-combobox-container" class="form-input-container" style="min-width:220px"></div>
+        <button class="btn btn-sm btn-secondary" id="models-test-primary" title="${t('models.testPrimary')}">${icon('activity', 14)} ${t('models.testPrimary')}</button>
+        <button class="btn btn-sm btn-secondary" id="models-locate-primary" title="${t('models.locateModel')}">${icon('map-pin', 14)} ${t('models.locateModel')}</button>
+        <button class="btn btn-sm btn-primary" id="models-apply-gateway" title="${t('models.applyGatewayHint')}">${icon('refresh-cw', 14)} ${t('models.applyGateway')}</button>
       </div>
-
-      <div class="models-console-footer">
+    </div>
+    <div class="models-switch-row">
+      <label class="model-reasoning-toggle" data-action="toggle-reasoning" title="${t('models.reasoningHint')}">
+        <input type="checkbox" ${reasoning ? 'checked' : ''}>
+        <span>${t('models.isReasoningLabel')}</span>
+      </label>
+      <div class="models-console-meta">
+        <div class="models-concurrency-inline" title="${t('models.maxConcurrentHint')}">
+          <span class="models-concurrency-label">${t('models.maxConcurrent')}</span>
+          <input type="number" id="models-max-concurrent" class="models-concurrency-input" min="1" max="100" step="1" value="${escapeHtml(String(maxConcurrent))}">
+        </div>
         <details class="models-route-presets-details">
-          <summary class="models-route-presets-toggle">${t('models.quickRoute')}</summary>
+          <summary class="models-route-presets-toggle">${t('models.routePresetTitle')}</summary>
           <div class="models-route-presets">
             <button class="models-preset-btn" data-preset="fast">${t('models.routeFast')}</button>
             <button class="models-preset-btn" data-preset="stable">${t('models.routeStable')}</button>
@@ -700,24 +660,6 @@ function renderConsole(page, state) {
             <button class="models-preset-btn" data-preset="reasoning">${t('models.routeReasoning')}</button>
           </div>
         </details>
-
-        <div class="models-console-meta">
-          <div class="models-concurrency-inline" title="${t('models.maxConcurrentHint')}">
-            <span class="models-concurrency-label">${t('models.maxConcurrent')}</span>
-            <input type="number" id="models-max-concurrent" class="models-concurrency-input" min="1" max="100" step="1" value="${escapeHtml(String(maxConcurrent))}">
-          </div>
-
-          <div class="models-fallback-inline">
-            ${fallbacks.length > 0
-              ? fallbacks.map(f => {
-                  const fEntry = getModelObject(state.config, f)
-                  return `<span class="models-fallback-pill" data-action="toggle-fallback" data-full="${escapeHtml(f)}" title="${t('models.removeFallback')}">${escapeHtml(fEntry?.modelId || f)} <span>×</span></span>`
-                }).join('')
-              : `<span class="models-empty-fallback">${t('models.noFallback')}</span>`
-            }
-            <button class="btn btn-sm models-ghost-btn" id="models-toggle-fallbacks">${icon('layers', 12)} ${t('models.manageFallbacks')}</button>
-          </div>
-        </div>
       </div>
     </div>
   `

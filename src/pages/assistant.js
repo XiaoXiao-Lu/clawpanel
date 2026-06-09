@@ -4826,13 +4826,15 @@ function getExpertTeamMemberStatuses(plan, transcript, isRunning) {
   const events = Array.isArray(transcript) ? transcript : []
   const members = Array.isArray(plan?.members) ? plan.members : []
   if (!members.length) return []
-  const rounds = plan?.mode === 'sequential' ? Math.max(1, Number.parseInt(plan.maxRounds || 1, 10) || 1) : 1
+  const isSequential = plan?.mode === 'sequential'
+  const rounds = isSequential ? Math.max(1, Number.parseInt(plan.maxRounds || 1, 10) || 1) : 1
+  // 只在 sequential 模式下显示多轮成员，否则去重只显示一次
   const activeKeys = new Set()
   const doneKeys = new Set()
   const errorKeys = new Set()
   for (const item of events) {
     if (!item?.expertId) continue
-    const round = plan?.mode === 'sequential' ? (item.round || 1) : 0
+    const round = isSequential ? (item.round || 1) : 0
     const key = `${item.expertId}::${round}`
     if (['expert_start', 'expert_stream', 'expert_retry'].includes(item.type)) activeKeys.add(key)
     if (item.type === 'expert_done') doneKeys.add(key)
@@ -4840,7 +4842,7 @@ function getExpertTeamMemberStatuses(plan, transcript, isRunning) {
   }
   const chips = []
   for (let roundIndex = 0; roundIndex < rounds; roundIndex++) {
-    const round = plan?.mode === 'sequential' ? roundIndex + 1 : 0
+    const round = isSequential ? roundIndex + 1 : 0
     for (const member of members) {
       const expertId = member.id || member.expertId || member.name || ''
       const key = `${expertId}::${round}`
@@ -4854,17 +4856,19 @@ function getExpertTeamMemberStatuses(plan, transcript, isRunning) {
             : isRunning ? 'waiting' : 'idle'
       chips.push({
         expertId,
-        name,
+        name: isSequential ? `${name}·R${round}` : name,
+        displayName: name,
         initial: name.trim().slice(0, 1) || '专',
         status,
+        round: isSequential ? round : null,
         detail: status === 'done'
           ? '已提交'
           : status === 'error'
             ? '异常已处理'
             : status === 'running'
               ? '进行中'
-              : plan?.mode === 'sequential' ? `第${round}轮待执行` : '待执行',
-        title: `${name}${member.title ? ` · ${member.title}` : ''}${plan?.mode === 'sequential' ? ` · 第${round}轮` : ''}`,
+              : isSequential ? `第${round}轮待执行` : '待执行',
+        title: `${name}${member.title ? ` · ${member.title}` : ''}${isSequential ? ` · 第${round}轮` : ''}`,
       })
     }
   }
@@ -4877,6 +4881,7 @@ function getExpertTeamMemberStatuses(plan, transcript, isRunning) {
     chips.push({
       expertId: moderator.id || 'moderator',
       name,
+      displayName: name,
       initial: name.trim().slice(0, 1) || '主',
       status: moderatorError ? 'warning' : finalDone ? 'done' : moderatorLive ? 'running' : isRunning ? 'waiting' : 'idle',
       detail: moderatorError ? '降级处理' : finalDone ? '已综合' : moderatorLive ? '综合中' : '待综合',
@@ -6114,7 +6119,30 @@ function expertTeamFinalPreview(content, limit = 360) {
 function expertTeamLiveText(content, limit = 900) {
   const raw = String(content || '').trim()
   if (!raw) return ''
-  return raw.length > limit ? `...${raw.slice(raw.length - limit)}` : raw
+  // 先移除 Markdown 标记，提取纯文本预览
+  const plain = raw
+    .replace(/```[\s\S]*?```/g, ' [代码块] ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\|[^\n]*\|/g, s => s.replace(/\|/g, ' ').trim())
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*?([^*]+)\*\*?/g, '$1')
+    .replace(/__?([^_]+)__?/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^\s*[-*+]\s+/gm, '• ')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+  if (plain.length <= limit) return plain
+  // 智能截断：优先在句子边界截断
+  const slice = plain.slice(0, limit)
+  const cut = Math.max(
+    slice.lastIndexOf('\n\n'),
+    slice.lastIndexOf('。'),
+    slice.lastIndexOf('. '),
+    slice.lastIndexOf('？'),
+    slice.lastIndexOf('? ')
+  )
+  return `${slice.slice(0, cut > limit * 0.5 ? cut + 1 : limit).trim()}...`
 }
 
 function expertTeamMessageText(value, fallback = '运行出错') {
