@@ -351,6 +351,8 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'expertTeamProcessSummary',
     'assistant.expertTeamStoppedChatFallback',
     'assistant.expertTeamResumeRunStopped',
+    "toast(t('assistant.expertTeamTaskRequired'), 'warning')",
+    "toast(t('assistant.expertTeamSelectionUnavailable'), 'error')",
   ]) {
     assert.match(assistant, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
@@ -370,11 +372,15 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'expertTeamQualityGate',
     'expertTeamWorkboardQueue',
     'expertTeamStoppedChatFallback',
+    'expertTeamTaskRequired',
+    'expertTeamSelectionUnavailable',
   ]) {
     assert.match(assistantLocale, new RegExp(`${token}:\\s*_\\(`))
   }
   assert.doesNotMatch(assistant, /message\s*=\s*humanizeError\(e,\s*mode === 'run'/)
   assert.doesNotMatch(assistant, /message\s*=\s*humanizeError\(e,\s*'专家团运行失败'\)/)
+  assert.doesNotMatch(assistant, /toast\('请先写下要交给专家团处理的任务'/)
+  assert.doesNotMatch(assistant, /toast\('未找到选中的专家团'/)
   assert.doesNotMatch(assistant, /function\s+expertTeamPreview/)
   assert.match(assistant, /_isStreaming\s*=\s*true[\s\S]*clearActiveExpertGroupSelection\(\)/)
   assert.match(assistant, /event\.type === 'expert_delta'[\s\S]*shouldRender\s*=\s*false/)

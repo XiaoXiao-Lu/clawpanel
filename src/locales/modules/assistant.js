@@ -698,6 +698,8 @@ export default {
   expertTeamWaitingExpertOpinions: _('等待专家意见', 'Waiting for expert opinions'),
   expertTeamClosedLoopComplete: _('闭环完成', 'Closed loop complete'),
   expertTeamExited: _('已退出专家团', 'Exited expert team'),
+  expertTeamTaskRequired: _('请先写下要交给专家团处理的任务', 'Describe the task for the expert team first'),
+  expertTeamSelectionUnavailable: _('未找到选中的专家团', 'Selected expert team is unavailable'),
   expertTeamPlanCreated: _('团队计划已创建', 'Team plan created'),
   expertTeamResumeOpinions: _('继续综合 {count} 份意见', 'Resume synthesis for {count} opinions'),
   expertTeamRoundStarted: _('第{round}/{total}轮开始', 'Round {round}/{total} started'),

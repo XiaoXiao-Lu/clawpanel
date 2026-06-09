@@ -8245,7 +8245,7 @@ async function sendViaExpertTeam(text, images) {
 
   const textContent = String(text || '').trim()
   if (!textContent) {
-    toast('请先写下要交给专家团处理的任务', 'warning')
+    toast(t('assistant.expertTeamTaskRequired'), 'warning')
     return
   }
 
@@ -8258,7 +8258,7 @@ async function sendViaExpertTeam(text, images) {
     _activeExpertGroupId = null
     persistActiveExpertGroupId()
     renderExpertTeamMenu()
-    toast('未找到选中的专家团', 'error')
+    toast(t('assistant.expertTeamSelectionUnavailable'), 'error')
     return
   }
 
