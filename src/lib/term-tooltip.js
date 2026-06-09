@@ -16,6 +16,7 @@
 import { t, getLang } from './i18n.js'
 import { showContentModal } from '../components/modal.js'
 import { navigate } from '../router.js'
+import { escapeHtml } from './utils.js'
 
 // 高频术语精简映射（与 glossary.js 数据保持一致；仅纳入页面 ⓘ 旁要弹出的）
 const TERMS = {
@@ -122,8 +123,4 @@ export function attachTermTooltips(root) {
       })
     })
   })
-}
-
-function escapeHtml(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }

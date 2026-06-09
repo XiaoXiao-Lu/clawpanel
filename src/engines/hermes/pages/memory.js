@@ -17,10 +17,7 @@ import { toast } from '../../../components/toast.js'
 import { showContentModal, showConfirm } from '../../../components/modal.js'
 import { humanizeError } from '../../../lib/humanize-error.js'
 import { renderMarkdown } from '../lib/markdown-renderer.js'
-
-function escHtml(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
+import { escapeHtml as escHtml } from '../../../lib/utils.js'
 
 // ---- icons ----
 const ICONS = {

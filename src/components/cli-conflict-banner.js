@@ -21,6 +21,7 @@
 import { api } from '../lib/tauri-api.js'
 import { t } from '../lib/i18n.js'
 import { toast } from './toast.js'
+import { escapeHtml } from '../lib/utils.js'
 
 const STORAGE_KEY = 'clawpanel-cli-conflict-dismissed-paths'
 
@@ -29,15 +30,6 @@ const STORAGE_KEY = 'clawpanel-cli-conflict-dismissed-paths'
 // 用户在终端调用 `openclaw` 想拿到的本来也就是这些 IDE 自己的版本。
 // 这些来源默认不再触发警告横幅，避免用户误以为需要清理一键安装包。
 const BENIGN_SOURCES = new Set(['cherrystudio', 'cursor'])
-
-function escapeHtml(s) {
-  return String(s ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
 
 function loadDismissed() {
   try {

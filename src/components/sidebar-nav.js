@@ -3,7 +3,7 @@
  */
 import { t } from '../lib/i18n.js'
 import { listEngines, getActiveEngine, getActiveEngineId } from '../lib/engine-manager.js'
-import { getKernelSnapshot } from '../lib/kernel.js'
+import { getKernelSnapshot, recommendedIsNewer } from '../lib/kernel.js'
 import { escapeHtml as _escSidebar } from '../lib/utils.js'
 import { ICONS } from './sidebar-icons.js'
 
@@ -51,7 +51,7 @@ export function NAV_ITEMS_FULL() { return [
     ]
   },
   {
-    section: '',
+    section: t('sidebar.sectionSystem'),
     items: [
       { route: '/settings', label: t('sidebar.settings'), icon: 'settings' },
       { route: '/chat-debug', label: t('sidebar.checkRepair'), icon: 'diagnose' },
@@ -130,30 +130,40 @@ export function renderEngineSwitcher() {
  *
  * 不满足任何一条返回空串。
  */
-export function renderKernelUpgradeHint() {
+function kernelPolicyTarget(snap, policyInfo = null) {
+  return policyInfo?.recommended || snap?.target || ''
+}
+
+function isRunningGatewayBelowTarget(snap, policyInfo = null) {
+  if (!snap?.version) return false
+  const target = kernelPolicyTarget(snap, policyInfo)
+  return target ? recommendedIsNewer(target, snap.version) : !snap.isLatest
+}
+
+export function renderKernelUpgradeHint(policyInfo = null) {
   if (getActiveEngineId() !== 'openclaw') return ''
   if (sessionStorage.getItem(SS_DISMISSED_KERNEL_UPGRADE) === '1') return ''
 
   const snap = getKernelSnapshot()
   if (!snap || !snap.version) return ''
   if (!snap.aboveFloor) return ''   // floor-blocker 处理
-  if (snap.isLatest) return ''       // 已经是推荐目标
+  if (!isRunningGatewayBelowTarget(snap, policyInfo)) return '' // 已经是推荐目标
 
   const arrowIcon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>'
   const sparkIcon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L13.5 8.5 20 10l-6.5 1.5L12 18l-1.5-6.5L4 10l6.5-1.5z"/></svg>'
 
   const fromLabel = snap.versionLabel || snap.version
-  const toLabel = snap.target || ''
+  const toLabel = kernelPolicyTarget(snap, policyInfo)
 
   return `
-    <div class="kernel-upgrade-hint" id="kernel-upgrade-hint" role="button" tabindex="0">
+    <button type="button" class="kernel-upgrade-hint" id="kernel-upgrade-hint">
       <div class="kernel-upgrade-hint-icon">${sparkIcon}</div>
       <div class="kernel-upgrade-hint-body">
         <div class="kernel-upgrade-hint-title">${_escSidebar(t('kernel.upgradeHint.title'))}</div>
         <div class="kernel-upgrade-hint-meta">${_escSidebar(t('kernel.upgradeHint.subtitle', { from: fromLabel, to: toLabel }))}</div>
       </div>
       <div class="kernel-upgrade-hint-arrow">${arrowIcon}</div>
-      <button class="kernel-upgrade-hint-dismiss" id="btn-kernel-upgrade-dismiss" title="${_escSidebar(t('kernel.upgradeHint.dismissTooltip'))}" aria-label="${_escSidebar(t('kernel.upgradeHint.dismissTooltip'))}">×</button>
-    </div>
+      <span class="kernel-upgrade-hint-dismiss" id="btn-kernel-upgrade-dismiss" title="${_escSidebar(t('kernel.upgradeHint.dismissTooltip'))}" aria-label="${_escSidebar(t('kernel.upgradeHint.dismissTooltip'))}">×</span>
+    </button>
   `
 }

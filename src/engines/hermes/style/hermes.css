@@ -1215,19 +1215,19 @@ body[data-active-engine="hermes"] .sidebar-footer {
   border-top: 1px solid rgba(28, 25, 23, 0.06);
   padding: 8px 10px;
 }
-body[data-active-engine="hermes"] #btn-theme-toggle,
-body[data-active-engine="hermes"] .lang-trigger {
-  min-height: 44px;
-  padding: 8px 14px;
-  border-radius: 6px;
+body[data-active-engine="hermes"] .sidebar-tools > .sidebar-tool-btn,
+body[data-active-engine="hermes"] .sidebar-tools > .lang-switcher > .sidebar-tool-btn {
+  min-height: 32px;
+  padding: 0;
+  border-radius: 9px;
   color: #78716C;
   font-size: 12.5px;
   transition: background 180ms, color 180ms;
 }
-body[data-active-engine="hermes"] #btn-theme-toggle:hover,
-body[data-active-engine="hermes"] .lang-trigger:hover {
+body[data-active-engine="hermes"] .sidebar-tools > .sidebar-tool-btn:hover,
+body[data-active-engine="hermes"] .sidebar-tools > .lang-switcher > .sidebar-tool-btn:hover {
   background: rgba(28, 25, 23, 0.04);
-  color: #1C1917;
+  color: #CA8A04;
 }
 body[data-active-engine="hermes"] .lang-dropdown {
   background: #FFFFFF;
@@ -1345,14 +1345,14 @@ body[data-active-engine="hermes"][data-theme="dark"] {
 [data-theme="dark"] body[data-active-engine="hermes"] .sidebar-footer {
   border-top-color: rgba(250, 250, 249, 0.06);
 }
-[data-theme="dark"] body[data-active-engine="hermes"] #btn-theme-toggle,
-[data-theme="dark"] body[data-active-engine="hermes"] .lang-trigger {
+[data-theme="dark"] body[data-active-engine="hermes"] .sidebar-tools > .sidebar-tool-btn,
+[data-theme="dark"] body[data-active-engine="hermes"] .sidebar-tools > .lang-switcher > .sidebar-tool-btn {
   color: #A8A29E;
 }
-[data-theme="dark"] body[data-active-engine="hermes"] #btn-theme-toggle:hover,
-[data-theme="dark"] body[data-active-engine="hermes"] .lang-trigger:hover {
+[data-theme="dark"] body[data-active-engine="hermes"] .sidebar-tools > .sidebar-tool-btn:hover,
+[data-theme="dark"] body[data-active-engine="hermes"] .sidebar-tools > .lang-switcher > .sidebar-tool-btn:hover {
   background: rgba(250, 250, 249, 0.05);
-  color: #FAFAF9;
+  color: #EAB308;
 }
 [data-theme="dark"] body[data-active-engine="hermes"] .lang-dropdown {
   background: #1C1917;
@@ -2875,6 +2875,30 @@ body[data-active-engine="hermes"][data-theme="dark"] {
   border-color: transparent;
 }
 
+/* --- Logs page responsive: stack sidebar on mobile --- */
+@media (max-width: 768px) {
+  [data-engine="hermes"] .hm-logs-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  [data-engine="hermes"] .hm-logs-sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--hm-border);
+    max-height: 35vh;
+  }
+  [data-engine="hermes"] .hm-logs-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  [data-engine="hermes"] .hm-logs-toolbar-item {
+    min-width: 0;
+    width: 100%;
+  }
+  [data-engine="hermes"] .hm-logs-toolbar-item--grow {
+    min-width: 0;
+  }
+}
+
 /* ==========================================================================
  * 17 · Cron / Jobs page
  * ==========================================================================
@@ -3595,7 +3619,7 @@ body[data-active-engine="hermes"][data-theme="dark"] {
     padding: 22px 24px 36px;
   }
 }
-@media (max-width: 720px) {
+@media (max-width: 768px) {
   [data-engine="hermes"] .hm-skills-layout {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
@@ -7389,7 +7413,7 @@ body[data-active-engine="hermes"][data-theme="dark"] {
     padding: 14px 20px;
   }
 }
-@media (max-width: 720px) {
+@media (max-width: 768px) {
   [data-engine="hermes"] .hm-chat-sidebar-backdrop {
     display: block;
     position: absolute;
@@ -7409,7 +7433,7 @@ body[data-active-engine="hermes"][data-theme="dark"] {
     display: flex;
   }
   [data-engine="hermes"] .hm-chat-sidebar {
-    /* Below 720px the sidebar floats over the main column instead of
+    /* Below 768px the sidebar floats over the main column instead of
        sharing the row, so the chat surface gets the full viewport. */
     position: absolute;
     inset: 0 auto 0 0;

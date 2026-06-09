@@ -16,10 +16,8 @@ import { toast } from '../../../components/toast.js'
 import { showConfirm } from '../../../components/modal.js'
 import { humanizeError } from '../../../lib/humanize-error.js'
 import { svgIcon } from '../lib/svg-icons.js'
+import { escapeHtml as escHtml } from '../../../lib/utils.js'
 
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 function escAttr(s) { return escHtml(s) }
 
 function formatSize(bytes) {

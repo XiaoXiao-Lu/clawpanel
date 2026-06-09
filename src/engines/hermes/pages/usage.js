@@ -2,16 +2,9 @@ import { api } from '../../../lib/tauri-api.js'
 import { t } from '../../../lib/i18n.js'
 import { icon } from '../../../lib/icons.js'
 import { humanizeError } from '../../../lib/humanize-error.js'
+import { escapeHtml as escHtml } from '../../../lib/utils.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
-
-function escHtml(value) {
-  return String(value || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
 
 function toNumber(value) {
   const n = Number(value || 0)

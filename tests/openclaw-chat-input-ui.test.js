@@ -6,6 +6,7 @@ const css = readFileSync(new URL('../src/style/chat.css', import.meta.url), 'utf
 const chatPage = readFileSync(new URL('../src/pages/chat.js', import.meta.url), 'utf8')
 const chatLocale = readFileSync(new URL('../src/locales/modules/chat.js', import.meta.url), 'utf8')
 const icons = readFileSync(new URL('../src/lib/icons.js', import.meta.url), 'utf8')
+const wsClient = readFileSync(new URL('../src/lib/ws-client.js', import.meta.url), 'utf8')
 
 function cssBlock(selector) {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -59,6 +60,23 @@ test('OpenClaw chat model switcher uses safe option ids and visible status', () 
   assert.match(cssBlock('.chat-model-group'), /border:\s*1px solid var\(--border-primary\)/)
   assert.match(cssBlock('.chat-model-select'), /font-family:\s*var\(--font-mono\)/)
   assert.match(cssBlock('.chat-model-status'), /text-overflow:\s*ellipsis/)
+})
+
+test('OpenClaw chat sends selected model as provider/model override', () => {
+  assert.match(chatPage, /function parseSelectedModelRef/)
+  assert.match(chatPage, /function getSessionModelRef/)
+  assert.match(chatPage, /function syncSelectedModelForSession/)
+  assert.match(chatPage, /provider:\s*text\.slice\(0,\s*slash\)/)
+  assert.match(chatPage, /model:\s*text\.slice\(slash \+ 1\)/)
+  assert.match(chatPage, /modelRef \? \{ provider:\s*modelRef\.provider,\s*model:\s*modelRef\.model \} : undefined/)
+  assert.doesNotMatch(chatPage, /chatSend\(_sessionKey,\s*`\/model \$\{_selectedModel\}`/)
+  assert.doesNotMatch(chatPage, /wsClient\.sessionsPatch\(_sessionKey/)
+
+  assert.match(wsClient, /chatSend\(sessionKey,\s*message,\s*attachments,\s*options = \{\}\)/)
+  assert.match(wsClient, /if \(options\.provider\) params\.provider = options\.provider/)
+  assert.match(wsClient, /if \(options\.model\) params\.model = options\.model/)
+  assert.doesNotMatch(wsClient, /providerOverride/)
+  assert.doesNotMatch(wsClient, /modelOverride/)
 })
 
 test('OpenClaw chat management translations and icons are present', () => {

@@ -590,16 +590,10 @@ export class WsClient {
       const result = await api.autoPairDevice()
       console.log('[ws] 配对结果:', result)
 
-      // 配对后桌面端可 reload Gateway 使 allowedOrigins 生效。
-      // Web/headless 反代场景中 reload 会主动断开当前 /ws，可能造成重连-重载循环。
-      if (isTauriRuntime()) {
-        try {
-          await api.reloadGateway()
-          console.log('[ws] Gateway 已重载')
-        } catch (e) {
-          console.warn('[ws] reloadGateway 失败（非致命）:', e)
-        }
-      }
+      // 这里只修配对文件，不自动重启 Gateway。
+      // Windows 上手动启动的 Gateway 会被 restart/stop 打断，表现为“启动后一会就停止”。
+      // Gateway 对设备配对文件按连接读取；如遇 origin 配置变更，交由用户手动重启。
+      console.log('[ws] 自动配对文件已修复，跳过自动重启 Gateway')
 
       // 修复 #160: 不调用 reconnect()（它会重置 _autoPairAttempts 导致无限循环），
       // 而是直接重连一次。如果仍然失败，_autoPairAttempts 不会被重置，不会再次触发自动修复。
@@ -613,7 +607,7 @@ export class WsClient {
       }, 3000)
     } catch (e) {
       console.error('[ws] 自动配对失败:', e)
-      this._setConnected(false, 'error', `配对失败: ${e}`)
+      this._setConnected(false, 'error', `配对失败: ${e?.message || e}`)
     }
   }
 
@@ -640,7 +634,7 @@ export class WsClient {
       }, 3000)
     } catch (e) {
       console.error('[ws] 刷新凭据失败:', e)
-      this._setConnected(false, 'error', `凭据刷新失败: ${e}`)
+      this._setConnected(false, 'error', `凭据刷新失败: ${e?.message || e}`)
     }
   }
 
@@ -881,8 +875,10 @@ export class WsClient {
     this._unsupportedMethods.clear()
   }
 
-  chatSend(sessionKey, message, attachments) {
+  chatSend(sessionKey, message, attachments, options = {}) {
     const params = { sessionKey, message, deliver: false, idempotencyKey: uuid() }
+    if (options.provider) params.provider = options.provider
+    if (options.model) params.model = options.model
     if (attachments && attachments.length > 0) {
       params.attachments = attachments
       console.log('[ws] 发送附件:', attachments.length, '个')

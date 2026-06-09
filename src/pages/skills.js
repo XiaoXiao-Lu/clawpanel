@@ -9,6 +9,7 @@ import { humanizeError } from '../lib/humanize-error.js'
 import { showConfirm, showContentModal } from '../components/modal.js'
 import { t } from '../lib/i18n.js'
 import { wsClient } from '../lib/ws-client.js'
+import { escapeHtml as esc } from '../lib/utils.js'
 
 let _loadSeq = 0
 let _selectedAgentId = null
@@ -20,11 +21,6 @@ let _storeIndexPromise = null
 let _hoverPreviewTimer = null
 let _hoverPreviewEl = null
 let _hoverPreviewCard = null
-
-function esc(str) {
-  if (!str) return ''
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 
 function skillKey(value) {
   return String(value || '').trim().toLowerCase()
@@ -572,23 +568,23 @@ export async function render() {
     ${agentOptions}
 
     <!-- Pill 风格 Tab -->
-    <div class="skills-tab-nav" id="skills-main-tabs">
-      <button class="skills-tab-btn active" data-main-tab="installed">
+    <div class="skills-tab-nav" id="skills-main-tabs" role="tablist">
+      <button class="skills-tab-btn active" id="skills-tab-btn-installed" role="tab" aria-selected="true" aria-controls="skills-tab-installed" data-main-tab="installed">
         📋 ${t('skills.tabInstalled')}
         <span class="skills-tab-count" id="tab-count-installed">--</span>
       </button>
-      <button class="skills-tab-btn" data-main-tab="store">
+      <button class="skills-tab-btn" id="skills-tab-btn-store" role="tab" aria-selected="false" aria-controls="skills-tab-store" data-main-tab="store" tabindex="-1">
         🛒 ${t('skills.tabStore')}
       </button>
     </div>
 
     <!-- 已安装面板 -->
-    <div id="skills-tab-installed" class="config-section">
+    <div id="skills-tab-installed" class="config-section" role="tabpanel" aria-labelledby="skills-tab-btn-installed">
       ${skeletonHtml(6)}
     </div>
 
     <!-- 商店面板 -->
-    <div id="skills-tab-store" class="config-section" style="display:none">
+    <div id="skills-tab-store" class="config-section" role="tabpanel" aria-labelledby="skills-tab-btn-store" hidden style="display:none">
       <div class="skills-store-header">
         <div class="skills-store-hero">
           <div class="skills-store-hero-icon">🛒</div>
@@ -647,7 +643,6 @@ export async function render() {
     agentSelect.addEventListener('change', () => {
       const val = agentSelect.value
       _selectedAgentId = (val === 'main') ? null : val
-      _storeIndex = null
       _installedNames = new Set()
       loadSkills(page)
     })
@@ -795,13 +790,29 @@ function renderSkills(el, data) {
   // 实时过滤
   const input = el.querySelector('#skill-filter-input')
   if (input) {
+    const filterEmptyEl = document.createElement('div')
+    filterEmptyEl.id = 'skills-filter-empty'
+    filterEmptyEl.style.cssText = 'display:none;padding:40px;text-align:center;color:var(--text-tertiary)'
+    el.querySelector('.skills-summary')?.after(filterEmptyEl)
+
     input.addEventListener('input', () => {
       const q = input.value.trim().toLowerCase()
+      let visibleCount = 0
       el.querySelectorAll('.skill-card-item').forEach(card => {
         const name = (card.dataset.name || '').toLowerCase()
         const desc = (card.dataset.desc || '').toLowerCase()
-        card.style.display = (!q || name.includes(q) || desc.includes(q)) ? '' : 'none'
+        const source = (card.dataset.source || '').toLowerCase()
+        const match = !q || name.includes(q) || desc.includes(q) || source.includes(q)
+        card.style.display = match ? '' : 'none'
+        if (match) visibleCount++
       })
+
+      if (q && visibleCount === 0) {
+        filterEmptyEl.textContent = t('skills.noResults')
+        filterEmptyEl.style.display = ''
+      } else {
+        filterEmptyEl.style.display = 'none'
+      }
     })
   }
 
@@ -853,7 +864,7 @@ function renderSkillCard(skill, status) {
   }
 
   return `
-    <div class="clawhub-item skill-card-item ${statusClassMap[status] || ''}" data-action="skill-info" data-preview-kind="installed" data-preview-key="${esc(name)}" data-name="${esc(name)}" data-desc="${esc(desc)}">
+    <div class="clawhub-item skill-card-item ${statusClassMap[status] || ''}" data-action="skill-info" data-preview-kind="installed" data-preview-key="${esc(name)}" data-name="${esc(name)}" data-desc="${esc(desc)}" data-source="${esc(source)}">
       ${renderSkillIcon(iconSource)}
       <div class="clawhub-item-main">
         <div class="clawhub-item-title">${esc(name)}</div>
@@ -863,8 +874,8 @@ function renderSkillCard(skill, status) {
         ${installHtml}
       </div>
       <div class="clawhub-item-actions">
-        <button class="btn btn-secondary btn-sm skills-preview-btn" data-action="skill-info" data-name="${esc(name)}" title="${t('skills.preview')}">👁</button>
-        ${!skill.bundled ? `<button class="btn btn-secondary btn-sm skills-remove-btn" data-action="skill-uninstall" data-name="${esc(name)}" title="${t('skills.uninstall')}">×</button>` : ''}
+        <button class="btn btn-secondary btn-sm skills-preview-btn" data-action="skill-info" data-name="${esc(name)}" title="${t('skills.preview')}" aria-label="${t('skills.preview')}">👁</button>
+        ${!skill.bundled ? `<button class="btn btn-secondary btn-sm skills-remove-btn" data-action="skill-uninstall" data-name="${esc(name)}" title="${t('skills.uninstall')}" aria-label="${t('skills.uninstall')}">×</button>` : ''}
         ${statusBadgeMap[status] || ''}
       </div>
       <div class="skills-card-hover-preview" aria-hidden="true">
@@ -984,10 +995,10 @@ function renderStoreItems(el, items) {
           ${stats || category ? `<div class="clawhub-item-meta">${[category, stats].filter(Boolean).map(esc).join(' · ')}</div>` : ''}
         </div>
         <div class="clawhub-item-actions">
-          <button class="btn btn-secondary btn-sm skills-preview-btn" data-action="store-info" data-slug="${esc(slug)}" title="${t('skills.preview')}">👁</button>
+          <button class="btn btn-secondary btn-sm skills-preview-btn" data-action="store-info" data-slug="${esc(slug)}" title="${t('skills.preview')}" aria-label="${t('skills.preview')}">👁</button>
           ${installed
             ? `<span class="clawhub-badge installed">${t('skills.installed')}</span>`
-            : `<button class="btn btn-secondary btn-sm skills-store-add-btn" data-action="store-install" data-slug="${esc(slug)}" title="${t('skills.install')}">+</button>`
+            : `<button class="btn btn-secondary btn-sm skills-store-add-btn" data-action="store-install" data-slug="${esc(slug)}" title="${t('skills.install')}" aria-label="${t('skills.install')}">+</button>`
           }
         </div>
         <div class="skills-card-hover-preview" aria-hidden="true">
@@ -1004,11 +1015,16 @@ async function handleStoreSearch(page) {
   const meta = page.querySelector('#skill-store-meta')
   if (!input || !results) return
   const q = input.value.trim()
-  if (!q && _storeIndex) {
-    if (meta) meta.innerHTML = `<span class="meta-dot"></span>${t('skills.featuredMeta', { count: _storeIndex.length })}`
-    renderStoreItems(results, _storeIndex)
+
+  if (!q && _storeIndex && _storeIndex.length) {
+    const items = _storeIndex
+    if (meta) {
+      meta.innerHTML = `<span class="meta-dot"></span>${t('skills.featuredMeta', { count: items.length })}`
+    }
+    renderStoreItems(results, items)
     return
   }
+
   if (!q) return
   results.innerHTML = skeletonHtml(4)
   if (meta) meta.innerHTML = '<span class="meta-dot"></span>' + t('skills.searching')
@@ -1110,24 +1126,54 @@ async function handleSkillUninstall(page, btn) {
 }
 
 // ===== 事件绑定 =====
+function activateMainTab(page, tab, options = {}) {
+  if (!tab) return
+  const key = tab.dataset.mainTab
+  page.querySelectorAll('#skills-main-tabs .skills-tab-btn').forEach(item => {
+    const selected = item === tab
+    item.classList.toggle('active', selected)
+    item.setAttribute('aria-selected', selected ? 'true' : 'false')
+    item.tabIndex = selected ? 0 : -1
+  })
+
+  const installedTab = page.querySelector('#skills-tab-installed')
+  const storeTab = page.querySelector('#skills-tab-store')
+  const showInstalled = key === 'installed'
+  if (installedTab) {
+    installedTab.hidden = !showInstalled
+    installedTab.style.display = showInstalled ? '' : 'none'
+  }
+  if (storeTab) {
+    storeTab.hidden = showInstalled
+    storeTab.style.display = showInstalled ? 'none' : ''
+  }
+  if (!showInstalled) loadStore(page)
+  if (options.focus) tab.focus()
+}
+
 function bindEvents(page) {
   // 主 Tab 切换（Pill 风格）
   page.querySelectorAll('#skills-main-tabs .skills-tab-btn').forEach(tab => {
-    tab.onclick = () => {
-      page.querySelectorAll('#skills-main-tabs .skills-tab-btn').forEach(t => t.classList.remove('active'))
-      tab.classList.add('active')
-      const key = tab.dataset.mainTab
-      page.querySelector('#skills-tab-installed').style.display = key === 'installed' ? '' : 'none'
-      page.querySelector('#skills-tab-store').style.display = key === 'store' ? '' : 'none'
-      if (key === 'store') loadStore(page)
-    }
+    tab.onclick = () => activateMainTab(page, tab)
+    tab.addEventListener('keydown', (e) => {
+      const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End']
+      if (!keys.includes(e.key)) return
+      e.preventDefault()
+      const tabs = Array.from(page.querySelectorAll('#skills-main-tabs .skills-tab-btn'))
+      const index = tabs.indexOf(tab)
+      const nextIndex = e.key === 'Home'
+        ? 0
+        : e.key === 'End'
+          ? tabs.length - 1
+          : e.key === 'ArrowLeft'
+            ? (index - 1 + tabs.length) % tabs.length
+            : (index + 1) % tabs.length
+      activateMainTab(page, tabs[nextIndex], { focus: true })
+    })
   })
 
-  page.addEventListener('mouseover', (e) => handlePreviewEnter(page, e))
   page.addEventListener('pointerover', (e) => handlePreviewEnter(page, e))
-  page.addEventListener('mousemove', (e) => handlePreviewEnter(page, e))
 
-  page.addEventListener('mouseout', handlePreviewLeave)
   page.addEventListener('pointerout', handlePreviewLeave)
 
   page.addEventListener('scroll', () => hideSkillHoverPreview(0), true)
@@ -1193,4 +1239,17 @@ function bindEvents(page) {
       updateStoreSourceUi(page)
     }
   })
+}
+
+export function cleanup() {
+  clearTimeout(_hoverPreviewTimer)
+  _hoverPreviewEl?.remove()
+  _hoverPreviewEl = null
+  _hoverPreviewCard = null
+  _hoverPreviewTimer = null
+  _storeIndex = null
+  _storeItems = []
+  _installedNames = new Set()
+  _installedItems = new Map()
+  _storeIndexPromise = null
 }

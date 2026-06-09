@@ -5,17 +5,17 @@ import { api } from '../lib/tauri-api.js'
 import { toast } from '../components/toast.js'
 import { navigate } from '../router.js'
 import { t } from '../lib/i18n.js'
+import { escapeHtml as escAttr } from '../lib/utils.js'
 
 const CHANNEL_COLORS = {
-  qqbot: '#22d3ee', qq: '#22d3ee', telegram: '#3b82f6', discord: '#818cf8',
-  slack: '#f59e0b', feishu: '#6366f1', dingtalk: '#3b82f6', weixin: '#22c55e',
-  wechat: '#22c55e', webchat: '#a78bfa', whatsapp: '#22c55e', signal: '#60a5fa',
-  line: '#22c55e', teams: '#6366f1', matrix: '#f472b6', irc: '#94a3b8',
+  qqbot: 'var(--info, #22d3ee)', qq: 'var(--info, #22d3ee)', telegram: 'var(--brand-400, #3b82f6)', discord: 'var(--brand, #818cf8)',
+  slack: 'var(--warning, #f59e0b)', feishu: 'var(--brand, #6366f1)', dingtalk: 'var(--brand-400, #3b82f6)', weixin: 'var(--success, #22c55e)',
+  wechat: 'var(--success, #22c55e)', webchat: 'var(--brand-400, #a78bfa)', whatsapp: 'var(--success, #22c55e)', signal: 'var(--brand-400, #60a5fa)',
+  line: 'var(--success, #22c55e)', teams: 'var(--brand, #6366f1)', matrix: 'var(--nav-chat, #f472b6)', irc: 'var(--text-secondary, #94a3b8)',
 }
 
 const NODE_W = 180, NODE_H = 56, COL_GAP = 260, ROW_GAP = 16, PAD_TOP = 80, PAD_LEFT = 40
 
-function escAttr(s) { return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') }
 
 export async function render() {
   const page = document.createElement('div')
@@ -98,7 +98,7 @@ function renderTopology(container, agents, bindings, platforms) {
     const id = p.platform || p.id || p.channel || `ch-${i}`
     const label = p.label || p.platform || id
     const enabled = p.enabled !== false
-    return { id, label, enabled, color: CHANNEL_COLORS[id.toLowerCase()] || '#94a3b8', type: 'channel', originalIndex: i }
+    return { id, label, enabled, color: CHANNEL_COLORS[id.toLowerCase()] || 'var(--text-secondary, #94a3b8)', type: 'channel', originalIndex: i }
   })
 
   // Build agent nodes (right column)
@@ -238,11 +238,11 @@ function renderTopology(container, agents, bindings, platforms) {
     const y2 = dst.y + NODE_H / 2
     const bulge = 40 + i * 12
     const cx = Math.max(x1, x2) + bulge
-    svg += `<path d="M${x1},${y1} Q${cx},${(y1 + y2) / 2} ${x2},${y2}" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,3" stroke-opacity="0.7"/>`
-    svg += `<circle cx="${x2}" cy="${y2}" r="2.5" fill="#f59e0b" fill-opacity="0.7"/>`
+    svg += `<path d="M${x1},${y1} Q${cx},${(y1 + y2) / 2} ${x2},${y2}" fill="none" stroke="var(--warning, #f59e0b)" stroke-width="1.5" stroke-dasharray="4,3" stroke-opacity="0.7"/>`
+    svg += `<circle cx="${x2}" cy="${y2}" r="2.5" fill="var(--warning, #f59e0b)" fill-opacity="0.7"/>`
     const mx = cx - 4
     const my = (y1 + y2) / 2
-    svg += `<text x="${mx}" y="${my - 4}" text-anchor="end" class="route-map-edge-label" style="fill:#f59e0b">${t('routeMap.subAgentCall')}</text>`
+    svg += `<text x="${mx}" y="${my - 4}" text-anchor="end" class="route-map-edge-label" style="fill:var(--warning, #f59e0b)">${t('routeMap.subAgentCall')}</text>`
   }
 
   // Legend
@@ -254,12 +254,12 @@ function renderTopology(container, agents, bindings, platforms) {
   svg += `<text x="${lx + 30}" y="${ly + 4}" class="route-map-edge-label" style="font-size:10px;fill:var(--text-secondary)">${t('routeMap.legendBinding')}</text>`
   lx += 110
   // Dashed line = default route
-  svg += `<line x1="${lx}" y1="${ly}" x2="${lx + 24}" y2="${ly}" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6,4"/>`
+  svg += `<line x1="${lx}" y1="${ly}" x2="${lx + 24}" y2="${ly}" stroke="var(--text-secondary, #94a3b8)" stroke-width="2" stroke-dasharray="6,4"/>`
   svg += `<text x="${lx + 30}" y="${ly + 4}" class="route-map-edge-label" style="font-size:10px;fill:var(--text-secondary)">${t('routeMap.legendDefault')}</text>`
   if (a2aEdges.length > 0) {
     lx += 110
-    svg += `<line x1="${lx}" y1="${ly}" x2="${lx + 24}" y2="${ly}" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,3"/>`
-    svg += `<text x="${lx + 30}" y="${ly + 4}" class="route-map-edge-label" style="font-size:10px;fill:#f59e0b">${t('routeMap.subAgentCall')}</text>`
+    svg += `<line x1="${lx}" y1="${ly}" x2="${lx + 24}" y2="${ly}" stroke="var(--warning, #f59e0b)" stroke-width="1.5" stroke-dasharray="4,3"/>`
+    svg += `<text x="${lx + 30}" y="${ly + 4}" class="route-map-edge-label" style="font-size:10px;fill:var(--warning, #f59e0b)">${t('routeMap.subAgentCall')}</text>`
   }
   svg += `</g>`
 

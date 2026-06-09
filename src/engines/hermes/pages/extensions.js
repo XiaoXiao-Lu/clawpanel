@@ -3,14 +3,7 @@ import { icon } from '../../../lib/icons.js'
 import { toast } from '../../../components/toast.js'
 import { t } from '../../../lib/i18n.js'
 import { humanizeError } from '../../../lib/humanize-error.js'
-
-function esc(value) {
-  return String(value || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+import { escapeHtml as esc } from '../../../lib/utils.js'
 
 function formatTokens(value) {
   const n = Number(value || 0)

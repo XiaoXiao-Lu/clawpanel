@@ -11,6 +11,7 @@ import { onGatewayChange } from '../lib/app-state.js'
 import { wsClient } from '../lib/ws-client.js'
 import { api, invalidate } from '../lib/tauri-api.js'
 import { t } from '../lib/i18n.js'
+import { escapeHtml } from '../lib/utils.js'
 
 let _unsub = null
 
@@ -532,10 +533,6 @@ function relativeTime(ts) {
   if (diff < 3600000) return t('cron.minutesAgo', { n: Math.floor(diff / 60000) })
   if (diff < 86400000) return t('cron.hoursAgo', { n: Math.floor(diff / 3600000) })
   return t('cron.daysAgo', { n: Math.floor(diff / 86400000) })
-}
-
-function escapeHtml(str) {
-  return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
 function escapeAttr(str) {

@@ -12,16 +12,7 @@ import { diagnoseInstallError } from '../lib/error-diagnosis.js'
 import { icon, statusIcon } from '../lib/icons.js'
 import { t } from '../lib/i18n.js'
 import { wsClient } from '../lib/ws-client.js'
-
-// HTML 转义，防止 XSS
-function escapeHtml(str) {
-  if (!str) return ''
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+import { escapeHtml } from '../lib/utils.js'
 
 export async function render() {
   const page = document.createElement('div')
@@ -574,7 +565,7 @@ async function loadBackups(page) {
     const backups = await api.listBackups()
     renderBackups(list, backups)
   } catch (e) {
-    list.innerHTML = `<div style="color:var(--error)">${t('services.backupLoadFailed')}: ${e}</div>`
+    list.innerHTML = `<div style="color:var(--error)">${t('services.backupLoadFailed')}: ${escapeHtml(e)}</div>`
   }
 }
 
@@ -759,7 +750,7 @@ async function handleServiceAction(action, label, page) {
       // 而不是丢一个 toast 让小白对着 stderr 干瞪眼。
       await _promptDoctorFix(page, actionLabel, e)
     } else {
-      toast(t('services.actionCmdFailed', { action: actionLabel, error: e.message || e }), 'error')
+      toast(humanizeError(e, t('services.actionCmdFailed', { action: actionLabel, error: '' }).trim()), 'error')
     }
     if (actionsEl) actionsEl.innerHTML = origHtml
     if (dot) dot.className = 'status-dot stopped'
@@ -912,7 +903,7 @@ async function loadConfigEditor(page) {
         btnSave.disabled = !changed
         btnSaveOnly.disabled = !changed
       } catch (e) {
-        status.innerHTML = `<span style="color:var(--error)">${t('services.configJsonError')}: ${e.message.split(' at ')[0]}</span>`
+        status.innerHTML = `<span style="color:var(--error)">${escapeHtml(t('services.configJsonError') + ': ' + (e.message || String(e)).split(' at ')[0])}</span>`
         btnSave.disabled = true
         btnSaveOnly.disabled = true
       }
@@ -969,7 +960,7 @@ async function handleSaveConfig(page, restart) {
     await loadBackups(page)
   } catch (e) {
     toast(humanizeError(e, t('common.saveFailed')), 'error')
-    status.innerHTML = `<span style="color:var(--error)">${t('common.saveFailed')}: ${e}</span>`
+    status.innerHTML = `<span style="color:var(--error)">${t('common.saveFailed')}: ${escapeHtml(e)}</span>`
   }
 }
 
@@ -1174,7 +1165,7 @@ async function _promptDoctorFix(page, actionLabel, originalErr) {
     }
   )
   if (!yes) {
-    toast(t('services.actionCmdFailed', { action: actionLabel, error: errMsg }), 'error')
+    toast(humanizeError(errMsg, t('services.actionCmdFailed', { action: actionLabel, error: '' }).trim()), 'error')
     return
   }
 
@@ -1189,3 +1180,5 @@ async function _promptDoctorFix(page, actionLabel, originalErr) {
     toast(t('services.doctorFixFailed') + ': ' + (e2?.message || e2), 'error')
   }
 }
+
+export function cleanup() {}

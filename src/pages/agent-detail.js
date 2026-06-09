@@ -10,11 +10,7 @@ import { CHANNEL_LABELS } from '../lib/channel-labels.js'
 import { t } from '../lib/i18n.js'
 import { navigate } from '../router.js'
 import { isTauriRuntime } from '../lib/tauri-api.js'
-
-function esc(str) {
-  if (!str) return ''
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escapeHtml as esc } from '../lib/utils.js'
 
 function openChannelsBindingPage(agentId) {
   const params = new URLSearchParams()
@@ -56,7 +52,7 @@ export async function render() {
   const state = { agentId, detail: null, files: null, models: [], skillsCatalog: [] }
 
   // Tab 切换
-  page.querySelector('#agent-tabs').addEventListener('click', (e) => {
+  page.querySelector('#agent-tabs')?.addEventListener('click', (e) => {
     const tab = e.target.closest('.tab')
     if (!tab) return
     page.querySelectorAll('#agent-tabs .tab').forEach(t => t.classList.remove('active'))
@@ -79,10 +75,13 @@ async function backupAgent(id) {
     const zipPath = await api.backupAgent(id)
     try {
       const { open } = await import('@tauri-apps/plugin-shell')
-      const dir = zipPath.substring(0, zipPath.lastIndexOf('/')) || zipPath
+      // 兼容 Windows 和 Unix 路径分隔符
+      const sep = zipPath.includes('\\') ? '\\' : '/'
+      const dir = zipPath.substring(0, zipPath.lastIndexOf(sep)) || zipPath
       await open(dir)
     } catch { /* fallback */ }
-    toast(t('agents.backupDone', { file: zipPath.split('/').pop() }), 'success')
+    const fileName = zipPath.includes('\\') ? zipPath.split('\\').pop() : zipPath.split('/').pop()
+    toast(t('agents.backupDone', { file: fileName }), 'success')
   } catch (e) {
     toast(humanizeError(e, t('agents.backupFailed')), 'error')
   }
@@ -209,21 +208,21 @@ function renderOverview(container, state) {
   `
 
   // 添加备选模型
-  container.querySelector('#btn-add-fallback').addEventListener('click', () => {
+  container.querySelector('#btn-add-fallback')?.addEventListener('click', () => {
     const list = container.querySelector('#ov-fallbacks')
     const idx = list.querySelectorAll('.fallback-row').length
     list.insertAdjacentHTML('beforeend', renderFallbackRow('', state.models, idx))
   })
 
   // 移除备选模型（事件代理）
-  container.querySelector('#ov-fallbacks').addEventListener('click', (e) => {
+  container.querySelector('#ov-fallbacks')?.addEventListener('click', (e) => {
     if (e.target.closest('.btn-remove-fallback')) {
       e.target.closest('.fallback-row').remove()
     }
   })
 
   // 保存
-  container.querySelector('#btn-save-overview').addEventListener('click', () => saveOverview(container, state))
+  container.querySelector('#btn-save-overview')?.addEventListener('click', () => saveOverview(container, state))
 }
 
 function renderModelSelect(id, selected, models) {
@@ -354,7 +353,7 @@ function renderTools(container, state) {
     </div>
   `
 
-  container.querySelector('#btn-save-tools').addEventListener('click', () => saveTools(container, state))
+  container.querySelector('#btn-save-tools')?.addEventListener('click', () => saveTools(container, state))
 }
 
 async function saveTools(container, state) {
@@ -401,10 +400,14 @@ function renderSkills(container, state) {
               <button class="btn btn-secondary btn-sm" id="btn-clear-skills" type="button">${t('agentDetail.clearSkills')}</button>
             </div>
           </div>
-        ` : ''}
-        <div class="agent-skills-list">
-          ${skills.length ? skills.map(skill => renderSkillCard(skill, selected.has(skill.name))).join('') : `<div class="agent-hint">${t('agentDetail.noSkills')}</div>`}
-        </div>
+          <div class="agent-skills-filter">
+            <input type="text" class="form-input" id="agent-skill-filter-input" placeholder="🔍 ${t('skills.filterPlaceholder') || '搜索技能名称或描述...'}">
+          </div>
+          <div class="agent-skills-list">
+            ${skills.map(skill => renderSkillCard(skill, selected.has(skill.name))).join('')}
+          </div>
+          <div class="agent-skills-empty" id="agent-skills-empty" style="display:none;padding:24px;text-align:center;color:var(--text-tertiary)">${t('skills.noResults')}</div>
+        ` : `<div class="agent-skills-list"><div class="agent-hint">${t('agentDetail.noSkills')}</div></div>`}
       </section>
       <div class="agent-save-bar">
         <button class="btn btn-primary" id="btn-save-skills">${t('agentDetail.saveSkills')}</button>
@@ -412,7 +415,7 @@ function renderSkills(container, state) {
     </div>
   `
 
-  container.querySelector('#btn-save-skills').addEventListener('click', () => saveSkills(container, state))
+  container.querySelector('#btn-save-skills')?.addEventListener('click', () => saveSkills(container, state))
   const refreshSkillCount = () => {
     const countEl = container.querySelector('#agent-skills-count')
     if (!countEl) return
@@ -431,6 +434,27 @@ function renderSkills(container, state) {
   container.querySelectorAll('.agent-skill-checkbox').forEach(input => {
     input.addEventListener('change', refreshSkillCount)
   })
+
+  // 技能搜索过滤
+  const filterInput = container.querySelector('#agent-skill-filter-input')
+  const emptyEl = container.querySelector('#agent-skills-empty')
+  if (filterInput) {
+    filterInput.addEventListener('input', () => {
+      const q = filterInput.value.trim().toLowerCase()
+      const list = container.querySelector('.agent-skills-list')
+      let visibleCount = 0
+      list.querySelectorAll('.agent-skill-card').forEach(card => {
+        const name = (card.dataset.name || '').toLowerCase()
+        const desc = (card.dataset.desc || '').toLowerCase()
+        const match = !q || name.includes(q) || desc.includes(q)
+        card.style.display = match ? '' : 'none'
+        if (match) visibleCount++
+      })
+      if (emptyEl) {
+        emptyEl.style.display = q && visibleCount === 0 ? '' : 'none'
+      }
+    })
+  }
 
   // 点击技能卡片（非 checkbox）弹出预览
   container.querySelectorAll('.agent-skill-card').forEach(card => {
@@ -498,7 +522,7 @@ function renderSkillCard(skill, checked) {
   const eligible = skill.eligible !== false
   const disabled = skill.disabled === true
   return `
-    <label class="agent-skill-card ${!eligible || disabled ? 'is-muted' : ''}">
+    <label class="agent-skill-card ${!eligible || disabled ? 'is-muted' : ''}" data-name="${esc(skill.name)}" data-desc="${esc(desc)}">
       <input type="checkbox" class="agent-skill-checkbox" data-skill-name="${esc(skill.name)}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
       <div class="agent-skill-main">
         <div class="agent-skill-head">
@@ -703,7 +727,7 @@ async function renderChannels(container, state) {
 
   renderBindingsList(container, state, bindings)
 
-  container.querySelector('#btn-add-binding').addEventListener('click', () => {
+  container.querySelector('#btn-add-binding')?.addEventListener('click', () => {
     openChannelsBindingPage(state.agentId)
   })
 }

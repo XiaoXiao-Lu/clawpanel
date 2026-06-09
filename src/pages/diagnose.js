@@ -4,6 +4,7 @@
 import { api, isTauriRuntime } from '../lib/tauri-api.js'
 import { toast } from '../components/toast.js'
 import { t } from '../lib/i18n.js'
+import { escapeHtml as escHtml } from '../lib/utils.js'
 
 const STEP_LABELS = {
   config: () => t('diagnose.stepConfig'),
@@ -50,7 +51,7 @@ export async function render() {
       renderResult(page, result)
     } catch (e) {
       toast.error(`${t('diagnose.diagnoseFailed')}: ${e}`)
-      page.querySelector('#diagnose-steps').innerHTML = `<div class="empty-state" style="padding:32px;color:var(--text-error)">${t('diagnose.diagnoseFailed')}: ${e}</div>`
+      page.querySelector('#diagnose-steps').innerHTML = `<div class="empty-state" style="padding:32px;color:var(--text-error)">${t('diagnose.diagnoseFailed')}: ${escHtml(e)}</div>`
     } finally {
       btnDiagnose.disabled = false
       btnDiagnose.classList.remove('btn-loading')
@@ -113,6 +114,3 @@ function renderResult(page, result) {
   page.querySelector('#env-content').innerHTML = html
 }
 
-function escHtml(s) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}

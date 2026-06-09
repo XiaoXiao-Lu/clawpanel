@@ -50,6 +50,7 @@
     "sectionConfig": "Configuración",
     "sectionData": "Datos",
     "sectionExtension": "Extensiones",
+    "sectionSystem": "Sistema",
     "dashboard": "Panel",
     "assistant": "Asistente",
     "chat": "Chat",
@@ -2134,8 +2135,8 @@
       "failurePrefix": "Falló la actualización del kernel:"
     },
     "upgradeHint": {
-      "title": "Nuevo kernel disponible",
-      "subtitle": "{from} → {to}, haz clic para actualizar",
+      "title": "Running Gateway can be upgraded",
+      "subtitle": "Gateway {from} → recommended {to}",
       "dismissTooltip": "No avisar en esta sesión"
     }
   },

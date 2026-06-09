@@ -74,6 +74,7 @@ function createFab() {
   const fab = document.createElement('button')
   fab.className = 'ai-fab'
   fab.title = t('sidebar.assistant')
+  fab.setAttribute('aria-label', t('sidebar.assistant'))
   fab.innerHTML = BOT_ICON
   document.body.appendChild(fab)
 

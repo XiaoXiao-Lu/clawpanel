@@ -199,10 +199,7 @@ export function initSearchFilter(searchInput, contentContainer) {
 
 // ---------- internal helpers ----------
 
-/** @param {string} s */
-function escHtml(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
+import { escapeHtml as escHtml } from '../../../lib/utils.js'
 
 /** @param {string} s */
 function escAttr(s) {

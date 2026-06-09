@@ -59,7 +59,9 @@ pub(crate) fn get_or_create_key() -> Result<(String, String, SigningKey), String
     });
 
     let _ = fs::create_dir_all(&dir);
-    fs::write(&path, serde_json::to_string_pretty(&json).unwrap())
+    let content = serde_json::to_string_pretty(&json)
+        .map_err(|e| format!("序列化设备密钥失败: {e}"))?;
+    fs::write(&path, content)
         .map_err(|e| format!("保存设备密钥失败: {e}"))?;
 
     Ok((device_id, pub_b64, signing_key))
@@ -99,7 +101,7 @@ pub fn create_connect_frame(
     let (device_id, pub_b64, signing_key) = get_or_create_key()?;
     let signed_at = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_millis();
 
     let platform = std::env::consts::OS; // "windows" | "macos" | "linux"

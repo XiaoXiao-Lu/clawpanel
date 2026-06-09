@@ -57,6 +57,7 @@ function _canShow() {
 }
 
 let _showing = false
+let _previousFocus = null
 
 /**
  * 在正向时机调用（如 Gateway 启动成功、配置保存成功）
@@ -65,6 +66,7 @@ let _showing = false
 export function tryShowEngagement() {
   if (_showing || !_canShow()) return
   if (document.querySelector('.engage-overlay')) return
+  _previousFocus = document.activeElement
   _showing = true
   localStorage.setItem(KEYS.lastShown, String(Date.now()))
 
@@ -72,9 +74,12 @@ export function tryShowEngagement() {
 
   const overlay = document.createElement('div')
   overlay.className = 'engage-overlay'
+  overlay.setAttribute('role', 'dialog')
+  overlay.setAttribute('aria-modal', 'true')
+  overlay.setAttribute('aria-label', t('engagement.title'))
   overlay.innerHTML = `
     <div class="engage-modal">
-      <button class="engage-close" title="${t('common.close')}">&times;</button>
+      <button class="engage-close" aria-label="${t('common.close')}" title="${t('common.close')}">&times;</button>
 
       <div class="engage-header">
         <div class="engage-icon">
@@ -136,30 +141,50 @@ export function tryShowEngagement() {
   document.body.appendChild(overlay)
   requestAnimationFrame(() => overlay.classList.add('engage-visible'))
 
+  // Focus trap
+  const focusableSelector = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  const focusableEls = overlay.querySelectorAll(focusableSelector)
+  if (focusableEls.length) focusableEls[0].focus()
+
   function dismiss(markToday = true) {
     if (markToday) localStorage.setItem(KEYS.todayDismiss, _todayKey())
     overlay.classList.remove('engage-visible')
-    setTimeout(() => { overlay.remove(); _showing = false }, 250)
+    setTimeout(() => {
+      overlay.remove()
+      _showing = false
+      if (_previousFocus?.focus) _previousFocus.focus()
+      _previousFocus = null
+    }, 250)
   }
 
   overlay.addEventListener('click', (e) => { if (e.target === overlay) dismiss() })
-  overlay.querySelector('.engage-close').onclick = () => dismiss()
-  overlay.querySelector('.engage-today-dismiss').onclick = () => dismiss(true)
-  overlay.querySelector('[data-action="copy-share"]').onclick = () => {
+  overlay.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { dismiss(); return }
+    if (e.key === 'Tab') {
+      const first = focusableEls[0], last = focusableEls[focusableEls.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+  })
+  overlay.querySelector('.engage-close').addEventListener('click', () => dismiss())
+  overlay.querySelector('.engage-today-dismiss').addEventListener('click', () => dismiss(true))
+  overlay.querySelector('[data-action="copy-share"]').addEventListener('click', () => {
     navigator.clipboard.writeText(shareText).then(() => {
       const desc = overlay.querySelector('[data-action="copy-share"] .engage-action-desc')
       if (desc) { desc.textContent = t('engagement.shareCopied'); setTimeout(() => { desc.textContent = t('engagement.shareDesc') }, 2000) }
     })
-  }
+  })
 }
 
 // 测试用：绕过条件直接弹出（浏览器控制台输入 __testEngagement()）
-window.__testEngagement = function() {
-  _showing = false
-  document.querySelector('.engage-overlay')?.remove()
-  localStorage.removeItem(KEYS.never)
-  localStorage.setItem(KEYS.openCount, '99')
-  localStorage.setItem(KEYS.firstOpen, '0')
-  localStorage.removeItem(KEYS.lastShown)
-  tryShowEngagement()
+if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
+  window.__testEngagement = function() {
+    _showing = false
+    document.querySelector('.engage-overlay')?.remove()
+    localStorage.removeItem(KEYS.never)
+    localStorage.setItem(KEYS.openCount, '99')
+    localStorage.setItem(KEYS.firstOpen, '0')
+    localStorage.removeItem(KEYS.lastShown)
+    tryShowEngagement()
+  }
 }

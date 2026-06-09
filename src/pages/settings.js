@@ -9,13 +9,9 @@ import { t, getLang, setLang, getAvailableLangs, onLangChange } from '../lib/i18
 import { isMacPlatform } from '../lib/app-state.js'
 import { renderSidebar } from '../components/sidebar.js'
 import { getActiveEngineId } from '../lib/engine-manager.js'
+import { escapeHtml } from '../lib/utils.js'
 
 const isTauri = !!window.__TAURI_INTERNALS__
-
-function escapeHtml(str) {
-  if (!str) return ''
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 
 function platformDefaultDockerEndpoint() {
   const isWin = navigator.platform?.startsWith('Win') || navigator.userAgent?.includes('Windows')
@@ -616,7 +612,7 @@ async function loadGitPath(page) {
         <div id="git-scan-results"></div>
       </div>`
   } catch (e) {
-    bar.innerHTML = `<div class="stat-card" style="padding:16px;color:var(--error)">${e}</div>`
+    bar.innerHTML = `<div class="stat-card" style="padding:16px;color:var(--error)">${escapeHtml(e)}</div>`
   }
 }
 
@@ -658,7 +654,7 @@ async function handleScanGitPaths(page) {
       </div>`
     ).join('')}</div>`
   } catch (e) {
-    container.innerHTML = `<div style="margin-top:10px;font-size:12px;color:var(--error)">${e}</div>`
+    container.innerHTML = `<div style="margin-top:10px;font-size:12px;color:var(--error)">${escapeHtml(e)}</div>`
   }
 }
 
@@ -688,7 +684,7 @@ async function loadHermesMirror(page) {
         </div>
       </div>`
   } catch (e) {
-    bar.innerHTML = `<div class="stat-card" style="padding:16px;color:var(--error)">${e}</div>`
+    bar.innerHTML = `<div class="stat-card" style="padding:16px;color:var(--error)">${escapeHtml(e)}</div>`
   }
 }
 

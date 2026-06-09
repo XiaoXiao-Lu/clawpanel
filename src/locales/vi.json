@@ -50,6 +50,7 @@
     "sectionConfig": "Cấu hình",
     "sectionData": "Dữ liệu",
     "sectionExtension": "Mở rộng",
+    "sectionSystem": "Hệ thống",
     "dashboard": "Bảng điều khiển",
     "assistant": "Trợ lý",
     "chat": "Trò chuyện",
@@ -2134,8 +2135,8 @@
       "failurePrefix": "Nâng cấp kernel thất bại:"
     },
     "upgradeHint": {
-      "title": "Có kernel mới",
-      "subtitle": "{from} → {to}, nhấn để nâng cấp",
+      "title": "Running Gateway can be upgraded",
+      "subtitle": "Gateway {from} → recommended {to}",
       "dismissTooltip": "Không nhắc trong phiên này"
     }
   },

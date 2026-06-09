@@ -50,6 +50,7 @@
     "sectionConfig": "設定",
     "sectionData": "資料",
     "sectionExtension": "擴充",
+    "sectionSystem": "系統",
     "dashboard": "儀表盤",
     "assistant": "晴辰助手",
     "chat": "實時聊天",
@@ -2135,8 +2136,8 @@
       "failurePrefix": "核心升級失敗:"
     },
     "upgradeHint": {
-      "title": "有新核心可用",
-      "subtitle": "{from} → {to}，點此一鍵升級",
+      "title": "執行中的 Gateway 可升級",
+      "subtitle": "Gateway {from} → 推薦 {to}",
       "dismissTooltip": "本次工作階段不再提醒"
     }
   },

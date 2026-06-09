@@ -22,16 +22,28 @@
 
 import { t } from './i18n.js'
 
+const LOOPBACK_GATEWAY_REFUSED_RE =
+  /(?:(?:econnrefused|connection refused|tcp connect)[^\r\n]*(?:127(?:\.\d{1,3}){3}|localhost|\[?::1\]?)[^\r\n]*(?::|\bport\s*)18789\b|(?:127(?:\.\d{1,3}){3}|localhost|\[?::1\]?)[^\r\n]*(?::|\bport\s*)18789\b[^\r\n]*(?:econnrefused|connection refused|tcp connect))/i
+
 const PATTERNS = [
-  // 网络
+  // Node.js 版本不满足当前 OpenClaw 要求
   {
-    key: 'network',
-    re: /(failed to fetch|networkerror|networkfailure|enetunreach|econnreset|econnrefused|ehostunreach|err_network|fetch failed|connection refused|connection reset|getaddrinfo|dns error|no route to host|aborted|broken pipe|connect timed out|tcp connect|backend service is not running|web deployment mode|后端服务未运行)/i,
+    key: 'nodeVersion',
+    re: /(node\.?js.*(版本过低|too old)|requires node|要求\s*[><=^~]*\d|node.*version.*(too old|unsupported))/i,
   },
   // Gateway 未启动（特殊的 connection refused / port not listen 情况）
   {
     key: 'gatewayDown',
     re: /(gateway[^a-z]*(not[^a-z]*(running|ready|reachable)|down|offline|未启动)|managed gateway|未运行|gateway[^a-z]*未就绪)/i,
+  },
+  {
+    key: 'gatewayDown',
+    re: LOOPBACK_GATEWAY_REFUSED_RE,
+  },
+  // 网络
+  {
+    key: 'network',
+    re: /(failed to fetch|networkerror|networkfailure|enetunreach|econnreset|econnrefused|ehostunreach|err_network|fetch failed|connection refused|connection reset|getaddrinfo|dns error|no route to host|aborted|broken pipe|connect timed out|tcp connect|backend service is not running|web deployment mode|后端服务未运行)/i,
   },
   // 命令未找到 / 二进制丢失
   {
@@ -90,6 +102,7 @@ function toRawString(e) {
 
 // 不同错误类型默认对应的行动按钮（label 走 i18n，route 直接跳转）
 const DEFAULT_ACTIONS = {
+  nodeVersion: { labelKey: 'common.errorAction.checkNode', route: '/setup' },
   gatewayDown: { labelKey: 'common.errorAction.startGateway', route: '/services' },
   cmdMissing: { labelKey: 'common.errorAction.openSettings', route: '/settings' },
   permission: { labelKey: 'common.errorAction.openSettings', route: '/settings' },

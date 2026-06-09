@@ -10,8 +10,10 @@ const _commandIndex = []
 let _overlay = null
 let _input = null
 let _resultsEl = null
+let _liveRegion = null
 let _selectedIndex = 0
 let _filteredItems = []
+let _previousFocus = null
 
 /** 注册单个命令 */
 export function registerCommand(cmd) {
@@ -44,8 +46,9 @@ export function searchCommands(query) {
 /** 打开 Command Palette */
 export function openPalette() {
   if (_overlay) return
+  _previousFocus = document.activeElement
   _selectedIndex = 0
-  
+
   // 创建遮罩层
   _overlay = document.createElement('div')
   _overlay.className = 'command-palette-overlay'
@@ -56,12 +59,17 @@ export function openPalette() {
   // 主容器
   const palette = document.createElement('div')
   palette.className = 'command-palette'
+  palette.setAttribute('role', 'dialog')
+  palette.setAttribute('aria-label', t('commandPalette.title') || '命令面板')
 
   // 搜索输入框
   _input = document.createElement('input')
   _input.className = 'command-palette-input'
   _input.type = 'text'
   _input.placeholder = t('commandPalette.placeholder') || '搜索命令...'
+  _input.setAttribute('role', 'combobox')
+  _input.setAttribute('aria-expanded', 'false')
+  _input.setAttribute('aria-autocomplete', 'list')
   _input.addEventListener('input', () => {
     _selectedIndex = 0
     renderResults(searchCommands(_input.value))
@@ -72,10 +80,21 @@ export function openPalette() {
   // 结果列表
   _resultsEl = document.createElement('div')
   _resultsEl.className = 'command-palette-results'
+  _resultsEl.setAttribute('role', 'listbox')
   palette.appendChild(_resultsEl)
+
+  // 实时区域 — 播报搜索结果数量
+  _liveRegion = document.createElement('div')
+  _liveRegion.setAttribute('role', 'status')
+  _liveRegion.setAttribute('aria-live', 'polite')
+  _liveRegion.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)'
+  palette.appendChild(_liveRegion)
 
   _overlay.appendChild(palette)
   document.body.appendChild(_overlay)
+
+  // 焦点陷阱
+  _overlay.addEventListener('keydown', handleOverlayKeydown)
 
   // 渲染全部命令
   renderResults(searchCommands(''))
@@ -85,10 +104,39 @@ export function openPalette() {
 /** 关闭 Command Palette */
 export function closePalette() {
   if (_overlay) {
+    _overlay.removeEventListener('keydown', handleOverlayKeydown)
     _overlay.remove()
     _overlay = null
     _input = null
     _resultsEl = null
+    _liveRegion = null
+    if (_previousFocus && _previousFocus.focus) _previousFocus.focus()
+    _previousFocus = null
+  }
+}
+
+/** 焦点陷阱处理 */
+function handleOverlayKeydown(e) {
+  if (e.key !== 'Tab') return
+  if (!_overlay) return
+
+  const palette = _overlay.querySelector('.command-palette')
+  const focusableEls = palette.querySelectorAll(
+    'input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )
+  const firstEl = focusableEls[0]
+  const lastEl = focusableEls[focusableEls.length - 1]
+
+  if (e.shiftKey) {
+    if (document.activeElement === firstEl) {
+      e.preventDefault()
+      lastEl.focus()
+    }
+  } else {
+    if (document.activeElement === lastEl) {
+      e.preventDefault()
+      firstEl.focus()
+    }
   }
 }
 
@@ -124,13 +172,23 @@ function renderResults(items) {
   if (!_resultsEl) return
   _resultsEl.innerHTML = ''
 
+  // 更新 combobox aria-expanded
+  if (_input) {
+    _input.setAttribute('aria-expanded', items.length > 0 ? 'true' : 'false')
+  }
+
   if (items.length === 0) {
     const empty = document.createElement('div')
     empty.className = 'command-palette-empty'
     empty.textContent = t('commandPalette.noResults') || '无匹配命令'
     _resultsEl.appendChild(empty)
+    // 播报空结果
+    if (_liveRegion) _liveRegion.textContent = '无匹配命令'
     return
   }
+
+  // 播报结果数量
+  if (_liveRegion) _liveRegion.textContent = `${items.length} 个命令可用`
 
   // 按 category 分组
   const groups = {}
@@ -159,6 +217,9 @@ function renderResults(items) {
     catItems.forEach(item => {
       const row = document.createElement('div')
       row.className = 'command-palette-item'
+      row.setAttribute('role', 'option')
+      row.setAttribute('id', `cp-option-${item._idx}`)
+      row.setAttribute('aria-selected', item._idx === _selectedIndex ? 'true' : 'false')
       if (item._idx === _selectedIndex) row.classList.add('active')
       row.dataset.idx = item._idx
 
@@ -196,8 +257,14 @@ function updateSelection() {
   if (!_resultsEl) return
   const items = _resultsEl.querySelectorAll('.command-palette-item')
   items.forEach((el, i) => {
-    el.classList.toggle('active', parseInt(el.dataset.idx) === _selectedIndex)
+    const isActive = parseInt(el.dataset.idx) === _selectedIndex
+    el.classList.toggle('active', isActive)
+    el.setAttribute('aria-selected', isActive ? 'true' : 'false')
   })
+  // 更新 combobox aria-activedescendant
+  if (_input) {
+    _input.setAttribute('aria-activedescendant', `cp-option-${_selectedIndex}`)
+  }
   // 滚动到可见区域
   const active = _resultsEl.querySelector('.command-palette-item.active')
   if (active) active.scrollIntoView({ block: 'nearest' })

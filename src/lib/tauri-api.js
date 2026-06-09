@@ -4,6 +4,7 @@
  */
 
 import { t } from './i18n.js'
+import { wsClient } from './ws-client.js'
 
 export function isTauriRuntime() {
   return !!window.__TAURI_INTERNALS__ || !!window.__TAURI__ || window.location?.hostname === 'tauri.localhost' || window.location?.protocol === 'tauri:'
@@ -84,6 +85,11 @@ export function getRequestLogs() {
 
 export function clearRequestLogs() {
   _requestLogs.length = 0
+}
+
+function normalizeSiteLocale(locale) {
+  const value = String(locale || '').trim().toLowerCase()
+  return value.startsWith('zh') ? 'zh-CN' : 'en'
 }
 
 function cachedInvoke(cmd, args = {}, ttl = CACHE_TTL) {
@@ -266,15 +272,8 @@ export async function checkBackendHealth() {
 let _reloadTimer = null
 function _debouncedReloadGateway() {
   clearTimeout(_reloadTimer)
-  _reloadTimer = setTimeout(async () => {
-    if (!isTauriRuntime()) {
-      try {
-        const { wsClient } = await import('./ws-client.js')
-        if (wsClient.connected || wsClient.connecting || wsClient.gatewayReady) return
-      } catch {}
-    }
-    invoke('reload_gateway').catch(() => {})
-  }, 3000)
+  if (!isTauriRuntime()) return
+  _reloadTimer = setTimeout(() => { invoke('reload_gateway').catch(() => {}) }, 3000)
 }
 
 // 导出 API
@@ -427,10 +426,12 @@ export const api = {
   checkGit: () => cachedInvoke('check_git', {}, LONG_CACHE_TTL),
   scanGitPaths: () => invoke('scan_git_paths'),
   autoInstallGit: () => invoke('auto_install_git'),
+  autoInstallNode: () => invoke('auto_install_node').then(r => { invalidate('check_node', 'get_services_status'); invoke('invalidate_path_cache').catch(() => {}); return r }),
   configureGitHttps: () => invoke('configure_git_https'),
   getDeployConfig: () => cachedInvoke('get_deploy_config'),
   patchModelVision: () => invoke('patch_model_vision'),
   checkPanelUpdate: () => invoke('check_panel_update'),
+  checkSiteAnnouncements: (locale) => invoke('check_site_announcements', { locale: normalizeSiteLocale(locale) }),
   writeEnvFile: (path, config) => invoke('write_env_file', { path, config }),
 
   // 备份管理

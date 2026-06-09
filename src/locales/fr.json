@@ -50,6 +50,7 @@
     "sectionConfig": "Configuration",
     "sectionData": "Données",
     "sectionExtension": "Extensions",
+    "sectionSystem": "Système",
     "dashboard": "Tableau de bord",
     "assistant": "Assistant",
     "chat": "Chat",
@@ -2134,8 +2135,8 @@
       "failurePrefix": "Échec de la mise à jour du noyau :"
     },
     "upgradeHint": {
-      "title": "Nouveau noyau disponible",
-      "subtitle": "{from} → {to}, cliquez pour mettre à jour",
+      "title": "Running Gateway can be upgraded",
+      "subtitle": "Gateway {from} → recommended {to}",
       "dismissTooltip": "Ne plus avertir pendant cette session"
     }
   },

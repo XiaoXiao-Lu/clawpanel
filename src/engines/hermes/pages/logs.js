@@ -15,10 +15,7 @@
 import { t } from '../../../lib/i18n.js'
 import { api } from '../../../lib/tauri-api.js'
 import { toast } from '../../../components/toast.js'
-
-function escHtml(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
+import { escapeHtml as escHtml } from '../../../lib/utils.js'
 
 const LOG_LEVELS = ['ALL', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 const LEVEL_TONE = {
@@ -278,7 +275,7 @@ export function render() {
               <input type="text" id="hm-logs-search" class="hm-input" placeholder="${t('engine.logsSearch')}" value="${escHtml(searchQuery)}">
             </label>
             <div class="hm-logs-toolbar-item hm-logs-toolbar-actions">
-              <button class="hm-btn hm-btn--ghost hm-btn--sm hm-logs-clear" ${!entries.length ? 'disabled' : ''} title="${t('engine.logsClear')}">
+              <button class="hm-btn hm-btn--ghost hm-btn--sm hm-logs-clear" ${!entries.length ? 'disabled' : ''} title="${t('engine.logsClear')}" aria-label="${t('engine.logsClear')}">
                 ${ICONS.clear}
               </button>
             </div>

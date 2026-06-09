@@ -7,6 +7,7 @@ import { showConfirm, showContentModal } from '../components/modal.js'
 import { icon, statusIcon } from '../lib/icons.js'
 import { t } from '../lib/i18n.js'
 import { humanizeError } from '../lib/humanize-error.js'
+import { escapeHtml as esc } from '../lib/utils.js'
 import {
   buildMcpConfigWithServers,
   getMcpConfigShape,
@@ -15,9 +16,6 @@ import {
   validateMcpServer,
 } from '../lib/mcp-config.js'
 
-function esc(value) {
-  return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 
 function attr(value) {
   return esc(value).replace(/'/g, '&#39;')
@@ -638,4 +636,10 @@ function openImport(page, state) {
       }
     }
   })
+}
+
+let _cleanupListeners = []
+export function cleanup() {
+  _cleanupListeners.forEach(([el, ev, fn]) => el?.removeEventListener(ev, fn))
+  _cleanupListeners = []
 }

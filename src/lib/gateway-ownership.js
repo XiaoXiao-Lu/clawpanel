@@ -2,15 +2,7 @@ import { api } from './tauri-api.js'
 import { showContentModal, showConfirm } from '../components/modal.js'
 import { toast } from '../components/toast.js'
 import { t } from './i18n.js'
-
-function escapeHtml(str) {
-  if (!str) return ''
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+import { escapeHtml } from './utils.js'
 
 function cliSourceLabel(source) {
   if (source === 'standalone') return t('dashboard.cliSourceStandalone')
@@ -47,6 +39,20 @@ function dedupeOpenclawInstallations(list = []) {
 
 function readBoundCliPath(panelConfig) {
   return String(panelConfig?.openclawCliPath || '').trim()
+}
+
+function quoteCommandPath(path) {
+  return String(path || '').replace(/"/g, '\\"')
+}
+
+function openclawInstallDirForCommand(path) {
+  const value = String(path || '').trim()
+  if (!value) return ''
+  const normalized = value.replace(/\\/g, '/')
+  if (/\/openclaw(?:\.cmd|\.exe|\.bat|\.ps1|\.js)?$/i.test(normalized)) {
+    return value.replace(/[\\/][^\\/]+$/, '')
+  }
+  return value
 }
 
 let _foreignGatewayPromptKey = ''
@@ -135,10 +141,10 @@ export async function showGatewayConflictGuidance({ error = null, service = null
   const installationHtml = installations.length
     ? installations.map(inst => {
       const isActive = !!inst.active
-      const borderColor = isActive ? 'rgba(34,197,94,0.4)' : 'var(--border-light)'
-      const bgColor = isActive ? 'rgba(34,197,94,0.06)' : 'var(--bg-secondary)'
+      const borderColor = isActive ? 'rgba(var(--brand-green-rgb, 34,197,94), 0.4)' : 'var(--border-light)'
+      const bgColor = isActive ? 'rgba(var(--brand-green-rgb, 34,197,94), 0.06)' : 'var(--bg-secondary)'
       const activeBadge = isActive
-        ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(34,197,94,0.14);color:#16a34a">● ${escapeHtml(t('services.guidanceActiveBadge'))}</span>`
+        ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(var(--brand-green-rgb, 34,197,94), 0.14);color:var(--success, #16a34a)">● ${escapeHtml(t('services.guidanceActiveBadge'))}</span>`
         : ''
       const versionBadge = inst.version
         ? `<span style="display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:500;background:rgba(99,102,241,0.10);color:var(--text-secondary)">${escapeHtml(inst.version)}</span>`
@@ -169,13 +175,13 @@ export async function showGatewayConflictGuidance({ error = null, service = null
 
   const stepCard = (n, text) => `
     <div style="display:flex;gap:10px;align-items:flex-start">
-      <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px">${n}</span>
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--text-inverse, #fff);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px">${n}</span>
       <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;flex:1">${escapeHtml(text)}</div>
     </div>`
 
   const content = `
     <div style="display:flex;flex-direction:column;gap:14px;font-size:var(--font-size-sm);color:var(--text-secondary);line-height:1.7">
-      <div style="display:flex;gap:10px;padding:12px 14px;border-radius:10px;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.2)">
+      <div style="display:flex;gap:10px;padding:12px 14px;border-radius:10px;background:rgba(var(--brand-amber-rgb, 245,158,11), 0.10);border:1px solid rgba(var(--brand-amber-rgb, 245,158,11), 0.2)">
         <span style="font-size:18px;flex-shrink:0">⚠️</span>
         <div style="color:var(--warning);font-size:13px;line-height:1.6">${escapeHtml(summaryText)}</div>
       </div>
@@ -236,14 +242,15 @@ export async function showGatewayConflictGuidance({ error = null, service = null
 
 /** 根据安装来源返回卸载命令 */
 function uninstallCommandForSource(source, path) {
+  const isWin = navigator.platform?.startsWith('Win') || navigator.userAgent?.includes('Windows')
   if (source === 'standalone') {
-    const isWin = navigator.platform?.startsWith('Win') || navigator.userAgent?.includes('Windows')
-    const p = escapeHtml(path || '')
+    const p = quoteCommandPath(openclawInstallDirForCommand(path))
     return isWin ? `rmdir /s /q "${p}"` : `rm -rf "${p}"`
   }
   if (source === 'npm-official' || source === 'official') return 'npm uninstall -g openclaw'
-  // npm-zh, npm-global, and others
-  return 'npm uninstall -g @qingchencloud/openclaw-zh'
+  if (source === 'npm-zh' || source === 'npm-global') return 'npm uninstall -g @qingchencloud/openclaw-zh'
+  const p = quoteCommandPath(path)
+  return isWin ? `del /f /q "${p}"` : `rm -f "${p}"`
 }
 
 /**
@@ -259,6 +266,11 @@ export async function showInstallationCleanup({ onRefresh = null } = {}) {
   const installations = dedupeOpenclawInstallations(Array.isArray(versionInfo?.all_installations) ? versionInfo.all_installations : [])
   const boundPath = readBoundCliPath(panelConfig)
   const currentPath = versionInfo?.cli_path || ''
+  const hasActiveBoundInstall = installations.some(inst =>
+    inst?.active
+    && boundPath
+    && openclawInstallationIdentity({ path: inst.path }) === openclawInstallationIdentity({ path: boundPath })
+  )
 
   const sourceLabel = (src) => cliSourceLabel(src)
 
@@ -266,27 +278,32 @@ export async function showInstallationCleanup({ onRefresh = null } = {}) {
   const installCards = installations.map((inst, idx) => {
     const isActive = !!inst.active
     const isBound = boundPath && openclawInstallationIdentity({ path: inst.path }) === openclawInstallationIdentity({ path: boundPath })
-    const borderColor = isActive ? 'rgba(34,197,94,0.4)' : 'var(--border-light)'
-    const bgColor = isActive ? 'rgba(34,197,94,0.04)' : 'var(--bg-secondary)'
+    const borderColor = isActive ? 'rgba(var(--brand-green-rgb, 34,197,94), 0.4)' : 'var(--border-light)'
+    const bgColor = isActive ? 'rgba(var(--brand-green-rgb, 34,197,94), 0.04)' : 'var(--bg-secondary)'
 
     const badges = []
-    if (isActive) badges.push(`<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(34,197,94,0.14);color:#16a34a">● ${t('services.cleanupActive')}</span>`)
+    if (isActive) badges.push(`<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(var(--brand-green-rgb, 34,197,94), 0.14);color:var(--success, #16a34a)">● ${t('services.cleanupActive')}</span>`)
     if (isBound) badges.push(`<span style="display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--accent-muted);color:var(--accent)">✓ ${t('services.cleanupBound')}</span>`)
     if (inst.version) badges.push(`<span style="display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px;background:var(--bg-tertiary);color:var(--text-secondary)">${escapeHtml(inst.version)}</span>`)
     if (inst.source) badges.push(`<span style="display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px;background:var(--bg-tertiary);color:var(--text-tertiary)">${escapeHtml(sourceLabel(inst.source))}</span>`)
 
     const uninstallCmd = uninstallCommandForSource(inst.source, inst.path)
 
-    // 操作区：非活跃的安装显示卸载命令 + 复制按钮；活跃的显示绑定按钮
+    // 操作区：所有未绑定安装都可以绑定；非活跃安装额外显示清理命令。
     let actions = ''
-    if (isActive && !isBound) {
-      actions = `<button class="btn btn-primary btn-xs cleanup-bind-btn" data-path="${escapeHtml(inst.path)}" style="margin-top:8px">${t('services.cleanupBindThis')}</button>`
-    } else if (!isActive) {
+    const shouldOfferBind = !isBound && (!hasActiveBoundInstall || isActive)
+    const bindButton = shouldOfferBind
+      ? `<button class="btn btn-primary btn-xs cleanup-bind-btn" data-path="${escapeHtml(inst.path)}">${t('services.cleanupBindThis')}</button>`
+      : ''
+    if (!isActive) {
       actions = `
         <div style="margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          ${bindButton}
           <code style="flex:1;min-width:0;font-size:11px;padding:4px 8px;background:var(--bg-tertiary);border-radius:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;user-select:all" title="${escapeHtml(uninstallCmd)}">${escapeHtml(uninstallCmd)}</code>
           <button class="btn btn-secondary btn-xs cleanup-copy-cmd" data-cmd="${escapeHtml(uninstallCmd)}" style="flex-shrink:0">${t('services.cleanupCopyCmd')}</button>
         </div>`
+    } else if (bindButton) {
+      actions = `<div style="margin-top:8px">${bindButton}</div>`
     }
 
     return `
@@ -306,8 +323,8 @@ export async function showInstallationCleanup({ onRefresh = null } = {}) {
 
   // 概要提示
   const summaryStyle = installations.length > 1
-    ? 'background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.2);color:var(--warning)'
-    : 'background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);color:var(--success)'
+    ? 'background:rgba(var(--brand-amber-rgb, 245,158,11), 0.10);border:1px solid rgba(var(--brand-amber-rgb, 245,158,11), 0.2);color:var(--warning)'
+    : 'background:rgba(var(--brand-green-rgb, 34,197,94), 0.08);border:1px solid rgba(var(--brand-green-rgb, 34,197,94), 0.2);color:var(--success)'
   const summaryIcon = installations.length > 1 ? '⚠️' : '✅'
   const summaryText = installations.length > 1
     ? t('services.cleanupMultiSummary', { count: installations.length })

@@ -4,6 +4,7 @@
 import { api, invalidate, isTauriRuntime } from '../../../lib/tauri-api.js'
 import { t } from '../../../lib/i18n.js'
 import { showConfirm, showUpgradeModal } from '../../../components/modal.js'
+import { escapeHtml as esc } from '../../../lib/utils.js'
 
 const ICONS = {
   refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>',
@@ -18,13 +19,6 @@ const ICONS = {
   trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>',
 }
 
-function esc(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
 
 function stripError(error) {
   return String(error?.message || error || '').replace(/^Error:\s*/, '')

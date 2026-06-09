@@ -9,6 +9,7 @@
  *   showFloorBlocker({ currentVersion, floor, target, onIgnore })
  */
 import { t } from '../lib/i18n.js'
+import { escapeHtml } from '../lib/utils.js'
 
 const OVERLAY_ID = 'kernel-floor-blocker'
 
@@ -28,6 +29,9 @@ export function showFloorBlocker({ currentVersion, floor, target, onIgnore }) {
   const overlay = document.createElement('div')
   overlay.id = OVERLAY_ID
   overlay.className = 'floor-blocker-overlay'
+  overlay.setAttribute('role', 'dialog')
+  overlay.setAttribute('aria-modal', 'true')
+  overlay.setAttribute('aria-labelledby', 'floor-blocker-title')
   overlay.innerHTML = `
     <div class="floor-blocker-card">
       <div class="floor-blocker-icon" aria-hidden="true">
@@ -37,7 +41,7 @@ export function showFloorBlocker({ currentVersion, floor, target, onIgnore }) {
           <line x1="12" y1="16" x2="12.01" y2="16"/>
         </svg>
       </div>
-      <h2 class="floor-blocker-title">${escapeHtml(t('kernel.floorBlocker.title'))}</h2>
+      <h2 class="floor-blocker-title" id="floor-blocker-title">${escapeHtml(t('kernel.floorBlocker.title'))}</h2>
       <p class="floor-blocker-message">${t('kernel.floorBlocker.message', {
         current: `<code>${escapeHtml(currentVersion || '-')}</code>`,
         floor: `<code>${escapeHtml(floor || '-')}</code>`,
@@ -64,8 +68,45 @@ export function showFloorBlocker({ currentVersion, floor, target, onIgnore }) {
     try { onIgnore?.() } catch (e) { console.warn('[floor-blocker] onIgnore error', e) }
   })
 
+  // 焦点陷阱
+  const cardEl = overlay.querySelector('.floor-blocker-card')
+  const focusableEls = cardEl.querySelectorAll(
+    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )
+  const firstEl = focusableEls[0]
+  const lastEl = focusableEls[focusableEls.length - 1]
+
+  function onEsc(e) {
+    if (e.key === 'Escape') {
+      // floor-blocker 不允许 Escape 关闭，必须升级或忽略
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }
+
+  function onTab(e) {
+    if (e.key !== 'Tab') return
+    if (e.shiftKey) {
+      if (document.activeElement === firstEl) {
+        e.preventDefault()
+        lastEl.focus()
+      }
+    } else {
+      if (document.activeElement === lastEl) {
+        e.preventDefault()
+        firstEl.focus()
+      }
+    }
+  }
+
+  overlay.addEventListener('keydown', onEsc)
+  overlay.addEventListener('keydown', onTab)
+
   document.body.appendChild(overlay)
   injectStyles()
+
+  // 设置初始焦点
+  if (firstEl) firstEl.focus()
 }
 
 export function hideFloorBlocker() {
@@ -75,14 +116,6 @@ export function hideFloorBlocker() {
   setTimeout(() => el.remove(), 300)
 }
 
-function escapeHtml(s) {
-  return String(s ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
 let _stylesInjected = false
 function injectStyles() {
   if (_stylesInjected) return
@@ -90,7 +123,7 @@ function injectStyles() {
   const css = `
   .floor-blocker-overlay {
     position: fixed; inset: 0; z-index: 9998;
-    background: rgba(0, 0, 0, 0.55);
+    background: var(--overlay-dark, rgba(0, 0, 0, 0.55));
     backdrop-filter: blur(6px);
     display: flex; align-items: center; justify-content: center;
     padding: 24px;

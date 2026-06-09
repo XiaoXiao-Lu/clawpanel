@@ -3,7 +3,7 @@
   position: fixed;
   inset: 0;
   z-index: var(--z-command);
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--overlay-dark);
   backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
@@ -57,7 +57,7 @@
 
 .command-palette-group-label {
   padding: 8px 12px 4px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--text-tertiary);
   font-weight: 600;
   text-transform: uppercase;
@@ -72,7 +72,7 @@
   cursor: pointer;
   font-size: var(--font-size-sm);
   color: var(--text-primary);
-  transition: background 0.1s;
+  transition: background var(--ease-fast);
 }
 
 .command-palette-item:hover,
@@ -92,16 +92,16 @@
 }
 
 .command-palette-item-hint {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--text-tertiary);
 }
 
 .command-palette-item-shortcut {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--text-tertiary);
   background: var(--bg-secondary);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .command-palette-empty {
@@ -109,4 +109,22 @@
   text-align: center;
   color: var(--text-tertiary);
   font-size: var(--font-size-sm);
+}
+
+/* 移动端适配 */
+@media (max-width: 600px) {
+  .command-palette-overlay {
+    padding-top: 16px;
+    padding-left: 12px;
+    padding-right: 12px;
+    align-items: flex-start;
+  }
+  .command-palette {
+    width: 100%;
+    max-height: 70vh;
+  }
+  .command-palette-input {
+    padding: 12px 14px;
+    font-size: 16px; /* 防止 iOS 自动缩放 */
+  }
 }

@@ -11,6 +11,7 @@ import { toast } from '../components/toast.js'
 import { showModal, showConfirm } from '../components/modal.js'
 import { icon as svgIcon } from '../lib/icons.js'
 import { t } from '../lib/i18n.js'
+import { escapeHtml } from '../lib/utils.js'
 
 const RENDER_THROTTLE = 30
 const MAX_VISIBLE_MESSAGES = 150  // 最大可见消息 DOM 节点数
@@ -136,10 +137,10 @@ export async function render() {
       <div class="chat-sidebar-header">
         <span>${t('chat.sessionList')}</span>
         <div class="chat-sidebar-header-actions">
-          <button class="chat-sidebar-btn" id="btn-toggle-sidebar" title="${t('chat.sessionList')}">
+          <button class="chat-sidebar-btn" id="btn-toggle-sidebar" title="${t('chat.sessionList')}" aria-label="${t('chat.sessionList')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
-          <button class="chat-sidebar-btn" id="btn-new-session" title="${t('chat.newSession')}">
+          <button class="chat-sidebar-btn" id="btn-new-session" title="${t('chat.newSession')}" aria-label="${t('chat.newSession')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
         </div>
@@ -159,7 +160,7 @@ export async function render() {
     <div class="chat-main">
       <div class="chat-header">
         <div class="chat-status">
-          <button class="chat-toggle-sidebar" id="btn-toggle-sidebar-main" title="${t('chat.sessionList')}">
+          <button class="chat-toggle-sidebar" id="btn-toggle-sidebar-main" title="${t('chat.sessionList')}" aria-label="${t('chat.sessionList')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
           <span class="status-dot" id="chat-status-dot"></span>
@@ -170,16 +171,16 @@ export async function render() {
             ${svgIcon('search', 14)}
             <input id="chat-message-search" type="search" placeholder="${t('chat.messageSearchPlaceholder')}">
             <span id="chat-message-search-count" class="chat-message-search-count"></span>
-            <button class="chat-message-search-btn" id="chat-message-search-prev" title="${t('chat.messageSearchPrev')}">${svgIcon('chevron-up', 13)}</button>
-            <button class="chat-message-search-btn" id="chat-message-search-next" title="${t('chat.messageSearchNext')}">${svgIcon('chevron-down', 13)}</button>
-            <button class="chat-message-search-btn" id="chat-message-search-clear" title="${t('chat.messageSearchClear')}">${svgIcon('x', 13)}</button>
+            <button class="chat-message-search-btn" id="chat-message-search-prev" title="${t('chat.messageSearchPrev')}" aria-label="${t('chat.messageSearchPrev')}">${svgIcon('chevron-up', 13)}</button>
+            <button class="chat-message-search-btn" id="chat-message-search-next" title="${t('chat.messageSearchNext')}" aria-label="${t('chat.messageSearchNext')}">${svgIcon('chevron-down', 13)}</button>
+            <button class="chat-message-search-btn" id="chat-message-search-clear" title="${t('chat.messageSearchClear')}" aria-label="${t('chat.messageSearchClear')}">${svgIcon('x', 13)}</button>
           </div>
           <div class="chat-model-group">
             <select class="chat-model-select" id="chat-model-select">
               <option value="">${t('chat.loadingModels')}</option>
             </select>
             <span class="chat-model-status" id="chat-model-status"></span>
-            <button class="btn btn-sm btn-ghost" id="btn-refresh-models" title="${t('chat.refreshModels')}">
+            <button class="btn btn-sm btn-ghost" id="btn-refresh-models" title="${t('chat.refreshModels')}" aria-label="${t('chat.refreshModels')}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
             </button>
           </div>
@@ -188,10 +189,10 @@ export async function render() {
             <span class="chat-workspace-trigger-label">${t('chat.workspace')}</span>
             <span class="chat-workspace-trigger-agent" id="chat-workspace-trigger-agent">main</span>
           </button>
-          <button class="btn btn-sm btn-ghost" id="btn-cmd" title="${t('chat.shortcuts')}">
+          <button class="btn btn-sm btn-ghost" id="btn-cmd" title="${t('chat.shortcuts')}" aria-label="${t('chat.shortcuts')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 3a3 3 0 00-3 3v12a3 3 0 003 3 3 3 0 003-3 3 3 0 00-3-3H6a3 3 0 00-3 3 3 3 0 003 3 3 3 0 003-3V6a3 3 0 00-3-3 3 3 0 00-3 3 3 3 0 003 3h12a3 3 0 003-3 3 3 0 00-3-3z"/></svg>
           </button>
-          <button class="btn btn-sm btn-ghost" id="btn-reset-session" title="${t('chat.resetSession')}">
+          <button class="btn btn-sm btn-ghost" id="btn-reset-session" title="${t('chat.resetSession')}" aria-label="${t('chat.resetSession')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
           </button>
         </div>
@@ -207,8 +208,8 @@ export async function render() {
             <div class="chat-workspace-path" id="chat-workspace-path"></div>
           </div>
           <div class="chat-workspace-header-actions">
-            <button class="chat-workspace-icon-btn" id="chat-workspace-refresh" title="${t('common.refresh')}">${svgIcon('refresh-cw', 14)}</button>
-            <button class="chat-workspace-icon-btn" id="chat-workspace-close" title="${t('common.close')}">${svgIcon('x', 14)}</button>
+            <button class="chat-workspace-icon-btn" id="chat-workspace-refresh" title="${t('common.refresh')}" aria-label="${t('common.refresh')}">${svgIcon('refresh-cw', 14)}</button>
+            <button class="chat-workspace-icon-btn" id="chat-workspace-close" title="${t('common.close')}" aria-label="${t('common.close')}">${svgIcon('x', 14)}</button>
           </div>
         </div>
         <div class="chat-workspace-body">
@@ -249,16 +250,16 @@ export async function render() {
       <div class="chat-attachments-preview" id="chat-attachments-preview" style="display:none"></div>
       <div class="chat-input-area">
         <input type="file" id="chat-file-input" accept="image/*" multiple style="display:none">
-        <button class="chat-attach-btn" id="chat-attach-btn" title="${t('chat.uploadImage')}">
+        <button class="chat-attach-btn" id="chat-attach-btn" title="${t('chat.uploadImage')}" aria-label="${t('chat.uploadImage')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
         </button>
         <div class="chat-input-wrapper">
           <textarea id="chat-input" rows="1" placeholder="${t('chat.inputPlaceholder')}"></textarea>
         </div>
-        <button class="chat-send-btn" id="chat-send-btn" disabled>
+        <button class="chat-send-btn" id="chat-send-btn" type="button" disabled aria-label="${t('chat.send')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
-        <button class="chat-hosted-btn btn btn-sm btn-ghost" id="chat-hosted-btn" title="${t('chat.hostedAgent')}">
+        <button class="chat-hosted-btn btn btn-sm btn-ghost" id="chat-hosted-btn" title="${t('chat.hostedAgent')}" aria-label="${t('chat.hostedAgent')}">
           <span class="chat-hosted-label">⊕</span>
           <span class="chat-hosted-badge idle" id="chat-hosted-badge">${t('chat.hostedBadge')}</span>
         </button>
@@ -266,7 +267,7 @@ export async function render() {
       <div class="hosted-agent-panel" id="hosted-agent-panel" style="display:none">
         <div class="hosted-agent-header">
           <strong>${t('chat.hostedAgent')}</strong>
-          <button class="hosted-agent-close" id="hosted-agent-close" title="${t('common.close')}">&times;</button>
+          <button class="hosted-agent-close" id="hosted-agent-close" title="${t('common.close')}" aria-label="${t('common.close')}">&times;</button>
         </div>
         <div class="hosted-agent-body">
           <div class="form-group">
@@ -395,7 +396,7 @@ function showPageGuide(container) {
         <p>${t('chat.guideDesc')}</p>
         <p style="opacity:0.7;font-size:11px">${t('chat.guideHint')}</p>
       </div>
-      <button class="chat-guide-close" title="${t('chat.guideClose')}">&times;</button>
+      <button class="chat-guide-close" title="${t('chat.guideClose')}" aria-label="${t('chat.guideClose')}">&times;</button>
     </div>
   `
   guide.querySelector('.chat-guide-close').onclick = () => {
@@ -425,6 +426,10 @@ function bindEvents(page) {
     if (_textarea.value === '/') showCmdPanel()
     else if (!_textarea.value.startsWith('/')) hideCmdPanel()
   })
+  _textarea.addEventListener('compositionend', updateSendState)
+  _textarea.addEventListener('change', updateSendState)
+  _textarea.addEventListener('keyup', updateSendState)
+  requestAnimationFrame(updateSendState)
 
   _textarea.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); sendMessage() }
@@ -470,6 +475,16 @@ function bindEvents(page) {
     if (e.target.closest('#btn-toggle-sidebar') || e.target.closest('#btn-toggle-sidebar-main')) return
     sidebar.classList.remove('open')
     setSidebarOpen(false)
+  })
+  // ESC 键关闭浮层侧边栏
+  page.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const sidebar = page.querySelector('#chat-sidebar')
+      if (sidebar && sidebar.classList.contains('open') && window.innerWidth <= 1200) {
+        sidebar.classList.remove('open')
+        setSidebarOpen(false)
+      }
+    }
   })
   page.querySelector('#btn-new-session').addEventListener('click', () => showNewSessionDialog())
   page.querySelector('#btn-cmd').addEventListener('click', () => toggleCmdPanel())
@@ -649,7 +664,12 @@ async function loadModelOptions(showToast = false) {
     }
     _availableModels = models
     const saved = localStorage.getItem(STORAGE_MODEL_KEY) || ''
-    _selectedModel = models.includes(saved) ? saved : (_primaryModel || models[0] || '')
+    const sessionModel = getSessionModelRef(_sessionKey)
+    if (sessionModel && !seen.has(sessionModel)) {
+      _availableModels.unshift(sessionModel)
+      seen.add(sessionModel)
+    }
+    _selectedModel = _availableModels.includes(sessionModel) ? sessionModel : (_availableModels.includes(saved) ? saved : (_primaryModel || _availableModels[0] || ''))
     renderModelSelect()
     if (showToast) toast(`${t('chat.refreshModels')} (${models.length})`, 'success')
   } catch (e) {
@@ -703,6 +723,39 @@ function formatChatModelLabel(full) {
   const slash = text.indexOf('/')
   if (slash <= 0) return text
   return `${text.slice(0, slash)} · ${text.slice(slash + 1)}`
+}
+
+function parseSelectedModelRef(full = _selectedModel) {
+  const text = String(full || '').trim()
+  const slash = text.indexOf('/')
+  if (slash <= 0 || slash === text.length - 1) return null
+  return {
+    provider: text.slice(0, slash),
+    model: text.slice(slash + 1),
+    full: text
+  }
+}
+
+function getSessionModelRef(sessionKey = _sessionKey) {
+  if (!sessionKey) return ''
+  const row = _lastSessions.find(s => (s.sessionKey || s.key || '') === sessionKey)
+  if (!row) return ''
+  const provider = String(row.providerOverride || row.modelProvider || '').trim()
+  const model = String(row.modelOverride || row.model || '').trim()
+  if (!model) return ''
+  if (model.includes('/')) return model
+  return provider ? `${provider}/${model}` : ''
+}
+
+function syncSelectedModelForSession(sessionKey = _sessionKey) {
+  const sessionModel = getSessionModelRef(sessionKey)
+  if (sessionModel) {
+    if (!_availableModels.includes(sessionModel)) _availableModels.unshift(sessionModel)
+    _selectedModel = sessionModel
+    return
+  }
+  const saved = localStorage.getItem(STORAGE_MODEL_KEY) || ''
+  _selectedModel = _availableModels.includes(saved) ? saved : (_primaryModel || _availableModels[0] || '')
 }
 
 /** 本地会话别名缓存 */
@@ -1106,7 +1159,8 @@ async function saveWorkspaceCurrentFile() {
 }
 
 async function applySelectedModel() {
-  if (!_selectedModel) {
+  const modelRef = parseSelectedModelRef()
+  if (!modelRef) {
     toast(t('chat.loadingModels'), 'warning')
     return
   }
@@ -1117,10 +1171,10 @@ async function applySelectedModel() {
   _isApplyingModel = true
   renderModelSelect()
   try {
-    await wsClient.chatSend(_sessionKey, `/model ${_selectedModel}`)
-    toast(`${_selectedModel}`, 'success')
+    localStorage.setItem(STORAGE_MODEL_KEY, modelRef.full)
+    toast(`${formatChatModelLabel(modelRef.full)}`, 'success')
   } catch (e) {
-    toast(`${t('chat.sendFailed')}${e.message || e}`, 'error')
+    toast(`${t('common.saveFailed')}: ${e.message || e}`, 'error')
   } finally {
     _isApplyingModel = false
     renderModelSelect()
@@ -1141,7 +1195,9 @@ function bindConnectOverlay(page) {
       try {
         if (desc) desc.textContent = t('chat.writingConfig')
         await api.autoPairDevice()
-        await api.reloadGateway()
+        if (isTauriRuntime()) {
+          await api.reloadGateway()
+        }
         if (desc) desc.textContent = t('chat.fixDoneReconnecting')
         // 断开旧连接，重新发起
         wsClient.disconnect()
@@ -1342,6 +1398,8 @@ async function connectGateway() {
       }
       // 始终刷新会话列表（无论是否有 sessionKey）
       refreshSessionList()
+      // Gateway 就绪后刷新模型列表；当前选择会在桌面端下一次 chat.send 中作为 provider/model 覆盖参数发送。
+      loadModelOptions().catch(() => {})
     })
 
     _unsubEvent = wsClient.onEvent((msg) => {
@@ -1369,7 +1427,17 @@ async function connectGateway() {
     const gw = config?.gateway || {}
     const host = isTauriRuntime() ? `127.0.0.1:${gw.port || 18789}` : location.host
     const token = gw.auth?.token || gw.authToken || ''
-    wsClient.connect(host, token)
+    const password = typeof gw.auth?.password === 'string' ? gw.auth.password : ''
+
+    // 聊天页可能比 main.js 的全局自动连接更早发起 WS。
+    // 新机器首次启动时，如果这里直接连接，Gateway 会在配对字段生效前拒绝 operator 角色。
+    try {
+      await api.autoPairDevice()
+    } catch (pairErr) {
+      console.warn('[chat] autoPairDevice 失败（非致命）:', pairErr)
+    }
+
+    wsClient.connect(host, token, { password })
   } catch (e) {
     toast(`${t('common.loadFailed')}: ${e.message}`, 'error')
   }
@@ -1476,6 +1544,7 @@ function renderSessionBulkBar(rows) {
 function renderSessionList(sessions) {
   if (!_sessionListEl) return
   _lastSessions = Array.isArray(sessions) ? sessions.slice() : []
+  syncSelectedModelForSession()
   const rows = _lastSessions.map(normalizeSessionRow).filter(r => r.key)
   renderSessionFilters(rows)
   const visibleRows = getVisibleSessionRows()
@@ -1490,12 +1559,12 @@ function renderSessionList(sessions) {
     const pinned = row.pinned ? ' pinned' : ''
     return `<div class="chat-session-card${active}${selected}${pinned}" data-key="${escapeAttr(row.key)}">
       <div class="chat-session-card-header">
-        <button class="chat-session-select" data-select="${escapeAttr(row.key)}" title="${t('chat.sessionSelect')}">${svgIcon(_selectedSessions.has(row.key) ? 'check-circle' : 'circle', 14)}</button>
+        <button class="chat-session-select" data-select="${escapeAttr(row.key)}" title="${t('chat.sessionSelect')}" aria-label="${t('chat.sessionSelect')}">${svgIcon(_selectedSessions.has(row.key) ? 'check-circle' : 'circle', 14)}</button>
         <span class="chat-session-label" title="${t('chat.doubleClickRename')}">${escapeAttr(row.displayLabel)}</span>
         <div class="chat-session-actions">
-          <button class="chat-session-del chat-session-pin" data-pin="${escapeAttr(row.key)}" title="${row.pinned ? t('chat.sessionUnpin') : t('chat.sessionPin')}">${svgIcon(row.pinned ? 'crown' : 'target', 12)}</button>
+          <button class="chat-session-del chat-session-pin" data-pin="${escapeAttr(row.key)}" title="${row.pinned ? t('chat.sessionUnpin') : t('chat.sessionPin')}" aria-label="${row.pinned ? t('chat.sessionUnpin') : t('chat.sessionPin')}">${svgIcon(row.pinned ? 'crown' : 'target', 12)}</button>
           ${row.cpCount > 0 ? `<button class="chat-session-del" data-compaction="${escapeAttr(row.key)}" title="${t('chat.compactionHistory')}">⟳${row.cpCount}</button>` : ''}
-          <button class="chat-session-del" data-del="${escapeAttr(row.key)}" title="${t('common.delete')}">${svgIcon('x', 12)}</button>
+          <button class="chat-session-del" data-del="${escapeAttr(row.key)}" title="${t('common.delete')}" aria-label="${t('common.delete')}">${svgIcon('x', 12)}</button>
         </div>
       </div>
       <div class="chat-session-card-meta">
@@ -1628,6 +1697,8 @@ async function switchSession(newKey, options = {}) {
   clearMessages()
   loadHistory()
   refreshSessionList()
+  syncSelectedModelForSession(newKey)
+  renderModelSelect()
   return true
 }
 
@@ -1956,7 +2027,7 @@ function hideCmdPanel() {
 
 function toggleCmdPanel() {
   if (_cmdPanelEl?.style.display === 'block') hideCmdPanel()
-  else { _textarea.value = '/'; showCmdPanel(); _textarea.focus() }
+  else { _textarea.value = '/'; showCmdPanel(); _textarea.focus(); updateSendState() }
 }
 
 // ── 消息发送 ──
@@ -1993,7 +2064,13 @@ async function doSend(text, attachments = []) {
   _isSending = true
   _startResponseWatchdog()
   try {
-    await wsClient.chatSend(_sessionKey, text, attachments.length ? attachments : undefined)
+    const modelRef = parseSelectedModelRef()
+    await wsClient.chatSend(
+      _sessionKey,
+      text,
+      attachments.length ? attachments : undefined,
+      modelRef ? { provider: modelRef.provider, model: modelRef.model } : undefined
+    )
   } catch (err) {
     showTyping(false)
     _cancelResponseWatchdog()
@@ -2277,7 +2354,7 @@ function handleChatEvent(payload) {
           parts.push(`<span class="meta-sep">·</span><span class="msg-tokens">${tokenStr}</span>`)
         }
       }
-      parts.push(`<button class="msg-copy-btn" title="${t('common.copy')}">${svgIcon('copy', 12)}</button>`)
+      parts.push(`<button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${svgIcon('copy', 12)}</button>`)
       meta.innerHTML = parts.join('')
       wrapper.appendChild(meta)
     }
@@ -2448,15 +2525,6 @@ function extractChatContent(message) {
 function stripAnsi(text) {
   if (!text) return ''
   return text.replace(/\u001b\[[0-9;]*[A-Za-z]/g, '')
-}
-
-function escapeHtml(text) {
-  return (text || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
 }
 
 function stripThinkingTags(text) {
@@ -2908,6 +2976,14 @@ function appendUserMessage(text, attachments = [], msgTime) {
         const img = document.createElement('img')
         img.src = src
         img.className = 'msg-img'
+        img.setAttribute('role', 'button')
+        img.setAttribute('tabindex', '0')
+        img.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            e.currentTarget.click()
+          }
+        })
         img.onclick = () => showLightbox(img.src)
         mediaContainer.appendChild(img)
       } else if (cat === 'video' && src) {
@@ -2928,7 +3004,7 @@ function appendUserMessage(text, attachments = [], msgTime) {
       } else if (att.fileName || att.name) {
         const card = document.createElement('div')
         card.className = 'msg-file-card'
-        card.innerHTML = `<span class="msg-file-icon">${svgIcon('paperclip', 16)}</span><span class="msg-file-name">${att.fileName || att.name}</span>`
+        card.innerHTML = `<span class="msg-file-icon">${svgIcon('paperclip', 16)}</span><span class="msg-file-name">${escapeHtml(att.fileName || att.name)}</span>`
         mediaContainer.appendChild(card)
       }
     })
@@ -2943,7 +3019,7 @@ function appendUserMessage(text, attachments = [], msgTime) {
 
   const meta = document.createElement('div')
   meta.className = 'msg-meta'
-  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}">${svgIcon('copy', 12)}</button>`
+  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${svgIcon('copy', 12)}</button>`
 
   wrap.appendChild(bubble)
   wrap.appendChild(meta)
@@ -2966,11 +3042,23 @@ function appendAiMessage(text, msgTime, images, videos, audios, files, tools) {
   appendAudiosToEl(bubble, audios)
   appendFilesToEl(bubble, files)
   // 图片点击灯箱
-  bubble.querySelectorAll('img').forEach(img => { if (!img.onclick) img.onclick = () => showLightbox(img.src) })
+  bubble.querySelectorAll('img').forEach(img => {
+    if (!img.onclick) {
+      img.setAttribute('role', 'button')
+      img.setAttribute('tabindex', '0')
+      img.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          e.currentTarget.click()
+        }
+      })
+      img.onclick = () => showLightbox(img.src)
+    }
+  })
 
   const meta = document.createElement('div')
   meta.className = 'msg-meta'
-  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}">${svgIcon('copy', 12)}</button>`
+  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${svgIcon('copy', 12)}</button>`
 
   wrap.appendChild(bubble)
   wrap.appendChild(meta)
@@ -3000,6 +3088,14 @@ function appendImagesToEl(el, images) {
       return
     }
     imgEl.style.cssText = 'max-width:300px;max-height:300px;border-radius:6px;cursor:pointer'
+    imgEl.setAttribute('role', 'button')
+    imgEl.setAttribute('tabindex', '0')
+    imgEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        e.currentTarget.click()
+      }
+    })
     imgEl.onclick = () => showLightbox(imgEl.src)
     container.appendChild(imgEl)
   })
@@ -3045,7 +3141,15 @@ function appendFilesToEl(el, files) {
     const fileIconMap = { pdf: 'file', doc: 'file-text', docx: 'file-text', txt: 'file-plain', md: 'file-plain', json: 'clipboard', csv: 'bar-chart', zip: 'package', rar: 'package' }
     const fileIcon = svgIcon(fileIconMap[ext] || 'paperclip', 16)
     const size = f.size ? formatFileSize(f.size) : ''
-    card.innerHTML = `<span class="msg-file-icon">${fileIcon}</span><div class="msg-file-info"><span class="msg-file-name">${f.name || 'file'}</span>${size ? `<span class="msg-file-size">${size}</span>` : ''}</div>`
+    card.innerHTML = `<span class="msg-file-icon">${fileIcon}</span><div class="msg-file-info"><span class="msg-file-name">${escapeHtml(f.name || 'file')}</span>${size ? `<span class="msg-file-size">${size}</span>` : ''}</div>`
+    card.setAttribute('role', 'button')
+    card.setAttribute('tabindex', '0')
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        e.currentTarget.click()
+      }
+    })
     if (f.url) {
       card.style.cursor = 'pointer'
       card.onclick = () => window.open(f.url, '_blank')
@@ -3163,9 +3267,13 @@ function showLightbox(src) {
   if (existing) existing.remove()
   const lb = document.createElement('div')
   lb.className = 'chat-lightbox'
+  lb.setAttribute('role', 'dialog')
+  lb.setAttribute('aria-label', 'Image lightbox')
+  lb.setAttribute('tabindex', '-1')
   lb.innerHTML = `<img src="${src}" class="chat-lightbox-img" />`
   lb.onclick = (e) => { if (e.target === lb || e.target.tagName !== 'IMG') lb.remove() }
   document.body.appendChild(lb)
+  lb.focus()
   // ESC 关闭
   const onKey = (e) => { if (e.key === 'Escape') { lb.remove(); document.removeEventListener('keydown', onKey) } }
   document.addEventListener('keydown', onKey)

@@ -2,7 +2,7 @@
 /* Split from pages.css — ClawPanel UI Refactor T01 */
 
 /* 响应式 */
-@media (max-width: 960px) {
+@media (max-width: 1024px) {
   .skills-hero { flex-direction: column; align-items: stretch; gap: var(--space-md); padding: var(--space-lg); }
   .skills-hero-stats { justify-content: space-around; padding-top: var(--space-md); border-top: 1px solid var(--border-secondary); }
   .clawhub-grid { grid-template-columns: 1fr; }
@@ -12,7 +12,7 @@
   .skills-tab-btn { flex: 1; justify-content: center; }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 480px) {
   .skills-store-searchbar { flex-direction: column; }
   .skills-store-results, .skills-installed-grid { grid-template-columns: 1fr; gap: var(--space-sm); }
   .skill-card-item, .clawhub-item.store-item { align-items: flex-start; }
@@ -79,7 +79,7 @@
   padding: 9px 12px;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: background 0.18s ease, border-color 0.18s ease;
   user-select: none;
   margin-bottom: 2px;
   background: transparent;
@@ -372,7 +372,7 @@
 }
 
 /* ── 响应式 ── */
-@media (max-width: 900px) {
+@media (max-width: 768px) {
   .memory-layout {
     grid-template-columns: 1fr;
     height: auto;

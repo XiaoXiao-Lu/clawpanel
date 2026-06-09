@@ -87,13 +87,13 @@
 }
 
 .service-cancel-btn {
-  font-size: var(--font-size-xs) !important;
-  color: var(--text-tertiary) !important;
-  padding: 2px 8px !important;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  padding: 2px 8px;
   transition: color var(--transition-fast);
 }
 .service-cancel-btn:hover {
-  color: var(--error) !important;
+  color: var(--error);
 }
 
 /* 状态点：加载中脉冲动画 */
@@ -202,7 +202,7 @@
   top: 0;
   left: 0;
   right: 0;
-  z-index: 9999;
+  z-index: var(--z-max);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -257,7 +257,7 @@
   border: 1px solid var(--border-secondary);
   border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast);
   user-select: none;
 }
 
@@ -283,7 +283,7 @@
   background: var(--surface-sunken);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .gw-option-card.selected .gw-option-icon {
@@ -374,7 +374,8 @@
 }
 
 /* === 通用按钮 === */
-.btn-icon {
+.services-page .btn-icon,
+.service-card .btn-icon {
   background: none;
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-sm);
@@ -382,32 +383,36 @@
   cursor: pointer;
   font-size: var(--font-size-sm);
   line-height: 1;
-  transition: all var(--transition-fast);
+  color: inherit;
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
-.btn-icon:hover {
+.services-page .btn-icon:hover,
+.service-card .btn-icon:hover {
   background: var(--bg-secondary);
   border-color: var(--border-focus);
 }
-.btn-icon.danger:hover {
-  background: rgba(239,68,68,.1);
-  border-color: #ef4444;
+.services-page .btn-icon.danger:hover,
+.service-card .btn-icon.danger:hover {
+  background: var(--error-muted);
+  border-color: var(--error);
 }
-.btn-icon:disabled { opacity: .4; pointer-events: none; }
+.services-page .btn-icon:disabled,
+.service-card .btn-icon:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
 
 /* 弹窗 */
 .docker-dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,.6);
+  background: var(--overlay-dark);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-modal);
   animation: fadeIn 150ms ease;
 }
 .docker-dialog {
   background: var(--bg-primary);
-  border-radius: var(--radius-xl, 16px);
+  border-radius: var(--radius-xl);
   padding: var(--space-xl, 24px);
   width: 90%;
   max-width: 480px;
@@ -463,7 +468,7 @@
   color: var(--text-secondary);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .tab-nav-btn:hover {
@@ -507,3 +512,54 @@
 }
 
 /* === 移动端响应式 === */
+@media (max-width: 768px) {
+  .gw-option-cards {
+    grid-template-columns: 1fr;
+  }
+  .services-ops-column {
+    max-width: none;
+  }
+  .service-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .service-actions {
+    flex-wrap: wrap;
+  }
+  .service-cancel-btn,
+  .btn-icon,
+  .tab-nav-btn {
+    min-height: 44px;
+  }
+  .log-viewer {
+    max-height: 50vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .gw-option-cards {
+    gap: var(--space-2);
+  }
+  .service-name,
+  .service-desc {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .service-spinner, .status-dot.loading, .service-card,
+  .gw-option-card, .gw-advanced-panel, .services-tab-content,
+  .upgrade-task-bar, .upgrade-progress-fill, .docker-dialog-overlay {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Focus visible for services interactive elements */
+.service-card:focus-visible,
+.gw-option-card:focus-visible,
+.tab-nav-btn:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  box-shadow: var(--shadow-glow);
+}

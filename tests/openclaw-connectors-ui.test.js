@@ -52,7 +52,7 @@ test('Connectors styling keeps responsive admin layout', () => {
   assert.match(cssBlock('.connectors-layout'), /grid-template-columns:\s*minmax\(280px,\s*380px\)\s*minmax\(0,\s*1fr\)/)
   assert.match(cssBlock('.connectors-preview-grid'), /grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/)
   assert.match(cssBlock('.connectors-textarea'), /font-family:\s*var\(--font-mono\)/)
-  assert.match(pagesCss, /@media \(max-width:\s*1080px\)[\s\S]*\.connectors-layout\s*\{[\s\S]*grid-template-columns:\s*1fr/)
+  assert.match(pagesCss, /@media \(max-width:\s*(?:1080|1024)px\)[\s\S]*\.connectors-layout\s*\{[\s\S]*grid-template-columns:\s*1fr/)
 })
 
 test('Connectors locale includes key operational text', () => {

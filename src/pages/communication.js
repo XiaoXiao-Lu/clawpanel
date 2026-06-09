@@ -8,6 +8,7 @@ import { humanizeError } from '../lib/humanize-error.js'
 import { icon } from '../lib/icons.js'
 import { t } from '../lib/i18n.js'
 import { wsClient } from '../lib/ws-client.js'
+import { escapeHtml as esc } from '../lib/utils.js'
 
 let _page = null, _config = null, _dirty = false
 
@@ -466,6 +467,3 @@ function toggleRow(id, label, hint, checked) {
   `
 }
 
-function esc(str) {
-  return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}

@@ -20,6 +20,7 @@
  * @property {string} [group] - Group name, e.g. "openai"
  * @property {string[]} [pinyin] - Pinyin alias list, e.g. ["openai", "gpt4o"]
  */
+import { escapeHtml as esc } from '../../../lib/utils.js'
 
 /**
  * Create a model combobox inside the given container.
@@ -77,9 +78,6 @@ export function createModelCombobox(container, options = {}) {
   // ---- helpers ----
 
   /** Escape HTML for safe innerHTML rendering. */
-  function esc(s) {
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  }
 
   /**
    * Fuzzy-filter models and render the dropdown.

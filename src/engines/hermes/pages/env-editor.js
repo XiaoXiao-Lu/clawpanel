@@ -8,6 +8,7 @@
  * SKILL_*, etc.) which Hermes will pick up on Gateway restart.
  */
 import { api } from '../../../lib/tauri-api.js'
+import { escapeHtml as esc } from '../../../lib/utils.js'
 import { toast } from '../../../components/toast.js'
 import { showConfirm } from '../../../components/modal.js'
 import { humanizeError } from '../../../lib/humanize-error.js'
@@ -302,13 +303,6 @@ export function render() {
     }
   }
 
-  function esc(s) {
-    return String(s ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-  }
 
   // Mask long values so sensitive secrets don't leak at a glance.
   function maskValue(v) {
