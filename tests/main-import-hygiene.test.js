@@ -21,6 +21,19 @@ test('main avoids redundant dynamic imports for already-loaded core modules', ()
   }
 })
 
+test('main lazy-loads command palette instead of pinning it in the entry chunk', () => {
+  assert.doesNotMatch(
+    mainJs,
+    /import\s+\{[^}]*\}\s+from\s+['"]\.\/components\/command-palette\.js['"]/,
+    'command-palette should not be statically imported by main because it is opened on demand',
+  )
+  assert.match(
+    mainJs,
+    /import\(['"]\.\/components\/command-palette\.js['"]\)/,
+    'main should keep command-palette behind an on-demand dynamic import',
+  )
+})
+
 test('tauri api avoids dynamic import for already-loaded WebSocket client', () => {
   assert.doesNotMatch(
     tauriApiJs,

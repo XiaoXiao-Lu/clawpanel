@@ -7,6 +7,7 @@ import { navigate } from '../router.js'
 import { escapeHtml } from '../lib/utils.js'
 
 const _commandIndex = []
+const COMMAND_PALETTE_COMMANDS_KEY = '__clawpanelCommandPaletteCommands'
 let _overlay = null
 let _input = null
 let _resultsEl = null
@@ -14,9 +15,22 @@ let _liveRegion = null
 let _selectedIndex = 0
 let _filteredItems = []
 let _previousFocus = null
+let _hydratedGlobalCommands = null
+
+function hydrateGlobalCommands() {
+  if (typeof window === 'undefined') return
+  const commands = window[COMMAND_PALETTE_COMMANDS_KEY]
+  if (!Array.isArray(commands) || commands === _hydratedGlobalCommands) return
+  _hydratedGlobalCommands = commands
+  if (Array.isArray(commands) && commands.length) {
+    const existingIds = new Set(_commandIndex.map(cmd => cmd?.id).filter(Boolean))
+    registerCommands(commands.filter(cmd => !cmd?.id || !existingIds.has(cmd.id)))
+  }
+}
 
 /** 注册单个命令 */
 export function registerCommand(cmd) {
+  hydrateGlobalCommands()
   _commandIndex.push(cmd)
 }
 
@@ -27,6 +41,7 @@ export function registerCommands(cmds) {
 
 /** 搜索匹配 */
 export function searchCommands(query) {
+  hydrateGlobalCommands()
   const q = query.toLowerCase().trim()
   if (!q) return _commandIndex.filter(c => !c.disabled)
   return _commandIndex.filter(c => {
@@ -45,6 +60,7 @@ export function searchCommands(query) {
 
 /** 打开 Command Palette */
 export function openPalette() {
+  hydrateGlobalCommands()
   if (_overlay) return
   _previousFocus = document.activeElement
   _selectedIndex = 0
@@ -113,6 +129,11 @@ export function closePalette() {
     if (_previousFocus && _previousFocus.focus) _previousFocus.focus()
     _previousFocus = null
   }
+}
+
+export function togglePalette() {
+  if (_overlay) closePalette()
+  else openPalette()
 }
 
 /** 焦点陷阱处理 */
@@ -282,8 +303,7 @@ export function initCommandPalette() {
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault()
-      if (_overlay) closePalette()
-      else openPalette()
+      togglePalette()
     }
   })
 }

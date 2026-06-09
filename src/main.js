@@ -26,7 +26,6 @@ import { showFloorBlocker, hideFloorBlocker } from './components/floor-blocker.j
 import { registerEngine, initEngineManager, getActiveEngine, getActiveEngineId, listEngines, switchEngine, needsInitialEngineChoice, isEngineSetupDeferred, adoptActiveEngineSelection, onEngineChange } from './lib/engine-manager.js'
 import { initSiteMessageCenter, refreshSiteMessageCenter } from './components/site-message-center.js'
 import openclawEngine from './engines/openclaw/index.js'
-import { initCommandPalette, registerCommands } from './components/command-palette.js'
 import hermesEngine from './engines/hermes/index.js'
 import xintianEngine from './engines/xintian/index.js'
 
@@ -658,6 +657,24 @@ window.__clawpanel_show_login = async function() {
 
 const sidebar = document.getElementById('sidebar')
 const content = document.getElementById('content')
+const COMMAND_PALETTE_COMMANDS_KEY = '__clawpanelCommandPaletteCommands'
+
+function setCommandPaletteCommands(commands) {
+  window[COMMAND_PALETTE_COMMANDS_KEY] = Array.isArray(commands) ? commands : []
+}
+
+function initCommandPaletteShortcut() {
+  document.addEventListener('keydown', async (e) => {
+    if (!(e.metaKey || e.ctrlKey) || String(e.key).toLowerCase() !== 'k') return
+    e.preventDefault()
+    try {
+      const { togglePalette } = await import('./components/command-palette.js')
+      togglePalette()
+    } catch (err) {
+      console.error('[command-palette] load failed:', err)
+    }
+  })
+}
 
 async function boot() {
   // 注册引擎
@@ -669,8 +686,8 @@ async function boot() {
   // 初始化引擎管理器：读取 clawpanel.json 的 engineMode，注册对应路由
   await initEngineManager()
 
-  // 初始化 Command Palette
-  initCommandPalette()
+  // 初始化 Command Palette 快捷键；面板主体首次打开时再加载，避免进入首屏静态图。
+  initCommandPaletteShortcut()
   // 注册导航命令（从引擎的 getNavItems 动态生成）
   const navCommands = []
   const engines = listEngines()
@@ -703,7 +720,7 @@ async function boot() {
     execute: () => switchEngine(engine.id)
   }))
 
-  registerCommands([
+  setCommandPaletteCommands([
     ...navCommands,
     ...engineCommands,
     { id: 'action:toggle-theme', category: 'settings', label: t('settings.theme') || '切换主题', icon: '🌓', execute: () => { /* theme toggle logic */ } },
