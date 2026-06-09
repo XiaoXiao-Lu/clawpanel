@@ -101,6 +101,14 @@ test('Expert Teams page supports expert editing and team member selection', () =
     'normalizeSkillOptions',
     'skillOptionsForExpert',
     'mergeSelectedTagOptions',
+    'tagPickerSelected',
+    'tagPickerChoose',
+    'tagPickerSelectAll',
+    'tagPickerDeselectAll',
+    'tagPickerInvert',
+    'selectedSkillListFailed',
+    'selectedSkillNotScanned',
+    'selectedTagNotAvailable',
     'renderWorkflowGuide',
     'workflowGuide',
     'updateGroupWorkflowGuide',
@@ -119,6 +127,14 @@ test('Expert Teams page supports expert editing and team member selection', () =
 
   assert.doesNotMatch(page, /group-max-tokens/)
   assert.doesNotMatch(page, /总 Token 预算/)
+  assert.doesNotMatch(page, /aria-label="关闭"/)
+  assert.doesNotMatch(page, /placeholder="搜索\.\.\."/)
+  assert.doesNotMatch(page, />全选</)
+  assert.doesNotMatch(page, />取消全选</)
+  assert.doesNotMatch(page, />反选</)
+  assert.doesNotMatch(page, />确认</)
+  assert.doesNotMatch(page, /已选 \$\{[^}]+\} 项/)
+  assert.doesNotMatch(page, /点击选择\.\.\./)
 
   for (const token of [
     'expert-run-panel',

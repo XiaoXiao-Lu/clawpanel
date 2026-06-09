@@ -1018,9 +1018,9 @@ function normalizeSkillOptions(skills) {
             : 'ready'
       const suffix = {
         ready: '',
-        missing: ' · 依赖未满足',
-        disabled: ' · 已禁用',
-        blocked: ' · 受限',
+        missing: t('expertTeams.skillMissingSuffix'),
+        disabled: t('expertTeams.skillDisabledSuffix'),
+        blocked: t('expertTeams.skillBlockedSuffix'),
       }[state]
       return {
         id,
@@ -1038,7 +1038,11 @@ function skillOptionsForExpert(expert, state) {
   for (const id of Array.isArray(expert?.skills) ? expert.skills : []) {
     if (!id || seen.has(id)) continue
     seen.add(id)
-    options.push({ id, name: id, desc: state.skillsLoadFailed ? '已选择，Skills 列表加载失败' : '已选择，当前未扫描到' })
+    options.push({
+      id,
+      name: id,
+      desc: state.skillsLoadFailed ? t('expertTeams.selectedSkillListFailed') : t('expertTeams.selectedSkillNotScanned'),
+    })
   }
   return options
 }
@@ -1056,7 +1060,7 @@ function renderTagPicker(id, label, options, selectedIds) {
       <div class="expert-tag-picker" id="${id}-picker" data-picker-id="${id}">
       <span class="form-label">${escapeHtml(label)}</span>
       <button type="button" class="expert-tag-picker-trigger" id="${id}-trigger" data-modal="${id}-modal">
-        <span class="expert-tag-picker-count">${count ? `已选 ${count} 项` : '点击选择...'}</span>
+        <span class="expert-tag-picker-count">${count ? t('expertTeams.tagPickerSelected', { count }) : t('expertTeams.tagPickerChoose')}</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
       <div class="expert-tag-picker-tags" id="${id}-tags">
@@ -1068,22 +1072,22 @@ function renderTagPicker(id, label, options, selectedIds) {
         <div class="expert-tag-modal" role="dialog" aria-modal="true" aria-labelledby="${id}-modal-title">
           <div class="expert-tag-modal-head">
             <strong id="${id}-modal-title">${escapeHtml(label)}</strong>
-            <button type="button" class="expert-tag-modal-close" data-close-modal="${id}-modal" aria-label="关闭">✕</button>
+            <button type="button" class="expert-tag-modal-close" data-close-modal="${id}-modal" aria-label="${escapeAttr(t('common.close'))}">✕</button>
           </div>
           <div class="expert-tag-modal-search">
-            <input class="form-input" id="${id}-modal-search" type="text" placeholder="搜索..." autocomplete="off">
+            <input class="form-input" id="${id}-modal-search" type="text" placeholder="${escapeAttr(t('common.search'))}" autocomplete="off">
           </div>
           <div class="expert-tag-modal-actions">
-            <button type="button" class="btn btn-xs btn-ghost" data-action="select-all" data-picker="${id}">全选</button>
-            <button type="button" class="btn btn-xs btn-ghost" data-action="deselect-all" data-picker="${id}">取消全选</button>
-            <button type="button" class="btn btn-xs btn-ghost" data-action="invert" data-picker="${id}">反选</button>
+            <button type="button" class="btn btn-xs btn-ghost" data-action="select-all" data-picker="${id}">${t('expertTeams.tagPickerSelectAll')}</button>
+            <button type="button" class="btn btn-xs btn-ghost" data-action="deselect-all" data-picker="${id}">${t('expertTeams.tagPickerDeselectAll')}</button>
+            <button type="button" class="btn btn-xs btn-ghost" data-action="invert" data-picker="${id}">${t('expertTeams.tagPickerInvert')}</button>
           </div>
           <div class="expert-tag-modal-list" id="${id}-modal-list">
             ${renderModalOptions(normalizedOptions, selectedSet)}
           </div>
           <div class="expert-tag-modal-foot">
-            <button type="button" class="btn btn-sm btn-secondary" data-close-modal="${id}-modal">取消</button>
-            <button type="button" class="btn btn-sm btn-primary" data-confirm-modal="${id}-modal">确认</button>
+            <button type="button" class="btn btn-sm btn-secondary" data-close-modal="${id}-modal">${t('common.cancel')}</button>
+            <button type="button" class="btn btn-sm btn-primary" data-confirm-modal="${id}-modal">${t('common.confirm')}</button>
           </div>
         </div>
       </div>
@@ -1097,7 +1101,7 @@ function mergeSelectedTagOptions(options, selectedSet) {
   for (const id of selectedSet) {
     if (!id || seen.has(id)) continue
     seen.add(id)
-    next.push({ id, name: id, desc: '已选择，当前不在可选列表中' })
+    next.push({ id, name: id, desc: t('expertTeams.selectedTagNotAvailable') })
   }
   return next
 }
@@ -1144,7 +1148,7 @@ function bindTagPickerEvents(root, id, options) {
       const opt = pickerOptions.find(o => o.id === v)
       return `<span class="expert-tag-picker-tag" data-value="${escapeAttr(v)}">${escapeHtml(opt?.name || v)}</span>`
     }).join('')
-    countEl.textContent = set.size ? `已选 ${set.size} 项` : '点击选择...'
+    countEl.textContent = set.size ? t('expertTeams.tagPickerSelected', { count: set.size }) : t('expertTeams.tagPickerChoose')
   }
 
   function applySearch() {
