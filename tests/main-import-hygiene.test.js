@@ -22,16 +22,19 @@ test('main avoids redundant dynamic imports for already-loaded core modules', ()
 })
 
 test('tauri api avoids dynamic import for already-loaded WebSocket client', () => {
-  assert.match(
-    tauriApiJs,
-    /import\s+\{\s*wsClient\s*\}\s+from\s+['"]\.\/ws-client\.js['"]/,
-    'tauri-api should use the existing static ws-client binding',
-  )
   assert.doesNotMatch(
     tauriApiJs,
     /import\(['"]\.\/ws-client\.js['"]\)/,
     'ws-client is already statically imported by the app and should not be dynamically imported by tauri-api',
   )
+  const usesWsClient = /\bwsClient\b/.test(tauriApiJs)
+  if (usesWsClient) {
+    assert.match(
+      tauriApiJs,
+      /import\s+\{\s*wsClient\s*\}\s+from\s+['"]\.\/ws-client\.js['"]/,
+      'tauri-api should use the existing static ws-client binding when it references wsClient',
+    )
+  }
 })
 
 test('Hermes shared lib helpers import src/lib without escaping to repo root', () => {

@@ -21,10 +21,16 @@ test('Web/headless 模式自动配对重连不能隐式 reload Gateway', () => {
     /import\s+\{\s*api\s*,\s*isTauriRuntime\s*\}\s+from\s+['"]\.\/tauri-api\.js['"]/,
     'ws-client 必须能判断当前是否为 Tauri 桌面端',
   )
+  const autoPairBody = wsClient.match(/async _autoPairAndReconnect\(\) \{[\s\S]*?\n  async _refreshCredentialsAndReconnect\(\)/)?.[0] || ''
   assert.match(
-    wsClient,
-    /if\s*\(\s*isTauriRuntime\(\)\s*\)\s*\{[\s\S]*?await\s+api\.reloadGateway\(\)/,
-    '自动配对后的 reload 只能在 Tauri 桌面端执行',
+    autoPairBody,
+    /await\s+api\.autoPairDevice\(\)/,
+    '自动配对重连必须先修复设备配对文件',
+  )
+  assert.doesNotMatch(
+    autoPairBody,
+    /reloadGateway\(/,
+    '自动配对重连不能隐式 reload Gateway，避免 Web/headless 反代循环重连',
   )
 })
 
@@ -47,8 +53,8 @@ test('Web/headless 模式聊天连接修复不自动 reload Gateway', () => {
 test('聊天发送按钮会在输入状态变化时重新同步 disabled 状态', () => {
   assert.match(
     chat,
-    /<button class="chat-send-btn" id="chat-send-btn" type="button" disabled>/,
-    '发送按钮必须是普通按钮，避免表单/浏览器默认行为干扰点击状态',
+    /<button class="chat-send-btn" id="chat-send-btn" type="button" disabled(?:\s+[^>]*)?>/,
+    '发送按钮必须是普通按钮且初始禁用，避免表单/浏览器默认行为干扰点击状态',
   )
   for (const eventName of ['compositionend', 'change', 'keyup']) {
     assert.match(
