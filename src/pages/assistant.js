@@ -4587,7 +4587,7 @@ function renderExpertTeamMessage(m, idx) {
 
 function renderExpertTeamFocus(focus) {
   if (!focus) return ''
-  return `<section class="ast-expert-focus ast-expert-focus--${escAttr(focus.status)}" aria-label="专家团当前焦点">
+  return `<section class="ast-expert-focus ast-expert-focus--${escAttr(focus.status)}" aria-label="${escAttr(t('assistant.expertTeamFocusAria'))}">
     <div class="ast-expert-focus-main">
       <span class="ast-expert-focus-icon">${icon(focus.iconName, 16)}</span>
       <div class="ast-expert-focus-copy">
@@ -4597,7 +4597,7 @@ function renderExpertTeamFocus(focus) {
       </div>
     </div>
     <div class="ast-expert-focus-next">
-      <small>${icon('arrow-right', 11)} 下一步</small>
+      <small>${icon('arrow-right', 11)} ${escHtml(t('assistant.expertTeamNextStep'))}</small>
       <strong>${escHtml(focus.next)}</strong>
     </div>
     <div class="ast-expert-focus-metrics">
@@ -4610,8 +4610,8 @@ function renderExpertTeamRunDetails({ activityHtml = '', closeoutHtml = '', gove
   if (!activityHtml && !closeoutHtml && !governanceHtml && !planHtml && !runMetaHtml && !traceHtml) return ''
   return `<details class="ast-expert-run-details">
     <summary class="ast-expert-run-details-summary">
-      <span>${icon('settings', 13)} 运行细节</span>
-      <small>团队配置、操作痕迹、复盘</small>
+      <span>${icon('settings', 13)} ${escHtml(t('assistant.expertTeamRunDetails'))}</span>
+      <small>${escHtml(t('assistant.expertTeamRunDetailsDesc'))}</small>
       <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
     </summary>
     ${activityHtml}
@@ -5389,15 +5389,20 @@ function renderExpertTeamResumeActions(message, idx) {
   const count = getExpertTeamContributions(message).length
   const missing = getExpertTeamRemainingMembers(message).length
   const fallback = hasExpertTeamModeratorFallback(message?._expertTeamTranscript)
-  return `<div class="ast-expert-resume-actions" aria-label="专家团恢复操作">
-    <span>${escHtml(fallback ? `主持综合返回空内容，已保留 ${count} 份意见，可重新综合生成正式交付` : missing ? `${count ? `已保留 ${count} 份意见，` : ''}还有 ${missing} 位/轮专家可补跑` : `已保留 ${count} 份专家意见，可只继续主持综合`)}</span>
-    ${canRun ? `<button type="button" class="ast-expert-resume-btn" data-action="resume-expert-run" data-msg-idx="${escAttr(idx)}" title="补跑缺失专家，再进入主持综合" aria-label="补跑缺失专家，再进入主持综合">
+  const summary = fallback
+    ? t('assistant.expertTeamResumeFallbackSummary', { count })
+    : missing
+      ? t(count ? 'assistant.expertTeamResumeMissingWithSaved' : 'assistant.expertTeamResumeMissing', { count, missing })
+      : t('assistant.expertTeamResumeSynthesisSummary', { count })
+  return `<div class="ast-expert-resume-actions" aria-label="${escAttr(t('assistant.expertTeamResumeAria'))}">
+    <span>${escHtml(summary)}</span>
+    ${canRun ? `<button type="button" class="ast-expert-resume-btn" data-action="resume-expert-run" data-msg-idx="${escAttr(idx)}" title="${escAttr(t('assistant.expertTeamResumeRunTitle'))}" aria-label="${escAttr(t('assistant.expertTeamResumeRunTitle'))}">
       ${icon('refresh-cw', 13)}
-      <span>继续剩余专家</span>
+      <span>${escHtml(t('assistant.expertTeamResumeRun'))}</span>
     </button>` : ''}
-    ${canSynthesize ? `<button type="button" class="ast-expert-resume-btn ast-expert-resume-btn--ghost" data-action="resume-expert-synthesis" data-msg-idx="${escAttr(idx)}" title="不重跑专家，直接进入主持综合" aria-label="不重跑专家，直接进入主持综合">
+    ${canSynthesize ? `<button type="button" class="ast-expert-resume-btn ast-expert-resume-btn--ghost" data-action="resume-expert-synthesis" data-msg-idx="${escAttr(idx)}" title="${escAttr(t('assistant.expertTeamResumeSynthesisTitle'))}" aria-label="${escAttr(t('assistant.expertTeamResumeSynthesisTitle'))}">
       ${icon('play', 13)}
-      <span>${escHtml(fallback ? '重新综合' : '继续综合')}</span>
+      <span>${escHtml(t(fallback ? 'assistant.expertTeamResynthesize' : 'assistant.expertTeamResumeSynthesis'))}</span>
     </button>` : ''}
   </div>`
 }
@@ -5970,15 +5975,15 @@ function getExpertTeamProgress(transcript, plan, isRunning) {
   const currentLabel = active
     ? expertTeamCurrentLabel(active)
     : failed
-      ? '专家团运行失败'
+      ? t('assistant.expertTeamProgressFailed')
       : emptyFailure
-        ? '模型未返回可用专家意见'
+        ? t('assistant.expertTeamProgressEmptyFailure')
       : fallback
-        ? '已生成临时交付，可重新综合'
+        ? t('assistant.expertTeamProgressFallback')
         : finalDone
-        ? '专家团已完成综合'
-        : stopped && !isRunning ? '运行已停止，后续按普通对话发送'
-          : isRunning ? '正在调度专家' : '专家团结果'
+        ? t('assistant.expertTeamProgressDone')
+        : stopped && !isRunning ? t('assistant.expertTeamProgressStopped')
+          : isRunning ? t('assistant.expertTeamProgressRunning') : t('assistant.expertTeamProgressResult')
   return {
     completed,
     total,
@@ -5988,13 +5993,20 @@ function getExpertTeamProgress(transcript, plan, isRunning) {
     currentLabel,
     errorCount,
     warningCount,
-    summary: emptyFailure ? '没有收到可用专家回复，请检查或更换模型后重试' : fallback ? '主持综合已降级，可重新综合' : finalDone ? '最终结论已生成' : isRunning ? '中间意见默认折叠，当前输出实时更新' : '可展开查看专家明细',
+    summary: emptyFailure ? t('assistant.expertTeamSummaryEmptyFailure') : fallback ? t('assistant.expertTeamSummaryFallback') : finalDone ? t('assistant.expertTeamSummaryDone') : isRunning ? t('assistant.expertTeamSummaryRunning') : t('assistant.expertTeamSummaryIdle'),
   }
 }
 
 function expertTeamStatusLabel(status) {
-  const map = { running: '运行中', done: '已完成', degraded: '已降级', error: '出错', stopped: '已停止', idle: '待查看' }
-  return map[status] || '运行中'
+  const map = {
+    running: 'assistant.expertTeamStatusRunning',
+    done: 'assistant.expertTeamStatusDone',
+    degraded: 'assistant.expertTeamStatusDegraded',
+    error: 'assistant.expertTeamStatusError',
+    stopped: 'assistant.expertTeamStatusStopped',
+    idle: 'assistant.expertTeamStatusIdle',
+  }
+  return t(map[status] || 'assistant.expertTeamStatusRunning')
 }
 
 function expertTeamRunIcon(status) {
@@ -6003,8 +6015,16 @@ function expertTeamRunIcon(status) {
 }
 
 function expertTeamStageStatusLabel(status) {
-  const map = { done: '已完成', degraded: '已降级', running: '进行中', waiting: '等待中', warning: '需复核', error: '异常', stopped: '已停止' }
-  return map[status] || '等待中'
+  const map = {
+    done: 'assistant.expertTeamStatusDone',
+    degraded: 'assistant.expertTeamStatusDegraded',
+    running: 'assistant.expertTeamStageRunning',
+    waiting: 'assistant.expertTeamStageWaiting',
+    warning: 'assistant.expertTeamStageWarning',
+    error: 'assistant.expertTeamStageError',
+    stopped: 'assistant.expertTeamStatusStopped',
+  }
+  return t(map[status] || 'assistant.expertTeamStageWaiting')
 }
 
 function expertTeamApprovalLabel(policy) {
@@ -8302,7 +8322,7 @@ async function sendViaExpertTeam(text, images) {
 
 async function resumeExpertTeamMessage(idx, mode = 'synthesis') {
   if (_isStreaming) {
-    toast('请等待当前回复完成后再继续综合', 'info')
+    toast(t('assistant.expertTeamResumeWaitToast'), 'info')
     return
   }
 
@@ -8310,7 +8330,7 @@ async function resumeExpertTeamMessage(idx, mode = 'synthesis') {
   const aiMsg = session?.messages?.[idx]
   const canResume = mode === 'run' ? canResumeExpertTeamRun(aiMsg) : canResumeExpertTeamSynthesis(aiMsg)
   if (!session || !aiMsg || !canResume) {
-    toast(mode === 'run' ? '当前专家团记录无法继续剩余专家' : '当前专家团记录无法继续综合', 'warning')
+    toast(t(mode === 'run' ? 'assistant.expertTeamResumeRunUnavailable' : 'assistant.expertTeamResumeSynthesisUnavailable'), 'warning')
     return
   }
 
@@ -8354,9 +8374,9 @@ async function resumeExpertTeamMessage(idx, mode = 'synthesis') {
     })
   } catch (e) {
     if (e?.name === 'AbortError') {
-      handleExpertTeamRunEvent(aiMsg, { type: 'stopped', message: mode === 'run' ? '专家团续跑已停止。后续消息将按普通对话发送。' : '专家团继续综合已停止。后续消息将按普通对话发送。' })
+      handleExpertTeamRunEvent(aiMsg, { type: 'stopped', message: t(mode === 'run' ? 'assistant.expertTeamResumeRunStopped' : 'assistant.expertTeamResumeSynthesisStopped') })
     } else {
-      const message = expertTeamErrorText(e, mode === 'run' ? '专家团续跑失败' : '专家团继续综合失败')
+      const message = expertTeamErrorText(e, t(mode === 'run' ? 'assistant.expertTeamResumeRunFailed' : 'assistant.expertTeamResumeSynthesisFailed'))
       handleExpertTeamRunEvent(aiMsg, { type: 'error', message })
     }
     saveSessions()

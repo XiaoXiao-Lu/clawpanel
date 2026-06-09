@@ -12,6 +12,7 @@ const engine = readFileSync(new URL('../src/engines/openclaw/index.js', import.m
 const locales = readFileSync(new URL('../src/locales/index.js', import.meta.url), 'utf8')
 const sidebarLocale = readFileSync(new URL('../src/locales/modules/sidebar.js', import.meta.url), 'utf8')
 const expertTeamsLocale = readFileSync(new URL('../src/locales/modules/expertTeams.js', import.meta.url), 'utf8')
+const assistantLocale = readFileSync(new URL('../src/locales/modules/assistant.js', import.meta.url), 'utf8')
 
 function cssBlock(selector) {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -325,13 +326,13 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'data-action="resume-expert-synthesis"',
     'data-action="resume-expert-run"',
     'ast-expert-resume-actions',
-    '继续剩余专家',
-    '当前专家团记录无法继续剩余专家',
+    'assistant.expertTeamResumeRun',
+    'assistant.expertTeamResumeRunUnavailable',
     'resume_start',
-    '继续综合',
-    '重新综合',
-    '已降级',
-    '可重新综合',
+    'assistant.expertTeamResumeSynthesis',
+    'assistant.expertTeamResynthesize',
+    'assistant.expertTeamStatusDegraded',
+    'assistant.expertTeamProgressFallback',
     'final.status',
     "status: event.final?.status || ''",
     'getExpertTeamActiveAgents',
@@ -347,15 +348,26 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     '运行编号',
     '交付复盘',
     '质量门禁',
-    '团队配置、操作痕迹、复盘',
+    'assistant.expertTeamRunDetailsDesc',
     '执行队列',
     'expertTeamToolTargetBrief',
     '完整过程',
     '默认收起',
     '专家团运行已停止。后续消息将按普通对话发送。',
-    '专家团续跑已停止。后续消息将按普通对话发送。',
+    'assistant.expertTeamResumeRunStopped',
   ]) {
     assert.match(assistant, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
+  for (const token of [
+    'expertTeamFocusAria',
+    'expertTeamRunDetailsDesc',
+    'expertTeamResumeRun',
+    'expertTeamResumeRunUnavailable',
+    'expertTeamResumeRunStopped',
+    'expertTeamProgressFallback',
+    'expertTeamStatusDegraded',
+  ]) {
+    assert.match(assistantLocale, new RegExp(`${token}:\\s*_\\(`))
   }
   assert.doesNotMatch(assistant, /message\s*=\s*humanizeError\(e,\s*mode === 'run'/)
   assert.doesNotMatch(assistant, /message\s*=\s*humanizeError\(e,\s*'专家团运行失败'\)/)
