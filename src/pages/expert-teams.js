@@ -14,15 +14,15 @@ import { escapeHtml, escapeAttr } from '../lib/utils.js'
 
 // ── 可用工具分类 ──
 const TOOL_CATEGORIES = [
-  { id: 'system', name: '系统工具', desc: 'shell_exec, python, get_system_info 等' },
-  { id: 'process', name: '流程控制', desc: 'goal, run_script, check_port 等' },
-  { id: 'interaction', name: '交互工具', desc: 'ask_user_question 等' },
-  { id: 'browser', name: '浏览器', desc: 'browser_navigate, browser_click 等' },
-  { id: 'terminal', name: '终端', desc: 'shell_exec（含 MCP 终端）' },
-  { id: 'webSearch', name: '联网搜索', desc: 'web_search, web_fetch 等' },
-  { id: 'fileOps', name: '文件操作', desc: 'list_directory, read_file, write_file 等' },
-  { id: 'skills', name: '技能管理', desc: 'skills_install_dep, skillhub_install 等' },
-  { id: 'openclaw', name: 'OpenClaw 专用', desc: 'get_openclaw_context, diagnose_openclaw 等' },
+  { id: 'system', nameKey: 'expertTeams.toolSystem', descKey: 'expertTeams.toolSystemDesc' },
+  { id: 'process', nameKey: 'expertTeams.toolProcess', descKey: 'expertTeams.toolProcessDesc' },
+  { id: 'interaction', nameKey: 'expertTeams.toolInteraction', descKey: 'expertTeams.toolInteractionDesc' },
+  { id: 'browser', nameKey: 'expertTeams.toolBrowser', descKey: 'expertTeams.toolBrowserDesc' },
+  { id: 'terminal', nameKey: 'expertTeams.toolTerminal', descKey: 'expertTeams.toolTerminalDesc' },
+  { id: 'webSearch', nameKey: 'expertTeams.toolWebSearch', descKey: 'expertTeams.toolWebSearchDesc' },
+  { id: 'fileOps', nameKey: 'expertTeams.toolFileOps', descKey: 'expertTeams.toolFileOpsDesc' },
+  { id: 'skills', nameKey: 'expertTeams.toolSkills', descKey: 'expertTeams.toolSkillsDesc' },
+  { id: 'openclaw', nameKey: 'expertTeams.toolOpenClaw', descKey: 'expertTeams.toolOpenClawDesc' },
 ]
 
 const TABS = {
@@ -356,7 +356,7 @@ function renderEditor(page, state) {
     const expert = state.draftExpert || state.experts.find(item => item.id === state.selectedExpertId) || null
     editor.innerHTML = renderExpertEditor(expert, state)
     // 绑定工具和技能选择器
-    bindTagPickerEvents(editor, 'expert-tools', TOOL_CATEGORIES)
+    bindTagPickerEvents(editor, 'expert-tools', toolCategoryOptions())
     bindTagPickerEvents(editor, 'expert-skills', skillOptionsForExpert(expert, state))
   } else {
     const group = state.draftGroup || state.groups.find(item => item.id === state.selectedGroupId) || null
@@ -422,7 +422,7 @@ function renderExpertEditor(expert, state) {
           ${field('expert-model-id', t('expertTeams.modelId'), model.modelId || '', { placeholder: 'provider/model' })}
         </div>
         <div class="expert-form-grid expert-form-grid--three">
-          ${renderTagPicker('expert-tools', t('expertTeams.tools'), TOOL_CATEGORIES, expert.tools || [])}
+          ${renderTagPicker('expert-tools', t('expertTeams.tools'), toolCategoryOptions(), expert.tools || [])}
           ${renderTagPicker('expert-skills', t('expertTeams.skills'), skillOptionsForExpert(expert, state), expert.skills || [])}
           ${textarea('expert-knowledge', t('expertTeams.knowledgeRefs'), joinLines(expert.knowledgeRefs), { rows: 5 })}
         </div>
@@ -1033,6 +1033,14 @@ function normalizeSkillOptions(skills) {
     })
     .filter(Boolean)
     .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+function toolCategoryOptions() {
+  return TOOL_CATEGORIES.map(item => ({
+    id: item.id,
+    name: t(item.nameKey),
+    desc: t(item.descKey),
+  }))
 }
 
 function skillOptionsForExpert(expert, state) {
