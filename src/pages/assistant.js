@@ -31,6 +31,15 @@ const DEEPSEEK_COMPACT_RATIO = 0.72
 const DEEPSEEK_RECENT_CONTEXT_KEEP = 12
 const DEEPSEEK_SUMMARY_MAX_CHARS = 8000
 
+function logAssistantDebug(message, details) {
+  if (!import.meta.env.DEV) return
+  if (details === undefined) {
+    console.debug(message)
+  } else {
+    console.debug(message, details)
+  }
+}
+
 // ── 图片文件存储（通过 Tauri 后端持久化到 ~/.openclaw/clawpanel/images/）──
 async function saveImageToFile(id, dataUrl) {
   try { await api.saveImage(id, dataUrl) } catch (e) { console.warn('图片保存失败:', e) }
@@ -3180,7 +3189,7 @@ async function callAI(messages, onChunk) {
       }
       await callAIWithSlot(slot, messages, onChunk)
       if (i > 0) {
-        console.log(`[assistant] Failover 成功：已切换到备用模型「${slot.label}」`)
+        logAssistantDebug(`[assistant] Failover 成功：已切换到备用模型「${slot.label}」`)
       }
       return
     } catch (err) {
@@ -3256,7 +3265,7 @@ async function _callAIOnce(messages, onChunk) {
       // 如果是 "legacy protocol" 或 "use /v1/responses" 类错误，自动切换到 Responses API
       const msg = err.message || ''
       if (msg.includes('legacy protocol') || msg.includes('/v1/responses') || msg.includes('not supported')) {
-        console.log('[assistant] Chat Completions 不支持此模型，自动切换到 Responses API')
+        logAssistantDebug('[assistant] Chat Completions 不支持此模型，自动切换到 Responses API')
         _abortController = new AbortController()
         await callResponsesAPI(base, allMessages, onChunk)
         return
@@ -3367,7 +3376,7 @@ async function callChatCompletions(base, messages, onChunk) {
     const json = await resp.json()
     _lastDebugInfo.responseBody = { id: json.id, model: json.model, object: json.object, usage: json.usage }
     if (deepseek) captureDeepSeekUsage(json)
-    console.log('[assistant] 非流式响应:', json)
+    logAssistantDebug('[assistant] 非流式响应摘要:', _lastDebugInfo.responseBody)
     const msg = json.choices?.[0]?.message
     const content = msg?.content || msg?.reasoning_content || ''
     if (content) {

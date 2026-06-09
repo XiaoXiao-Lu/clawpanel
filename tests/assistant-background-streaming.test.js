@@ -106,3 +106,11 @@ test('assistant auto mode routes each request through scored model slots', () =>
   assert.match(buildAutoSlots, /scored\.sort/)
   assert.match(buildAutoSlots, /return\s+scored\.map/)
 })
+
+test('assistant model calls do not log full provider response bodies', () => {
+  assert.match(assistantJs, /function\s+logAssistantDebug\s*\(message,\s*details\)/)
+  assert.match(assistantJs, /if\s*\(!import\.meta\.env\.DEV\)\s*return/)
+  assert.doesNotMatch(assistantJs, /console\.log\(\s*['"`]\[assistant\][\s\S]*json\s*\)/)
+  assert.doesNotMatch(assistantJs, /console\.debug\(\s*['"`]\[assistant\][\s\S]*json\s*\)/)
+  assert.match(assistantJs, /logAssistantDebug\('\[assistant\] 非流式响应摘要:',\s*_lastDebugInfo\.responseBody\)/)
+})
