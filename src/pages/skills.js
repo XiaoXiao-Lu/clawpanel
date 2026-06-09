@@ -572,23 +572,23 @@ export async function render() {
     ${agentOptions}
 
     <!-- Pill 风格 Tab -->
-    <div class="skills-tab-nav" id="skills-main-tabs">
-      <button class="skills-tab-btn active" data-main-tab="installed">
+    <div class="skills-tab-nav" id="skills-main-tabs" role="tablist">
+      <button class="skills-tab-btn active" id="skills-tab-btn-installed" role="tab" aria-selected="true" aria-controls="skills-tab-installed" data-main-tab="installed">
         📋 ${t('skills.tabInstalled')}
         <span class="skills-tab-count" id="tab-count-installed">--</span>
       </button>
-      <button class="skills-tab-btn" data-main-tab="store">
+      <button class="skills-tab-btn" id="skills-tab-btn-store" role="tab" aria-selected="false" aria-controls="skills-tab-store" data-main-tab="store" tabindex="-1">
         🛒 ${t('skills.tabStore')}
       </button>
     </div>
 
     <!-- 已安装面板 -->
-    <div id="skills-tab-installed" class="config-section">
+    <div id="skills-tab-installed" class="config-section" role="tabpanel" aria-labelledby="skills-tab-btn-installed">
       ${skeletonHtml(6)}
     </div>
 
     <!-- 商店面板 -->
-    <div id="skills-tab-store" class="config-section" style="display:none">
+    <div id="skills-tab-store" class="config-section" role="tabpanel" aria-labelledby="skills-tab-btn-store" hidden style="display:none">
       <div class="skills-store-header">
         <div class="skills-store-hero">
           <div class="skills-store-hero-icon">🛒</div>
@@ -1130,19 +1130,50 @@ async function handleSkillUninstall(page, btn) {
 }
 
 // ===== 事件绑定 =====
+function activateMainTab(page, tab, options = {}) {
+  if (!tab) return
+  const key = tab.dataset.mainTab
+  page.querySelectorAll('#skills-main-tabs .skills-tab-btn').forEach(item => {
+    const selected = item === tab
+    item.classList.toggle('active', selected)
+    item.setAttribute('aria-selected', selected ? 'true' : 'false')
+    item.tabIndex = selected ? 0 : -1
+  })
+
+  const installedTab = page.querySelector('#skills-tab-installed')
+  const storeTab = page.querySelector('#skills-tab-store')
+  const showInstalled = key === 'installed'
+  if (installedTab) {
+    installedTab.hidden = !showInstalled
+    installedTab.style.display = showInstalled ? '' : 'none'
+  }
+  if (storeTab) {
+    storeTab.hidden = showInstalled
+    storeTab.style.display = showInstalled ? 'none' : ''
+  }
+  if (!showInstalled) loadStore(page)
+  if (options.focus) tab.focus()
+}
+
 function bindEvents(page) {
   // 主 Tab 切换（Pill 风格）
   page.querySelectorAll('#skills-main-tabs .skills-tab-btn').forEach(tab => {
-    tab.onclick = () => {
-      page.querySelectorAll('#skills-main-tabs .skills-tab-btn').forEach(t => t.classList.remove('active'))
-      tab.classList.add('active')
-      const key = tab.dataset.mainTab
-      const installedTab = page.querySelector('#skills-tab-installed')
-      const storeTab = page.querySelector('#skills-tab-store')
-      if (installedTab) installedTab.style.display = key === 'installed' ? '' : 'none'
-      if (storeTab) storeTab.style.display = key === 'store' ? '' : 'none'
-      if (key === 'store') loadStore(page)
-    }
+    tab.onclick = () => activateMainTab(page, tab)
+    tab.addEventListener('keydown', (e) => {
+      const keys = ['ArrowLeft', 'ArrowRight', 'Home', 'End']
+      if (!keys.includes(e.key)) return
+      e.preventDefault()
+      const tabs = Array.from(page.querySelectorAll('#skills-main-tabs .skills-tab-btn'))
+      const index = tabs.indexOf(tab)
+      const nextIndex = e.key === 'Home'
+        ? 0
+        : e.key === 'End'
+          ? tabs.length - 1
+          : e.key === 'ArrowLeft'
+            ? (index - 1 + tabs.length) % tabs.length
+            : (index + 1) % tabs.length
+      activateMainTab(page, tabs[nextIndex], { focus: true })
+    })
   })
 
   page.addEventListener('pointerover', (e) => handlePreviewEnter(page, e))

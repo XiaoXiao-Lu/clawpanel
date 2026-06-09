@@ -67,6 +67,21 @@ test('Skills market presents installable skills as a scan-friendly grid', () => 
   assert.match(pagesCss, /\.skills-preview-info\s*\{[^}]*display:\s*grid/s)
 })
 
+test('Skills main tabs expose accessible tab semantics and keyboard navigation', () => {
+  assert.match(skillsPage, /id="skills-main-tabs"[^>]*role="tablist"/)
+  assert.match(skillsPage, /role="tab"[^>]*aria-selected="true"[^>]*aria-controls="skills-tab-installed"/)
+  assert.match(skillsPage, /role="tab"[^>]*aria-selected="false"[^>]*aria-controls="skills-tab-store"/)
+  assert.match(skillsPage, /id="skills-tab-installed"[^>]*role="tabpanel"[^>]*aria-labelledby="skills-tab-btn-installed"/)
+  assert.match(skillsPage, /id="skills-tab-store"[^>]*role="tabpanel"[^>]*aria-labelledby="skills-tab-btn-store"/)
+  assert.match(skillsPage, /function activateMainTab/)
+  assert.match(skillsPage, /aria-selected/)
+  assert.match(skillsPage, /tabIndex/)
+  assert.match(skillsPage, /ArrowLeft/)
+  assert.match(skillsPage, /ArrowRight/)
+  assert.match(skillsPage, /Home/)
+  assert.match(skillsPage, /End/)
+})
+
 test('Skills cards prefer official visual assets with safe fallbacks', () => {
   assert.match(skillsPage, /function safeExternalUrl/)
   assert.match(skillsPage, /function safeAssetUrl/)
