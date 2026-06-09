@@ -142,7 +142,7 @@
 }
 .site-message-tab.active small {
   background: var(--brand);
-  color: #fff;
+  color: var(--text-inverse);
 }
 .site-message-close {
   width: 34px;

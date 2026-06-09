@@ -122,6 +122,7 @@ export function renderSidebar(el) {
       html += `<div class="nav-item${active}" data-route="${item.route}" data-nav-icon="${item.icon || ''}" data-nav-label="${item.label.toLowerCase()}">
         ${ICONS[item.icon] || ''}
         <span>${item.label}</span>
+        <span class="nav-badge" aria-hidden="true"></span>
       </div>`
     }
     html += `</div></div>`
@@ -175,6 +176,9 @@ export function renderSidebar(el) {
       <div class="sidebar-meta">
         <a href="https://claw.qt.cool" target="_blank" rel="noopener" class="sidebar-link">claw.qt.cool</a>
         <span class="sidebar-version">v${APP_VERSION}</span>
+      </div>
+      <div class="sidebar-shortcut-hint">
+        <span class="sidebar-shortcut-key" tabindex="0" role="button" aria-label="打开命令面板" title="打开命令面板 (Ctrl+K)" id="sidebar-cmdk-hint">Ctrl+K</span>
       </div>
     </div>
   `
@@ -233,6 +237,12 @@ export function renderSidebar(el) {
       const themeBtn = e.target.closest('#btn-theme-toggle')
       if (themeBtn) {
         toggleTheme(() => renderSidebar(el))
+        return
+      }
+      // 快捷键提示：打开命令面板
+      if (e.target.closest('#sidebar-cmdk-hint')) {
+        const { openPalette } = await import('./command-palette.js')
+        openPalette()
         return
       }
       // 内核升级提示卡：dismiss 按钮 → 仅当前会话不再显示
@@ -417,6 +427,19 @@ function _updateSidebarIncremental(el, current) {
     item.classList.toggle('active', item.dataset.route === current)
   })
 
+  // 1b. 恢复导航徽章状态（增量渲染后需重新挂载 DOM）
+  for (const [route, count] of Object.entries(_navBadges)) {
+    if (count === null || count === 0) continue
+    const item = el.querySelector(`.nav-item[data-route="${route}"]`)
+    if (item) {
+      const badge = item.querySelector('.nav-badge')
+      if (badge) {
+        badge.textContent = count > 99 ? '99+' : String(count)
+        badge.classList.add('visible')
+      }
+    }
+  }
+
   // 2. 更新主题按钮
   const themeBtn = el.querySelector('#btn-theme-toggle')
   if (themeBtn) {
@@ -522,5 +545,36 @@ function _filterLangOptions(query) {
     const label = (opt.querySelector('.lang-option-label')?.textContent || '').toLowerCase()
     const code = (opt.querySelector('.lang-option-code')?.textContent || '').toLowerCase()
     opt.style.display = (label.includes(q) || code.includes(q)) ? '' : 'none'
+  })
+}
+
+// ─── Nav Badge ───
+const _navBadges = {}
+
+/**
+ * 更新导航项右上角徽章
+ * @param {string} route - 路由路径（如 '/chat'）
+ * @param {number|null} count - 数字（显示为徽章），null 隐藏
+ */
+export function updateNavBadge(route, count) {
+  _navBadges[route] = count
+  const item = document.querySelector(`.nav-item[data-route="${route}"]`)
+  if (!item) return
+  const badge = item.querySelector('.nav-badge')
+  if (!badge) return
+  if (count === null || count === 0) {
+    badge.textContent = ''
+    badge.classList.remove('visible')
+  } else {
+    badge.textContent = count > 99 ? '99+' : String(count)
+    badge.classList.add('visible')
+  }
+}
+
+export function clearNavBadges() {
+  Object.keys(_navBadges).forEach(k => delete _navBadges[k])
+  document.querySelectorAll('.nav-badge').forEach(b => {
+    b.textContent = ''
+    b.classList.remove('visible')
   })
 }

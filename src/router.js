@@ -97,7 +97,14 @@ async function loadRoute() {
     _currentCleanup = null
   }
 
-  // 立即移除旧页面（不等退出动画，消除切换卡顿）
+  // 退出动画：给旧内容 120ms 淡出时间再替换
+  if (_contentEl.children.length > 0 && !_contentEl.querySelector('.page-loader')) {
+    const oldPage = _contentEl.firstElementChild
+    if (oldPage && !oldPage.classList.contains('page-exit')) {
+      oldPage.classList.add('page-exit')
+      await new Promise(r => { oldPage.addEventListener('animationend', r, { once: true }); setTimeout(r, 150) })
+    }
+  }
   _contentEl.innerHTML = ''
 
   // 已缓存的模块：跳过 spinner，直接渲染
@@ -141,13 +148,16 @@ async function loadRoute() {
   }
   if (thisLoad !== _loadId) return
 
-  // 插入页面内容
+  // 插入页面内容（带进入动画）
   _contentEl.innerHTML = ''
+  const wrapper = document.createElement('div')
+  wrapper.style.animation = 'pageIn var(--ease-out) forwards'
   if (typeof page === 'string') {
-    _contentEl.innerHTML = page
+    wrapper.innerHTML = page
   } else if (page instanceof HTMLElement) {
-    _contentEl.appendChild(page)
+    wrapper.appendChild(page)
   }
+  _contentEl.appendChild(wrapper)
 
   // 保存页面清理函数
   _currentCleanup = mod.cleanup || null

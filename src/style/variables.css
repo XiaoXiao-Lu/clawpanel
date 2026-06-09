@@ -411,6 +411,19 @@
     --agent-blocked-text:  #b45309;
     --agent-error-text:    #dc2626;
     --agent-offline:       #94a3b8;
+
+    /* ─── Semantic Text ─── */
+    --text-inverse:       #ffffff;
+
+    /* ─── Gradients ─── */
+    --brand-gradient:     linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%);
+    --error-gradient:     linear-gradient(135deg, #ef4444, #f97316);
+
+    /* ─── Engagement-specific (light mode) ─── */
+    --engage-star-bg:     #fffbeb;
+    --engage-star-border: rgba(245, 158, 11, 0.2);
+    --engage-link-bg:     #eff6ff;
+    --engage-link-border: rgba(59, 130, 246, 0.2);
   }
 }
 
@@ -442,6 +455,7 @@
 
   --brand:              #818cf8;
   --brand-400:          #a5b4fc;
+  --brand-300:          #c7d2fe;
   --brand-muted:        rgba(129, 140, 248, 0.10);
   --brand-glow:         0 0 28px -6px rgba(129, 140, 248, 0.35);
 
@@ -476,6 +490,30 @@
   --agent-blocked-text:  #92400e;
   --agent-error-text:    #b91c1c;
   --agent-offline:       #94a3b8;
+
+  /* ─── Semantic Text ─── */
+  --text-inverse:       #ffffff;
+
+  /* ─── Gradients ─── */
+  --brand-gradient:     linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%);
+  --error-gradient:     linear-gradient(135deg, #ef4444, #f97316);
+
+  /* ─── Engagement-specific (dark mode) ─── */
+  --engage-star-bg:     rgba(255, 251, 235, 0.08);
+  --engage-star-border: rgba(245, 158, 11, 0.15);
+  --engage-link-bg:     rgba(239, 246, 255, 0.08);
+  --engage-link-border: rgba(59, 130, 246, 0.15);
+
+  /* ─── Local Z-Index layers (for internal component stacking) ─── */
+  --z-layer-1:          1;
+  --z-layer-2:          2;
+  --z-layer-3:          3;
+  --z-layer-4:          4;
+  --z-layer-5:          5;
+  --z-layer-10:         10;
+  --z-layer-20:         20;
+  --z-layer-30:         30;
+  --z-layer-50:         50;
 }
 
 /* ══════════════════════════════════════

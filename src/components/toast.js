@@ -118,6 +118,17 @@ export function toast(message, type = 'info', options = {}) {
   })
   el.appendChild(closeBtn)
 
+  // 进度条（可视化倒计时）
+  if (duration > 2000) {
+    const progress = document.createElement('div')
+    progress.className = 'toast-progress'
+    progress.style.setProperty('--toast-duration', `${duration}ms`)
+    el.appendChild(progress)
+    // 悬停时暂停进度条动画
+    el.addEventListener('mouseenter', () => { progress.style.animationPlayState = 'paused' })
+    el.addEventListener('mouseleave', () => { progress.style.animationPlayState = 'running' })
+  }
+
   container.appendChild(el)
 
   // 悬停暂停自动消失
