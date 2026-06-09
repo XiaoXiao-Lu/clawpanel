@@ -3,6 +3,7 @@ import test from 'node:test'
 import { readFileSync, readdirSync } from 'node:fs'
 
 const mainJs = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8')
+const tauriApiJs = readFileSync(new URL('../src/lib/tauri-api.js', import.meta.url), 'utf8')
 const hermesLibDir = new URL('../src/engines/hermes/lib/', import.meta.url)
 
 test('main avoids redundant dynamic imports for already-loaded core modules', () => {
@@ -18,6 +19,19 @@ test('main avoids redundant dynamic imports for already-loaded core modules', ()
       `${specifier} is statically imported by main and should not also be dynamically imported there`,
     )
   }
+})
+
+test('tauri api avoids dynamic import for already-loaded WebSocket client', () => {
+  assert.match(
+    tauriApiJs,
+    /import\s+\{\s*wsClient\s*\}\s+from\s+['"]\.\/ws-client\.js['"]/,
+    'tauri-api should use the existing static ws-client binding',
+  )
+  assert.doesNotMatch(
+    tauriApiJs,
+    /import\(['"]\.\/ws-client\.js['"]\)/,
+    'ws-client is already statically imported by the app and should not be dynamically imported by tauri-api',
+  )
 })
 
 test('Hermes shared lib helpers import src/lib without escaping to repo root', () => {

@@ -4,6 +4,7 @@
  */
 
 import { t } from './i18n.js'
+import { wsClient } from './ws-client.js'
 
 export function isTauriRuntime() {
   return !!window.__TAURI_INTERNALS__ || !!window.__TAURI__ || window.location?.hostname === 'tauri.localhost' || window.location?.protocol === 'tauri:'
@@ -268,10 +269,7 @@ function _debouncedReloadGateway() {
   clearTimeout(_reloadTimer)
   _reloadTimer = setTimeout(async () => {
     if (!isTauriRuntime()) {
-      try {
-        const { wsClient } = await import('./ws-client.js')
-        if (wsClient.connected || wsClient.connecting || wsClient.gatewayReady) return
-      } catch {}
+      if (wsClient.connected || wsClient.connecting || wsClient.gatewayReady) return
     }
     invoke('reload_gateway').catch(() => {})
   }, 3000)
