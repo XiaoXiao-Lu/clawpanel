@@ -58,19 +58,19 @@ function renderPage(page) {
     const warnCount = _results.items.filter(i => !i.ok && i.warn).length
     const totalCount = _results.items.length
     if (issueCount === 0 && warnCount === 0) {
-      html += `<div class="result-summary ok"><span class="result-icon">✅</span><div><div class="result-text-title">${t('chatDebug.allHealthy')}</div><div class="result-text-desc">${t('chatDebug.allHealthyDesc', { count: totalCount })}</div></div></div>`
+      html += `<div class="result-summary ok"><span class="result-icon">${statusIcon('ok', 14)}</span><div><div class="result-text-title">${t('chatDebug.allHealthy')}</div><div class="result-text-desc">${t('chatDebug.allHealthyDesc', { count: totalCount })}</div></div></div>`
     } else if (issueCount === 0 && warnCount > 0) {
-      html += `<div class="result-summary warn"><span class="result-icon">💡</span><div><div class="result-text-title">${t('chatDebug.warningsOnly', { count: warnCount })}</div><div class="result-text-desc">${t('chatDebug.warningsOnlyDesc')}</div></div></div>`
+      html += `<div class="result-summary warn"><span class="result-icon">${icon('lightbulb', 14)}</span><div><div class="result-text-title">${t('chatDebug.warningsOnly', { count: warnCount })}</div><div class="result-text-desc">${t('chatDebug.warningsOnlyDesc')}</div></div></div>`
     } else {
-      html += `<div class="result-summary err"><span class="result-icon">⚠️</span><div><div class="result-text-title">${t('chatDebug.issuesCount', { count: issueCount })}</div><div class="result-text-desc">${t('chatDebug.issuesCountDesc')}</div></div></div>`
+      html += `<div class="result-summary err"><span class="result-icon">${statusIcon('warn', 14)}</span><div><div class="result-text-title">${t('chatDebug.issuesCount', { count: issueCount })}</div><div class="result-text-desc">${t('chatDebug.issuesCountDesc')}</div></div></div>`
     }
 
     html += `<div class="scan-items">`
     _results.items.forEach((item, i) => {
       const cls = item.ok ? 'ok' : (item.warn ? 'warn' : 'err')
-      const icon = item.ok ? '✓' : (item.warn ? '!' : '✕')
+      const itemIcon = item.ok ? icon('check', 12) : (item.warn ? statusIcon('warn', 12) : statusIcon('err', 12))
       html += `<div class="scan-item" data-index="${i}">
-        <div class="si-icon ${cls}">${icon}</div>
+        <div class="si-icon ${cls}">${itemIcon}</div>
         <div class="si-label">${esc(item.label)}${item.detail ? `<div class="si-detail">${esc(item.detail)}</div>` : ''}</div>
       </div>`
     })

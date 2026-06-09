@@ -4498,8 +4498,6 @@ function renderExpertTeamMessage(m, idx) {
       ${errorInline}
       ${!isRunning && primaryHtml ? `<div class="ast-expert-final-area">${primaryHtml}</div>` : ''}
 
-      ${renderExpertTeamActivityStrip(transcript, m._expertTeamRun, isRunning)}
-
       ${statsBarHtml}
 
       ${!isRunning && processCount ? `<details class="ast-expert-process">
@@ -6310,7 +6308,7 @@ function buildTestResult({ success, elapsed, usedApi, reqUrl, reqBody, respStatu
   }
   // 状态行（加粗显示，区分成功/警告/失败）
   if (error) {
-    html += `<div style="color:var(--error);font-weight:500">✗ ${t('assistant.testFailed')}: ${escHtml(error)}</div>`
+    html += `<div style="color:var(--error);font-weight:500">${statusIcon('err', 14)} ${t('assistant.testFailed')}: ${escHtml(error)}</div>`
   } else if (success) {
     html += `<div style="color:var(--success);font-weight:500">✓ ${t('assistant.testSuccess', { elapsed, api: usedApi })}</div>`
   } else {
@@ -7356,7 +7354,7 @@ function showSettings() {
       if (errStr.includes('[NOT_SUPPORTED]') || errStr.includes('不支持自动获取')) {
         resultEl.innerHTML = '<span style="color:var(--warning);line-height:1.5">⚠ ' + escHtml(t('assistant.fetchNotSupported')) + '</span>'
       } else {
-        resultEl.innerHTML = '<span style="color:var(--error)">✗ ' + escHtml(errStr) + '</span>'
+        resultEl.innerHTML = '<span style="color:var(--error)">' + statusIcon('err', 14) + ' ' + escHtml(errStr) + '</span>'
       }
     } finally {
       btn.disabled = false

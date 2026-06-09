@@ -12,6 +12,7 @@ import { listAgentsCompat } from '../lib/api-compat.js'
 import { hasFeature } from '../lib/kernel.js'
 import { termHelpHtml, attachTermTooltips } from '../lib/term-tooltip.js'
 import { escapeHtml as escHtml } from '../lib/utils.js'
+import { icon, statusIcon } from '../lib/icons.js'
 
 const SHOW_OFFICE_DEMO = import.meta.env.DEV || localStorage.getItem('agentOfficeDemo') === '1'
 const SHOW_OFFICE_STRESS = import.meta.env.DEV || localStorage.getItem('agentOfficeStress') === '1'
@@ -983,10 +984,10 @@ function renderAgents(page, state) {
 
   if (!filtered.length) {
     container.innerHTML = search
-      ? `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">${tr('agents.noMatch', '没有匹配的 Agent')}</div></div>`
+      ? `<div class="empty-state"><div class="empty-icon">${icon('search', 28)}</div><div class="empty-title">${tr('agents.noMatch', '没有匹配的 Agent')}</div></div>`
       : `
       <div class="empty-state">
-        <div class="empty-icon">🤖</div>
+        <div class="empty-icon">${icon('bot', 28)}</div>
         <div class="empty-title">${tr('agents.noAgents', '暂无 Agent')}</div>
         <div class="empty-desc">${tr('common.emptyGetStartedHint', '先新增一个开始使用')}</div>
         <div class="empty-cta"><button class="btn btn-primary" data-empty-cta="add-agent">${tr('agents.addAgent', '新增 Agent')}</button></div>
