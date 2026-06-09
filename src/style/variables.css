@@ -212,6 +212,7 @@
   --success-border:  rgba(16, 185, 129, 0.24);
   --warning-border:  rgba(245, 158, 11, 0.24);
   --error-border:    rgba(239, 68, 68, 0.24);
+  --info-border:     rgba(6, 182, 212, 0.24);
 
   /* ─── Extra Font Sizes ─── */
   --text-xxs:        10px;
@@ -248,6 +249,11 @@
   --surface-slate-076:    rgba(248, 250, 252, 0.76);
   --surface-slate-062:    rgba(248, 250, 252, 0.62);
   --surface-slate-058:    rgba(248, 250, 252, 0.58);
+  --surface-slate-015:    rgba(148, 163, 184, 0.25);
+  --surface-slate-012:    rgba(148, 163, 184, 0.20);
+  --surface-slate-010:    rgba(100, 116, 139, 0.18);
+  --surface-slate-008:    rgba(100, 116, 139, 0.12);
+  --surface-slate-004:    rgba(100, 116, 139, 0.08);
 
   /* ─── Agent Border Colors (semi-transparent) ─── */
   --border-gray-016:      rgba(148, 163, 184, 0.16);
@@ -313,6 +319,7 @@
   --warning-bg:         rgba(245, 158, 11, 0.12);
   --error-bg:           rgba(239, 68, 68, 0.12);
   --brand-overlay:      rgba(129, 140, 248, 0.18);
+  --overlay-light:      rgba(0, 0, 0, 0.12);
   --overlay-dark:       rgba(0, 0, 0, 0.55);
   --overlay-heavy:      rgba(0, 0, 0, 0.85);
 }
@@ -374,6 +381,7 @@
     --warning-bg:        rgba(245, 158, 11, 0.08);
     --error-bg:          rgba(239, 68, 68, 0.08);
     --brand-overlay:     rgba(79, 70, 229, 0.12);
+    --overlay-light:     rgba(0, 0, 0, 0.08);
     --overlay-dark:      rgba(0, 0, 0, 0.40);
     --overlay-heavy:     rgba(0, 0, 0, 0.70);
 
@@ -382,6 +390,7 @@
     --success-border:    rgba(16, 185, 129, 0.18);
     --warning-border:    rgba(245, 158, 11, 0.18);
     --error-border:      rgba(239, 68, 68, 0.18);
+    --info-border:       rgba(6, 182, 212, 0.18);
 
     --nav-settings:      #6b7280;
     --nav-debug:         #f43f5e;
@@ -437,6 +446,7 @@
   --warning-bg:         rgba(245, 158, 11, 0.12);
   --error-bg:           rgba(239, 68, 68, 0.12);
   --brand-overlay:      rgba(129, 140, 248, 0.18);
+  --overlay-light:      rgba(0, 0, 0, 0.12);
   --overlay-dark:       rgba(0, 0, 0, 0.55);
   --overlay-heavy:      rgba(0, 0, 0, 0.85);
 
@@ -445,6 +455,7 @@
   --success-border:     rgba(16, 185, 129, 0.24);
   --warning-border:     rgba(245, 158, 11, 0.24);
   --error-border:       rgba(239, 68, 68, 0.24);
+  --info-border:        rgba(6, 182, 212, 0.24);
 
   --nav-settings:       #6b7280;
   --nav-debug:          #f43f5e;

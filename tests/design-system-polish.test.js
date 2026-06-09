@@ -52,7 +52,7 @@ test('global controls keep polished focus and touch affordances', () => {
 })
 
 test('main app shell has restrained commercial surfaces', () => {
-  assert.match(cssBlock(variablesCss, ':root'), /--radius-lg:\s*8px/)
+  assert.match(cssBlock(variablesCss, ':root'), /--radius-lg:\s*12px/)
   assert.match(cssBlock(variablesCss, ':root'), /--radius-xl:\s*10px/)
   assert.match(cssBlock(variablesCss, ':root'), /--accent:\s*var\(--brand\)/)
   assert.match(cssBlock(layoutCss, '#content'), /background-image:\s*linear-gradient/)
@@ -61,6 +61,7 @@ test('main app shell has restrained commercial surfaces', () => {
 })
 
 test('dashboard and skill marketplace use raised surfaces with stable list hierarchy', () => {
+  assert.match(cssBlock(variablesCss, ':root'), /--info-border:\s*rgba\(6,\s*182,\s*212,\s*0\.24\)/)
   assert.match(cssBlock(pagesCss, '.dashboard-health-card'), /background:\s*var\(--surface-raised\)/)
   assert.match(cssBlock(pagesCss, '.dashboard-health-card'), /box-shadow:\s*var\(--shadow-md\)/)
   assert.match(cssBlock(pagesCss, '.skills-store-searchbar'), /background:\s*var\(--surface-raised\)/)
