@@ -2364,7 +2364,7 @@ function renderQueue() {
         <span class="ast-queue-text" data-queue-edit="${item.id}" title="${t('assistant.clickToEdit')}">${escHtml(item.text)}</span>
         <div class="ast-queue-actions">
           <button class="ast-queue-btn edit" data-queue-edit-btn="${item.id}" title="${t('assistant.edit')}">${editSvg}</button>
-          <button class="ast-queue-btn send" data-queue-send="${item.id}" title="${t('assistant.sendNow')}">${sendSvg}</button>
+          <button class="ast-queue-btn send" data-queue-send="${item.id}" title="${t('assistant.sendNow')}" aria-label="${t('assistant.sendNow')}">${sendSvg}</button>
           <button class="ast-queue-btn delete" data-queue-del="${item.id}" title="${t('common.delete')}">${delSvg}</button>
         </div>
       </div>
@@ -4417,7 +4417,7 @@ function renderExpertTeamMessage(m, idx) {
       ${processBlock}
       ${runningIndicator}
     </div>
-    <div class="ast-msg-meta"><button class="msg-copy-btn" title="${t('common.copy')}">${icon('copy', 12)}</button></div>
+    <div class="ast-msg-meta"><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${icon('copy', 12)}</button></div>
   </div>`
 }
 
@@ -6044,7 +6044,7 @@ function renderMessages() {
           ? `<img class="ast-msg-img" src="${img.dataUrl}" alt="${escHtml(img.name)}" style="max-width:${Math.min(img.width || 300, 300)}px" loading="lazy"/>`
           : `<div class="ast-msg-img-loading" data-db-id="${img.dbId || ''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span>${escHtml(img.name || t('assistant.image'))}</span></div>`
       ).join('')}</div>` : ''
-      return `<div class="ast-msg ast-msg-user" data-msg-idx="${idx}"><div class="ast-msg-bubble ast-msg-bubble-user">${imagesHtml}${textPart ? escHtml(textPart) : ''}</div><div class="ast-msg-meta"><button class="msg-copy-btn" title="${t('common.copy')}">${icon('copy', 12)}</button></div></div>`
+      return `<div class="ast-msg ast-msg-user" data-msg-idx="${idx}"><div class="ast-msg-bubble ast-msg-bubble-user">${imagesHtml}${textPart ? escHtml(textPart) : ''}</div><div class="ast-msg-meta"><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${icon('copy', 12)}</button></div></div>`
     } else if (m.role === 'assistant') {
       // 跳过空的 AI 消息（历史脏数据），除非正在流式中（最后一条是占位符）
       const isLastMsg = idx === session.messages.length - 1
@@ -6056,7 +6056,7 @@ function renderMessages() {
       }
 
       const toolHtml = renderToolBlocks(m.toolHistory)
-      return `<div class="ast-msg ast-msg-ai" data-msg-idx="${idx}">${toolHtml}<div class="ast-msg-bubble ast-msg-bubble-ai">${renderMarkdown(m.content)}</div><div class="ast-msg-meta"><button class="msg-copy-btn" title="${t('common.copy')}">${icon('copy', 12)}</button></div></div>`
+      return `<div class="ast-msg ast-msg-ai" data-msg-idx="${idx}">${toolHtml}<div class="ast-msg-bubble ast-msg-bubble-ai">${renderMarkdown(m.content)}</div><div class="ast-msg-meta"><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${icon('copy', 12)}</button></div></div>`
     }
     return ''
   }).join('')
@@ -6882,7 +6882,7 @@ function showSettings() {
   ;(async () => {
     const models = await fetchQtcoolModels()
     qtcoolModelSelect.innerHTML = models.map((m, i) =>
-      `<option value="${m.id}" style="color:#333"${i === 0 ? ' selected' : ''}>${m.name || m.id}${i === 0 ? ' ★' : ''}</option>`
+      `<option value="${m.id}" style="color:var(--text-primary)"${i === 0 ? ' selected' : ''}>${m.name || m.id}${i === 0 ? ' ★' : ''}</option>`
     ).join('')
   })()
 
@@ -6893,13 +6893,13 @@ function showSettings() {
   overlay.querySelector('#ast-qtcool-test').onclick = async (e) => {
     const btn = e.target
     const selectedModel = qtcoolModelSelect.value
-    if (!selectedModel) { qtcoolStatus.innerHTML = `<span style="color:#fbbf24">${statusIcon('warn', 14)} ${t('assistant.qtcoolSelectModel')}</span>`; return }
+    if (!selectedModel) { qtcoolStatus.innerHTML = `<span style="color:var(--warning)">${statusIcon('warn', 14)} ${t('assistant.qtcoolSelectModel')}</span>`; return }
     const key = qtcoolKeyInput.value.trim()
-    if (!key) { qtcoolStatus.innerHTML = `<span style="color:#fbbf24">${statusIcon('warn', 14)} ${t('assistant.qtcoolEnterKey')}</span>`; return }
+    if (!key) { qtcoolStatus.innerHTML = `<span style="color:var(--warning)">${statusIcon('warn', 14)} ${t('assistant.qtcoolEnterKey')}</span>`; return }
 
     btn.disabled = true
     btn.textContent = t('assistant.testing')
-    qtcoolStatus.innerHTML = `<span style="color:rgba(255,255,255,0.5)">${t('assistant.qtcoolConnecting')}</span>`
+    qtcoolStatus.innerHTML = `<span style="color:var(--text-tertiary)">${t('assistant.qtcoolConnecting')}</span>`
     const t0 = Date.now()
     try {
       const resp = await fetch(QTCOOL.baseUrl + '/chat/completions', {
@@ -6912,7 +6912,7 @@ function showSettings() {
       if (resp.ok) {
         const data = await resp.json()
         const reply = data.choices?.[0]?.message?.content || ''
-        qtcoolStatus.innerHTML = `<span style="color:#34d399">${statusIcon('ok', 14)} ${t('assistant.qtcoolTestPass', { time: (ms/1000).toFixed(1) })}</span><span style="color:rgba(255,255,255,0.4);margin-left:6px">${selectedModel} OK</span>`
+        qtcoolStatus.innerHTML = `<span style="color:var(--success)">${statusIcon('ok', 14)} ${t('assistant.qtcoolTestPass', { time: (ms/1000).toFixed(1) })}</span><span style="color:var(--text-tertiary);margin-left:6px">${selectedModel} OK</span>`
       } else {
         const errText = await resp.text().catch(() => '')
         let errMsg = `HTTP ${resp.status}`
@@ -6921,11 +6921,11 @@ function showSettings() {
           if (errJson.error?.message) errMsg = errJson.error.message
         } catch { if (errText) errMsg += ' — ' + errText.slice(0, 200) }
         // 将 URL 转为可点击链接
-        const errHtml = errMsg.replace(/(https?:\/\/[^\s,，。）)]+)/g, '<a href="$1" target="_blank" style="color:var(--primary)">$1</a>')
-        qtcoolStatus.innerHTML = `<div style="color:#f87171;line-height:1.5">${statusIcon('err', 14)} <strong>${t('assistant.qtcoolTestFail')}</strong></div><div style="color:var(--text-secondary);font-size:11px;line-height:1.5;margin-top:4px;word-break:break-all">${errHtml}</div>`
+        const errHtml = escHtml(errMsg).replace(/(https?:\/\/[^\s,，。）)]+)/g, '<a href="$1" target="_blank" style="color:var(--primary)">$1</a>')
+        qtcoolStatus.innerHTML = `<div style="color:var(--error);line-height:1.5">${statusIcon('err', 14)} <strong>${t('assistant.qtcoolTestFail')}</strong></div><div style="color:var(--text-secondary);font-size:11px;line-height:1.5;margin-top:4px;word-break:break-all">${errHtml}</div>`
       }
     } catch (err) {
-      qtcoolStatus.innerHTML = `<div style="color:#f87171">${statusIcon('err', 14)} ${t('assistant.qtcoolConnectFail')}: ${err.message}</div>`
+      qtcoolStatus.innerHTML = `<div style="color:var(--error)">${statusIcon('err', 14)} ${t('assistant.qtcoolConnectFail')}: ${escHtml(err.message)}</div>`
     }
     btn.disabled = false
     btn.innerHTML = `${icon('search', 12)} ${t('assistant.testBtn')}`
@@ -6934,16 +6934,16 @@ function showSettings() {
   // 一键接入：填充配置 + 提示设为 OpenClaw 主模型
   overlay.querySelector('#ast-qtcool-apply').onclick = async () => {
     const selectedModel = qtcoolModelSelect.value
-    if (!selectedModel) { qtcoolStatus.innerHTML = `<span style="color:#fbbf24">${statusIcon('warn', 14)} ${t('assistant.qtcoolSelectModel')}</span>`; return }
+    if (!selectedModel) { qtcoolStatus.innerHTML = `<span style="color:var(--warning)">${statusIcon('warn', 14)} ${t('assistant.qtcoolSelectModel')}</span>`; return }
     const key = qtcoolKeyInput.value.trim()
-    if (!key) { qtcoolStatus.innerHTML = `<span style="color:#fbbf24">${statusIcon('warn', 14)} ${t('assistant.qtcoolEnterKey')}</span>`; return }
+    if (!key) { qtcoolStatus.innerHTML = `<span style="color:var(--warning)">${statusIcon('warn', 14)} ${t('assistant.qtcoolEnterKey')}</span>`; return }
 
     // 1) 填充助手配置
     overlay.querySelector('#ast-baseurl').value = QTCOOL.baseUrl
     overlay.querySelector('#ast-apikey').value = key
     overlay.querySelector('#ast-model').value = selectedModel
     overlay.querySelector('#ast-apitype').value = 'openai-completions'
-    qtcoolStatus.innerHTML = `<span style="color:#34d399">${statusIcon('ok', 14)} ${t('assistant.qtcoolConfigured', { model: selectedModel })}</span>`
+    qtcoolStatus.innerHTML = `<span style="color:var(--success)">${statusIcon('ok', 14)} ${t('assistant.qtcoolConfigured', { model: selectedModel })}</span>`
     toast(t('assistant.qtcoolConfigured', { model: selectedModel }), 'success')
 
     // 2) 提示是否同步写入 OpenClaw 配置（设为主模型）
@@ -6978,11 +6978,11 @@ function showSettings() {
         config.agents.defaults.model.primary = 'qtcool/' + selectedModel
 
         await api.writeOpenclawConfig(config)
-        qtcoolStatus.innerHTML = `<span style="color:#34d399">${statusIcon('ok', 14)} ${t('assistant.qtcoolSetMainDone', { model: selectedModel })}</span>`
+        qtcoolStatus.innerHTML = `<span style="color:var(--success)">${statusIcon('ok', 14)} ${t('assistant.qtcoolSetMainDone', { model: selectedModel })}</span>`
         try {
           await api.restartGateway()
           toast(t('assistant.qtcoolMainSwitched', { model: selectedModel }), 'success')
-          qtcoolStatus.innerHTML = `<span style="color:#34d399">${statusIcon('ok', 14)} ${t('assistant.qtcoolAllDone', { model: selectedModel })}</span>`
+          qtcoolStatus.innerHTML = `<span style="color:var(--success)">${statusIcon('ok', 14)} ${t('assistant.qtcoolAllDone', { model: selectedModel })}</span>`
         } catch (e) {
           toast(humanizeError(e, t('assistant.qtcoolGatewayFail')), 'warning')
         }
@@ -8442,7 +8442,7 @@ function showDebugModal(title, content) {
     <div class="ast-debug-modal">
       <div class="ast-debug-header">
         <span>${escHtml(title)}</span>
-        <button class="ast-debug-close">&times;</button>
+        <button class="ast-debug-close" aria-label="${t('common.close')}">&times;</button>
       </div>
       <pre class="ast-debug-content">${escHtml(content)}</pre>
       <div class="ast-debug-actions">
@@ -8469,7 +8469,7 @@ function getAssistantGuideHtml() {
         <b>${t('assistant.guideTitle')}</b>${t('assistant.guideDesc')}
         <span style="opacity:0.6">${t('assistant.guideHint')}</span>
       </div>
-      <button class="ast-guide-close" onclick="localStorage.setItem('${AST_GUIDE_KEY}','1');this.closest('.ast-page-guide').remove()">&times;</button>
+      <button class="ast-guide-close" onclick="localStorage.setItem('${AST_GUIDE_KEY}','1');this.closest('.ast-page-guide').remove()" aria-label="${t('common.close')}">&times;</button>
     </div>
   `
 }
@@ -8553,7 +8553,7 @@ export async function render() {
           </div>
         </div>
         <div class="ast-header-actions">
-          <button class="btn btn-sm btn-ghost" id="ast-btn-settings" title="${t('assistant.settingsTitle')}">
+          <button class="btn btn-sm btn-ghost" id="ast-btn-settings" title="${t('assistant.settingsTitle')}" aria-label="${t('assistant.settingsTitle')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
             ${t('common.settings')}
           </button>
@@ -8595,7 +8595,7 @@ export async function render() {
               </div>
             </div>
             <div class="ast-input-actions">
-              <button class="ast-send-btn" id="ast-send-btn" title="${t('assistant.send')}">${sendIcon()}</button>
+              <button class="ast-send-btn" id="ast-send-btn" title="${t('assistant.send')}" aria-label="${t('assistant.send')}">${sendIcon()}</button>
             </div>
           </div>
         </div>

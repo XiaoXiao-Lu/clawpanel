@@ -9,6 +9,7 @@ import { setUpgrading } from '../lib/app-state.js'
 import { icon, statusIcon } from '../lib/icons.js'
 import { t, getLang } from '../lib/i18n.js'
 import { getActiveEngineId } from '../lib/engine-manager.js'
+import { escapeHtml } from '../lib/utils.js'
 
 export async function render() {
   const page = document.createElement('div')
@@ -443,10 +444,46 @@ async function showVersionPicker(page, currentVersion) {
   const lblChinese = overlay.querySelector('#lbl-chinese')
   const lblOfficial = overlay.querySelector('#lbl-official')
 
-  const close = () => overlay.remove()
+  // 焦点陷阱
+  const modalEl = overlay.querySelector('.modal')
+  const focusableEls = modalEl.querySelectorAll(
+    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )
+  const firstEl = focusableEls[0]
+  const lastEl = focusableEls[focusableEls.length - 1]
+
+  const close = () => {
+    overlay.removeEventListener('keydown', onEsc)
+    overlay.removeEventListener('keydown', onTab)
+    overlay.remove()
+  }
+
+  function onEsc(e) {
+    if (e.key === 'Escape') close()
+  }
+
+  function onTab(e) {
+    if (e.key !== 'Tab') return
+    if (e.shiftKey) {
+      if (document.activeElement === firstEl) {
+        e.preventDefault()
+        lastEl.focus()
+      }
+    } else {
+      if (document.activeElement === lastEl) {
+        e.preventDefault()
+        firstEl.focus()
+      }
+    }
+  }
+
   overlay.querySelector('[data-action="cancel"]').onclick = close
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
-  overlay.addEventListener('keydown', (e) => { if (e.key === 'Escape') close() })
+  overlay.addEventListener('keydown', onEsc)
+  overlay.addEventListener('keydown', onTab)
+
+  // 设置初始焦点
+  if (firstEl) firstEl.focus()
 
   let versionsCache = {}
   let currentSelect = currentVersion.source === 'chinese' ? 'chinese' : 'official'
@@ -543,7 +580,7 @@ async function showVersionPicker(page, currentVersion) {
       }
       updateHint()
     } catch (e) {
-      select.innerHTML = `<option value="">${t('common.loadFailed')}: ${e.message || e}</option>`
+      select.innerHTML = `<option value="">${t('common.loadFailed')}: ${escapeHtml(e.message || e)}</option>`
     }
   }
 

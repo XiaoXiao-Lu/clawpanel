@@ -5,6 +5,30 @@
 import { t } from '../lib/i18n.js'
 import { escapeAttr } from '../lib/utils.js'
 
+/** 记录打开 modal 前聚焦的元素，关闭时恢复 */
+let _previousFocus = null
+
+/**
+ * Focus trap — 将 Tab 键限制在 modal 内部
+ * @param {HTMLElement} overlay
+ * @param {HTMLElement} modalEl
+ */
+function trapFocus(overlay, modalEl) {
+  const focusableSelectors = 'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  overlay.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return
+    const focusables = [...modalEl.querySelectorAll(focusableSelectors)]
+    if (!focusables.length) return
+    const first = focusables[0]
+    const last = focusables[focusables.length - 1]
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus() }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+  })
+}
+
 
 /**
  * 给 overlay 绑定"点击遮罩关闭"事件（带拖拽防误触）
@@ -72,11 +96,13 @@ export function showConfirm(message, options = {}) {
     : ''
 
   return new Promise((resolve) => {
+    _previousFocus = document.activeElement
     const overlay = document.createElement('div')
     overlay.className = 'modal-overlay'
+    const modalId = 'modal-' + Date.now()
     overlay.innerHTML = `
-      <div class="modal" style="max-width:420px">
-        <div class="modal-title">${escapeAttr(title)}</div>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="${modalId}-title" style="max-width:420px">
+        <div class="modal-title" id="${modalId}-title">${escapeAttr(title)}</div>
         <div class="modal-body" style="font-size:var(--font-size-sm);color:var(--text-secondary);white-space:pre-wrap;line-height:1.6">${escapeAttr(actualMessage)}</div>
         ${impactHtml}
         <div class="modal-actions">
@@ -87,8 +113,13 @@ export function showConfirm(message, options = {}) {
     `
     document.body.appendChild(overlay)
 
+    const modalEl = overlay.querySelector('.modal')
+    trapFocus(overlay, modalEl)
+
     const close = (result) => {
       overlay.remove()
+      if (_previousFocus && _previousFocus.focus) _previousFocus.focus()
+      _previousFocus = null
       resolve(result)
     }
 
@@ -105,15 +136,17 @@ export function showConfirm(message, options = {}) {
 }
 
 export function showModal({ title, fields, onConfirm }) {
+  _previousFocus = document.activeElement
   const overlay = document.createElement('div')
   overlay.className = 'modal-overlay'
+  const modalId = 'modal-' + Date.now()
 
   const fieldHtml = fields.map(f => {
     if (f.type === 'checkbox') {
       return `
         <div class="form-group">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-            <input type="checkbox" data-name="${f.name}" ${f.value ? 'checked' : ''}>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer" for="modal-field-${f.name}">
+            <input type="checkbox" id="modal-field-${f.name}" data-name="${f.name}" ${f.value ? 'checked' : ''}>
             <span class="form-label" style="margin:0">${f.label}</span>
           </label>
           ${f.hint ? `<div class="form-hint">${f.hint}</div>` : ''}
@@ -122,8 +155,8 @@ export function showModal({ title, fields, onConfirm }) {
     if (f.type === 'select') {
       return `
         <div class="form-group">
-          <label class="form-label">${f.label}</label>
-          <select class="form-input" data-name="${f.name}">
+          <label class="form-label" for="modal-field-${f.name}">${f.label}</label>
+          <select class="form-input" id="modal-field-${f.name}" data-name="${f.name}">
             ${f.options.map(o => `<option value="${o.value}" ${o.value === f.value ? 'selected' : ''}>${o.label}</option>`).join('')}
           </select>
           ${f.hint ? `<div class="form-hint">${f.hint}</div>` : ''}
@@ -131,15 +164,15 @@ export function showModal({ title, fields, onConfirm }) {
     }
     return `
       <div class="form-group">
-        <label class="form-label">${f.label}</label>
-        <input class="form-input" data-name="${f.name}" value="${escapeAttr(f.value)}" placeholder="${escapeAttr(f.placeholder)}"${f.readonly ? ' readonly style="opacity:0.6;cursor:not-allowed"' : ''}>
+        <label class="form-label" for="modal-field-${f.name}">${f.label}</label>
+        <input class="form-input" id="modal-field-${f.name}" data-name="${f.name}" value="${escapeAttr(f.value)}" placeholder="${escapeAttr(f.placeholder)}"${f.readonly ? ' readonly style="opacity:0.6;cursor:not-allowed"' : ''}>
         ${f.hint ? `<div class="form-hint">${f.hint}</div>` : ''}
       </div>`
   }).join('')
 
   overlay.innerHTML = `
-    <div class="modal">
-      <div class="modal-title">${title}</div>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="${modalId}-title">
+      <div class="modal-title" id="${modalId}-title">${title}</div>
       ${fieldHtml}
       <div class="modal-actions">
         <button class="btn btn-secondary btn-sm" data-action="cancel">${t('common.cancel')}</button>
@@ -150,10 +183,17 @@ export function showModal({ title, fields, onConfirm }) {
 
   document.body.appendChild(overlay)
 
+  const modalEl = overlay.querySelector('.modal')
+  trapFocus(overlay, modalEl)
+
   // 点击遮罩关闭（带拖拽防误触）
   bindOverlayClose(overlay)
 
-  overlay.querySelector('[data-action="cancel"]').onclick = () => overlay.remove()
+  overlay.querySelector('[data-action="cancel"]').onclick = () => {
+    overlay.remove()
+    if (_previousFocus && _previousFocus.focus) _previousFocus.focus()
+    _previousFocus = null
+  }
 
   overlay.querySelector('[data-action="confirm"]').onclick = () => {
     const result = {}
@@ -197,16 +237,18 @@ export function showModal({ title, fields, onConfirm }) {
  * @returns {HTMLElement} overlay 元素（带 .close() 方法）
  */
 export function showContentModal({ title, content, buttons = [], width = 480 }) {
+  _previousFocus = document.activeElement
   const overlay = document.createElement('div')
   overlay.className = 'modal-overlay'
+  const modalId = 'modal-' + Date.now()
 
   const btnsHtml = buttons.map(b =>
     `<button class="${b.className || 'btn btn-primary btn-sm'}" id="${b.id || ''}">${b.label}</button>`
   ).join('')
 
   overlay.innerHTML = `
-    <div class="modal" style="max-width:${width}px">
-      <div class="modal-title">${title}</div>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="${modalId}-title" style="max-width:${width}px">
+      <div class="modal-title" id="${modalId}-title">${title}</div>
       <div class="modal-content-body">${content}</div>
       <div class="modal-actions">
         <button class="btn btn-secondary btn-sm" data-action="cancel">${t('common.cancel')}</button>
@@ -217,12 +259,19 @@ export function showContentModal({ title, content, buttons = [], width = 480 }) 
 
   document.body.appendChild(overlay)
 
-  overlay.close = () => overlay.remove()
+  const modalEl = overlay.querySelector('.modal')
+  trapFocus(overlay, modalEl)
+
+  overlay.close = () => {
+    overlay.remove()
+    if (_previousFocus && _previousFocus.focus) _previousFocus.focus()
+    _previousFocus = null
+  }
 
   bindOverlayClose(overlay)
-  overlay.querySelector('[data-action="cancel"]').onclick = () => overlay.remove()
+  overlay.querySelector('[data-action="cancel"]').onclick = () => overlay.close()
   overlay.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') overlay.remove()
+    if (e.key === 'Escape') overlay.close()
   })
 
   // 自动聚焦第一个输入框或按钮
@@ -290,7 +339,7 @@ export function showUpgradeModal(title) {
     _taskBar.innerHTML = `
       <span class="upgrade-task-bar-text">${text.textContent}</span>
       <button class="btn btn-sm upgrade-task-bar-open">${t('common.viewDetails')}</button>
-      <button class="btn btn-sm btn-ghost upgrade-task-bar-dismiss">×</button>
+      <button class="btn btn-sm btn-ghost upgrade-task-bar-dismiss" aria-label="${t('common.close')}">×</button>
     `
     _taskBar.querySelector('.upgrade-task-bar-open').onclick = reopenModal
     _taskBar.querySelector('.upgrade-task-bar-dismiss').onclick = () => { _taskBar.remove(); _taskBar = null }

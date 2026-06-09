@@ -11,12 +11,7 @@ import { API_TYPES, PROVIDER_PRESETS, QTCOOL, MODEL_PRESETS, fetchQtcoolModels }
 import { t } from '../lib/i18n.js'
 import { termHelpHtml, attachTermTooltips } from '../lib/term-tooltip.js'
 import { createModelCombobox } from '../engines/hermes/lib/model-combobox.js'
-
-// HTML 转义，防止错误信息中的特殊字符破坏页面或被注入
-function escapeHtml(str) {
-  if (str == null) return ''
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escapeHtml } from '../lib/utils.js'
 
 function cssEscape(value) {
   if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') return CSS.escape(String(value))

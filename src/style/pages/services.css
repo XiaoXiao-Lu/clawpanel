@@ -257,7 +257,7 @@
   border: 1px solid var(--border-secondary);
   border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast);
   user-select: none;
 }
 
@@ -283,7 +283,7 @@
   background: var(--surface-sunken);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .gw-option-card.selected .gw-option-icon {
@@ -383,7 +383,7 @@
   font-size: var(--font-size-sm);
   line-height: 1;
   color: inherit;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 .btn-icon:hover {
   background: var(--bg-secondary);
@@ -464,7 +464,7 @@
   color: var(--text-secondary);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .tab-nav-btn:hover {
@@ -508,3 +508,36 @@
 }
 
 /* === 移动端响应式 === */
+@media (max-width: 768px) {
+  .gw-option-cards {
+    grid-template-columns: 1fr;
+  }
+  .services-ops-column {
+    max-width: none;
+  }
+  .service-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .service-actions {
+    flex-wrap: wrap;
+  }
+  .service-cancel-btn,
+  .btn-icon,
+  .tab-nav-btn {
+    min-height: 44px;
+  }
+  .log-viewer {
+    max-height: 50vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .gw-option-cards {
+    gap: var(--space-2);
+  }
+  .service-name,
+  .service-desc {
+    overflow-wrap: anywhere;
+  }
+}

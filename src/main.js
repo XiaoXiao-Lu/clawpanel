@@ -134,8 +134,8 @@ function showBackendDownOverlay() {
         <span id="backend-retry-text">${t('common.checkAgain')}</span>
       </button>
       <div id="backend-retry-status" style="font-size:12px;color:var(--text-tertiary);margin-top:12px"></div>
-      <div style="margin-top:16px;font-size:11px;color:#aaa">
-        <a href="https://claw.qt.cool" target="_blank" rel="noopener" style="color:#aaa;text-decoration:none">claw.qt.cool</a>
+      <div style="margin-top:16px;font-size:11px;color:var(--text-3, #aaa)">
+        <a href="https://claw.qt.cool" target="_blank" rel="noopener" style="color:var(--text-3, #aaa);text-decoration:none">claw.qt.cool</a>
         <span style="margin:0 6px">&middot;</span>v${APP_VERSION}
       </div>
     </div>
@@ -195,6 +195,7 @@ function _genCaptcha() {
 
 function showLoginOverlay(defaultPw) {
   const hasDefault = !!defaultPw
+  const defaultPwValue = hasDefault ? escapeHtml(defaultPw) : ''
   const overlay = document.createElement('div')
   overlay.id = 'login-overlay'
   let _captcha = _loginFailCount >= CAPTCHA_THRESHOLD ? _genCaptcha() : null
@@ -209,25 +210,25 @@ function showLoginOverlay(defaultPw) {
         ? `${t('security.firstLoginHint')}<br><span style="font-size:12px;color:var(--accent);font-weight:600">${t('security.firstLoginChangeHint', { security: securityLabel })}</span>`
         : (isTauri ? t('security.appLocked') : t('security.loginPrompt'))}</div>
       <form id="login-form">
-        <input class="login-input" type="${hasDefault ? 'text' : 'password'}" id="login-pw" placeholder="${t('security.accessPasswordPlaceholder')}" autocomplete="current-password" autofocus value="${hasDefault ? defaultPw : ''}" />
+        <input class="login-input" type="${hasDefault ? 'text' : 'password'}" id="login-pw" placeholder="${t('security.accessPasswordPlaceholder')}" autocomplete="current-password" autofocus value="${defaultPwValue}" />
         <div id="login-captcha" style="display:${_captcha ? 'block' : 'none'};margin-bottom:10px">
-          <div style="font-size:12px;color:#888;margin-bottom:6px">${t('security.captchaPrompt')}<strong id="captcha-q" style="color:var(--text-primary,#333)">${_captcha ? _captcha.q : ''}</strong></div>
+          <div style="font-size:12px;color:var(--text-3, #888);margin-bottom:6px">${t('security.captchaPrompt')}<strong id="captcha-q" style="color:var(--text-primary,#333)">${_captcha ? _captcha.q : ''}</strong></div>
           <input class="login-input" type="number" id="login-captcha-input" placeholder="${t('security.captchaPlaceholder')}" style="text-align:center" />
         </div>
         <button class="login-btn" type="submit">${t('security.loginAction')}</button>
         <div class="login-error" id="login-error"></div>
       </form>
       ${!hasDefault ? `<details class="login-forgot" style="margin-top:16px;text-align:center">
-        <summary style="font-size:11px;color:#aaa;cursor:pointer;list-style:none;user-select:none">${t('security.forgotPassword')}</summary>
-        <div style="margin-top:8px;font-size:11px;color:#888;line-height:1.8;text-align:left;background:rgba(0,0,0,.03);border-radius:8px;padding:10px 14px">
+        <summary style="font-size:11px;color:var(--text-3, #aaa);cursor:pointer;list-style:none;user-select:none">${t('security.forgotPassword')}</summary>
+        <div style="margin-top:8px;font-size:11px;color:var(--text-3, #888);line-height:1.8;text-align:left;background:rgba(0,0,0,.03);border-radius:8px;padding:10px 14px">
           ${isTauri
             ? `${t('security.resetPasswordLocal', { field: accessPasswordField })}<br>${resetPath}`
             : `${t('security.resetPasswordRemote', { field: accessPasswordField })}<br>${resetPath}`
           }
         </div>
       </details>` : ''}
-      <div style="margin-top:${hasDefault ? '20' : '12'}px;font-size:11px;color:#aaa;text-align:center">
-        <a href="https://claw.qt.cool" target="_blank" rel="noopener" style="color:#aaa;text-decoration:none">claw.qt.cool</a>
+      <div style="margin-top:${hasDefault ? '20' : '12'}px;font-size:11px;color:var(--text-3, #aaa);text-align:center">
+        <a href="https://claw.qt.cool" target="_blank" rel="noopener" style="color:var(--text-3, #aaa);text-decoration:none">claw.qt.cool</a>
         <span style="margin:0 6px">·</span>v${APP_VERSION}
       </div>
     </div>
@@ -477,10 +478,10 @@ async function boot() {
   if (sessionStorage.getItem('clawpanel_must_change_pw') === '1') {
     const banner = document.createElement('div')
     banner.id = 'pw-change-banner'
-    banner.style.cssText = 'position:sticky;top:0;z-index:var(--z-sticky);background:var(--accent);color:#fff;padding:8px 16px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:13px;font-weight:500;box-shadow:var(--shadow-md);min-height:52px;flex-shrink:0'
+    banner.style.cssText = 'position:sticky;top:0;z-index:var(--z-sticky);background:var(--accent);color:var(--text-inverse, #fff);padding:8px 16px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:13px;font-weight:500;box-shadow:var(--shadow-md);min-height:52px;flex-shrink:0'
     banner.innerHTML = `
       <span>${statusIcon('warn', 14)} ${t('common.defaultPasswordBanner')}</span>
-      <a href="#/security" style="color:#fff;background:rgba(255,255,255,0.2);min-height:44px;padding:0 14px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center" onclick="document.getElementById('pw-change-banner').remove();sessionStorage.removeItem('clawpanel_must_change_pw')">${t('common.goSecurity')}</a>
+      <a href="#/security" style="color:var(--text-inverse, #fff);background:var(--brand-overlay, rgba(255,255,255,0.2));min-height:44px;padding:0 14px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center" onclick="document.getElementById('pw-change-banner').remove();sessionStorage.removeItem('clawpanel_must_change_pw')">${t('common.goSecurity')}</a>
       <button aria-label="${t('common.close')}" title="${t('common.close')}" onclick="this.parentElement.remove()" style="width:44px;height:44px;flex:0 0 44px;display:inline-flex;align-items:center;justify-content:center;background:none;border:none;border-radius:8px;color:rgba(255,255,255,0.7);cursor:pointer;font-size:16px;padding:0;margin-left:0">✕</button>
     `
     const mainColForBanner = document.getElementById('main-col')
@@ -1059,10 +1060,10 @@ function startUpdateChecker() {
     if (app) app.innerHTML = `
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
         <div style="font-size:48px;margin-bottom:16px">⚠️</div>
-        <div style="font-size:18px;font-weight:600;margin-bottom:8px;color:#18181b">${t('common.pageLoadFailed')}</div>
-        <div style="font-size:13px;color:#71717a;max-width:400px;line-height:1.6;margin-bottom:16px">${String(bootErr?.message || bootErr).replace(/</g,'&lt;')}</div>
-        <button onclick="location.reload()" style="padding:8px 20px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;cursor:pointer">${t('common.reloadRetry')}</button>
-        <div style="margin-top:24px;font-size:11px;color:#a1a1aa">${t('common.pageLoadFailedHint')}<br><a href="https://github.com/qingchencloud/clawpanel/issues" target="_blank" style="color:var(--accent)">GitHub Issues</a></div>
+        <div style="font-size:18px;font-weight:600;margin-bottom:8px;color:var(--text-primary, #18181b)">${t('common.pageLoadFailed')}</div>
+        <div style="font-size:13px;color:var(--text-3, #71717a);max-width:400px;line-height:1.6;margin-bottom:16px">${String(bootErr?.message || bootErr).replace(/</g,'&lt;')}</div>
+        <button onclick="location.reload()" style="padding:8px 20px;border-radius:8px;border:none;background:var(--accent);color:var(--text-inverse, #fff);font-size:13px;cursor:pointer">${t('common.reloadRetry')}</button>
+        <div style="margin-top:24px;font-size:11px;color:var(--text-3, #a1a1aa)">${t('common.pageLoadFailedHint')}<br><a href="https://github.com/qingchencloud/clawpanel/issues" target="_blank" style="color:var(--accent)">GitHub Issues</a></div>
       </div>`
   }
   startUpdateChecker()

@@ -35,6 +35,15 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
+    watch: {
+      ignored: [
+        '**/src-tauri/target/**',
+        '**/dist/**',
+        '**/.tmp/**',
+        '**/reports/**',
+        '**/screenshots/**',
+      ],
+    },
     proxy: {
       '/ws': {
         target: `ws://127.0.0.1:${gatewayPort}`,

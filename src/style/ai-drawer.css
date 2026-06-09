@@ -2,8 +2,8 @@
 
 .ai-fab {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: var(--space-6);
+  right: var(--space-6);
   z-index: var(--z-drawer);
   width: 48px;
   height: 48px;
@@ -19,6 +19,11 @@
   transition: transform 0.2s, box-shadow 0.2s;
   touch-action: none; /* 拖动时禁止浏览器默认手势 */
   user-select: none;
+}
+.ai-fab:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  box-shadow: var(--shadow-glow);
 }
 .ai-fab:hover {
   transform: scale(1.08);
@@ -51,7 +56,7 @@
   height: 12px;
   border-radius: 50%;
   background: var(--error, #ef4444);
-  border: 2px solid #fff;
+  border: 2px solid var(--text-inverse);
   animation: fab-pulse 1.5s ease-in-out infinite;
 }
 @keyframes fab-pulse {
@@ -61,11 +66,11 @@
 
 /* ── 错误上下文 Banner（助手页面内） ── */
 .ast-error-banner {
-  margin: 0 0 12px;
-  padding: 10px 14px;
-  background: var(--error-muted, rgba(239, 68, 68, 0.08));
-  border: 1px solid var(--error-border, rgba(239, 68, 68, 0.25));
-  border-radius: var(--radius-lg, 12px);
+  margin: 0 0 var(--space-3);
+  padding: var(--space-sm) var(--space-3);
+  background: var(--error-muted);
+  border: 1px solid color-mix(in srgb, var(--error) 25%, transparent);
+  border-radius: var(--radius-lg);
   font-size: var(--font-size-sm);
   line-height: 1.5;
   color: var(--text-secondary);
@@ -78,7 +83,7 @@
 }
 .ast-error-banner-icon {
   flex-shrink: 0;
-  color: var(--error, #ef4444);
+  color: var(--error);
   font-size: var(--font-size-lg);
 }
 .ast-error-banner-title {
@@ -101,9 +106,9 @@
   transition: background 0.15s;
 }
 .ast-error-banner .btn-analyze {
-  background: var(--error, #ef4444);
+  background: var(--error);
   color: var(--text-inverse);
-  border-color: var(--error, #ef4444);
+  border-color: var(--error);
 }
 .ast-error-banner .btn-analyze:hover {
   opacity: 0.9;

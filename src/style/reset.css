@@ -8,12 +8,19 @@ html, body {
   height: 100%;
   overflow: hidden;
   font-family: var(--font-sans);
-  font-size: var(--font-size-md);
+  font-size: var(--text-base);
   color: var(--text-primary);
   background: var(--bg-root);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+/* Selection color */
+::selection {
+  background: rgba(129, 140, 248, 0.3);
+  color: var(--text-1);
 }
 
 /* Subtle grain texture overlay */

@@ -146,14 +146,14 @@ export function renderKernelUpgradeHint() {
   const toLabel = snap.target || ''
 
   return `
-    <div class="kernel-upgrade-hint" id="kernel-upgrade-hint" role="button" tabindex="0">
+    <button type="button" class="kernel-upgrade-hint" id="kernel-upgrade-hint">
       <div class="kernel-upgrade-hint-icon">${sparkIcon}</div>
       <div class="kernel-upgrade-hint-body">
         <div class="kernel-upgrade-hint-title">${_escSidebar(t('kernel.upgradeHint.title'))}</div>
         <div class="kernel-upgrade-hint-meta">${_escSidebar(t('kernel.upgradeHint.subtitle', { from: fromLabel, to: toLabel }))}</div>
       </div>
       <div class="kernel-upgrade-hint-arrow">${arrowIcon}</div>
-      <button class="kernel-upgrade-hint-dismiss" id="btn-kernel-upgrade-dismiss" title="${_escSidebar(t('kernel.upgradeHint.dismissTooltip'))}" aria-label="${_escSidebar(t('kernel.upgradeHint.dismissTooltip'))}">×</button>
-    </div>
+      <span class="kernel-upgrade-hint-dismiss" id="btn-kernel-upgrade-dismiss" title="${_escSidebar(t('kernel.upgradeHint.dismissTooltip'))}" aria-label="${_escSidebar(t('kernel.upgradeHint.dismissTooltip'))}">×</span>
+    </button>
   `
 }

@@ -2875,6 +2875,30 @@ body[data-active-engine="hermes"][data-theme="dark"] {
   border-color: transparent;
 }
 
+/* --- Logs page responsive: stack sidebar on mobile --- */
+@media (max-width: 768px) {
+  [data-engine="hermes"] .hm-logs-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  [data-engine="hermes"] .hm-logs-sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--hm-border);
+    max-height: 35vh;
+  }
+  [data-engine="hermes"] .hm-logs-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  [data-engine="hermes"] .hm-logs-toolbar-item {
+    min-width: 0;
+    width: 100%;
+  }
+  [data-engine="hermes"] .hm-logs-toolbar-item--grow {
+    min-width: 0;
+  }
+}
+
 /* ==========================================================================
  * 17 · Cron / Jobs page
  * ==========================================================================
@@ -3595,7 +3619,7 @@ body[data-active-engine="hermes"][data-theme="dark"] {
     padding: 22px 24px 36px;
   }
 }
-@media (max-width: 720px) {
+@media (max-width: 768px) {
   [data-engine="hermes"] .hm-skills-layout {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
@@ -7389,7 +7413,7 @@ body[data-active-engine="hermes"][data-theme="dark"] {
     padding: 14px 20px;
   }
 }
-@media (max-width: 720px) {
+@media (max-width: 768px) {
   [data-engine="hermes"] .hm-chat-sidebar-backdrop {
     display: block;
     position: absolute;
@@ -7409,7 +7433,7 @@ body[data-active-engine="hermes"][data-theme="dark"] {
     display: flex;
   }
   [data-engine="hermes"] .hm-chat-sidebar {
-    /* Below 720px the sidebar floats over the main column instead of
+    /* Below 768px the sidebar floats over the main column instead of
        sharing the row, so the chat surface gets the full viewport. */
     position: absolute;
     inset: 0 auto 0 0;

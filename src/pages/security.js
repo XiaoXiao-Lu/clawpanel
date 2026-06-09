@@ -5,6 +5,7 @@
 import { toast } from '../components/toast.js'
 import { statusIcon } from '../lib/icons.js'
 import { t } from '../lib/i18n.js'
+import { escapeHtml } from '../lib/utils.js'
 
 const isTauri = !!window.__TAURI_INTERNALS__
 let _tauriApi = null
@@ -108,7 +109,7 @@ async function loadStatus(page) {
     const status = await apiCall('auth_status')
     renderContent(container, status)
   } catch (e) {
-    container.innerHTML = `<div class="config-section"><p style="color:var(--error)">${t('security.loadFailed')}: ${e.message}</p></div>`
+    container.innerHTML = `<div class="config-section"><p style="color:var(--error)">${escapeHtml(t('security.loadFailed') + ': ' + e.message)}</p></div>`
   }
 }
 

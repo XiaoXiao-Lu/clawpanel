@@ -95,7 +95,7 @@
   grid-column: 1 / -1;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
   .glossary-toolbar {
     position: static;
     padding: var(--space-md);

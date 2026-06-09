@@ -7,6 +7,7 @@ import { humanizeError } from '../lib/humanize-error.js'
 import { showModal } from '../components/modal.js'
 import { t } from '../lib/i18n.js'
 import { renderMarkdown } from '../engines/hermes/lib/markdown-renderer.js'
+import { escapeHtml } from '../lib/utils.js'
 
 function CATEGORIES() {
   return [
@@ -199,7 +200,7 @@ async function loadFiles(page, state) {
     }
     renderFileTree(page, state, files)
   } catch (e) {
-    tree.innerHTML = `<div style="color:var(--error);padding:12px">${t('memory.loadFailed')}: ${e}</div>`
+    tree.innerHTML = `<div style="color:var(--error);padding:12px">${t('memory.loadFailed')}: ${escapeHtml(e)}</div>`
     toast(humanizeError(e, t('memory.loadListFailed')), 'error')
   }
 }

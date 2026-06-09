@@ -7,17 +7,9 @@
   /* ═══ Brand — Electric Indigo + Warm Amber ═══ */
   --brand:              #818cf8;
   --brand-400:          #a5b4fc;
-  --brand-500:          #818cf8;
-  --brand-600:          #6366f1;
   --brand-light:        var(--brand-400);
   --brand-muted:        rgba(129, 140, 248, 0.10);
   --brand-faint:        rgba(129, 140, 248, 0.05);
-  --brand-glow:         0 0 28px -6px rgba(129, 140, 248, 0.35);
-
-  --accent-warm:        #f59e0b;
-  --accent-warm-light:  #fbbf24;
-  --accent-warm-muted:  rgba(245, 158, 11, 0.10);
-  --accent-warm-faint:  rgba(245, 158, 11, 0.05);
 
   /* ═══ Backgrounds — Warm Ink ═══ */
   --bg-root:            #0A0A14;
@@ -38,9 +30,9 @@
   /* ═══ Text — Warm Silver Hierarchy ═══ */
   --text-1:             #EBEBF5;
   --text-primary:       var(--text-1);
-  --text-2:             #8E8EA8;
+  --text-2:             #9494B8;
   --text-secondary:     var(--text-2);
-  --text-3:             #6868A0;
+  --text-3:             #9090B0;
   --text-tertiary:      var(--text-3);
   --text-inverse:       #0F0F18;
   --text-muted:         var(--text-3);
@@ -111,7 +103,6 @@
   --sidebar-bg:         #080812;
   --sidebar-text:       var(--text-1);
   --sidebar-text-2:     var(--text-2);
-  --sidebar-text-secondary: var(--text-2);
   --sidebar-border:     rgba(255, 255, 255, 0.06);
   --sidebar-hover:      rgba(129, 140, 248, 0.08);
   --sidebar-active:     rgba(129, 140, 248, 0.12);
@@ -184,6 +175,7 @@
   --sidebar-width:      240px;
   --sidebar-collapsed:  56px;
   --header-height:      52px;
+  --topbar-height:      var(--header-height);
 
   /* ═══ Z-Index ═══ */
   --z-base:        0;
@@ -197,26 +189,90 @@
   --z-command:     800;
   --z-overlay:     900;
   --z-max:         1000;
+  --z-fullscreen:  5000;
+  --z-splash:      99999;
+  --z-titlebar:    100000;
 
-  /* ─── Legacy Compatibility ─── */
+  /* ─── Legacy Compatibility (deprecated, migrate to --brand-* / --error-* etc.) ─── */
   --accent:           var(--brand);
   --accent-hover:     var(--brand-400);
   --accent-muted:     var(--brand-muted);
   --accent-bg:        var(--brand-faint);
   --accent-border:    rgba(129, 140, 248, 0.24);
   --accent-subtle:    var(--brand-faint);
-  --accent-rgb:       99, 102, 241;
   --primary:          var(--brand);
   --primary-hover:    var(--brand-400);
   --border:           var(--border-1);
   --danger:           var(--error);
-  --danger-rgb:       var(--error-rgb);
 
   /* ─── Missing Aliases (referenced by legacy components) ─── */
   /* Keep old accent aliases while legacy page styles still reference them. */
 
+  /* ─── Semantic Border Colors ─── */
+  --success-border:  rgba(16, 185, 129, 0.24);
+  --warning-border:  rgba(245, 158, 11, 0.24);
+  --error-border:    rgba(239, 68, 68, 0.24);
+
+  /* ─── Extra Font Sizes ─── */
+  --text-xxs:        10px;
+  --font-size-xxs:   var(--text-xxs);
+  --text-stat:       22px;
+
+  /* ─── Extra Navigation Icon Colors ─── */
+  --nav-settings:    #6b7280;
+  --nav-debug:       #f43f5e;
+  --nav-diagnose:    #84cc16;
+  --nav-about:       #a16207;
+
+  /* ─── Agent State Colors ─── */
+  --agent-idle:      #2dd4bf;
+  --agent-working:   var(--success);
+  --agent-blocked:   var(--warning);
+  --agent-error:     var(--error);
+  --agent-idle-text:     #0f766e;
+  --agent-working-text:  #15803d;
+  --agent-blocked-text:  #92400e;
+  --agent-error-text:    #b91c1c;
+  --agent-offline:       #94a3b8;
+
+  /* ─── Agent Surface Colors (semi-transparent) ─── */
+  --surface-white-092:    rgba(255, 255, 255, 0.92);
+  --surface-white-086:    rgba(255, 255, 255, 0.86);
+  --surface-white-078:    rgba(255, 255, 255, 0.78);
+  --surface-white-094:    rgba(255, 255, 255, 0.94);
+  --surface-white-096:    rgba(255, 255, 255, 0.96);
+  --surface-white-074:    rgba(255, 255, 255, 0.74);
+  --surface-slate-092:    rgba(248, 250, 252, 0.92);
+  --surface-slate-086:    rgba(248, 250, 252, 0.86);
+  --surface-slate-078:    rgba(248, 250, 252, 0.78);
+  --surface-slate-076:    rgba(248, 250, 252, 0.76);
+  --surface-slate-062:    rgba(248, 250, 252, 0.62);
+  --surface-slate-058:    rgba(248, 250, 252, 0.58);
+
+  /* ─── Agent Border Colors (semi-transparent) ─── */
+  --border-gray-016:      rgba(148, 163, 184, 0.16);
+  --border-gray-018:      rgba(148, 163, 184, 0.18);
+  --border-gray-024:      rgba(148, 163, 184, 0.24);
+  --border-gray-028:      rgba(148, 163, 184, 0.28);
+  --border-gray-012:      rgba(148, 163, 184, 0.12);
+  --border-gray-022:      rgba(148, 163, 184, 0.22);
+
+  /* ─── Agent Shadow Colors (semi-transparent) ─── */
+  --shadow-slate-008:     rgba(15, 23, 42, 0.08);
+  --shadow-slate-006:     rgba(15, 23, 42, 0.06);
+  --shadow-slate-090:     rgba(15, 23, 42, 0.9);
+
   /* ─── Ambient ─── */
   --noise-opacity: 0.018;
+
+  /* ─── Component Tokens ─── */
+  --toast-duration:     4s;
+  --success-bg:         rgba(16, 185, 129, 0.12);
+  --warning-bg:         rgba(245, 158, 11, 0.12);
+  --error-bg:           rgba(239, 68, 68, 0.12);
+  --brand-overlay:      rgba(129, 140, 248, 0.18);
+  --overlay-dark:       rgba(0, 0, 0, 0.55);
+  --overlay-heavy:      rgba(0, 0, 0, 0.85);
 }
 
 /* ══════════════════════════════════════
@@ -241,7 +297,7 @@
     --text-primary:      var(--text-1);
     --text-2:            #4b5563;
     --text-secondary:    var(--text-2);
-    --text-3:            #a6a6b8;
+    --text-3:            #6b6b80;
     --text-tertiary:     var(--text-3);
     --text-inverse:      #ffffff;
     --text-muted:        var(--text-3);
@@ -271,6 +327,34 @@
     --sidebar-active:   rgba(79, 70, 229, 0.08);
 
     --noise-opacity:     0.012;
+
+    --success-bg:        rgba(16, 185, 129, 0.08);
+    --warning-bg:        rgba(245, 158, 11, 0.08);
+    --error-bg:          rgba(239, 68, 68, 0.08);
+    --brand-overlay:     rgba(79, 70, 229, 0.12);
+    --overlay-dark:      rgba(0, 0, 0, 0.40);
+    --overlay-heavy:     rgba(0, 0, 0, 0.70);
+
+    --accent-rgb:        79, 70, 229;
+
+    --success-border:    rgba(16, 185, 129, 0.18);
+    --warning-border:    rgba(245, 158, 11, 0.18);
+    --error-border:      rgba(239, 68, 68, 0.18);
+
+    --nav-settings:      #6b7280;
+    --nav-debug:         #f43f5e;
+    --nav-diagnose:      #65a30d;
+    --nav-about:         #a16207;
+
+    --agent-idle:        #14b8a6;
+    --agent-working:     #059669;
+    --agent-blocked:     #d97706;
+    --agent-error:       #dc2626;
+    --agent-idle-text:     #0d9488;
+    --agent-working-text:  #16a34a;
+    --agent-blocked-text:  #b45309;
+    --agent-error-text:    #dc2626;
+    --agent-offline:       #94a3b8;
   }
 }
 
@@ -286,8 +370,8 @@
   --bg-card-hover:      #181830;
 
   --text-1:             #EBEBF5;
-  --text-2:             #8E8EA8;
-  --text-3:             #6868A0;
+  --text-2:             #9494B8;
+  --text-3:             #9090B0;
 
   --border-1:           rgba(255, 255, 255, 0.08);
   --border-2:           rgba(255, 255, 255, 0.05);
@@ -306,6 +390,34 @@
   --brand-glow:         0 0 28px -6px rgba(129, 140, 248, 0.35);
 
   --noise-opacity:      0.02;
+
+  --success-bg:         rgba(16, 185, 129, 0.12);
+  --warning-bg:         rgba(245, 158, 11, 0.12);
+  --error-bg:           rgba(239, 68, 68, 0.12);
+  --brand-overlay:      rgba(129, 140, 248, 0.18);
+  --overlay-dark:       rgba(0, 0, 0, 0.55);
+  --overlay-heavy:      rgba(0, 0, 0, 0.85);
+
+  --accent-rgb:         129, 140, 248;
+
+  --success-border:     rgba(16, 185, 129, 0.24);
+  --warning-border:     rgba(245, 158, 11, 0.24);
+  --error-border:       rgba(239, 68, 68, 0.24);
+
+  --nav-settings:       #6b7280;
+  --nav-debug:          #f43f5e;
+  --nav-diagnose:       #84cc16;
+  --nav-about:          #a16207;
+
+  --agent-idle:         #2dd4bf;
+  --agent-working:      #22c55e;
+  --agent-blocked:      #f59e0b;
+  --agent-error:        #ef4444;
+  --agent-idle-text:     #0f766e;
+  --agent-working-text:  #15803d;
+  --agent-blocked-text:  #92400e;
+  --agent-error-text:    #b91c1c;
+  --agent-offline:       #94a3b8;
 }
 
 /* ══════════════════════════════════════

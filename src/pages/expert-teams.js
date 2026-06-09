@@ -1053,7 +1053,7 @@ function renderTagPicker(id, label, options, selectedIds) {
   const count = selectedSet.size
   const normalizedOptions = mergeSelectedTagOptions(options, selectedSet)
   return `
-    <div class="expert-tag-picker" id="${id}-picker" data-picker-id="${id}">
+      <div class="expert-tag-picker" id="${id}-picker" data-picker-id="${id}">
       <span class="form-label">${escapeHtml(label)}</span>
       <button type="button" class="expert-tag-picker-trigger" id="${id}-trigger" data-modal="${id}-modal">
         <span class="expert-tag-picker-count">${count ? `已选 ${count} 项` : '点击选择...'}</span>
@@ -1065,10 +1065,10 @@ function renderTagPicker(id, label, options, selectedIds) {
         `).join('')}
       </div>
       <div class="expert-tag-modal-overlay" id="${id}-modal" hidden>
-        <div class="expert-tag-modal" role="dialog">
+        <div class="expert-tag-modal" role="dialog" aria-modal="true" aria-labelledby="${id}-modal-title">
           <div class="expert-tag-modal-head">
-            <strong>${escapeHtml(label)}</strong>
-            <button type="button" class="expert-tag-modal-close" data-close-modal="${id}-modal">✕</button>
+            <strong id="${id}-modal-title">${escapeHtml(label)}</strong>
+            <button type="button" class="expert-tag-modal-close" data-close-modal="${id}-modal" aria-label="关闭">✕</button>
           </div>
           <div class="expert-tag-modal-search">
             <input class="form-input" id="${id}-modal-search" type="text" placeholder="搜索..." autocomplete="off">

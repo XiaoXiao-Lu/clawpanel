@@ -20,7 +20,7 @@ body.has-desktop-chrome .desktop-titlebar {
   border-bottom: 1px solid var(--border-1);
   user-select: none;
   position: relative;
-  z-index: 100000;
+  z-index: var(--z-titlebar);
 }
 
 .desktop-titlebar-brand {
@@ -282,20 +282,23 @@ body.has-desktop-chrome #main-col {
 
 .sidebar-search-input::placeholder { color: var(--text-3); }
 
-/* ─── Section Toggle ─── */
+/* ─── Navigation ─── */
+.nav-section { margin-bottom: var(--space-2); }
 .nav-section-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 10px;
+  font-family: var(--font-display);
+  font-size: var(--font-size-xxs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-3);
-  padding: var(--space-2) var(--space-2) 6px;
+  padding: var(--space-2) 12px var(--space-1);
+  margin-bottom: 2px;
   cursor: pointer;
   user-select: none;
-  transition: color var(--fast);
+  transition: color var(--ease-fast);
 }
 
 .nav-section-title:hover { color: var(--text-2); }
@@ -404,7 +407,7 @@ body.has-desktop-chrome #main-col {
   padding: 6px 12px 2px;
   font-size: var(--font-size-xs);
 }
-.sidebar-link { color: var(--sidebar-text-2); text-decoration: none; transition: color var(--ease-fast); }
+.sidebar-link { color: var(--sidebar-text-2); text-decoration: none; transition: color var(--ease-fast); cursor: pointer; }
 .sidebar-link:hover { color: var(--brand); }
 .sidebar-version { color: var(--sidebar-text-2); opacity: 0.6; }
 
@@ -492,19 +495,7 @@ body.has-desktop-chrome #main-col {
   margin-left: 4px;
 }
 
-/* ─── Navigation ─── */
-.nav-section { margin-bottom: var(--space-2); }
-.nav-section-title {
-  font-family: var(--font-display);
-  font-size: var(--font-size-xs);
-  color: var(--text-3);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: var(--space-2) 12px var(--space-1);
-  margin-bottom: 2px;
-  font-weight: 600;
-}
-
+/* ─── Navigation Items ─── */
 .nav-item {
   display: flex;
   align-items: center;
@@ -530,7 +521,7 @@ body.has-desktop-chrome #main-col {
   background: var(--sidebar-active);
   color: var(--brand);
   font-weight: 600;
-  box-shadow: inset 3px 0 0 var(--accent);
+  box-shadow: inset 3px 0 0 var(--brand);
 }
 .nav-item svg {
   width: 17px;
@@ -560,12 +551,10 @@ body.has-desktop-chrome #main-col {
 .nav-item[data-nav-icon="skills"]     svg { color: var(--nav-skills); }
 .nav-item[data-nav-icon="connectors"] svg { color: var(--nav-connectors); }
 .nav-item[data-nav-icon="extensions"] svg { color: var(--nav-extensions); }
-.nav-item[data-nav-icon="settings"]   svg { color: #6b7280; }
-.nav-item[data-nav-icon="debug"]      svg { color: #f43f5e; }
-.nav-item[data-nav-icon="diagnose"]   svg { color: #84cc16; }
-.nav-item[data-nav-icon="about"]      svg { color: #a16207; }
-
-.nav-item.active svg { color: var(--brand) !important; }
+.nav-item[data-nav-icon="settings"]   svg { color: var(--nav-settings); }
+.nav-item[data-nav-icon="debug"]      svg { color: var(--nav-debug); }
+.nav-item[data-nav-icon="diagnose"]   svg { color: var(--nav-diagnose); }
+.nav-item[data-nav-icon="about"]      svg { color: var(--nav-about); }
 
 /* 折叠态 Tooltip */
 #sidebar.sidebar-collapsed .nav-item { position: relative; }
@@ -876,6 +865,36 @@ body.has-desktop-chrome #main-col {
 .sidebar-overlay.visible { opacity: 1; pointer-events: auto; }
 
 /* ─── Responsive ─── */
+
+/* Large desktop (≥1440px): wider sidebar, more breathing room */
+@media (min-width: 1440px) {
+  :root {
+    --sidebar-width: 260px;
+  }
+}
+
+/* Tablet (768px – 1024px): condensed sidebar, compact padding */
+@media (min-width: 769px) and (max-width: 1024px) {
+  :root {
+    --sidebar-width: 200px;
+  }
+  .page {
+    padding: var(--space-4) clamp(var(--space-4), 2.5vw, var(--space-6));
+  }
+  .page-header:has(.page-actions),
+  .page-header:has(.config-actions) {
+    gap: var(--space-2);
+  }
+  .sidebar-header {
+    padding: var(--space-2) var(--space-3);
+  }
+  .nav-item {
+    min-height: 34px;
+    padding: 5px var(--space-2);
+  }
+}
+
+/* Mobile (≤768px) */
 @media (max-width: 768px) {
   .mobile-topbar { display: flex; }
   .sidebar-collapse-btn { display: none; }
@@ -912,8 +931,11 @@ body.has-desktop-chrome #main-col {
   .update-banner-text { min-width: auto; }
 }
 
+/* Small mobile (≤480px) */
 @media (max-width: 480px) {
   .page { padding: var(--space-3); }
+  .page-title { font-size: var(--text-lg); }
+  .stat-cards { grid-template-columns: 1fr; }
 }
 
 /* 移动端触摸目标 */

@@ -50,7 +50,7 @@ export async function render() {
       renderResult(page, result)
     } catch (e) {
       toast.error(`${t('diagnose.diagnoseFailed')}: ${e}`)
-      page.querySelector('#diagnose-steps').innerHTML = `<div class="empty-state" style="padding:32px;color:var(--text-error)">${t('diagnose.diagnoseFailed')}: ${e}</div>`
+      page.querySelector('#diagnose-steps').innerHTML = `<div class="empty-state" style="padding:32px;color:var(--text-error)">${t('diagnose.diagnoseFailed')}: ${escHtml(e)}</div>`
     } finally {
       btnDiagnose.disabled = false
       btnDiagnose.classList.remove('btn-loading')

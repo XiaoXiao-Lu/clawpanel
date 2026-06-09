@@ -19,6 +19,7 @@ import {
   unsubscribePush,
   sendTestPush,
 } from '../lib/push-web.js'
+import { escapeHtml } from '../lib/utils.js'
 
 export async function render() {
   const page = document.createElement('div')
@@ -162,8 +163,4 @@ function truncateEndpoint(ep) {
   if (!ep) return ''
   if (ep.length <= 80) return ep
   return ep.slice(0, 40) + '…' + ep.slice(-30)
-}
-
-function escapeHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }

@@ -18,6 +18,8 @@ function ensureContainer() {
   if (!_container) {
     _container = document.createElement('div')
     _container.className = 'toast-container'
+    _container.setAttribute('aria-live', 'polite')
+    _container.setAttribute('role', 'status')
     document.body.appendChild(_container)
   }
   return _container
@@ -37,6 +39,8 @@ export function toast(message, type = 'info', options = {}) {
   const container = ensureContainer()
   const el = document.createElement('div')
   el.className = `toast ${type}${structured ? ' toast-structured' : ''}`
+  // 错误/警告用 assertive 播报，其他用 polite
+  el.setAttribute('role', (type === 'error' || type === 'warning') ? 'alert' : 'status')
 
   if (structured) {
     const body = document.createElement('div')
@@ -115,10 +119,34 @@ export function toast(message, type = 'info', options = {}) {
 
   container.appendChild(el)
 
-  const autoRemoveTimer = setTimeout(() => {
-    el.style.opacity = '0'
-    el.style.transform = 'translateX(20px)'
-    el.style.transition = 'all 250ms ease'
-    setTimeout(() => el.remove(), 250)
-  }, duration)
+  // 悬停暂停自动消失
+  let _remaining = duration
+  let _lastStart = Date.now()
+  let _paused = false
+
+  function startTimer() {
+    _lastStart = Date.now()
+    return setTimeout(() => {
+      el.style.opacity = '0'
+      el.style.transform = 'translateX(20px)'
+      el.style.transition = 'all 250ms ease'
+      setTimeout(() => el.remove(), 250)
+    }, _remaining)
+  }
+
+  el.addEventListener('mouseenter', () => {
+    if (!_paused) {
+      _remaining -= (Date.now() - _lastStart)
+      clearTimeout(autoRemoveTimer)
+      _paused = true
+    }
+  })
+  el.addEventListener('mouseleave', () => {
+    if (_paused) {
+      _paused = false
+      autoRemoveTimer = startTimer()
+    }
+  })
+
+  let autoRemoveTimer = startTimer()
 }

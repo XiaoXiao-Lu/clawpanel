@@ -104,10 +104,10 @@ export function renderSidebar(el) {
     const hasTitle = section.section && section.section.trim()
     const sectionId = `nav-section-${sectionIndex++}`
     html += `<div class="nav-section" data-section-id="${sectionId}">
-      ${hasTitle ? `<div class="nav-section-title" data-toggle="${sectionId}" role="button" tabindex="0" aria-expanded="true">
+      ${hasTitle ? `<button type="button" class="nav-section-title" data-toggle="${sectionId}" aria-expanded="true">
         <span>${section.section}</span>
         <svg class="nav-section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
-      </div>` : ''}
+      </button>` : ''}
       <div class="nav-section-items" id="${sectionId}">`
 
     for (const item of section.items) {

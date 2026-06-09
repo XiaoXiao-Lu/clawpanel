@@ -2,6 +2,7 @@
  * Markdown 渲染器 - 轻量级，支持代码高亮
  * 从 clawapp 移植，去掉 MEDIA 路径处理
  */
+import { escapeHtml } from './utils.js'
 
 const KEYWORDS = new Set([
   'const','let','var','function','return','if','else','for','while','do',
@@ -35,14 +36,6 @@ function highlightCode(code, lang) {
       KEYWORDS.has(w) ? `${S}5${E}${w}${S}c${E}` : m)
     .replace(/\x02([0-5])\x03/g, (_, i) => `<span class="${CLS[+i]}">`)
     .replace(/\x02c\x03/g, '</span>')
-}
-
-function escapeHtml(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }
 
 function escapeAttr(str) {

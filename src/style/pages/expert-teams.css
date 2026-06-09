@@ -1,5 +1,5 @@
 .expert-teams-page {
-  max-width: 1480px;
+  max-width: 1400px;
 }
 
 .expert-teams-header {
@@ -593,7 +593,7 @@
   to { background-position: -120% 0; }
 }
 
-@media (max-width: 1120px) {
+@media (max-width: 1024px) {
   .expert-teams-shell {
     grid-template-columns: 1fr;
   }
@@ -607,7 +607,7 @@
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .expert-teams-header,
   .expert-teams-topline,
   .expert-editor-head,
@@ -752,7 +752,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
 }
 
 .expert-tag-modal-close:hover {

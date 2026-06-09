@@ -11,6 +11,7 @@ import { toast } from '../components/toast.js'
 import { showModal, showConfirm } from '../components/modal.js'
 import { icon as svgIcon } from '../lib/icons.js'
 import { t } from '../lib/i18n.js'
+import { escapeHtml } from '../lib/utils.js'
 
 const RENDER_THROTTLE = 30
 const MAX_VISIBLE_MESSAGES = 150  // 最大可见消息 DOM 节点数
@@ -255,7 +256,7 @@ export async function render() {
         <div class="chat-input-wrapper">
           <textarea id="chat-input" rows="1" placeholder="${t('chat.inputPlaceholder')}"></textarea>
         </div>
-        <button class="chat-send-btn" id="chat-send-btn" disabled>
+        <button class="chat-send-btn" id="chat-send-btn" disabled aria-label="${t('chat.send')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
         <button class="chat-hosted-btn btn btn-sm btn-ghost" id="chat-hosted-btn" title="${t('chat.hostedAgent')}">
@@ -2337,7 +2338,7 @@ function handleChatEvent(payload) {
           parts.push(`<span class="meta-sep">·</span><span class="msg-tokens">${tokenStr}</span>`)
         }
       }
-      parts.push(`<button class="msg-copy-btn" title="${t('common.copy')}">${svgIcon('copy', 12)}</button>`)
+      parts.push(`<button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${svgIcon('copy', 12)}</button>`)
       meta.innerHTML = parts.join('')
       wrapper.appendChild(meta)
     }
@@ -2508,15 +2509,6 @@ function extractChatContent(message) {
 function stripAnsi(text) {
   if (!text) return ''
   return text.replace(/\u001b\[[0-9;]*[A-Za-z]/g, '')
-}
-
-function escapeHtml(text) {
-  return (text || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
 }
 
 function stripThinkingTags(text) {
@@ -2988,7 +2980,7 @@ function appendUserMessage(text, attachments = [], msgTime) {
       } else if (att.fileName || att.name) {
         const card = document.createElement('div')
         card.className = 'msg-file-card'
-        card.innerHTML = `<span class="msg-file-icon">${svgIcon('paperclip', 16)}</span><span class="msg-file-name">${att.fileName || att.name}</span>`
+        card.innerHTML = `<span class="msg-file-icon">${svgIcon('paperclip', 16)}</span><span class="msg-file-name">${escapeHtml(att.fileName || att.name)}</span>`
         mediaContainer.appendChild(card)
       }
     })
@@ -3003,7 +2995,7 @@ function appendUserMessage(text, attachments = [], msgTime) {
 
   const meta = document.createElement('div')
   meta.className = 'msg-meta'
-  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}">${svgIcon('copy', 12)}</button>`
+  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${svgIcon('copy', 12)}</button>`
 
   wrap.appendChild(bubble)
   wrap.appendChild(meta)
@@ -3030,7 +3022,7 @@ function appendAiMessage(text, msgTime, images, videos, audios, files, tools) {
 
   const meta = document.createElement('div')
   meta.className = 'msg-meta'
-  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}">${svgIcon('copy', 12)}</button>`
+  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${svgIcon('copy', 12)}</button>`
 
   wrap.appendChild(bubble)
   wrap.appendChild(meta)
@@ -3105,7 +3097,7 @@ function appendFilesToEl(el, files) {
     const fileIconMap = { pdf: 'file', doc: 'file-text', docx: 'file-text', txt: 'file-plain', md: 'file-plain', json: 'clipboard', csv: 'bar-chart', zip: 'package', rar: 'package' }
     const fileIcon = svgIcon(fileIconMap[ext] || 'paperclip', 16)
     const size = f.size ? formatFileSize(f.size) : ''
-    card.innerHTML = `<span class="msg-file-icon">${fileIcon}</span><div class="msg-file-info"><span class="msg-file-name">${f.name || 'file'}</span>${size ? `<span class="msg-file-size">${size}</span>` : ''}</div>`
+    card.innerHTML = `<span class="msg-file-icon">${fileIcon}</span><div class="msg-file-info"><span class="msg-file-name">${escapeHtml(f.name || 'file')}</span>${size ? `<span class="msg-file-size">${size}</span>` : ''}</div>`
     if (f.url) {
       card.style.cursor = 'pointer'
       card.onclick = () => window.open(f.url, '_blank')

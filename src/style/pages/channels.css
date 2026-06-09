@@ -334,7 +334,7 @@
   margin-left: auto;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .platforms-grid {
     grid-template-columns: 1fr;
   }
@@ -364,7 +364,7 @@
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
   text-align: center;
   color: var(--text-primary);
 }
@@ -729,7 +729,7 @@
   word-break: break-all;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1024px) {
   .setup-status-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -748,7 +748,7 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .setup-shell {
     margin-top: 12px;
   }
@@ -777,43 +777,7 @@
   }
 }
 
-/* 表单开关 */
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 40px;
-  height: 22px;
-}
-.toggle-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-.toggle-slider {
-  position: absolute;
-  inset: 0;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-xl);
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.toggle-slider::before {
-  content: '';
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  left: 3px;
-  bottom: 3px;
-  background: white;
-  border-radius: 50%;
-  transition: transform 0.2s;
-}
-.toggle-switch input:checked + .toggle-slider {
-  background: var(--accent);
-}
-.toggle-switch input:checked + .toggle-slider::before {
-  transform: translateX(18px);
-}
+/* 表单开关 — 使用 components.css 中的统一定义 */
 
 /* ─── Setup page extracted inline styles ─── */
 .setup-step-section { text-align: left; }
