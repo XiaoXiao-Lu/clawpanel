@@ -204,33 +204,33 @@
 }
 
 .agent-office-summary-item.is-working {
-  border-color: rgba(34, 197, 94, 0.24);
-  background: linear-gradient(180deg, rgba(240, 253, 244, 0.92), var(--surface-white-086));
+  border-color: var(--agent-working-border);
+  background: linear-gradient(180deg, var(--agent-working-surface), var(--surface-white-086));
 }
 
 .agent-office-summary-item.is-blocked {
-  border-color: rgba(245, 158, 11, 0.26);
-  background: linear-gradient(180deg, rgba(255, 251, 235, 0.92), var(--surface-white-086));
+  border-color: var(--agent-blocked-border);
+  background: linear-gradient(180deg, var(--agent-blocked-surface), var(--surface-white-086));
 }
 
 .agent-office-summary-item.is-error {
-  border-color: rgba(239, 68, 68, 0.24);
-  background: linear-gradient(180deg, rgba(254, 242, 242, 0.92), var(--surface-white-086));
+  border-color: var(--agent-error-border);
+  background: linear-gradient(180deg, var(--agent-error-surface), var(--surface-white-086));
 }
 
 .agent-office-summary-item.is-idle {
-  border-color: rgba(45, 212, 191, 0.22);
-  background: linear-gradient(180deg, rgba(240, 253, 250, 0.92), var(--surface-white-086));
+  border-color: var(--agent-idle-border);
+  background: linear-gradient(180deg, var(--agent-idle-surface), var(--surface-white-086));
 }
 
 .agent-office-summary-item.is-perf {
-  border-color: rgba(99, 102, 241, 0.22);
-  background: linear-gradient(180deg, rgba(238, 242, 255, 0.92), var(--surface-white-086));
+  border-color: var(--agent-perf-border);
+  background: linear-gradient(180deg, var(--agent-perf-surface), var(--surface-white-086));
 }
 
 .agent-office-summary-item.is-flow {
-  border-color: rgba(14, 165, 233, 0.22);
-  background: linear-gradient(180deg, rgba(240, 249, 255, 0.92), var(--surface-white-086));
+  border-color: var(--agent-flow-border);
+  background: linear-gradient(180deg, var(--agent-flow-surface), var(--surface-white-086));
 }
 
 .agent-office-diagnostics {
@@ -248,19 +248,19 @@
   display: grid;
   gap: 3px;
   padding: 10px 12px;
-  border: 1px solid rgba(34, 197, 94, 0.22);
+  border: 1px solid var(--agent-diag-working-border);
   border-radius: 8px;
-  background: rgba(240, 253, 244, 0.8);
+  background: var(--agent-diag-working-bg);
 }
 
 .agent-office-diagnostics.is-attention .agent-office-diagnostic-main {
-  border-color: rgba(99, 102, 241, 0.24);
-  background: rgba(238, 242, 255, 0.82);
+  border-color: var(--agent-diag-brand-border);
+  background: var(--agent-diag-brand-bg);
 }
 
 .agent-office-diagnostics.is-warning .agent-office-diagnostic-main {
-  border-color: rgba(245, 158, 11, 0.28);
-  background: rgba(255, 251, 235, 0.84);
+  border-color: var(--agent-diag-warning-border);
+  background: var(--agent-diag-warning-bg);
 }
 
 .agent-office-diagnostic-main span,
@@ -406,7 +406,7 @@
   padding: 2px 7px;
   border-radius: 999px;
   color: var(--agent-idle-text);
-  background: rgba(45, 212, 191, 0.16);
+  background: var(--agent-idle-badge);
   font-size: var(--font-size-xs);
   font-weight: 600;
 }
@@ -446,7 +446,7 @@
 .agent-office-fallback-card.is-queued span,
 .agent-office-fallback-card.is-done span {
   color: var(--agent-working-text);
-  background: rgba(34, 197, 94, 0.15);
+  background: var(--agent-working-badge);
 }
 
 .agent-office-fallback-card.is-blocked {
@@ -455,7 +455,7 @@
 
 .agent-office-fallback-card.is-blocked span {
   color: var(--agent-blocked-text);
-  background: rgba(245, 158, 11, 0.17);
+  background: var(--agent-blocked-badge);
 }
 
 .agent-office-fallback-card.is-error {
@@ -464,7 +464,7 @@
 
 .agent-office-fallback-card.is-error span {
   color: var(--agent-error-text);
-  background: rgba(239, 68, 68, 0.14);
+  background: var(--agent-error-badge);
 }
 
 .agent-office-fallback-card.is-offline {
@@ -523,7 +523,7 @@
   border-radius: 8px;
   color: color-mix(in srgb, var(--agent-color) 70%, var(--text-1));
   background:
-    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.95), transparent 34%),
+    radial-gradient(circle at 30% 25%, var(--surface-white-096), transparent 34%),
     color-mix(in srgb, var(--agent-color) 17%, var(--bg-card));
   border: 1px solid color-mix(in srgb, var(--agent-color) 34%, var(--border-gray-028));
   font-size: var(--font-size-md);
@@ -566,7 +566,7 @@
   border-radius: 999px;
   color: color-mix(in srgb, var(--agent-color) 72%, var(--text-1));
   background: color-mix(in srgb, var(--agent-color) 13%, var(--bg-card));
-  border: 1px solid color-mix(in srgb, var(--agent-color) 22%, rgba(148, 163, 184, 0.3));
+  border: 1px solid color-mix(in srgb, var(--agent-color) 22%, var(--border-gray-030));
   font-size: var(--font-size-xs);
   font-weight: 700;
   white-space: nowrap;
@@ -619,7 +619,7 @@
   gap: 8px;
   margin-bottom: 12px;
   padding: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: 1px solid var(--border-gray-020);
   border-radius: 8px;
   background:
     linear-gradient(180deg, var(--surface-slate-086), var(--surface-white-096));
@@ -756,7 +756,7 @@
   height: 8px;
   border-radius: 999px;
   background: var(--agent-idle);
-  box-shadow: 0 0 0 4px rgba(45, 212, 191, 0.12);
+  box-shadow: 0 0 0 4px var(--agent-idle-dot-shadow);
 }
 
 .agent-office-activity-item.is-working .agent-office-activity-dot,
@@ -766,17 +766,17 @@
 .agent-office-activity-item.is-queued .agent-office-activity-dot,
 .agent-office-activity-item.is-done .agent-office-activity-dot {
   background: var(--agent-working);
-  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
+  box-shadow: 0 0 0 4px var(--agent-working-dot-shadow);
 }
 
 .agent-office-activity-item.is-blocked .agent-office-activity-dot {
   background: var(--agent-blocked);
-  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.14);
+  box-shadow: 0 0 0 4px var(--agent-blocked-dot-shadow);
 }
 
 .agent-office-activity-item.is-error .agent-office-activity-dot {
   background: var(--agent-error);
-  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
+  box-shadow: 0 0 0 4px var(--agent-error-dot-shadow);
 }
 
 .agent-office-activity-main,
@@ -942,7 +942,7 @@
 
 .agent-office-tooltip span {
   font-size: var(--font-size-xs);
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--agent-tooltip-text);
 }
 
 [data-theme="dark"] .agent-office-scene {
@@ -1038,7 +1038,7 @@
   background: var(--surface-raised);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-lg);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 1px 3px var(--agent-shadow-subtle);
 }
 
 .agents-stat {
@@ -1083,7 +1083,7 @@
   cursor: pointer;
   position: relative;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 1px 3px var(--agent-shadow-subtle);
 }
 
 .agent-card:hover {
@@ -1197,7 +1197,7 @@
 }
 
 .agents-page .badge-purple {
-  background: rgba(139, 92, 246, 0.14);
+  background: var(--agent-purple-badge);
   color: rgb(124, 58, 237);
 }
 

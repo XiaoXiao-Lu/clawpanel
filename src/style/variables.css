@@ -262,6 +262,48 @@
   --shadow-slate-006:     rgba(15, 23, 42, 0.06);
   --shadow-slate-090:     rgba(15, 23, 42, 0.9);
 
+  /* ─── Agent State Surface/Border Colors ─── */
+  --agent-idle-border:       rgba(45, 212, 191, 0.22);
+  --agent-idle-surface:      rgba(240, 253, 250, 0.92);
+  --agent-idle-badge:        rgba(45, 212, 191, 0.16);
+  --agent-idle-dot-shadow:   rgba(45, 212, 191, 0.12);
+
+  --agent-working-border:    rgba(34, 197, 94, 0.24);
+  --agent-working-surface:   rgba(240, 253, 244, 0.92);
+  --agent-working-badge:     rgba(34, 197, 94, 0.15);
+  --agent-working-dot-shadow: rgba(34, 197, 94, 0.12);
+
+  --agent-blocked-border:    rgba(245, 158, 11, 0.26);
+  --agent-blocked-surface:   rgba(255, 251, 235, 0.92);
+  --agent-blocked-badge:     rgba(245, 158, 11, 0.17);
+  --agent-blocked-dot-shadow: rgba(245, 158, 11, 0.14);
+
+  --agent-error-border:      rgba(239, 68, 68, 0.24);
+  --agent-error-surface:     rgba(254, 242, 242, 0.92);
+  --agent-error-badge:       rgba(239, 68, 68, 0.14);
+  --agent-error-dot-shadow:  rgba(239, 68, 68, 0.12);
+
+  /* ─── Agent Diagnostic Colors ─── */
+  --agent-diag-working-border:  rgba(34, 197, 94, 0.22);
+  --agent-diag-working-bg:      rgba(240, 253, 244, 0.8);
+  --agent-diag-brand-border:    rgba(99, 102, 241, 0.24);
+  --agent-diag-brand-bg:        rgba(238, 242, 255, 0.82);
+  --agent-diag-warning-border:  rgba(245, 158, 11, 0.28);
+  --agent-diag-warning-bg:      rgba(255, 251, 235, 0.84);
+
+  /* ─── Agent Perf/Flow Surfaces ─── */
+  --agent-perf-border:       rgba(99, 102, 241, 0.22);
+  --agent-perf-surface:      rgba(238, 242, 255, 0.92);
+  --agent-flow-border:       rgba(14, 165, 233, 0.22);
+  --agent-flow-surface:      rgba(240, 249, 255, 0.92);
+
+  /* ─── Agent Misc ─── */
+  --agent-tooltip-text:      rgba(255, 255, 255, 0.72);
+  --agent-purple-badge:      rgba(139, 92, 246, 0.14);
+  --agent-shadow-subtle:     rgba(0, 0, 0, 0.02);
+  --border-gray-020:         rgba(148, 163, 184, 0.20);
+  --border-gray-030:         rgba(148, 163, 184, 0.30);
+
   /* ─── Ambient ─── */
   --noise-opacity: 0.018;
 

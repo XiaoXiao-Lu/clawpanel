@@ -4,6 +4,7 @@ import { t } from '../lib/i18n.js'
 import { icon } from '../lib/icons.js'
 import { wsClient } from '../lib/ws-client.js'
 import { navigate } from '../router.js'
+import { escapeHtml as esc } from '../lib/utils.js'
 
 let _page = null
 let _unsubReady = null
@@ -146,13 +147,6 @@ function parseDiarySections(content) {
   return result.filter((section) => section.title || section.body)
 }
 
-function esc(value) {
-  return String(value || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
 
 function formatNextRun(ms) {
   if (typeof ms !== 'number' || !Number.isFinite(ms)) return t('dreaming.notScheduled')
@@ -460,9 +454,9 @@ function renderViewTabs() {
 
 function renderDreamLane(title, subtitle, entries, accent) {
   const tones = {
-    violet: { dot: '#a855f7', border: 'var(--accent)' },
-    cyan: { dot: '#22d3ee', border: 'var(--success)' },
-    amber: { dot: '#fbbf24', border: 'var(--warning)' },
+    violet: { dot: 'var(--brand, #a855f7)', border: 'var(--accent)' },
+    cyan: { dot: 'var(--info, #22d3ee)', border: 'var(--success)' },
+    amber: { dot: 'var(--warning, #fbbf24)', border: 'var(--warning)' },
   }
   const tone = tones[accent] || tones.violet
   const items = entries.length

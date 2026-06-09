@@ -7,6 +7,7 @@ import { t } from '../../../lib/i18n.js'
 import { api, invalidate, isTauriRuntime } from '../../../lib/tauri-api.js'
 import { toast } from '../../../components/toast.js'
 import { getActiveEngine } from '../../../lib/engine-manager.js'
+import { escapeHtml as esc } from '../../../lib/utils.js'
 import {
   loadHermesProviders,
   groupProviders,
@@ -318,9 +319,6 @@ export function render() {
     </div>`
   }
 
-  function esc(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  }
 
   // --- 事件绑定 ---
   function bind() {

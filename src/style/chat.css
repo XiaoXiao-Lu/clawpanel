@@ -2037,3 +2037,51 @@
     display: none;
   }
 }
+
+/* ─── Design system alignment (migrated from polish.css) ─── */
+.chat-page {
+  background: var(--bg-base);
+}
+
+.chat-header {
+  min-height: 52px;
+  background: var(--bg-elevated);
+  border-bottom-color: var(--border-1);
+}
+
+.chat-sidebar.open {
+  background: var(--bg-elevated);
+  border-right-color: var(--border-1);
+}
+
+.chat-session-tools,
+.chat-session-card,
+.chat-input-wrapper textarea,
+.chat-workspace-panel,
+.chat-cmd-panel,
+.hosted-agent-panel {
+  border-color: var(--border-1);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-1);
+}
+
+.chat-messages {
+  background: transparent;
+}
+
+.msg-ai .msg-bubble {
+  border: 1px solid var(--border-1);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-1);
+}
+
+.msg-user .msg-bubble {
+  background: var(--brand);
+  color: var(--text-inverse);
+  box-shadow: none;
+}
+
+.chat-input-area {
+  background: var(--bg-base);
+  border-top-color: var(--border-1);
+}

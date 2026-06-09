@@ -5,13 +5,13 @@
 // 标记 JS 模块已加载（供 index.html 多阶段启动检测使用）
 window._jsLoaded = true
 
-import { registerRoute, initRouter, navigate, setDefaultRoute } from './router.js'
+import { registerRoute, initRouter, navigate, setDefaultRoute, reloadCurrentRoute } from './router.js'
 import { renderSidebar, openMobileSidebar } from './components/sidebar.js'
 import { initTheme } from './lib/theme.js'
 import { initDesktopWindowChrome } from './lib/window-chrome.js'
-import { detectOpenclawStatus, isOpenclawReady, isUpgrading, isGatewayRunning, isGatewayForeign, onGatewayChange, startGatewayPoll, onGuardianGiveUp, resetAutoRestart, loadActiveInstance, getActiveInstance, onInstanceChange } from './lib/app-state.js'
+import { detectOpenclawStatus, isOpenclawReady, isUpgrading, isGatewayRunning, isGatewayForeign, onGatewayChange, startGatewayPoll, onGuardianGiveUp, resetAutoRestart, loadActiveInstance, getActiveInstance, onInstanceChange, refreshGatewayStatus } from './lib/app-state.js'
 import { wsClient } from './lib/ws-client.js'
-import { api, checkBackendHealth, isBackendOnline, isTauriRuntime, onBackendStatusChange } from './lib/tauri-api.js'
+import { api, checkBackendHealth, isBackendOnline, isTauriRuntime, onBackendStatusChange, invalidate } from './lib/tauri-api.js'
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0'
 import { statusIcon } from './lib/icons.js'
 import { isForeignGatewayError, showGatewayConflictGuidance } from './lib/gateway-ownership.js'
@@ -80,7 +80,6 @@ async function checkAuth() {
   if (isTauri) {
     // 桌面端：读 clawpanel.json，检查密码配置
     try {
-      const { api } = await import('./lib/tauri-api.js')
       const cfg = await api.readPanelConfig()
       if (!cfg.accessPassword) return { ok: true }
       if (sessionStorage.getItem('clawpanel_authed') === '1') return { ok: true }
@@ -262,7 +261,6 @@ function showLoginOverlay(defaultPw) {
       try {
         if (isTauri) {
           // 桌面端：本地比对密码
-          const { api } = await import('./lib/tauri-api.js')
           const cfg = await api.readPanelConfig()
           if (pw !== cfg.accessPassword) {
             _loginFailCount++
@@ -339,15 +337,12 @@ window.__clawpanel_show_login = async function() {
   }
   // 主动触发 WebSocket 重连
   try {
-    const { wsClient } = await import('./lib/ws-client.js')
-    const { isGatewayRunning } = await import('./lib/app-state.js')
     if (isGatewayRunning()) {
       wsClient.reconnect()
     }
   } catch {}
   // 刷新当前路由页面内容
   try {
-    const { reloadCurrentRoute } = await import('./router.js')
     reloadCurrentRoute()
   } catch {}
 }
@@ -448,7 +443,7 @@ async function boot() {
   topbar.className = 'mobile-topbar'
   topbar.id = 'mobile-topbar'
   topbar.innerHTML = `
-    <button class="mobile-hamburger" id="btn-mobile-menu">
+    <button class="mobile-hamburger" id="btn-mobile-menu" aria-label="${t('common.menu')}">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
     <span class="mobile-topbar-title">ClawPanel</span>
@@ -636,7 +631,6 @@ async function boot() {
       import('@tauri-apps/api/event').then(async ({ listen }) => {
         const refreshAfterTask = async () => {
           // 清除 API 缓存，确保拿到最新状态
-          const { invalidate } = await import('./lib/tauri-api.js')
           invalidate('check_installation', 'get_services_status', 'get_version_info')
           await detectOpenclawStatus()
           renderSidebar(sidebar)
@@ -780,7 +774,6 @@ function setupGatewayBanner() {
         try {
           await api.claimGateway()
           // 认领后立刻刷新全局状态
-          const { refreshGatewayStatus } = await import('./lib/app-state.js')
           await refreshGatewayStatus()
         } catch (err) {
           btn.disabled = false
@@ -1075,9 +1068,6 @@ function startUpdateChecker() {
 
     // 注册各页面上下文提供器
     registerPageContext('/chat-debug', async () => {
-      const { isOpenclawReady, isGatewayRunning } = await import('./lib/app-state.js')
-      const { wsClient } = await import('./lib/ws-client.js')
-      const { api } = await import('./lib/tauri-api.js')
       const lines = ['## 系统诊断快照']
       lines.push(`- OpenClaw: ${isOpenclawReady() ? '就绪' : '未就绪'}`)
       lines.push(`- Gateway: ${isGatewayRunning() ? '运行中' : '未运行'}`)
@@ -1094,8 +1084,6 @@ function startUpdateChecker() {
     })
 
     registerPageContext('/services', async () => {
-      const { isGatewayRunning } = await import('./lib/app-state.js')
-      const { api } = await import('./lib/tauri-api.js')
       const lines = ['## 服务状态']
       lines.push(`- Gateway: ${isGatewayRunning() ? '运行中' : '未运行'}`)
       try {
@@ -1109,7 +1097,6 @@ function startUpdateChecker() {
     })
 
     registerPageContext('/gateway', async () => {
-      const { api } = await import('./lib/tauri-api.js')
       try {
         const config = await api.readOpenclawConfig()
         const gw = config?.gateway || {}

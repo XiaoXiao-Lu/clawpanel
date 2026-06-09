@@ -17,6 +17,7 @@ import { enhanceModelCallError } from '../lib/model-error-diagnosis.js'
 import { getFieldSchema } from '../lib/config-schema.js'
 import { wsClient } from '../lib/ws-client.js'
 import { resolveMaxRounds, resumeExpertTeamRun, resumeExpertTeamSynthesis, runExpertTeam, runExpertTeamSequential } from '../lib/expert-team-runner.js'
+import { escapeHtml as escHtml } from '../lib/utils.js'
 
 // ── 常量 ──
 const STORAGE_KEY = 'clawpanel-assistant'
@@ -2363,9 +2364,9 @@ function renderQueue() {
         <span class="ast-queue-num">${i + 1}</span>
         <span class="ast-queue-text" data-queue-edit="${item.id}" title="${t('assistant.clickToEdit')}">${escHtml(item.text)}</span>
         <div class="ast-queue-actions">
-          <button class="ast-queue-btn edit" data-queue-edit-btn="${item.id}" title="${t('assistant.edit')}">${editSvg}</button>
+          <button class="ast-queue-btn edit" data-queue-edit-btn="${item.id}" title="${t('assistant.edit')}" aria-label="${t('assistant.edit')}">${editSvg}</button>
           <button class="ast-queue-btn send" data-queue-send="${item.id}" title="${t('assistant.sendNow')}" aria-label="${t('assistant.sendNow')}">${sendSvg}</button>
-          <button class="ast-queue-btn delete" data-queue-del="${item.id}" title="${t('common.delete')}">${delSvg}</button>
+          <button class="ast-queue-btn delete" data-queue-del="${item.id}" title="${t('common.delete')}" aria-label="${t('common.delete')}">${delSvg}</button>
         </div>
       </div>
     `).join('')
@@ -2539,7 +2540,7 @@ function renderImagePreview() {
   container.innerHTML = _pendingImages.map(img => `
     <div class="ast-img-thumb" data-img-id="${img.id}">
       <img src="${img.dataUrl}" alt="${escHtml(img.name)}"/>
-      <button class="ast-img-thumb-del" data-img-del="${img.id}" title="${t('common.delete')}">${delSvg}</button>
+      <button class="ast-img-thumb-del" data-img-del="${img.id}" title="${t('common.delete')}" aria-label="${t('common.delete')}">${delSvg}</button>
     </div>
   `).join('')
 }
@@ -4166,7 +4167,7 @@ function renderSessionList() {
     const dot = dotClass ? `<span class="${dotClass}"></span>` : ''
     return `<div class="ast-session-item ${s.id === _currentSessionId ? 'active' : ''}" data-id="${s.id}">
       ${dot}<span class="ast-session-title">${escHtml(s.title)}</span>
-      <button class="ast-session-delete" data-delete="${s.id}" title="${t('assistant.deleteSession')}">×</button>
+      <button class="ast-session-delete" data-delete="${s.id}" title="${t('assistant.deleteSession')}" aria-label="${t('assistant.deleteSession')}">×</button>
     </div>`
   }).join('') || '<div class="ast-empty">' + t('assistant.noSessions') + '</div>'
 }
@@ -5222,11 +5223,11 @@ function renderExpertTeamResumeActions(message, idx) {
   const fallback = hasExpertTeamModeratorFallback(message?._expertTeamTranscript)
   return `<div class="ast-expert-resume-actions" aria-label="专家团恢复操作">
     <span>${escHtml(fallback ? `主持综合返回空内容，已保留 ${count} 份意见，可重新综合生成正式交付` : missing ? `${count ? `已保留 ${count} 份意见，` : ''}还有 ${missing} 位/轮专家可补跑` : `已保留 ${count} 份专家意见，可只继续主持综合`)}</span>
-    ${canRun ? `<button type="button" class="ast-expert-resume-btn" data-action="resume-expert-run" data-msg-idx="${escAttr(idx)}" title="补跑缺失专家，再进入主持综合">
+    ${canRun ? `<button type="button" class="ast-expert-resume-btn" data-action="resume-expert-run" data-msg-idx="${escAttr(idx)}" title="补跑缺失专家，再进入主持综合" aria-label="补跑缺失专家，再进入主持综合">
       ${icon('refresh-cw', 13)}
       <span>继续剩余专家</span>
     </button>` : ''}
-    ${canSynthesize ? `<button type="button" class="ast-expert-resume-btn ast-expert-resume-btn--ghost" data-action="resume-expert-synthesis" data-msg-idx="${escAttr(idx)}" title="不重跑专家，直接进入主持综合">
+    ${canSynthesize ? `<button type="button" class="ast-expert-resume-btn ast-expert-resume-btn--ghost" data-action="resume-expert-synthesis" data-msg-idx="${escAttr(idx)}" title="不重跑专家，直接进入主持综合" aria-label="不重跑专家，直接进入主持综合">
       ${icon('play', 13)}
       <span>${escHtml(fallback ? '重新综合' : '继续综合')}</span>
     </button>` : ''}
@@ -6380,7 +6381,7 @@ function showSettings() {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
                   ${t('assistant.personaLoadSoul')}
                 </button>
-                <button class="btn btn-sm btn-ghost" id="ast-btn-refresh-soul" style="gap:4px;white-space:nowrap" title="${t('assistant.personaRefreshTitle')}">
+                <button class="btn btn-sm btn-ghost" id="ast-btn-refresh-soul" style="gap:4px;white-space:nowrap" title="${t('assistant.personaRefreshTitle')}" aria-label="${t('assistant.personaRefreshTitle')}">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
                 </button>
               </div>
@@ -6474,7 +6475,7 @@ function showSettings() {
             ${hostText ? `<span style="color:var(--text-tertiary);font-size:11px;white-space:nowrap">·&nbsp;${escHtml(hostText)}</span>` : ''}
           </div>
           <button type="button" class="btn btn-xs btn-ghost ast-fb-toggle" style="padding:2px 8px;font-size:11px;color:var(--text-secondary)">${expanded ? t('assistant.fallbackHideAdvanced') : t('assistant.fallbackEditAdvanced')}</button>
-          <button type="button" class="btn btn-xs btn-ghost ast-fb-remove" title="${t('assistant.fallbackRemove')}" style="padding:2px 6px;color:var(--error);font-size:12px">✕</button>
+          <button type="button" class="btn btn-xs btn-ghost ast-fb-remove" title="${t('assistant.fallbackRemove')}" aria-label="${t('assistant.fallbackRemove')}" style="padding:2px 6px;color:var(--error);font-size:12px">✕</button>
         </div>
         <div class="ast-fb-edit" style="display:${expanded ? 'block' : 'none'};padding:6px 10px 10px;border-top:1px dashed var(--border-primary)">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
@@ -6798,7 +6799,7 @@ function showSettings() {
       const fSize = f.content?.length > 1024 ? (f.content.length / 1024).toFixed(1) + ' KB' : (f.content?.length || 0) + ' B'
       const enabled = f.enabled !== false
       html += `<div class="ast-soul-file ${enabled ? 'loaded' : 'missing'}" data-kb-idx="${i}" style="cursor:pointer" title="${t('assistant.clickToEdit')}">
-        <button style="padding:2px;background:none;border:none;cursor:pointer;flex-shrink:0" data-kb-toggle="${i}" title="${enabled ? t('assistant.kbClickDisable') : t('assistant.kbClickEnable')}">
+        <button style="padding:2px;background:none;border:none;cursor:pointer;flex-shrink:0" data-kb-toggle="${i}" title="${enabled ? t('assistant.kbClickDisable') : t('assistant.kbClickEnable')}" aria-label="${enabled ? t('assistant.kbClickDisable') : t('assistant.kbClickEnable')}">
           <div class="ast-soul-file-icon">${enabled ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>'}</div>
         </button>
         <div class="ast-soul-file-info">
@@ -6806,7 +6807,7 @@ function showSettings() {
           <span class="ast-soul-file-desc">${f.content?.split('\n').length || 0} ${t('assistant.kbLines')}</span>
         </div>
         <span class="ast-soul-file-size">${fSize}</span>
-        <button class="btn btn-sm" style="padding:2px 6px;font-size:11px;color:var(--error);background:none;border:none;cursor:pointer" data-kb-del="${i}" title="${t('common.delete')}">✕</button>
+        <button class="btn btn-sm" style="padding:2px 6px;font-size:11px;color:var(--error);background:none;border:none;cursor:pointer" data-kb-del="${i}" title="${t('common.delete')}" aria-label="${t('common.delete')}">✕</button>
       </div>`
     })
     html += '</div>'
@@ -8475,15 +8476,6 @@ function getAssistantGuideHtml() {
 }
 
 // ── 工具函数 ──
-function escHtml(str) {
-  const d = document.createElement('div')
-  d.textContent = str || ''
-  return d.innerHTML
-}
-
-function escAttr(str) {
-  return escHtml(str).replace(/"/g, '&quot;')
-}
 
 function sendIcon() {
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'
@@ -8528,7 +8520,7 @@ export async function render() {
     <div class="ast-sidebar${sidebarOpenClass}" id="ast-sidebar">
       <div class="ast-sidebar-header">
         <span>${t('assistant.sessionList')}</span>
-        <button class="ast-sidebar-btn" id="ast-btn-new" title="${t('assistant.newSession')}">
+        <button class="ast-sidebar-btn" id="ast-btn-new" title="${t('assistant.newSession')}" aria-label="${t('assistant.newSession')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
       </div>
@@ -8538,13 +8530,13 @@ export async function render() {
     <div class="ast-main">
       <div class="ast-header">
         <div class="ast-header-left">
-          <button class="ast-toggle-sidebar" id="ast-btn-toggle" title="${t('assistant.sessionList')}">
+          <button class="ast-toggle-sidebar" id="ast-btn-toggle" title="${t('assistant.sessionList')}" aria-label="${t('assistant.sessionList')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
           <span class="ast-title">${_config?.assistantName || DEFAULT_NAME}</span>
           <span class="ast-model-badge ${_config.model ? 'configured' : 'unconfigured'}" id="ast-model-badge">${_config.model || t('assistant.notConfigured')}</span>
           <div class="ast-expert-team-selector" id="ast-expert-team-selector">
-            <button class="ast-expert-team-trigger" id="ast-expert-team-trigger" type="button" title="专家团">
+            <button class="ast-expert-team-trigger" id="ast-expert-team-trigger" type="button" title="专家团" aria-label="专家团">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
               <span class="ast-expert-team-trigger-label" id="ast-expert-team-trigger-label">直接对话</span>
               <svg class="ast-expert-team-trigger-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
@@ -8567,7 +8559,7 @@ export async function render() {
           <textarea class="ast-textarea" id="ast-textarea" placeholder="${t('assistant.inputPlaceholder')}" rows="1"></textarea>
           <div class="ast-input-toolbar">
             <div class="ast-input-tools">
-              <button class="ast-attach-btn" id="ast-btn-attach" title="${t('assistant.uploadImage')}">
+              <button class="ast-attach-btn" id="ast-btn-attach" title="${t('assistant.uploadImage')}" aria-label="${t('assistant.uploadImage')}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
               </button>
               <input type="file" id="ast-file-input" accept="image/*" multiple style="display:none"/>

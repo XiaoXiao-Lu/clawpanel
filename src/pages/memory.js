@@ -91,6 +91,14 @@ export async function render() {
 
   // Tab 切换
   page.querySelectorAll('.tab').forEach(tab => {
+    tab.setAttribute('role', 'tab')
+    tab.setAttribute('tabindex', '0')
+    tab.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        e.currentTarget.click()
+      }
+    })
     tab.onclick = () => {
       page.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
       tab.classList.add('active')
@@ -235,13 +243,13 @@ function renderFileTree(page, state, files) {
 
   // 类型图标和颜色
   const TYPE_STYLE = {
-    identity: { icon: '👤', color: '#f59e0b' },
-    core:     { icon: '🧠', color: '#3b82f6' },
-    config:   { icon: '⚙️', color: '#8b5cf6' },
-    context:  { icon: '📋', color: '#14b8a6' },
-    notes:    { icon: '📝', color: '#6b7280' },
-    prompts:  { icon: '💬', color: '#ec4899' },
-    doc:      { icon: '📄', color: '#22c55e' },
+    identity: { icon: '👤', color: 'var(--warning, #f59e0b)' },
+    core:     { icon: '🧠', color: 'var(--brand-400, #3b82f6)' },
+    config:   { icon: '⚙️', color: 'var(--brand, #8b5cf6)' },
+    context:  { icon: '📋', color: 'var(--info, #14b8a6)' },
+    notes:    { icon: '📝', color: 'var(--text-secondary, #6b7280)' },
+    prompts:  { icon: '💬', color: 'var(--brand, #ec4899)' },
+    doc:      { icon: '📄', color: 'var(--success, #22c55e)' },
   }
 
   tree.innerHTML = files.map(f => {
@@ -261,6 +269,14 @@ function renderFileTree(page, state, files) {
   }).join('')
 
   tree.querySelectorAll('.file-item').forEach(item => {
+    item.setAttribute('role', 'button')
+    item.setAttribute('tabindex', '0')
+    item.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        e.currentTarget.click()
+      }
+    })
     item.onclick = async () => {
       state.currentPath = item.dataset.path
       tree.querySelectorAll('.file-item').forEach(i => i.classList.remove('active'))

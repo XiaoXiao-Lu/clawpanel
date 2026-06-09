@@ -43,6 +43,14 @@ export async function render() {
 
   // Tab 切换
   page.querySelectorAll('.tab').forEach(tab => {
+    tab.setAttribute('role', 'tab')
+    tab.setAttribute('tabindex', '0')
+    tab.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        e.currentTarget.click()
+      }
+    })
     tab.onclick = () => {
       page.querySelectorAll('.tab').forEach(el => el.classList.remove('active'))
       tab.classList.add('active')

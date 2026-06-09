@@ -1861,3 +1861,309 @@
   }
 }
 
+/* ─── Models workbench — design system alignment (migrated from polish.css) ─── */
+
+/* ─── Models workbench — desktop layout ─── */
+@media (min-width: 1280px) {
+  .models-workbench {
+    display: grid;
+    grid-template-columns: 400px 1fr;
+    gap: var(--space-4) var(--space-6);
+    align-items: start;
+  }
+
+  .models-workbench > #models-console-container {
+    grid-column: 1;
+    grid-row: 1 / span 20;
+  }
+  .models-workbench > #fallback-waterfall-container { grid-column: 2; grid-row: 1; }
+  .models-workbench > .models-provider-workbench { grid-column: 2; grid-row: 2; }
+
+  .models-control-console {
+    margin-bottom: 0;
+    position: sticky;
+    top: var(--space-4);
+  }
+
+  .models-workbench #fallback-waterfall-container .fallback-workbench {
+    grid-template-columns: minmax(260px, 0.45fr) minmax(320px, 1fr);
+  }
+  .models-workbench #providers-list {
+    grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr));
+  }
+}
+
+/* ─── Control console ─── */
+.models-workbench .models-control-console {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-1);
+  box-shadow: var(--shadow-1);
+}
+.models-workbench .models-primary-icon {
+  border: 1px solid var(--brand-muted);
+  background: var(--brand-faint);
+  color: var(--brand);
+}
+.models-workbench .models-cb-badge {
+  background: var(--bg-sunken);
+  border-color: var(--border-1);
+  color: var(--text-3);
+}
+.models-workbench .models-console-footer {
+  border-top-color: var(--border-1);
+}
+
+/* ─── Provider tabs ─── */
+.models-workbench .models-provider-tabs {
+  background: var(--bg-base);
+  border-color: var(--border-1);
+}
+.models-workbench .models-provider-tab {
+  color: var(--text-3);
+  border-radius: var(--radius-md);
+}
+.models-workbench .models-provider-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+.models-workbench .models-provider-tab.active {
+  background: var(--brand);
+  color: var(--text-inverse);
+  box-shadow: var(--shadow-1);
+}
+.models-workbench .models-provider-tab.active .models-provider-tab__count {
+  background: color-mix(in srgb, white 15%, transparent);
+  color: white;
+}
+.models-workbench .models-provider-tab__count {
+  background: var(--border-1);
+  color: var(--text-3);
+}
+
+/* ─── Provider cards ─── */
+.models-workbench .provider-card {
+  background: var(--bg-elevated);
+  border-color: var(--border-1);
+  box-shadow: var(--shadow-1);
+}
+.models-workbench .provider-card__header {
+  border-bottom-color: var(--border-1);
+}
+.models-workbench .provider-card__name {
+  color: var(--text-1);
+}
+.models-workbench .provider-card__count {
+  color: var(--text-3);
+}
+.models-workbench .provider-card__chevron {
+  color: var(--text-3);
+}
+.models-workbench .provider-card__batch {
+  background: var(--bg-sunken);
+  border-top-color: var(--border-1);
+}
+
+/* ─── Model rows (card list view) ─── */
+.models-workbench .model-item {
+  border-bottom-color: var(--border-1);
+}
+.models-workbench .model-item:hover {
+  background: var(--bg-hover);
+}
+.models-workbench .model-item__name {
+  color: var(--text-1);
+}
+.models-workbench .model-item__meta {
+  color: var(--text-3);
+}
+
+/* ─── Model table ─── */
+.models-workbench .models-table-wrap {
+  background: var(--bg-elevated);
+  border-color: var(--border-1);
+  box-shadow: var(--shadow-1);
+}
+.models-workbench .models-table thead {
+  background: var(--bg-sunken);
+}
+.models-workbench .models-table th {
+  color: var(--text-3);
+  border-bottom-color: var(--border-1);
+}
+.models-workbench .models-table td {
+  border-bottom-color: var(--border-1);
+}
+.models-workbench .models-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+.models-workbench .models-table-model__name {
+  color: var(--text-1);
+}
+.models-workbench .models-table-provider-name {
+  color: var(--text-3);
+}
+.models-workbench .models-table-status--neutral {
+  background: var(--bg-sunken);
+  color: var(--text-3);
+}
+
+/* ─── Fallback editor ─── */
+.models-workbench .fallback-editor-panel {
+  background: var(--bg-elevated);
+  border-color: var(--border-1);
+  box-shadow: var(--shadow-1);
+}
+.models-workbench .fallback-best-practice {
+  background: var(--brand-faint);
+  border-left-color: var(--brand);
+  color: var(--text-3);
+}
+.models-workbench .fallback-workbench-pane {
+  background: var(--bg-sunken);
+  border-color: var(--border-1);
+}
+.models-workbench .fallback-pane-title {
+  color: var(--text-1);
+}
+.models-workbench .fallback-pane-subtitle {
+  color: var(--text-3);
+}
+.models-workbench .fallback-chain-item,
+.models-workbench .candidate-item {
+  background: var(--bg-elevated);
+  border-color: var(--border-1);
+}
+.models-workbench .fallback-chain-name,
+.models-workbench .candidate-item span {
+  color: var(--text-1);
+}
+.models-workbench .fallback-drag-handle {
+  color: var(--text-3);
+}
+.models-workbench .fallback-priority {
+  background: var(--brand-faint);
+  color: var(--brand);
+}
+.models-workbench .fallback-empty-state {
+  border-color: var(--border-2);
+  color: var(--text-3);
+}
+
+/* ─── Fallback pills + status ─── */
+.models-workbench .models-fallback-pill,
+.models-workbench .models-empty-fallback,
+.models-workbench .models-status {
+  background: var(--bg-sunken);
+  border-color: var(--border-1);
+  color: var(--text-3);
+}
+.models-workbench .models-fallback-pill span {
+  color: var(--text-3);
+}
+.models-workbench .models-fallback-pill:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+/* ─── Preset buttons ─── */
+.models-workbench .models-preset-btn {
+  background: var(--bg-sunken);
+  border-color: var(--border-1);
+  color: var(--text-3);
+  border-radius: var(--radius-sm);
+}
+.models-workbench .models-preset-btn:hover {
+  border-color: var(--brand-muted);
+  background: var(--brand-faint);
+  color: var(--brand);
+}
+
+/* ─── Combobox ─── */
+[data-engine="hermes"] .hm-combo__input {
+  background: var(--bg-base);
+  border-color: var(--border-1);
+  color: var(--text-1);
+}
+[data-engine="hermes"] .hm-combo__input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand-faint);
+}
+[data-engine="hermes"] .hm-combo__dropdown {
+  background: var(--bg-elevated);
+  border-color: var(--border-1);
+  box-shadow: var(--shadow-2);
+}
+[data-engine="hermes"] .hm-combo__option {
+  color: var(--text-3);
+}
+[data-engine="hermes"] .hm-combo__option:hover,
+[data-engine="hermes"] .hm-combo__option--active {
+  background: var(--brand-faint);
+  color: var(--brand);
+}
+[data-engine="hermes"] .hm-combo__option strong {
+  color: var(--text-1);
+}
+[data-engine="hermes"] .hm-combo__group-header {
+  color: var(--text-3);
+}
+
+/* ─── Reasoning toggle ─── */
+.models-workbench .model-reasoning-toggle {
+  background: var(--bg-sunken);
+  border-color: var(--border-1);
+  color: var(--text-3);
+}
+.models-workbench .model-reasoning-toggle:hover {
+  border-color: var(--brand-muted);
+  color: var(--brand);
+  background: var(--brand-faint);
+}
+
+/* ─── Batch bar ─── */
+.models-workbench .models-batch-bar {
+  background: var(--bg-sunken);
+  border-color: var(--border-1);
+}
+
+/* ─── Stats inline ─── */
+.models-workbench .models-stats-inline {
+  color: var(--text-3);
+}
+.models-workbench .models-stats-inline strong {
+  color: var(--text-1);
+}
+
+/* ─── Route presets ─── */
+.models-workbench .models-route-presets-toggle {
+  color: var(--text-3);
+}
+
+/* ─── Model tags ─── */
+.models-workbench .model-tag--primary {
+  background: var(--success);
+  color: white;
+}
+.models-workbench .model-tag--fb {
+  background: var(--info-muted);
+  color: var(--info);
+}
+.models-workbench .model-tag--rz {
+  background: var(--brand-faint);
+  color: var(--brand);
+}
+
+/* ─── Latency badges ─── */
+.models-workbench .model-latency--ok {
+  background: var(--success-muted);
+  color: var(--success);
+}
+.models-workbench .model-latency--warn {
+  background: var(--warning-muted);
+  color: var(--warning);
+}
+.models-workbench .model-latency--err {
+  background: var(--error-muted);
+  color: var(--error);
+}
+

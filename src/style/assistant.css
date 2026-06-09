@@ -4242,3 +4242,52 @@
     padding: 6px 8px;
   }
 }
+
+/* ─── Design system alignment (migrated from polish.css) ─── */
+.ast-page {
+  background: var(--bg-base);
+}
+
+.ast-header {
+  min-height: 52px;
+  background: var(--bg-elevated);
+  border-bottom-color: var(--border-1);
+}
+
+.ast-sidebar.open {
+  background: var(--bg-elevated);
+  border-right-color: var(--border-1);
+}
+
+.ast-session-item,
+.ast-input-wrap,
+.ast-ask-card,
+.ast-tool-block,
+.ast-soul-card,
+.ast-debug-modal,
+.ast-ctx-menu {
+  border-color: var(--border-1);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-1);
+}
+
+.ast-messages {
+  background: transparent;
+}
+
+.ast-msg-bubble-ai {
+  border: 1px solid var(--border-1);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-1);
+}
+
+.ast-msg-bubble-user {
+  background: var(--brand);
+  color: var(--text-inverse);
+  box-shadow: none;
+}
+
+.ast-input-area {
+  background: var(--bg-base);
+  border-top-color: var(--border-1);
+}

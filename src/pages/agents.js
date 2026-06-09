@@ -11,6 +11,7 @@ import { t } from '../lib/i18n.js'
 import { listAgentsCompat } from '../lib/api-compat.js'
 import { hasFeature } from '../lib/kernel.js'
 import { termHelpHtml, attachTermTooltips } from '../lib/term-tooltip.js'
+import { escapeHtml as escHtml } from '../lib/utils.js'
 
 const SHOW_OFFICE_DEMO = import.meta.env.DEV || localStorage.getItem('agentOfficeDemo') === '1'
 const SHOW_OFFICE_STRESS = import.meta.env.DEV || localStorage.getItem('agentOfficeStress') === '1'
@@ -19,14 +20,6 @@ const MAX_OFFICE_AUDIT_EVENTS = 80
 function tr(key, fallback, params) {
   const value = t(key, params)
   return value === key ? fallback : value
-}
-
-function escHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }
 
 function canUseWebGL() {

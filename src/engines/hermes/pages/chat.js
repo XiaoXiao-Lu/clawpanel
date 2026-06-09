@@ -506,7 +506,8 @@ export function render() {
           <div class="hm-chat-session-actions" aria-label="${escAttr(t('engine.chatSessionActions'))}">
             <button class="hm-chat-session-menu hm-chat-session-action"
                     data-sid-menu="${escAttr(s.id)}"
-                    title="${escHtml(t('engine.chatMoreActions'))}">
+                    title="${escHtml(t('engine.chatMoreActions'))}"
+                    aria-label="${escHtml(t('engine.chatMoreActions'))}">
               ${ICONS.more}
             </button>
             <button class="hm-chat-session-del hm-chat-session-action"
@@ -581,10 +582,11 @@ export function render() {
           <div class="hm-chat-sidebar-head-actions">
             <button class="hm-chat-select-toggle ${selectionMode ? 'is-active' : ''}" id="hm-chat-select-toggle"
                     title="${escHtml(t(selectionMode ? 'engine.chatExitSelect' : 'engine.chatBulkSelect'))}"
+                    aria-label="${escHtml(t(selectionMode ? 'engine.chatExitSelect' : 'engine.chatBulkSelect'))}"
                     aria-pressed="${selectionMode ? 'true' : 'false'}">
               ${selectionMode ? ICONS.close : ICONS.check}
             </button>
-            <button class="hm-chat-new-btn" title="${escHtml(t('engine.chatNewChat'))}" ${selectionMode ? 'disabled' : ''}>
+            <button class="hm-chat-new-btn" title="${escHtml(t('engine.chatNewChat'))}" aria-label="${escHtml(t('engine.chatNewChat'))}" ${selectionMode ? 'disabled' : ''}>
               ${ICONS.plus}
             </button>
           </div>
@@ -817,13 +819,13 @@ export function render() {
               <div class="hm-chat-attach-chip">
                 <img src="data:${escAttr(a.mime)};base64,${escAttr(a.data_base64)}" alt="${escAttr(a.name)}">
                 <span class="hm-chat-attach-chip-name" title="${escAttr(a.name)}">${escHtml(a.name)}</span>
-                <button class="hm-chat-attach-chip-remove" data-attach-remove="${i}" title="${escHtml(t('engine.chatAttachRemove'))}">×</button>
+                <button class="hm-chat-attach-chip-remove" data-attach-remove="${i}" title="${escHtml(t('engine.chatAttachRemove'))}" aria-label="${escHtml(t('engine.chatAttachRemove'))}">×</button>
               </div>
             `).join('')}
           </div>
         ` : ''}
         <div class="hm-chat-input-wrap ${streaming ? 'is-streaming' : ''}">
-          <button class="hm-chat-attach-btn" id="hm-chat-attach" title="${escHtml(t('engine.chatAttach'))}" ${streaming ? 'disabled' : ''}>
+          <button class="hm-chat-attach-btn" id="hm-chat-attach" title="${escHtml(t('engine.chatAttach'))}" aria-label="${escHtml(t('engine.chatAttach'))}" ${streaming ? 'disabled' : ''}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
           </button>
           <input type="file" id="hm-chat-attach-input" accept="image/*" multiple hidden>
@@ -832,7 +834,7 @@ export function render() {
                     rows="1">${escHtml(inputValue)}</textarea>
           <div class="hm-chat-input-actions">
             ${streaming
-              ? `<button class="hm-chat-stop-btn" id="hm-chat-stop" title="${escHtml(t('engine.chatStop'))}">
+              ? `<button class="hm-chat-stop-btn" id="hm-chat-stop" title="${escHtml(t('engine.chatStop'))}" aria-label="${escHtml(t('engine.chatStop'))}">
                    ${ICONS.stop}
                  </button>`
               : `<button class="hm-chat-send-btn" id="hm-chat-send"
@@ -873,7 +875,7 @@ export function render() {
             ${currentModel ? `<span class="hm-chat-gw-model">${escHtml(currentModel)}</span>` : ''}
           </div>
           <button class="hm-btn hm-btn--ghost hm-btn--sm" id="hm-chat-search-open"
-                  title="${escHtml(t('engine.chatSearchShortcut'))}">
+                  title="${escHtml(t('engine.chatSearchShortcut'))}" aria-label="${t('common.search')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
               <circle cx="11" cy="11" r="8"/>
               <line x1="21" y1="21" x2="16.65" y2="16.65"/>

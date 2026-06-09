@@ -223,7 +223,7 @@ function renderConfig(page, state) {
       </div>
     </div>
 
-    <div class="gw-advanced-toggle" id="gw-advanced-toggle">
+    <div class="gw-advanced-toggle" id="gw-advanced-toggle" role="button" tabindex="0">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
       ${t('gateway.advancedToggle')}
     </div>
@@ -287,12 +287,16 @@ function bindConfigEvents(el) {
   })
 
   // 高级选项折叠
-  el.querySelector('#gw-advanced-toggle').onclick = () => {
+  const toggleAdvanced = () => {
     const panel = el.querySelector('#gw-advanced-panel')
     const toggle = el.querySelector('#gw-advanced-toggle')
     const visible = panel.style.display !== 'none'
     panel.style.display = visible ? 'none' : 'block'
     toggle.classList.toggle('open', !visible)
+  }
+  el.querySelector('#gw-advanced-toggle').onclick = toggleAdvanced
+  el.querySelector('#gw-advanced-toggle').onkeydown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleAdvanced() }
   }
 }
 
@@ -355,3 +359,5 @@ async function saveConfig(page, state) {
     toast(humanizeError(e, t('gateway.saveFailed')), 'error')
   }
 }
+
+export function cleanup() {}

@@ -24,10 +24,7 @@ import { t } from '../../../lib/i18n.js'
 import { api } from '../../../lib/tauri-api.js'
 import { toast } from '../../../components/toast.js'
 import { humanizeError } from '../../../lib/humanize-error.js'
-
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
+import { escapeHtml as escHtml } from '../../../lib/utils.js'
 
 /**
  * Minimal, dependency-free Markdown renderer. Matches the feature-set used

@@ -10,11 +10,7 @@ import { CHANNEL_LABELS } from '../lib/channel-labels.js'
 import { t } from '../lib/i18n.js'
 import { navigate } from '../router.js'
 import { isTauriRuntime } from '../lib/tauri-api.js'
-
-function esc(str) {
-  if (!str) return ''
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { escapeHtml as esc } from '../lib/utils.js'
 
 function openChannelsBindingPage(agentId) {
   const params = new URLSearchParams()

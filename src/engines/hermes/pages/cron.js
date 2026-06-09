@@ -5,13 +5,9 @@
 import { t } from '../../../lib/i18n.js'
 import { api } from '../../../lib/tauri-api.js'
 import { humanizeError } from '../../../lib/humanize-error.js'
+import { escapeHtml as esc } from '../../../lib/utils.js'
 
-function esc(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-function escAttr(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
-}
+function escAttr(s) { return esc(s) }
 
 // ── Schedule 解析工具 ──
 
@@ -292,12 +288,12 @@ export function render() {
               ${promptPreview ? `<div class="hm-cron-prompt">${esc(promptPreview)}</div>` : ''}
             </div>
             <div class="hm-cron-actions">
-              <button class="hm-btn hm-btn--icon hm-cron-toggle" data-id="${id}" data-paused="${state === 'paused' ? '1' : '0'}" title="${state === 'paused' ? t('engine.cronResume') : t('engine.cronPauseBtn')}">
+              <button class="hm-btn hm-btn--icon hm-cron-toggle" data-id="${id}" data-paused="${state === 'paused' ? '1' : '0'}" title="${state === 'paused' ? t('engine.cronResume') : t('engine.cronPauseBtn')}" aria-label="${state === 'paused' ? t('engine.cronResume') : t('engine.cronPauseBtn')}">
                 ${state === 'paused' ? ICONS.play : ICONS.pause}
               </button>
-              <button class="hm-btn hm-btn--icon hm-cron-run" data-id="${id}" title="${t('engine.cronRunNow')}">${ICONS.zap}</button>
-              <button class="hm-btn hm-btn--icon hm-cron-edit" data-id="${id}" title="${t('engine.cronEdit')}">${ICONS.edit}</button>
-              <button class="hm-btn hm-btn--icon hm-cron-del" data-id="${id}" title="${t('engine.cronDelete')}" style="color:var(--hm-error)">${ICONS.trash}</button>
+              <button class="hm-btn hm-btn--icon hm-cron-run" data-id="${id}" title="${t('engine.cronRunNow')}" aria-label="${t('engine.cronRunNow')}">${ICONS.zap}</button>
+              <button class="hm-btn hm-btn--icon hm-cron-edit" data-id="${id}" title="${t('engine.cronEdit')}" aria-label="${t('engine.cronEdit')}">${ICONS.edit}</button>
+              <button class="hm-btn hm-btn--icon hm-cron-del" data-id="${id}" title="${t('engine.cronDelete')}" aria-label="${t('engine.cronDelete')}" style="color:var(--hm-error)">${ICONS.trash}</button>
             </div>
           </div>
           <div class="hm-cron-meta">

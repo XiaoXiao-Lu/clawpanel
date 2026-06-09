@@ -294,3 +294,5 @@ async function handleIgnoreRisk(container, enable) {
     toast(t('security.operationFailed') + ': ' + e.message, 'error')
   }
 }
+
+export function cleanup() {}

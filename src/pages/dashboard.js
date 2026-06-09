@@ -1118,7 +1118,7 @@ function renderOnboarding(page, ctx) {
           <div class="onboarding-title">${escapeHtml(t('dashboard.onboardingTitle'))}</div>
           <div class="onboarding-desc">${escapeHtml(t('dashboard.onboardingDesc'))}</div>
         </div>
-        <button class="btn btn-xs btn-ghost" data-onboarding-action="close" title="${escapeHtml(t('dashboard.onboardingClose'))}">×</button>
+        <button class="btn btn-xs btn-ghost" data-onboarding-action="close" title="${escapeHtml(t('dashboard.onboardingClose'))}" aria-label="${escapeHtml(t('dashboard.onboardingClose'))}">×</button>
       </div>
       <div class="onboarding-steps">
         ${stepsHtml}

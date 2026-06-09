@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js'
 import { t } from '../lib/i18n.js'
+import { escapeHtml as esc } from '../lib/utils.js'
 
 const AGENT_COLORS = [
   0x22c55e, 0xef4444, 0x7c3aed, 0x0ea5e9, 0xeab308, 0x14b8a6,
@@ -77,13 +78,6 @@ const STATE_META = {
   offline: { label: tr('agents.stateOffline', '离线'), color: 0x94a3b8, screen: 0x475569, active: false },
 }
 
-function escHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
 
 function formatTime(value) {
   if (!value) return tr('agents.notSet', '未设置')
@@ -1321,7 +1315,7 @@ export class AgentOfficeScene {
     }
     if (this.hoveredAgent !== agent.id) {
       const state = STATE_META[agent.officeState] || STATE_META.idle
-      this.tooltip.innerHTML = `<strong>${escHtml(agent.displayName || agent.id)}</strong><span>${escHtml(state.label)}</span>`
+      this.tooltip.innerHTML = `<strong>${esc(agent.displayName || agent.id)}</strong><span>${esc(state.label)}</span>`
       this.hoveredAgent = agent.id
     }
     const rect = this.container.getBoundingClientRect()
@@ -1617,29 +1611,29 @@ export function renderAgentOfficePanel(container, agent) {
   const initial = String(agentName || 'A').trim().slice(0, 1).toUpperCase()
   container.innerHTML = `
     <div class="agent-office-profile">
-      <div class="agent-office-avatar" style="--agent-color:#${state.color.toString(16).padStart(6, '0')}">${escHtml(initial)}</div>
+      <div class="agent-office-avatar" style="--agent-color:#${state.color.toString(16).padStart(6, '0')}">${esc(initial)}</div>
       <div class="agent-office-profile-main">
-        <div class="agent-office-panel-kicker">${escHtml(state.label)}</div>
-        <div class="agent-office-panel-title">${escHtml(agentName)}</div>
-        <div class="agent-office-panel-sub">${escHtml(model || tr('agents.notSet', '未设置'))}</div>
+        <div class="agent-office-panel-kicker">${esc(state.label)}</div>
+        <div class="agent-office-panel-title">${esc(agentName)}</div>
+        <div class="agent-office-panel-sub">${esc(model || tr('agents.notSet', '未设置'))}</div>
       </div>
-      <span class="agent-office-status-pill" style="--agent-color:#${state.color.toString(16).padStart(6, '0')}">${escHtml(state.label)}</span>
+      <span class="agent-office-status-pill" style="--agent-color:#${state.color.toString(16).padStart(6, '0')}">${esc(state.label)}</span>
     </div>
     <div class="agent-office-task-card">
       <div>
         <span>${tr('agents.labelCurrentTask', '当前任务')}</span>
-        <strong>${escHtml(taskTitle)}</strong>
+        <strong>${esc(taskTitle)}</strong>
       </div>
-      <p>${escHtml(progress)}</p>
+      <p>${esc(progress)}</p>
     </div>
     <div class="agent-office-panel-grid agent-office-panel-grid--compact">
-      <div><span>ID</span><strong>${escHtml(agent.id)}</strong></div>
-      <div><span>${tr('agents.labelWorkspace', '工作区')}</span><strong title="${escHtml(agent.workspace || '')}">${escHtml(workspace)}</strong></div>
+      <div><span>ID</span><strong>${esc(agent.id)}</strong></div>
+      <div><span>${tr('agents.labelWorkspace', '工作区')}</span><strong title="${esc(agent.workspace || '')}">${esc(workspace)}</strong></div>
       <div><span>${tr('agents.labelBindings', '渠道绑定')}</span><strong>${bindings}</strong></div>
-      <div><span>工具</span><strong>${escHtml(activity.toolName || tr('agents.notSet', '未设置'))}</strong></div>
-      <div><span>更新时间</span><strong>${escHtml(formatTime(activity.updatedAt))}</strong></div>
-      <div><span>来源</span><strong>${escHtml(activity.source || tr('agents.notSet', '未设置'))}</strong></div>
+      <div><span>工具</span><strong>${esc(activity.toolName || tr('agents.notSet', '未设置'))}</strong></div>
+      <div><span>更新时间</span><strong>${esc(formatTime(activity.updatedAt))}</strong></div>
+      <div><span>来源</span><strong>${esc(activity.source || tr('agents.notSet', '未设置'))}</strong></div>
     </div>
-    <button class="btn btn-sm btn-primary agent-office-detail-btn" data-office-detail="${escHtml(agent.id)}">${tr('agents.enterDetail', '进入 Agent 详情')}</button>
+    <button class="btn btn-sm btn-primary agent-office-detail-btn" data-office-detail="${esc(agent.id)}">${tr('agents.enterDetail', '进入 Agent 详情')}</button>
   `
 }

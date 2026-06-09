@@ -137,10 +137,10 @@ export async function render() {
       <div class="chat-sidebar-header">
         <span>${t('chat.sessionList')}</span>
         <div class="chat-sidebar-header-actions">
-          <button class="chat-sidebar-btn" id="btn-toggle-sidebar" title="${t('chat.sessionList')}">
+          <button class="chat-sidebar-btn" id="btn-toggle-sidebar" title="${t('chat.sessionList')}" aria-label="${t('chat.sessionList')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
-          <button class="chat-sidebar-btn" id="btn-new-session" title="${t('chat.newSession')}">
+          <button class="chat-sidebar-btn" id="btn-new-session" title="${t('chat.newSession')}" aria-label="${t('chat.newSession')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
         </div>
@@ -160,7 +160,7 @@ export async function render() {
     <div class="chat-main">
       <div class="chat-header">
         <div class="chat-status">
-          <button class="chat-toggle-sidebar" id="btn-toggle-sidebar-main" title="${t('chat.sessionList')}">
+          <button class="chat-toggle-sidebar" id="btn-toggle-sidebar-main" title="${t('chat.sessionList')}" aria-label="${t('chat.sessionList')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
           <span class="status-dot" id="chat-status-dot"></span>
@@ -171,16 +171,16 @@ export async function render() {
             ${svgIcon('search', 14)}
             <input id="chat-message-search" type="search" placeholder="${t('chat.messageSearchPlaceholder')}">
             <span id="chat-message-search-count" class="chat-message-search-count"></span>
-            <button class="chat-message-search-btn" id="chat-message-search-prev" title="${t('chat.messageSearchPrev')}">${svgIcon('chevron-up', 13)}</button>
-            <button class="chat-message-search-btn" id="chat-message-search-next" title="${t('chat.messageSearchNext')}">${svgIcon('chevron-down', 13)}</button>
-            <button class="chat-message-search-btn" id="chat-message-search-clear" title="${t('chat.messageSearchClear')}">${svgIcon('x', 13)}</button>
+            <button class="chat-message-search-btn" id="chat-message-search-prev" title="${t('chat.messageSearchPrev')}" aria-label="${t('chat.messageSearchPrev')}">${svgIcon('chevron-up', 13)}</button>
+            <button class="chat-message-search-btn" id="chat-message-search-next" title="${t('chat.messageSearchNext')}" aria-label="${t('chat.messageSearchNext')}">${svgIcon('chevron-down', 13)}</button>
+            <button class="chat-message-search-btn" id="chat-message-search-clear" title="${t('chat.messageSearchClear')}" aria-label="${t('chat.messageSearchClear')}">${svgIcon('x', 13)}</button>
           </div>
           <div class="chat-model-group">
             <select class="chat-model-select" id="chat-model-select">
               <option value="">${t('chat.loadingModels')}</option>
             </select>
             <span class="chat-model-status" id="chat-model-status"></span>
-            <button class="btn btn-sm btn-ghost" id="btn-refresh-models" title="${t('chat.refreshModels')}">
+            <button class="btn btn-sm btn-ghost" id="btn-refresh-models" title="${t('chat.refreshModels')}" aria-label="${t('chat.refreshModels')}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
             </button>
           </div>
@@ -189,10 +189,10 @@ export async function render() {
             <span class="chat-workspace-trigger-label">${t('chat.workspace')}</span>
             <span class="chat-workspace-trigger-agent" id="chat-workspace-trigger-agent">main</span>
           </button>
-          <button class="btn btn-sm btn-ghost" id="btn-cmd" title="${t('chat.shortcuts')}">
+          <button class="btn btn-sm btn-ghost" id="btn-cmd" title="${t('chat.shortcuts')}" aria-label="${t('chat.shortcuts')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 3a3 3 0 00-3 3v12a3 3 0 003 3 3 3 0 003-3 3 3 0 00-3-3H6a3 3 0 00-3 3 3 3 0 003 3 3 3 0 003-3V6a3 3 0 00-3-3 3 3 0 00-3 3 3 3 0 003 3h12a3 3 0 003-3 3 3 0 00-3-3z"/></svg>
           </button>
-          <button class="btn btn-sm btn-ghost" id="btn-reset-session" title="${t('chat.resetSession')}">
+          <button class="btn btn-sm btn-ghost" id="btn-reset-session" title="${t('chat.resetSession')}" aria-label="${t('chat.resetSession')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
           </button>
         </div>
@@ -208,8 +208,8 @@ export async function render() {
             <div class="chat-workspace-path" id="chat-workspace-path"></div>
           </div>
           <div class="chat-workspace-header-actions">
-            <button class="chat-workspace-icon-btn" id="chat-workspace-refresh" title="${t('common.refresh')}">${svgIcon('refresh-cw', 14)}</button>
-            <button class="chat-workspace-icon-btn" id="chat-workspace-close" title="${t('common.close')}">${svgIcon('x', 14)}</button>
+            <button class="chat-workspace-icon-btn" id="chat-workspace-refresh" title="${t('common.refresh')}" aria-label="${t('common.refresh')}">${svgIcon('refresh-cw', 14)}</button>
+            <button class="chat-workspace-icon-btn" id="chat-workspace-close" title="${t('common.close')}" aria-label="${t('common.close')}">${svgIcon('x', 14)}</button>
           </div>
         </div>
         <div class="chat-workspace-body">
@@ -250,7 +250,7 @@ export async function render() {
       <div class="chat-attachments-preview" id="chat-attachments-preview" style="display:none"></div>
       <div class="chat-input-area">
         <input type="file" id="chat-file-input" accept="image/*" multiple style="display:none">
-        <button class="chat-attach-btn" id="chat-attach-btn" title="${t('chat.uploadImage')}">
+        <button class="chat-attach-btn" id="chat-attach-btn" title="${t('chat.uploadImage')}" aria-label="${t('chat.uploadImage')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
         </button>
         <div class="chat-input-wrapper">
@@ -259,7 +259,7 @@ export async function render() {
         <button class="chat-send-btn" id="chat-send-btn" disabled aria-label="${t('chat.send')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
-        <button class="chat-hosted-btn btn btn-sm btn-ghost" id="chat-hosted-btn" title="${t('chat.hostedAgent')}">
+        <button class="chat-hosted-btn btn btn-sm btn-ghost" id="chat-hosted-btn" title="${t('chat.hostedAgent')}" aria-label="${t('chat.hostedAgent')}">
           <span class="chat-hosted-label">⊕</span>
           <span class="chat-hosted-badge idle" id="chat-hosted-badge">${t('chat.hostedBadge')}</span>
         </button>
@@ -267,7 +267,7 @@ export async function render() {
       <div class="hosted-agent-panel" id="hosted-agent-panel" style="display:none">
         <div class="hosted-agent-header">
           <strong>${t('chat.hostedAgent')}</strong>
-          <button class="hosted-agent-close" id="hosted-agent-close" title="${t('common.close')}">&times;</button>
+          <button class="hosted-agent-close" id="hosted-agent-close" title="${t('common.close')}" aria-label="${t('common.close')}">&times;</button>
         </div>
         <div class="hosted-agent-body">
           <div class="form-group">
@@ -396,7 +396,7 @@ function showPageGuide(container) {
         <p>${t('chat.guideDesc')}</p>
         <p style="opacity:0.7;font-size:11px">${t('chat.guideHint')}</p>
       </div>
-      <button class="chat-guide-close" title="${t('chat.guideClose')}">&times;</button>
+      <button class="chat-guide-close" title="${t('chat.guideClose')}" aria-label="${t('chat.guideClose')}">&times;</button>
     </div>
   `
   guide.querySelector('.chat-guide-close').onclick = () => {
@@ -1543,12 +1543,12 @@ function renderSessionList(sessions) {
     const pinned = row.pinned ? ' pinned' : ''
     return `<div class="chat-session-card${active}${selected}${pinned}" data-key="${escapeAttr(row.key)}">
       <div class="chat-session-card-header">
-        <button class="chat-session-select" data-select="${escapeAttr(row.key)}" title="${t('chat.sessionSelect')}">${svgIcon(_selectedSessions.has(row.key) ? 'check-circle' : 'circle', 14)}</button>
+        <button class="chat-session-select" data-select="${escapeAttr(row.key)}" title="${t('chat.sessionSelect')}" aria-label="${t('chat.sessionSelect')}">${svgIcon(_selectedSessions.has(row.key) ? 'check-circle' : 'circle', 14)}</button>
         <span class="chat-session-label" title="${t('chat.doubleClickRename')}">${escapeAttr(row.displayLabel)}</span>
         <div class="chat-session-actions">
-          <button class="chat-session-del chat-session-pin" data-pin="${escapeAttr(row.key)}" title="${row.pinned ? t('chat.sessionUnpin') : t('chat.sessionPin')}">${svgIcon(row.pinned ? 'crown' : 'target', 12)}</button>
+          <button class="chat-session-del chat-session-pin" data-pin="${escapeAttr(row.key)}" title="${row.pinned ? t('chat.sessionUnpin') : t('chat.sessionPin')}" aria-label="${row.pinned ? t('chat.sessionUnpin') : t('chat.sessionPin')}">${svgIcon(row.pinned ? 'crown' : 'target', 12)}</button>
           ${row.cpCount > 0 ? `<button class="chat-session-del" data-compaction="${escapeAttr(row.key)}" title="${t('chat.compactionHistory')}">⟳${row.cpCount}</button>` : ''}
-          <button class="chat-session-del" data-del="${escapeAttr(row.key)}" title="${t('common.delete')}">${svgIcon('x', 12)}</button>
+          <button class="chat-session-del" data-del="${escapeAttr(row.key)}" title="${t('common.delete')}" aria-label="${t('common.delete')}">${svgIcon('x', 12)}</button>
         </div>
       </div>
       <div class="chat-session-card-meta">
@@ -2960,6 +2960,14 @@ function appendUserMessage(text, attachments = [], msgTime) {
         const img = document.createElement('img')
         img.src = src
         img.className = 'msg-img'
+        img.setAttribute('role', 'button')
+        img.setAttribute('tabindex', '0')
+        img.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            e.currentTarget.click()
+          }
+        })
         img.onclick = () => showLightbox(img.src)
         mediaContainer.appendChild(img)
       } else if (cat === 'video' && src) {
@@ -3018,7 +3026,19 @@ function appendAiMessage(text, msgTime, images, videos, audios, files, tools) {
   appendAudiosToEl(bubble, audios)
   appendFilesToEl(bubble, files)
   // 图片点击灯箱
-  bubble.querySelectorAll('img').forEach(img => { if (!img.onclick) img.onclick = () => showLightbox(img.src) })
+  bubble.querySelectorAll('img').forEach(img => {
+    if (!img.onclick) {
+      img.setAttribute('role', 'button')
+      img.setAttribute('tabindex', '0')
+      img.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          e.currentTarget.click()
+        }
+      })
+      img.onclick = () => showLightbox(img.src)
+    }
+  })
 
   const meta = document.createElement('div')
   meta.className = 'msg-meta'
@@ -3052,6 +3072,14 @@ function appendImagesToEl(el, images) {
       return
     }
     imgEl.style.cssText = 'max-width:300px;max-height:300px;border-radius:6px;cursor:pointer'
+    imgEl.setAttribute('role', 'button')
+    imgEl.setAttribute('tabindex', '0')
+    imgEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        e.currentTarget.click()
+      }
+    })
     imgEl.onclick = () => showLightbox(imgEl.src)
     container.appendChild(imgEl)
   })
@@ -3098,6 +3126,14 @@ function appendFilesToEl(el, files) {
     const fileIcon = svgIcon(fileIconMap[ext] || 'paperclip', 16)
     const size = f.size ? formatFileSize(f.size) : ''
     card.innerHTML = `<span class="msg-file-icon">${fileIcon}</span><div class="msg-file-info"><span class="msg-file-name">${escapeHtml(f.name || 'file')}</span>${size ? `<span class="msg-file-size">${size}</span>` : ''}</div>`
+    card.setAttribute('role', 'button')
+    card.setAttribute('tabindex', '0')
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        e.currentTarget.click()
+      }
+    })
     if (f.url) {
       card.style.cursor = 'pointer'
       card.onclick = () => window.open(f.url, '_blank')
@@ -3215,9 +3251,13 @@ function showLightbox(src) {
   if (existing) existing.remove()
   const lb = document.createElement('div')
   lb.className = 'chat-lightbox'
+  lb.setAttribute('role', 'dialog')
+  lb.setAttribute('aria-label', 'Image lightbox')
+  lb.setAttribute('tabindex', '-1')
   lb.innerHTML = `<img src="${src}" class="chat-lightbox-img" />`
   lb.onclick = (e) => { if (e.target === lb || e.target.tagName !== 'IMG') lb.remove() }
   document.body.appendChild(lb)
+  lb.focus()
   // ESC 关闭
   const onKey = (e) => { if (e.key === 'Escape') { lb.remove(); document.removeEventListener('keydown', onKey) } }
   document.addEventListener('keydown', onKey)

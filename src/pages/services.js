@@ -1180,3 +1180,5 @@ async function _promptDoctorFix(page, actionLabel, originalErr) {
     toast(t('services.doctorFixFailed') + ': ' + (e2?.message || e2), 'error')
   }
 }
+
+export function cleanup() {}

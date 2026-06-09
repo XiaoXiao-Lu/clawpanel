@@ -8,6 +8,7 @@ import { humanizeError } from '../../../lib/humanize-error.js'
 import { CONFIG_GROUPS, getGroupByPanelId } from '../lib/config-groups.js'
 import { panelStateBus } from '../lib/panel-state-bus.js'
 import { renderSidebar, initSidebarScrollSpy, initSearchFilter } from '../lib/config-sidebar.js'
+import { escapeHtml as esc } from '../../../lib/utils.js'
 import { createModelCombobox } from '../lib/model-combobox.js'
 
 const SESSION_RUNTIME_DEFAULTS = {
@@ -580,13 +581,6 @@ export function render() {
     }
   }
 
-  function esc(value) {
-    return String(value ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-  }
 
   function isBusy() {
     return loading || saving || panelStateBus.isAnyLoading() || panelStateBus.isAnySaving()

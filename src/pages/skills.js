@@ -9,6 +9,7 @@ import { humanizeError } from '../lib/humanize-error.js'
 import { showConfirm, showContentModal } from '../components/modal.js'
 import { t } from '../lib/i18n.js'
 import { wsClient } from '../lib/ws-client.js'
+import { escapeHtml as esc } from '../lib/utils.js'
 
 let _loadSeq = 0
 let _selectedAgentId = null
@@ -20,11 +21,6 @@ let _storeIndexPromise = null
 let _hoverPreviewTimer = null
 let _hoverPreviewEl = null
 let _hoverPreviewCard = null
-
-function esc(str) {
-  if (!str) return ''
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 
 function skillKey(value) {
   return String(value || '').trim().toLowerCase()
@@ -878,8 +874,8 @@ function renderSkillCard(skill, status) {
         ${installHtml}
       </div>
       <div class="clawhub-item-actions">
-        <button class="btn btn-secondary btn-sm skills-preview-btn" data-action="skill-info" data-name="${esc(name)}" title="${t('skills.preview')}">👁</button>
-        ${!skill.bundled ? `<button class="btn btn-secondary btn-sm skills-remove-btn" data-action="skill-uninstall" data-name="${esc(name)}" title="${t('skills.uninstall')}">×</button>` : ''}
+        <button class="btn btn-secondary btn-sm skills-preview-btn" data-action="skill-info" data-name="${esc(name)}" title="${t('skills.preview')}" aria-label="${t('skills.preview')}">👁</button>
+        ${!skill.bundled ? `<button class="btn btn-secondary btn-sm skills-remove-btn" data-action="skill-uninstall" data-name="${esc(name)}" title="${t('skills.uninstall')}" aria-label="${t('skills.uninstall')}">×</button>` : ''}
         ${statusBadgeMap[status] || ''}
       </div>
       <div class="skills-card-hover-preview" aria-hidden="true">
@@ -999,10 +995,10 @@ function renderStoreItems(el, items) {
           ${stats || category ? `<div class="clawhub-item-meta">${[category, stats].filter(Boolean).map(esc).join(' · ')}</div>` : ''}
         </div>
         <div class="clawhub-item-actions">
-          <button class="btn btn-secondary btn-sm skills-preview-btn" data-action="store-info" data-slug="${esc(slug)}" title="${t('skills.preview')}">👁</button>
+          <button class="btn btn-secondary btn-sm skills-preview-btn" data-action="store-info" data-slug="${esc(slug)}" title="${t('skills.preview')}" aria-label="${t('skills.preview')}">👁</button>
           ${installed
             ? `<span class="clawhub-badge installed">${t('skills.installed')}</span>`
-            : `<button class="btn btn-secondary btn-sm skills-store-add-btn" data-action="store-install" data-slug="${esc(slug)}" title="${t('skills.install')}">+</button>`
+            : `<button class="btn btn-secondary btn-sm skills-store-add-btn" data-action="store-install" data-slug="${esc(slug)}" title="${t('skills.install')}" aria-label="${t('skills.install')}">+</button>`
           }
         </div>
         <div class="skills-card-hover-preview" aria-hidden="true">

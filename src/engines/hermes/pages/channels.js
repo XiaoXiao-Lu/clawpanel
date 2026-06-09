@@ -6,6 +6,7 @@ import { api } from '../../../lib/tauri-api.js'
 import { toast } from '../../../components/toast.js'
 import { humanizeErrorText } from '../../../lib/humanize-error.js'
 import { icon } from '../../../lib/icons.js'
+import { escapeHtml as esc } from '../../../lib/utils.js'
 
 const CHANNELS = [
   {
@@ -234,13 +235,6 @@ const DISPLAY_TOGGLES = [
   { key: 'displayCleanupProgress', labelKey: 'engine.hermesChannelDisplayCleanupProgress', type: 'checkbox' },
 ]
 
-function esc(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
 
 function channelMeta(id) {
   return CHANNELS.find(channel => channel.id === id) || CHANNELS[0]

@@ -4,6 +4,7 @@
 import { api, isTauriRuntime } from '../lib/tauri-api.js'
 import { toast } from '../components/toast.js'
 import { t } from '../lib/i18n.js'
+import { escapeHtml as escHtml } from '../lib/utils.js'
 
 const STEP_LABELS = {
   config: () => t('diagnose.stepConfig'),
@@ -113,6 +114,3 @@ function renderResult(page, result) {
   page.querySelector('#env-content').innerHTML = html
 }
 
-function escHtml(s) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}

@@ -906,3 +906,5 @@ function renderCompany(page) {
     overlay.querySelector('[data-action="close"]').onclick = () => overlay.remove()
   })
 }
+
+export function cleanup() {}

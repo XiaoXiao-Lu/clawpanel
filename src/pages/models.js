@@ -171,7 +171,16 @@ export async function render() {
   }
 
   // 可折叠推广横幅
-  page.querySelector('#btn-toggle-qtcool').onclick = () => {
+  const qtcoolToggle = page.querySelector('#btn-toggle-qtcool')
+  qtcoolToggle.setAttribute('role', 'button')
+  qtcoolToggle.setAttribute('tabindex', '0')
+  qtcoolToggle.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      e.currentTarget.click()
+    }
+  })
+  qtcoolToggle.onclick = () => {
     const body = page.querySelector('#qtcool-body')
     body.classList.toggle('models-qtcool-body--hidden')
   }
@@ -500,7 +509,7 @@ function renderFallbackWaterfall(state) {
                 </div>
                 <div class="fallback-chain-actions">
                   <button class="btn btn-sm btn-secondary btn-set-primary-from-fb" data-id="${f}">${t('models.setAsPrimary')}</button>
-                  <button class="btn-icon btn-remove-fb" data-id="${f}" title="${t('models.remove')}">${icon('x', 12)}</button>
+                  <button class="btn-icon btn-remove-fb" data-id="${f}" title="${t('models.remove')}" aria-label="${t('models.remove')}">${icon('x', 12)}</button>
                 </div>
               </div>
             `).join('')}
@@ -586,6 +595,14 @@ function renderConsole(page, state) {
       `
       // 重新绑定备选 pill 点击
       fbInline.querySelectorAll('[data-action="toggle-fallback"]').forEach(pill => {
+        pill.setAttribute('role', 'button')
+        pill.setAttribute('tabindex', '0')
+        pill.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            e.currentTarget.click()
+          }
+        })
         pill.onclick = () => {
           const full = pill.dataset.full
           if (!full) return
@@ -906,6 +923,14 @@ function bindWaterfallActions(page, state) {
 
   // 折叠候选服务商
   container.querySelectorAll('.candidate-provider-header').forEach(header => {
+    header.setAttribute('role', 'button')
+    header.setAttribute('tabindex', '0')
+    header.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        e.currentTarget.click()
+      }
+    })
     header.onclick = () => {
       const group = header.closest('.candidate-provider-group')
       const pKey = group.dataset.provider
@@ -1118,13 +1143,13 @@ function renderProviders(page, state) {
       }).join('')}
       ${providerFilter !== 'all' ? `
         <div class="models-provider-tab-actions">
-          <button class="btn-icon" data-action="add-model" title="${t('models.addModel')}">${icon('plus', 14)}</button>
-          <button class="btn-icon" data-action="fetch-models" title="${t('models.fetchList')}">${icon('download', 14)}</button>
-          <button class="btn-icon" data-action="batch-test" title="${t('models.batchTest')}">${icon('activity', 14)}</button>
-          <button class="btn-icon btn-icon--danger" data-action="batch-delete" title="${t('models.batchDeleteBtn')}">${icon('trash', 14)}</button>
+          <button class="btn-icon" data-action="add-model" title="${t('models.addModel')}" aria-label="${t('models.addModel')}">${icon('plus', 14)}</button>
+          <button class="btn-icon" data-action="fetch-models" title="${t('models.fetchList')}" aria-label="${t('models.fetchList')}">${icon('download', 14)}</button>
+          <button class="btn-icon" data-action="batch-test" title="${t('models.batchTest')}" aria-label="${t('models.batchTest')}">${icon('activity', 14)}</button>
+          <button class="btn-icon btn-icon--danger" data-action="batch-delete" title="${t('models.batchDeleteBtn')}" aria-label="${t('models.batchDeleteBtn')}">${icon('trash', 14)}</button>
           <span class="models-provider-tab-actions__divider"></span>
-          <button class="btn-icon" data-action="edit-provider" title="${t('models.editProvider')}">${icon('edit', 14)}</button>
-          <button class="btn-icon btn-icon--danger" data-action="delete-provider" title="${t('models.deleteProvider')}">${icon('trash', 14)}</button>
+          <button class="btn-icon" data-action="edit-provider" title="${t('models.editProvider')}" aria-label="${t('models.editProvider')}">${icon('edit', 14)}</button>
+          <button class="btn-icon btn-icon--danger" data-action="delete-provider" title="${t('models.deleteProvider')}" aria-label="${t('models.deleteProvider')}">${icon('trash', 14)}</button>
         </div>
       ` : ''}
     </div>
@@ -1192,10 +1217,10 @@ function renderProviders(page, state) {
                   <td class="col-latency">${latencyHtml}</td>
                   <td class="col-actions">
                     <div class="models-table-actions">
-                      ${!isPrimary ? `<button class="btn-icon" data-action="set-primary" title="${t('models.setPrimary')}">${icon('star', 14)}</button>` : ''}
-                      <button class="btn-icon" data-action="test-model" title="${t('models.testBtn')}">${icon('activity', 14)}</button>
-                      <button class="btn-icon" data-action="edit-model" title="${t('models.editModel')}">${icon('edit', 14)}</button>
-                      <button class="btn-icon btn-icon--danger" data-action="delete-model" title="${t('models.deleteModel')}">${icon('trash', 14)}</button>
+                      ${!isPrimary ? `<button class="btn-icon" data-action="set-primary" title="${t('models.setPrimary')}" aria-label="${t('models.setPrimary')}">${icon('star', 14)}</button>` : ''}
+                      <button class="btn-icon" data-action="test-model" title="${t('models.testBtn')}" aria-label="${t('models.testBtn')}">${icon('activity', 14)}</button>
+                      <button class="btn-icon" data-action="edit-model" title="${t('models.editModel')}" aria-label="${t('models.editModel')}">${icon('edit', 14)}</button>
+                      <button class="btn-icon btn-icon--danger" data-action="delete-model" title="${t('models.deleteModel')}" aria-label="${t('models.deleteModel')}">${icon('trash', 14)}</button>
                     </div>
                   </td>
                 </tr>
