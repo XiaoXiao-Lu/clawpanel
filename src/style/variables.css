@@ -202,12 +202,18 @@
   --accent:           var(--brand);
   --accent-hover:     var(--brand-400);
   --accent-muted:     var(--brand-muted);
+  --accent-bg:        var(--brand-faint);
+  --accent-border:    rgba(129, 140, 248, 0.24);
+  --accent-subtle:    var(--brand-faint);
   --accent-rgb:       99, 102, 241;
   --primary:          var(--brand);
   --primary-hover:    var(--brand-400);
   --border:           var(--border-1);
   --danger:           var(--error);
   --danger-rgb:       var(--error-rgb);
+
+  /* ─── Missing Aliases (referenced by legacy components) ─── */
+  /* Keep old accent aliases while legacy page styles still reference them. */
 
   /* ─── Ambient ─── */
   --noise-opacity: 0.018;
