@@ -26,6 +26,33 @@ try {
 
 console.log(`[vite] Gateway WebSocket 代理目标: ws://127.0.0.1:${gatewayPort}`)
 
+function manualChunks(id) {
+  const normalized = id.replace(/\\/g, '/')
+
+  if (normalized.includes('/node_modules/three/')) {
+    return normalized.includes('/examples/jsm/') || normalized.includes('/addons/')
+      ? 'vendor-three-addons'
+      : 'vendor-three'
+  }
+  if (normalized.includes('/node_modules/@tauri-apps/')) return 'vendor-tauri'
+
+  if (normalized.includes('/src/locales/')) {
+    if (normalized.includes('/src/locales/helper.js')) return 'locale-helper'
+    if (normalized.includes('/src/locales/index.js')) return 'locale-index'
+    if (normalized.includes('/src/locales/modules/engine.js')) return 'locale-engine'
+    if (normalized.match(/\/src\/locales\/modules\/(channels|communication|connectors|security|gateway|notifications)\.js$/)) {
+      return 'locale-ops'
+    }
+    if (normalized.match(/\/src\/locales\/modules\/(assistant|chat|chat-debug|expertTeams|agents|agentDetail|models)\.js$/)) {
+      return 'locale-ai'
+    }
+    if (normalized.match(/\/src\/locales\/modules\/(memory|dreaming|cron|usage|skills|logs|hermesLazyDeps)\.js$/)) {
+      return 'locale-data'
+    }
+    return 'locale-shell'
+  }
+}
+
 export default defineConfig({
   plugins: [devApiPlugin()],
   define: {
@@ -74,5 +101,11 @@ export default defineConfig({
     target: ['es2021', 'chrome100', 'safari13'],
     minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
     sourcemap: !!process.env.TAURI_DEBUG,
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks,
+      },
+    },
   },
 })

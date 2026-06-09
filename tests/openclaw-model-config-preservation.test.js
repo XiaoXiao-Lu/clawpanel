@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import {
   cleanupDeletedModelReferences,
   cleanupDeletedProviderReferences,
+  normalizeMaxConcurrent,
   normalizeDefaultModelSelection,
   rotateFallbackChain,
 } from '../src/pages/models.js'
@@ -121,4 +122,12 @@ test('OpenClaw model page removes deleted provider references', () => {
 
   assert.equal(state.config.agents.defaults.model.primary, 'openai/gpt-4o')
   assert.deepEqual(state.config.agents.defaults.model.fallbacks, [])
+})
+
+test('OpenClaw model page clamps max concurrent agent sessions', () => {
+  assert.equal(normalizeMaxConcurrent('8'), 8)
+  assert.equal(normalizeMaxConcurrent(0), 1)
+  assert.equal(normalizeMaxConcurrent(200), 100)
+  assert.equal(normalizeMaxConcurrent('not-a-number'), 4)
+  assert.equal(normalizeMaxConcurrent('not-a-number', 2), 2)
 })

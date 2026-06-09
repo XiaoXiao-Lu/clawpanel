@@ -262,6 +262,14 @@ function getCurrentPrimary(config) {
   return config?.agents?.defaults?.model?.primary || ''
 }
 
+export function normalizeMaxConcurrent(value, fallback = 4) {
+  let next = Number.parseInt(value, 10)
+  if (Number.isNaN(next)) next = fallback
+  if (next < 1) return 1
+  if (next > 100) return 100
+  return next
+}
+
 function ensureConfigDefaultModelConfig(config) {
   if (!config.agents) config.agents = {}
   if (!config.agents.defaults) config.agents.defaults = {}
@@ -269,10 +277,7 @@ function ensureConfigDefaultModelConfig(config) {
   if (!Array.isArray(config.agents.defaults.model.fallbacks)) {
     config.agents.defaults.model.fallbacks = []
   }
-  // Ensure maxConcurrent has a default value
-  if (config.agents.defaults.maxConcurrent == null) {
-    config.agents.defaults.maxConcurrent = 4
-  }
+  config.agents.defaults.maxConcurrent = normalizeMaxConcurrent(config.agents.defaults.maxConcurrent, 4)
   return config.agents.defaults.model
 }
 
@@ -585,6 +590,11 @@ function renderConsole(page, state) {
     const cb = existing.querySelector('.models-switch-left [data-action="toggle-reasoning"] input')
     if (cb && cb.checked !== reasoning) cb.checked = reasoning
 
+    const maxConcurrentInput = existing.querySelector('#models-max-concurrent')
+    if (maxConcurrentInput && document.activeElement !== maxConcurrentInput && maxConcurrentInput.value !== String(maxConcurrent)) {
+      maxConcurrentInput.value = String(maxConcurrent)
+    }
+
     // 更新备选 pill 列表
     const fbInline = existing.querySelector('.models-fallback-inline')
     if (fbInline) {
@@ -851,13 +861,14 @@ function renderConsole(page, state) {
   const maxConcurrentInput = container.querySelector('#models-max-concurrent')
   if (maxConcurrentInput) {
     maxConcurrentInput.onchange = () => {
-      let val = parseInt(maxConcurrentInput.value, 10)
-      if (isNaN(val) || val < 1) val = 1
-      if (val > 100) val = 100
+      const val = normalizeMaxConcurrent(maxConcurrentInput.value, 1)
       maxConcurrentInput.value = String(val)
       if (!state.config.agents) state.config.agents = {}
       if (!state.config.agents.defaults) state.config.agents.defaults = {}
+      if (state.config.agents.defaults.maxConcurrent === val) return
+      pushUndo(state)
       state.config.agents.defaults.maxConcurrent = val
+      updateUndoBtn(page, state)
       autoSave(state)
     }
   }
