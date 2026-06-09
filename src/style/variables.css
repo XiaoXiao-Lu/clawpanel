@@ -100,12 +100,12 @@
   --shadow-glow-strong: 0 0 20px -6px rgba(99, 102, 241, 0.35);
 
   /* ═══ Sidebar ═══ */
-  --sidebar-bg:         #080812;
+  --sidebar-bg:         #050510;
   --sidebar-text:       var(--text-1);
   --sidebar-text-2:     var(--text-2);
-  --sidebar-border:     rgba(255, 255, 255, 0.06);
-  --sidebar-hover:      rgba(129, 140, 248, 0.08);
-  --sidebar-active:     rgba(129, 140, 248, 0.12);
+  --sidebar-border:     rgba(255, 255, 255, 0.04);
+  --sidebar-hover:      rgba(129, 140, 248, 0.06);
+  --sidebar-active:     rgba(129, 140, 248, 0.09);
 
   /* ═══ Spacing ═══ */
   --space-0:    2px;

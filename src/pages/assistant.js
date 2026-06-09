@@ -4439,11 +4439,25 @@ function renderExpertTeamMessage(m, idx) {
     : transcript.filter(item => ['final', 'error'].includes(item.type) || (!isRunning && !hasFinal && item.type === 'stopped'))
   const primaryHtml = primaryItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('')
 
-  const errorEvents = isRunning ? [] : transcript.filter(item => item.type === 'expert_error' || item.type === 'moderator_error' || item.type === 'error')
+  const errorEvents = transcript.filter(item => item.type === 'expert_error' || item.type === 'moderator_error' || item.type === 'error')
   const errorInline = errorEvents.length ? `<div class="ast-expert-error-inline">
     ${errorEvents.map(item => `<div class="ast-expert-error-item">
       ${icon('alert-circle', 13)} <span>${escHtml(expertTeamMessageText(item.message, '运行异常'))}</span>
       ${item.expertName ? `<small>${escHtml(item.expertName)}</small>` : ''}
+    </div>`).join('')}
+  </div>` : ''
+
+  // 已完成专家预览卡片（运行时可见）
+  const doneItems = isRunning ? transcript.filter(item => item.type === 'expert_done' && String(item.content || '').trim()) : []
+  const doneCardsHtml = doneItems.length ? `<div class="ast-expert-done-cards">
+    ${doneItems.map(item => `<div class="ast-expert-done-card">
+      <div class="ast-expert-done-card-head">
+        <span class="ast-expert-done-card-dot" style="--expert-color:${escAttr(getExpertColor(item.expertId))}"></span>
+        <strong>${escHtml(item.expertName || item.expertId || '专家')}</strong>
+        <span class="ast-expert-done-card-check">${icon('check-circle', 13)}</span>
+      </div>
+      <div class="ast-expert-done-card-body">${expertTeamLiveText(item.content, 160)}</div>
+      ${expertTeamContentMeta(item.content) ? `<small class="ast-expert-done-card-meta">${escHtml(expertTeamContentMeta(item.content))}${item.model ? ` · ${escHtml(modelTextFromSummary(item.model))}` : ''}</small>` : ''}
     </div>`).join('')}
   </div>` : ''
 
@@ -4469,6 +4483,7 @@ function renderExpertTeamMessage(m, idx) {
 
       ${renderExpertTeamPipeline(transcript, plan, isRunning)}
       ${isRunning ? renderExpertTeamLiveConsole(plan, transcript, isRunning, activeAgents) : ''}
+      ${doneCardsHtml}
 
       ${memberStatuses.length ? `<div class="ast-expert-member-track" aria-label="专家执行队列">
         ${memberStatuses.map(member => `<span class="ast-expert-member-chip ast-expert-member-chip--${escAttr(member.status)}" style="--expert-color:${escAttr(getExpertColor(member.expertId))}" title="${escAttr(member.title)}">

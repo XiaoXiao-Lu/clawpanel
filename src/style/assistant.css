@@ -4410,6 +4410,77 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.ast-expert-activity-strip-item {
+  animation: expert-strip-enter 0.35s ease-out;
+}
+@keyframes expert-strip-enter {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   专家团 · 已完成专家预览卡片（运行时）
+   ═══════════════════════════════════════════════════════════ */
+.ast-expert-done-cards {
+  margin: 0 14px 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.ast-expert-done-card {
+  border: 1px solid color-mix(in srgb, var(--success, #10b981) 22%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--success, #10b981) 4%, var(--bg-primary));
+  padding: 7px 9px;
+}
+.ast-expert-done-card:last-child {
+  animation: expert-done-card-enter 0.4s ease-out;
+}
+
+@keyframes expert-done-card-enter {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ast-expert-done-card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: var(--text-xs);
+}
+.ast-expert-done-card-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--expert-color, var(--success));
+  flex-shrink: 0;
+}
+.ast-expert-done-card-head strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.ast-expert-done-card-check {
+  margin-left: auto;
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+.ast-expert-done-card-body {
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  max-height: 64px;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ast-expert-done-card-meta {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+}
 
 /* 暗色主题适配 */
 .theme-dark .ast-expert-team-run {

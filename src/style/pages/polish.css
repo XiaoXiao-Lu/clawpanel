@@ -63,7 +63,6 @@
 /* ─── Secondary buttons ─── */
 .btn-secondary,
 .btn-ghost,
-.models-preset-btn,
 .chat-hosted-btn,
 .chat-workspace-icon-btn,
 .ast-quick-btn,
@@ -88,7 +87,6 @@
 input,
 textarea,
 select,
-.models-primary-select,
 .connectors-textarea,
 .agent-file-editor,
 .chat-input-wrapper textarea,
@@ -105,8 +103,6 @@ select,
 
 /* ─── Badge 统一 ─── */
 .badge,
-.models-status,
-.models-fallback-pill,
 .agent-file-status,
 .plugin-badge,
 .skills-tab-count,
@@ -197,7 +193,6 @@ select,
   border-radius: var(--radius-lg);
 }
 
-.models-primary-icon,
 .connectors-console-icon,
 .skills-hero-icon,
 .agent-av,
@@ -319,9 +314,7 @@ select,
 
 .services-workbench #version-bar .stat-cards,
 .services-workbench #version-bar .stat-card,
-.services-workbench .config-section,
-.models-workbench .config-section,
-.models-workbench .models-control-console {
+.services-workbench .config-section {
   margin-bottom: 0;
 }
 
@@ -353,16 +346,11 @@ select,
 .services-maintenance-column .config-section { padding: var(--space-4); }
 .services-maintenance-column textarea.form-input { min-height: 240px; }
 
-.models-workbench .models-toolbar { margin-bottom: 0; }
-.models-workbench .models-control-console {
-  /* .control-console is flex column (models.css), grid properties have no effect here */
-}
 .models-workbench #providers-list {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
 }
-.models-workbench .models-provider-section { padding: var(--space-4); }
 
 /* ─── Chat layout ─── */
 .chat-page {
@@ -419,9 +407,6 @@ select,
 }
 
 @media (max-width: 1024px) {
-  .models-workbench .models-control-console {
-    grid-template-columns: minmax(0, 1fr); /* was: 1fr minmax(280px,380px) — .control-console is flex column, grid-col does nothing */
-  }
   .ast-page {
     display: flex;
     padding: 0;
