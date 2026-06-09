@@ -9,6 +9,7 @@ const resetCss = readFileSync(new URL('../src/style/reset.css', import.meta.url)
 const layoutCss = readFileSync(new URL('../src/style/layout.css', import.meta.url), 'utf8')
 const componentsCss = readFileSync(new URL('../src/style/components.css', import.meta.url), 'utf8')
 const pagesCss = readFileSync(new URL('../src/style/pages.css', import.meta.url), 'utf8')
+const mainJs = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8')
 const srcDir = fileURLToPath(new URL('../src', import.meta.url))
 
 const runtimeCssTokens = new Set([
@@ -41,10 +42,14 @@ test('design tokens define legacy aliases used across older pages', () => {
   assert.match(rootTokens, /--primary-hover:\s*var\(--brand-400\)/, '--primary-hover should follow the brand hover color')
   assert.match(rootTokens, /--accent-bg:\s*var\(--brand-faint\)/, '--accent-bg should follow the faint brand surface')
   assert.match(rootTokens, /--accent-subtle:\s*var\(--brand-faint\)/, '--accent-subtle should follow the faint brand surface')
+  assert.match(mainJs, /import '\.\/style\/compat\.css'/, 'runtime should load compatibility aliases after variables.css')
 })
 
 test('global controls keep polished focus and touch affordances', () => {
-  assert.match(resetCss, /:focus-visible[^}]*box-shadow:\s*var\(--shadow-glow\)/s)
+  const focusBlock = cssBlock(resetCss, '[tabindex]:focus-visible')
+  assert.match(focusBlock, /outline:\s*2px solid var\(--brand\)/)
+  assert.match(focusBlock, /outline-offset:\s*2px/)
+  assert.match(cssBlock(componentsCss, '.btn:focus-visible'), /box-shadow:\s*var\(--shadow-glow\)/)
   assert.match(cssBlock(componentsCss, '.btn'), /min-height:\s*38px/)
   assert.match(cssBlock(componentsCss, '.btn-sm'), /min-height:\s*32px/)
   assert.match(cssBlock(componentsCss, '.input,\n.form-input'), /min-height:\s*38px/)
@@ -52,8 +57,8 @@ test('global controls keep polished focus and touch affordances', () => {
 })
 
 test('main app shell has restrained commercial surfaces', () => {
-  assert.match(cssBlock(variablesCss, ':root'), /--radius-lg:\s*12px/)
-  assert.match(cssBlock(variablesCss, ':root'), /--radius-xl:\s*10px/)
+  assert.match(cssBlock(variablesCss, ':root'), /--radius-lg:\s*10px/)
+  assert.match(cssBlock(variablesCss, ':root'), /--radius-xl:\s*12px/)
   assert.match(cssBlock(variablesCss, ':root'), /--accent:\s*var\(--brand\)/)
   assert.match(cssBlock(layoutCss, '#content'), /background-image:\s*linear-gradient/)
   assert.match(cssBlock(layoutCss, '.nav-item'), /min-height:\s*36px/)
@@ -61,7 +66,7 @@ test('main app shell has restrained commercial surfaces', () => {
 })
 
 test('dashboard and skill marketplace use raised surfaces with stable list hierarchy', () => {
-  assert.match(cssBlock(variablesCss, ':root'), /--info-border:\s*rgba\(6,\s*182,\s*212,\s*0\.24\)/)
+  assert.match(cssBlock(variablesCss, ':root'), /--info-border:\s*rgba\(6,\s*182,\s*212,\s*0\.22\)/)
   assert.match(cssBlock(pagesCss, '.dashboard-health-card'), /background:\s*var\(--surface-raised\)/)
   assert.match(cssBlock(pagesCss, '.dashboard-health-card'), /box-shadow:\s*var\(--shadow-md\)/)
   assert.match(cssBlock(pagesCss, '.skills-store-searchbar'), /background:\s*var\(--surface-raised\)/)

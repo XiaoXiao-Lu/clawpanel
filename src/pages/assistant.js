@@ -17,7 +17,7 @@ import { enhanceModelCallError } from '../lib/model-error-diagnosis.js'
 import { getFieldSchema } from '../lib/config-schema.js'
 import { wsClient } from '../lib/ws-client.js'
 import { resolveMaxRounds, resumeExpertTeamRun, resumeExpertTeamSynthesis, runExpertTeam, runExpertTeamSequential } from '../lib/expert-team-runner.js'
-import { escapeHtml as escHtml } from '../lib/utils.js'
+import { escapeAttr as escAttr, escapeHtml as escHtml } from '../lib/utils.js'
 
 // ── 常量 ──
 const STORAGE_KEY = 'clawpanel-assistant'

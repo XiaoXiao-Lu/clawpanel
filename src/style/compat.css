@@ -1,0 +1,4 @@
+/* Runtime compatibility aliases for older page styles. */
+:root {
+  --text-xxs: var(--text-2xs);
+}

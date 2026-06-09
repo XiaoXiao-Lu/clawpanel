@@ -226,6 +226,7 @@ test('Expert Teams runner defines structured expert communication', () => {
 
 test('Assistant Expert Teams entry loads arrays, persists selection, and cleans remount listener', () => {
   const assistant = readFileSync(new URL('../src/pages/assistant.js', import.meta.url), 'utf8')
+  assert.match(assistant, /import \{ escapeAttr as escAttr,\s*escapeHtml as escHtml \} from '\.\.\/lib\/utils\.js'/)
   for (const token of [
     'EXPERT_TEAM_SELECTION_KEY',
     'normalizeExpertListResponse(groupRes, \'groups\')',

@@ -32,6 +32,8 @@ import xintianEngine from './engines/xintian/index.js'
 
 // 样式 — Layer 1: Variables
 import './style/variables.css'
+// Layer 1b: Runtime compatibility aliases for older page styles
+import './style/compat.css'
 // Layer 2: Reset
 import './style/reset.css'
 // Layer 3: Layout
