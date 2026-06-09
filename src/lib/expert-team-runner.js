@@ -1226,10 +1226,44 @@ async function callChatModelWithRetry(slot, messages, opts = {}) {
   throw lastError || new Error('Model call failed')
 }
 
-function parseProxyBody(result) {
+export function parseProxyBody(result) {
   if (result && typeof result === 'object' && result.choices) return result
-  const body = typeof result?.body === 'string' ? result.body : JSON.stringify(result || {})
-  return JSON.parse(body)
+
+  const response = result && typeof result === 'object' ? result : {}
+  const wrapped = Object.hasOwn(response, 'body')
+  const rawBody = wrapped ? response.body : result
+  let parsed
+  if (rawBody && typeof rawBody === 'object') {
+    parsed = rawBody
+  } else {
+    const text = String(rawBody || '').trim()
+    try {
+      parsed = text ? JSON.parse(text) : {}
+    } catch (error) {
+      if (response.ok === false) parsed = {}
+      else throw error
+    }
+  }
+
+  if (response.ok === false) {
+    throw new Error(formatProxyResponseError(response, parsed, rawBody))
+  }
+  return parsed
+}
+
+function formatProxyResponseError(response, parsed, rawBody) {
+  const status = response.status ? ` ${response.status}` : ''
+  const prefix = `API error${status}`
+  const message = extractProxyErrorMessage(parsed, rawBody) || response.statusText || 'Model request failed'
+  return `${prefix}: ${message}`
+}
+
+function extractProxyErrorMessage(parsed, rawBody) {
+  const fromParsed = parsed?.error?.message || parsed?.message || parsed?.error
+  if (fromParsed) return String(fromParsed).trim()
+  if (typeof rawBody !== 'string') return ''
+  const text = rawBody.trim()
+  return text.length > 300 ? `${text.slice(0, 300)}...` : text
 }
 
 function clonePlainObject(value) {

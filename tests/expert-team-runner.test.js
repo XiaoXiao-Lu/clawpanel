@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildExpertMessages, buildExpertTeamPlan, buildModeratorMessages, extractChatMessageContent, isolateExpertTeamModelConfig, resolveDefaultModelSlot, resolveExpertModelSlot, resolveMaxParallel, resolveMaxRounds, resolveMembers, resumeExpertTeamRun, resumeExpertTeamSynthesis } from '../src/lib/expert-team-runner.js'
+import { buildExpertMessages, buildExpertTeamPlan, buildModeratorMessages, extractChatMessageContent, isolateExpertTeamModelConfig, parseProxyBody, resolveDefaultModelSlot, resolveExpertModelSlot, resolveMaxParallel, resolveMaxRounds, resolveMembers, resumeExpertTeamRun, resumeExpertTeamSynthesis } from '../src/lib/expert-team-runner.js'
 
 const experts = [
   {
@@ -88,6 +88,36 @@ test('chat content extraction supports reasoning and structured provider respons
   assert.equal(extractChatMessageContent({
     output: [{ type: 'message', content: [{ type: 'output_text', text: 'Nested output.' }] }],
   }), 'Nested output.')
+})
+
+test('proxy body parsing unwraps object bodies and preserves upstream errors', () => {
+  const parsed = parseProxyBody({
+    ok: true,
+    status: 200,
+    body: {
+      choices: [{ message: { content: 'Wrapped body answer.' } }],
+    },
+  })
+  assert.equal(extractChatMessageContent(parsed), 'Wrapped body answer.')
+
+  assert.throws(
+    () => parseProxyBody({
+      ok: false,
+      status: 401,
+      statusText: 'Unauthorized',
+      body: { error: { message: 'invalid api key' } },
+    }),
+    /API error 401: invalid api key/
+  )
+
+  assert.throws(
+    () => parseProxyBody({
+      ok: false,
+      status: 502,
+      body: 'bad gateway',
+    }),
+    /API error 502: bad gateway/
+  )
 })
 
 test('resume synthesis validates plan and existing contributions before model calls', async () => {
