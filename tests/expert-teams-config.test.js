@@ -342,14 +342,14 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'ast-expert-live-text',
     'ast-expert-final-card',
     '<details class="ast-expert-item ast-expert-item--done ast-expert-disclosure"',
-    '协作拓扑',
-    '自治级别',
-    '检查点',
-    '运行编号',
-    '交付复盘',
-    '质量门禁',
     'assistant.expertTeamRunDetailsDesc',
-    '执行队列',
+    'assistant.expertTeamGovernanceTopology',
+    'assistant.expertTeamGovernanceAutonomy',
+    'assistant.expertTeamCheckpointLabel',
+    'assistant.expertTeamRunIdTitle',
+    'assistant.expertTeamCloseoutTitle',
+    'assistant.expertTeamQualityGate',
+    'assistant.expertTeamWorkboardQueue',
     'expertTeamToolTargetBrief',
     'expertTeamProcessSummary',
     '专家团运行已停止。后续消息将按普通对话发送。',
@@ -365,6 +365,13 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'expertTeamResumeRunStopped',
     'expertTeamProgressFallback',
     'expertTeamStatusDegraded',
+    'expertTeamGovernanceTopology',
+    'expertTeamGovernanceAutonomy',
+    'expertTeamCheckpointLabel',
+    'expertTeamRunIdTitle',
+    'expertTeamCloseoutTitle',
+    'expertTeamQualityGate',
+    'expertTeamWorkboardQueue',
   ]) {
     assert.match(assistantLocale, new RegExp(`${token}:\\s*_\\(`))
   }
@@ -432,6 +439,37 @@ test('Assistant Expert Teams run card chrome renders from locale keys', () => {
     '完整过程 · 默认收起',
   ]) {
     assert.doesNotMatch(runCardBlock, new RegExp(hardcoded))
+  }
+
+  const runtimeBlock = assistant.slice(
+    assistant.indexOf('function getExpertTeamOperations'),
+    assistant.indexOf('function renderExpertTeamEventItem'),
+  ).replace(/\/\/[^\n]*/g, '')
+  for (const token of [
+    'assistant.expertTeamGovernanceTopology',
+    'assistant.expertTeamGovernanceAutonomy',
+    'assistant.expertTeamCheckpointLabel',
+    'assistant.expertTeamRunIdTitle',
+    'assistant.expertTeamCloseoutTitle',
+    'assistant.expertTeamQualityGate',
+    'assistant.expertTeamWorkboardQueue',
+    'assistant.expertTeamModelRetryDetail',
+    'assistant.expertTeamModeratorWaitingConclusion',
+  ]) {
+    assert.match(runtimeBlock, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
+  for (const hardcoded of [
+    '协作拓扑',
+    '自治级别',
+    '检查点',
+    '运行编号',
+    '交付复盘',
+    '质量门禁',
+    '执行队列',
+    '模型请求失败，正在第',
+    '汇总专家黑板，等待综合结论',
+  ]) {
+    assert.doesNotMatch(runtimeBlock, new RegExp(hardcoded))
   }
 })
 

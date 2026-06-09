@@ -4726,7 +4726,7 @@ function getExpertTeamOperations(transcript) {
       title: `${owner} · ${expertTeamToolLabel(item.toolName)}`,
       target: expertTeamToolTargetBrief(item.toolName, item.args),
       fullTarget,
-      meta: status === 'running' ? '执行中' : status === 'error' ? '已阻止' : '已完成',
+      meta: status === 'running' ? t('assistant.expertTeamStatusExecuting') : status === 'error' ? t('assistant.expertTeamStatusBlocked') : t('assistant.expertTeamStatusDone'),
     }
   })
 }
@@ -4746,23 +4746,23 @@ function getExpertTeamFocus(transcript, plan, progress, isRunning) {
   const expertTarget = Math.max(memberCount * rounds, expertDone + expertErrors, 1)
   const modeLabel = plan ? expertTeamPlanMetaLabel(plan) : t('assistant.expertTeamPlanMetaLoading')
   const metrics = [
-    { label: '专家意见', value: `${expertDone}/${expertTarget}` },
-    { label: '操作', value: `${toolOps}项` },
-    { label: '异常', value: expertErrors ? `${expertErrors}个` : '无' },
+    { label: t('assistant.expertTeamMetricOpinions'), value: `${expertDone}/${expertTarget}` },
+    { label: t('assistant.expertTeamMetricOperations'), value: t('assistant.expertTeamTraceCount', { count: toolOps }) },
+    { label: t('assistant.expertTeamMetricExceptions'), value: expertErrors ? t('assistant.expertTeamExceptionCount', { count: expertErrors }) : t('assistant.expertTeamNone') },
   ]
 
   if (active) {
     const isModerator = active.type?.startsWith('moderator')
     const retry = active.type?.endsWith('_retry')
-    const actor = isModerator ? '主持专家' : expertTeamActorLabel(active)
+    const actor = isModerator ? t('assistant.expertTeamModeratorFallback') : expertTeamActorLabel(active)
     const contentMeta = active.content ? expertTeamContentMeta(active.content) : ''
     return {
       status: retry ? 'warning' : 'running',
       iconName: retry ? 'refresh-cw' : (isModerator ? 'crown' : 'radio'),
       eyebrow: modeLabel,
-      title: `${actor}${expertTeamRoundLabel(active)}${retry ? '正在重试' : isModerator ? '正在综合结论' : '正在生成意见'}`,
-      detail: contentMeta ? `已输出 ${contentMeta}` : (isModerator ? '正在汇总专家黑板，等待综合结论' : '已发送角色上下文，等待模型返回首段内容'),
-      next: isModerator ? '生成可交付结论' : '写入黑板并交给下一位专家',
+      title: `${actor}${expertTeamRoundLabel(active)}${retry ? t('assistant.expertTeamActionRetrying') : isModerator ? t('assistant.expertTeamActionSynthesizing') : t('assistant.expertTeamActionDrafting')}`,
+      detail: contentMeta ? t('assistant.expertTeamOutputGenerated', { meta: contentMeta }) : (isModerator ? t('assistant.expertTeamFocusModeratorWaiting') : t('assistant.expertTeamFocusExpertWaiting')),
+      next: isModerator ? t('assistant.expertTeamNextDeliverConclusion') : t('assistant.expertTeamNextWriteBlackboard'),
       metrics,
     }
   }
@@ -4772,9 +4772,9 @@ function getExpertTeamFocus(transcript, plan, progress, isRunning) {
       status: 'degraded',
       iconName: 'shield',
       eyebrow: modeLabel,
-      title: '模型没有返回可用专家意见',
-      detail: '所有专家调用都未产生可用文本，当前无法形成正式综合结论',
-      next: '检查或更换模型后重新发起',
+      title: t('assistant.expertTeamEmptyFocusTitle'),
+      detail: t('assistant.expertTeamEmptyFocusDetail'),
+      next: t('assistant.expertTeamNextCheckModel'),
       metrics,
     }
   }
@@ -4785,9 +4785,9 @@ function getExpertTeamFocus(transcript, plan, progress, isRunning) {
       status: fallback ? 'degraded' : 'done',
       iconName: fallback ? 'shield' : 'clipboard',
       eyebrow: modeLabel,
-      title: fallback ? '已生成临时交付' : '专家团已完成交付',
-      detail: final.content ? `交付内容 ${expertTeamContentMeta(final.content)}` : '已完成本次专家团流程',
-      next: fallback ? '可重新综合或更换模型后重跑' : '继续追问、复制结论或查看细节',
+      title: fallback ? t('assistant.expertTeamTempDeliverableTitle') : t('assistant.expertTeamFinalDeliverableTitle'),
+      detail: final.content ? t('assistant.expertTeamDeliverableContent', { meta: expertTeamContentMeta(final.content) }) : t('assistant.expertTeamDeliverableComplete'),
+      next: fallback ? t('assistant.expertTeamNextResynthesizeOrRerun') : t('assistant.expertTeamNextContinueOrInspect'),
       metrics,
     }
   }
@@ -4798,9 +4798,9 @@ function getExpertTeamFocus(transcript, plan, progress, isRunning) {
       status: 'stopped',
       iconName: 'stop',
       eyebrow: modeLabel,
-      title: '专家团已停止',
-      detail: expertDone ? `已保留 ${expertDone} 份专家意见` : '本次没有形成可用专家意见',
-      next: expertDone ? '继续综合或补跑剩余专家' : '重新发起任务',
+      title: t('assistant.expertTeamStoppedTitle'),
+      detail: expertDone ? t('assistant.expertTeamSavedOpinions', { count: expertDone }) : t('assistant.expertTeamNoUsableOpinions'),
+      next: expertDone ? t('assistant.expertTeamNextResumeOrRun') : t('assistant.expertTeamNextRestartTask'),
       metrics,
     }
   }
@@ -4809,9 +4809,9 @@ function getExpertTeamFocus(transcript, plan, progress, isRunning) {
     status: progress?.status || 'idle',
     iconName: progress?.status === 'error' ? 'alert-circle' : 'users',
     eyebrow: modeLabel,
-    title: progress?.currentLabel || '专家团准备中',
-    detail: progress?.summary || '正在加载团队配置和运行状态',
-    next: isRunning ? '等待首位专家开始输出' : '查看完整过程或重新发起',
+    title: progress?.currentLabel || t('assistant.expertTeamPreparingTitle'),
+    detail: progress?.summary || t('assistant.expertTeamPreparingDetail'),
+    next: isRunning ? t('assistant.expertTeamNextWaitFirstExpert') : t('assistant.expertTeamNextInspectOrRestart'),
     metrics,
   }
 }
@@ -4824,14 +4824,14 @@ function getExpertTeamWorkboard(plan, transcript, progress, isRunning, activeAge
     : null
   const latestOperation = getExpertTeamOperations(events).slice(-1)[0]
   const latestDone = [...events].reverse().find(item => item.type === 'expert_done' || item.type === 'expert_error' || item.type === 'moderator_error')
-  const modeLabel = plan ? getModeLabel(plan.mode) : '专家团'
+  const modeLabel = plan ? getModeLabel(plan.mode) : t('assistant.expertTeamGroupFallback')
   const current = active
     ? expertTeamActiveWorkboardCurrent(active, modeLabel)
     : latestOperation && isRunning
       ? {
-          eyebrow: '正在执行操作',
+          eyebrow: t('assistant.expertTeamWorkboardOperationRunning'),
           title: latestOperation.title,
-          detail: latestOperation.target || '等待工具返回',
+          detail: latestOperation.target || t('assistant.expertTeamWorkboardWaitingTool'),
           iconName: latestOperation.iconName,
           model: latestOperation.meta,
           liveId: '',
@@ -4839,18 +4839,18 @@ function getExpertTeamWorkboard(plan, transcript, progress, isRunning, activeAge
         }
       : latestDone && isRunning
         ? {
-            eyebrow: '最近完成',
-            title: latestDone.type === 'expert_done' ? `${expertTeamActorLabel(latestDone)}已提交意见` : expertTeamMessageText(latestDone.message, '异常已处理'),
-            detail: latestDone.type === 'expert_done' ? `已写入黑板，${expertTeamContentMeta(latestDone.content)}` : '已记录异常并继续流程',
+            eyebrow: t('assistant.expertTeamWorkboardRecentlyDone'),
+            title: latestDone.type === 'expert_done' ? t('assistant.expertTeamExpertSubmittedTitle', { actor: expertTeamActorLabel(latestDone) }) : expertTeamMessageText(latestDone.message, t('assistant.expertTeamExceptionHandled')),
+            detail: latestDone.type === 'expert_done' ? t('assistant.expertTeamBlackboardWritten', { meta: expertTeamContentMeta(latestDone.content) }) : t('assistant.expertTeamExceptionRecorded'),
             iconName: latestDone.type === 'expert_done' ? 'check-circle' : 'shield',
             model: modelTextFromSummary(latestDone.model),
             liveId: '',
             content: '',
           }
         : {
-            eyebrow: isRunning ? '等待模型响应' : '执行队列',
-            title: isRunning ? '专家团正在调度' : progress?.currentLabel || '专家团结果',
-            detail: isRunning ? '任务已接收，正在分配给下一位专家' : '可展开完整过程查看每位专家发言',
+            eyebrow: isRunning ? t('assistant.expertTeamWorkboardWaitingModel') : t('assistant.expertTeamWorkboardQueue'),
+            title: isRunning ? t('assistant.expertTeamWorkboardScheduling') : progress?.currentLabel || t('assistant.expertTeamProgressResult'),
+            detail: isRunning ? t('assistant.expertTeamWorkboardDispatching') : t('assistant.expertTeamWorkboardInspectExperts'),
             iconName: isRunning ? 'radio' : 'users',
             model: '',
             liveId: '',
@@ -4877,18 +4877,18 @@ function expertTeamActiveWorkboardCurrent(item, modeLabel) {
   const isModerator = item.type?.startsWith('moderator')
   const retry = item.type?.endsWith('_retry')
   const title = isModerator
-    ? (retry ? '主持专家正在重试综合' : '主持专家正在综合结论')
-    : `${expertTeamActorLabel(item)}${expertTeamRoundLabel(item)}${retry ? '正在重试' : '正在生成意见'}`
+    ? (retry ? t('assistant.expertTeamModeratorRetryingSynthesis') : t('assistant.expertTeamModeratorSynthesizing'))
+    : `${expertTeamActorLabel(item)}${expertTeamRoundLabel(item)}${retry ? t('assistant.expertTeamActionRetrying') : t('assistant.expertTeamActionDrafting')}`
   const content = expertTeamLiveText(item.content || '', isModerator ? 700 : 560)
   const contentMeta = item.content ? expertTeamContentMeta(item.content) : ''
   return {
-    eyebrow: `${modeLabel}${isModerator ? ' · 综合阶段' : ' · 专家发言'}`,
+    eyebrow: `${modeLabel} · ${isModerator ? t('assistant.expertTeamStageModerator') : t('assistant.expertTeamStageExpertSpeech')}`,
     title,
     detail: retry
-      ? `模型请求失败，正在第${item.attempt || 1}次重试`
+      ? t('assistant.expertTeamModelRetryDetail', { attempt: item.attempt || 1 })
       : contentMeta
-        ? `流式输出中，已生成 ${contentMeta}`
-        : (isModerator ? '正在读取专家黑板并生成综合交付' : '已发送角色上下文，等待模型输出'),
+        ? t('assistant.expertTeamStreamingGenerated', { meta: contentMeta })
+        : (isModerator ? t('assistant.expertTeamModeratorReadingBlackboard') : t('assistant.expertTeamExpertWaitingOutput')),
     iconName: retry ? 'refresh-cw' : (isModerator ? 'crown' : 'radio'),
     model: modelTextFromSummary(item.model),
     liveId: expertTeamLiveDomId(isModerator ? 'moderator' : 'expert', isModerator ? 'moderator' : item.expertId, item.round || 0),
@@ -4920,7 +4920,7 @@ function getExpertTeamMemberStatuses(plan, transcript, isRunning) {
     for (const member of members) {
       const expertId = member.id || member.expertId || member.name || ''
       const key = `${expertId}::${round}`
-      const name = member.name || expertId || '专家'
+      const name = member.name || expertId || t('assistant.expertTeamExpertFallback')
       const status = errorKeys.has(key)
         ? 'error'
         : doneKeys.has(key)
@@ -4932,17 +4932,17 @@ function getExpertTeamMemberStatuses(plan, transcript, isRunning) {
         expertId,
         name: isSequential ? `${name}·R${round}` : name,
         displayName: name,
-        initial: name.trim().slice(0, 1) || '专',
+        initial: name.trim().slice(0, 1) || t('assistant.expertTeamExpertFallback').slice(0, 1),
         status,
         round: isSequential ? round : null,
         detail: status === 'done'
-          ? '已提交'
+          ? t('assistant.expertTeamMemberSubmitted')
           : status === 'error'
-            ? '异常已处理'
+            ? t('assistant.expertTeamExceptionHandled')
             : status === 'running'
-              ? '进行中'
-              : isSequential ? `第${round}轮待执行` : '待执行',
-        title: `${name}${member.title ? ` · ${member.title}` : ''}${isSequential ? ` · 第${round}轮` : ''}`,
+              ? t('assistant.expertTeamStageRunning')
+              : isSequential ? t('assistant.expertTeamRoundWaiting', { round }) : t('assistant.expertTeamWaitingExecution'),
+        title: `${name}${member.title ? ` · ${member.title}` : ''}${isSequential ? ` · ${t('assistant.expertTeamRoundName', { round })}` : ''}`,
       })
     }
   }
@@ -4951,15 +4951,15 @@ function getExpertTeamMemberStatuses(plan, transcript, isRunning) {
     const finalDone = events.some(item => item.type === 'final')
     const moderatorLive = events.some(item => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(item.type))
     const moderatorError = events.some(item => item.type === 'moderator_error')
-    const name = moderator.name || moderator.id || '主持专家'
+    const name = moderator.name || moderator.id || t('assistant.expertTeamModeratorFallback')
     chips.push({
       expertId: moderator.id || 'moderator',
       name,
       displayName: name,
-      initial: name.trim().slice(0, 1) || '主',
+      initial: name.trim().slice(0, 1) || t('assistant.expertTeamModeratorFallback').slice(0, 1),
       status: moderatorError ? 'warning' : finalDone ? 'done' : moderatorLive ? 'running' : isRunning ? 'waiting' : 'idle',
-      detail: moderatorError ? '降级处理' : finalDone ? '已综合' : moderatorLive ? '综合中' : '待综合',
-      title: `${name}${moderator.title ? ` · ${moderator.title}` : ' · 主持专家'}`,
+      detail: moderatorError ? t('assistant.expertTeamMemberDegraded') : finalDone ? t('assistant.expertTeamMemberSynthesized') : moderatorLive ? t('assistant.expertTeamMemberSynthesizing') : t('assistant.expertTeamMemberWaitingSynthesis'),
+      title: `${name}${moderator.title ? ` · ${moderator.title}` : ` · ${t('assistant.expertTeamModeratorFallback')}`}`,
     })
   }
   return chips
@@ -4974,8 +4974,8 @@ function buildExpertTeamActivities(transcript, run, isRunning) {
     activities.push({
       status: 'done',
       iconName: 'zap',
-      title: '接收任务',
-      detail: '创建运行记录并加载专家团配置',
+      title: t('assistant.expertTeamActivityTaskReceived'),
+      detail: t('assistant.expertTeamActivityTaskReceivedDetail'),
       meta: formatExpertTeamActivityTime(started),
     })
   }
@@ -4984,9 +4984,9 @@ function buildExpertTeamActivities(transcript, run, isRunning) {
       activities.push({
         status: 'running',
         iconName: 'refresh-cw',
-        title: `进入第${item.round || 1}轮`,
-        detail: `共${item.total || 1}轮协作链路`,
-        meta: '轮次',
+        title: t('assistant.expertTeamActivityRoundStart', { round: item.round || 1 }),
+        detail: t('assistant.expertTeamActivityRoundTotal', { total: item.total || 1 }),
+        meta: t('assistant.expertTeamRoundMeta'),
       })
       continue
     }
@@ -4998,11 +4998,11 @@ function buildExpertTeamActivities(transcript, run, isRunning) {
         iconName: retry ? 'refresh-cw' : 'radio',
         title: `${expertTeamActorLabel(item)}${expertTeamRoundLabel(item)}`,
         detail: retry
-          ? `模型请求失败，正在第${item.attempt || 1}次重试`
+          ? t('assistant.expertTeamModelRetryDetail', { attempt: item.attempt || 1 })
           : hasOutput
-            ? `正在生成意见，已输出 ${expertTeamContentMeta(item.content)}`
-            : `向模型发送专家上下文，等待首段输出`,
-        meta: modelTextFromSummary(item.model) || '模型',
+            ? t('assistant.expertTeamOpinionGeneratingWithOutput', { meta: expertTeamContentMeta(item.content) })
+            : t('assistant.expertTeamExpertContextSent'),
+        meta: modelTextFromSummary(item.model) || t('assistant.expertTeamModelFallback'),
       })
       continue
     }
@@ -5010,9 +5010,9 @@ function buildExpertTeamActivities(transcript, run, isRunning) {
       activities.push({
         status: 'done',
         iconName: 'check-circle',
-        title: `${expertTeamActorLabel(item)}完成`,
-        detail: `已写入专家黑板，输出 ${expertTeamContentMeta(item.content)}`,
-        meta: modelTextFromSummary(item.model) || '完成',
+        title: t('assistant.expertTeamActorCompleted', { actor: expertTeamActorLabel(item) }),
+        detail: t('assistant.expertTeamBlackboardWritten', { meta: expertTeamContentMeta(item.content) }),
+        meta: modelTextFromSummary(item.model) || t('assistant.expertTeamStatusDone'),
       })
       continue
     }
@@ -5020,9 +5020,9 @@ function buildExpertTeamActivities(transcript, run, isRunning) {
       activities.push({
         status: 'error',
         iconName: 'alert-circle',
-        title: `${expertTeamActorLabel(item)}异常`,
-        detail: expertTeamMessageText(item.message || item.error, '该专家调用失败，已跳过并继续'),
-        meta: '异常',
+        title: t('assistant.expertTeamActorException', { actor: expertTeamActorLabel(item) }),
+        detail: expertTeamMessageText(item.message || item.error, t('assistant.expertTeamExpertCallFailed')),
+        meta: t('assistant.expertTeamMetricExceptions'),
       })
       continue
     }
@@ -5031,11 +5031,11 @@ function buildExpertTeamActivities(transcript, run, isRunning) {
       activities.push({
         status,
         iconName: expertTeamToolIcon(item.toolName),
-        title: `${expertTeamActorLabel({ expertName: item.ownerName, expertTitle: item.ownerTitle })} 调用 ${expertTeamToolLabel(item.toolName)}`,
+        title: t('assistant.expertTeamToolCallTitle', { actor: expertTeamActorLabel({ expertName: item.ownerName, expertTitle: item.ownerTitle }), tool: expertTeamToolLabel(item.toolName) }),
         detail: item.type === 'tool_start'
           ? compactExpertTeamActivityDetail(expertTeamToolTarget(item.toolName, item.args))
           : item.approved === false
-            ? '用户拒绝或策略阻止了该操作'
+            ? t('assistant.expertTeamToolDeniedDetail')
             : compactExpertTeamActivityDetail(expertTeamToolResultSummary(item.result)),
         meta: expertTeamToolTargetMeta(item.toolName, item.args),
       })
@@ -5047,13 +5047,13 @@ function buildExpertTeamActivities(transcript, run, isRunning) {
       activities.push({
         status: retry ? 'warning' : 'running',
         iconName: retry ? 'refresh-cw' : 'crown',
-        title: '主持综合',
+        title: t('assistant.expertTeamLiveModerator'),
         detail: retry
-          ? `主持模型请求失败，正在第${item.attempt || 1}次重试`
+          ? t('assistant.expertTeamModeratorRetryDetail', { attempt: item.attempt || 1 })
           : hasOutput
-            ? `正在综合专家意见，已输出 ${expertTeamContentMeta(item.content)}`
-            : '汇总专家黑板，等待综合结论',
-        meta: modelTextFromSummary(item.model) || '模型',
+            ? t('assistant.expertTeamSynthesisWithOutput', { meta: expertTeamContentMeta(item.content) })
+            : t('assistant.expertTeamModeratorWaitingConclusion'),
+        meta: modelTextFromSummary(item.model) || t('assistant.expertTeamModelFallback'),
       })
       continue
     }
@@ -5061,9 +5061,9 @@ function buildExpertTeamActivities(transcript, run, isRunning) {
       activities.push({
         status: 'warning',
         iconName: 'shield',
-        title: '主持综合已降级',
-        detail: expertTeamMessageText(item.message || item.error, '主持模型未返回有效内容，已用专家意见整理临时交付'),
-        meta: '自动兜底',
+        title: t('assistant.expertTeamModeratorDegradedTitle'),
+        detail: expertTeamMessageText(item.message || item.error, t('assistant.expertTeamModeratorEmptyFallback')),
+        meta: t('assistant.expertTeamAutoFallback'),
       })
       continue
     }
@@ -5071,11 +5071,11 @@ function buildExpertTeamActivities(transcript, run, isRunning) {
       activities.push({
         status: item.status === 'fallback' ? 'warning' : 'done',
         iconName: 'clipboard',
-        title: item.status === 'fallback' ? '生成临时交付' : '生成最终交付',
+        title: item.status === 'fallback' ? t('assistant.expertTeamGenerateTempDeliverable') : t('assistant.expertTeamGenerateFinalDeliverable'),
         detail: item.status === 'fallback'
-          ? `主持综合已降级，保留输出 ${expertTeamContentMeta(item.content)}`
-          : `综合结论已完成，输出 ${expertTeamContentMeta(item.content)}`,
-        meta: modelTextFromSummary(item.model) || '交付',
+          ? t('assistant.expertTeamDegradedOutputKept', { meta: expertTeamContentMeta(item.content) })
+          : t('assistant.expertTeamFinalOutputComplete', { meta: expertTeamContentMeta(item.content) }),
+        meta: modelTextFromSummary(item.model) || t('assistant.expertTeamDeliverableMeta'),
       })
       continue
     }
@@ -5083,9 +5083,9 @@ function buildExpertTeamActivities(transcript, run, isRunning) {
       activities.push({
         status: 'stopped',
         iconName: 'stop',
-        title: '用户停止',
-        detail: expertTeamMessageText(item.message, '运行已停止，保留已完成记录'),
-        meta: '停止',
+        title: t('assistant.expertTeamUserStopped'),
+        detail: expertTeamMessageText(item.message, t('assistant.expertTeamStoppedKeepRecords')),
+        meta: t('assistant.expertTeamStatusStopped'),
       })
       continue
     }
@@ -5093,9 +5093,9 @@ function buildExpertTeamActivities(transcript, run, isRunning) {
       activities.push({
         status: emptyFailure ? 'warning' : 'error',
         iconName: emptyFailure ? 'shield' : 'alert-circle',
-        title: emptyFailure ? '模型无输出诊断' : '运行失败',
-        detail: emptyFailure ? '所有专家调用均未获得可用文本，建议检查或更换当前模型' : expertTeamMessageText(item.message, '专家团运行失败'),
-        meta: emptyFailure ? '已降级' : '失败',
+        title: emptyFailure ? t('assistant.expertTeamNoOutputDiagnosis') : t('assistant.expertTeamProgressFailed'),
+        detail: emptyFailure ? t('assistant.expertTeamNoOutputDiagnosisDetail') : expertTeamMessageText(item.message, t('assistant.expertTeamProgressFailed')),
+        meta: emptyFailure ? t('assistant.expertTeamStatusDegraded') : t('assistant.expertTeamStatusError'),
       })
     }
   }
@@ -5117,17 +5117,17 @@ function compactExpertTeamActivities(activities) {
 
 function compactExpertTeamActivityDetail(value, limit = 72) {
   const text = String(value || '').replace(/\s+/g, ' ').trim()
-  if (!text) return '无文本结果'
+  if (!text) return t('assistant.expertTeamNoTextResult')
   return text.length > limit ? `${text.slice(0, limit)}...` : text
 }
 
 function formatExpertTeamActivityTime(value) {
   const time = typeof value === 'number' ? value : Date.parse(value || '')
-  if (!Number.isFinite(time)) return '刚刚'
+  if (!Number.isFinite(time)) return t('assistant.expertTeamJustNow')
   try {
-    return new Date(time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    return new Date(time).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   } catch {
-    return '刚刚'
+    return t('assistant.expertTeamJustNow')
   }
 }
 
@@ -5138,27 +5138,27 @@ function renderExpertTeamRunMeta(run, progress) {
   const phase = expertTeamPhaseLabel(run.phase || progress?.status)
   const elapsed = expertTeamRunElapsed(run)
   const runId = expertTeamShortRunId(run.id)
-  const checkpointLabel = lastCheckpoint?.label || '等待首个检查点'
-  return `<div class="ast-expert-run-meta" aria-label="专家团运行元数据">
-    <span title="运行编号">
+  const checkpointLabel = lastCheckpoint?.label || t('assistant.expertTeamWaitingFirstCheckpoint')
+  return `<div class="ast-expert-run-meta" aria-label="${escAttr(t('assistant.expertTeamRunMetaAria'))}">
+    <span title="${escAttr(t('assistant.expertTeamRunIdTitle'))}">
       ${icon('hash', 12)}
-      <small>运行</small>
+      <small>${escHtml(t('assistant.expertTeamRunIdLabel'))}</small>
       <strong>${escHtml(runId)}</strong>
     </span>
-    <span title="当前阶段">
+    <span title="${escAttr(t('assistant.expertTeamCurrentPhaseTitle'))}">
       ${icon('target', 12)}
-      <small>阶段</small>
+      <small>${escHtml(t('assistant.expertTeamPhaseLabel'))}</small>
       <strong>${escHtml(phase)}</strong>
     </span>
-    <span title="运行耗时">
+    <span title="${escAttr(t('assistant.expertTeamElapsedTitle'))}">
       ${icon('clock', 12)}
-      <small>耗时</small>
+      <small>${escHtml(t('assistant.expertTeamElapsedLabel'))}</small>
       <strong>${escHtml(elapsed)}</strong>
     </span>
     <span title="${escAttr(checkpointLabel)}">
       ${icon('list', 12)}
-      <small>检查点</small>
-      <strong>${escHtml(checkpoints.length ? `${checkpoints.length}个 · ${checkpointLabel}` : '等待记录')}</strong>
+      <small>${escHtml(t('assistant.expertTeamCheckpointLabel'))}</small>
+      <strong>${escHtml(checkpoints.length ? t('assistant.expertTeamCheckpointSummary', { count: checkpoints.length, label: checkpointLabel }) : t('assistant.expertTeamWaitingRecords'))}</strong>
     </span>
   </div>
   ${renderExpertTeamCheckpointTimeline(checkpoints)}`
@@ -5167,10 +5167,10 @@ function renderExpertTeamRunMeta(run, progress) {
 function renderExpertTeamCheckpointTimeline(checkpoints) {
   const items = Array.isArray(checkpoints) ? checkpoints.slice(-10) : []
   if (!items.length) return ''
-  return `<div class="ast-expert-checkpoints" aria-label="专家团检查点">
+  return `<div class="ast-expert-checkpoints" aria-label="${escAttr(t('assistant.expertTeamCheckpointsAria'))}">
     ${items.map(item => `<span class="ast-expert-checkpoint ast-expert-checkpoint--${escAttr(expertTeamCheckpointStatus(item.type))}">
       <small>${escHtml(formatExpertTeamActivityTime(item.ts))}</small>
-      <strong>${escHtml(item.label || '检查点')}</strong>
+      <strong>${escHtml(item.label || t('assistant.expertTeamCheckpointLabel'))}</strong>
     </span>`).join('')}
   </div>`
 }
@@ -5194,7 +5194,7 @@ function renderExpertTeamLiveSynthesis(transcript, isRunning) {
   return `<div class="ast-expert-live-synthesis ast-expert-live-synthesis--${isRetry ? 'retry' : 'running'}">
     <div class="ast-expert-live-synthesis-head">
       ${icon(isRetry ? 'refresh-cw' : 'crown', 13)}
-      <strong>${escHtml(isRetry ? '主持综合重试中' : '综合结论生成中')}</strong>
+      <strong>${escHtml(isRetry ? t('assistant.expertTeamModeratorRetryingSynthesis') : t('assistant.expertTeamConclusionGenerating'))}</strong>
       ${expertTeamModelPill(item.model)}
     </div>
     <div class="ast-expert-live-slot" data-expert-live-id="${escAttr(expertTeamLiveDomId('moderator', 'moderator', 0))}">
@@ -5226,16 +5226,16 @@ function getExpertTeamRunMeta(message, progress) {
 function buildExpertTeamLegacyCheckpoints(message) {
   const transcript = Array.isArray(message?._expertTeamTranscript) ? message._expertTeamTranscript : []
   const checkpoints = []
-  if (message?._expertTeamPlan) checkpoints.push({ key: 'legacy-start', type: 'start', label: '历史计划', ts: message.ts || Date.now() })
+  if (message?._expertTeamPlan) checkpoints.push({ key: 'legacy-start', type: 'start', label: t('assistant.expertTeamLegacyPlan'), ts: message.ts || Date.now() })
   transcript.forEach((item, index) => {
     const ts = message.ts || Date.now()
-    if (item.type === 'round_start') checkpoints.push({ key: `legacy-round-${item.round || index}`, type: item.type, label: `第${item.round || 1}/${item.total || 1}轮`, ts })
-    if (item.type === 'expert_done') checkpoints.push({ key: `legacy-expert-done-${item.expertId || index}-${item.round || 0}`, type: item.type, label: `${item.expertName || item.expertId || '专家'}完成`, ts })
-    if (item.type === 'expert_error') checkpoints.push({ key: `legacy-expert-error-${item.expertId || index}-${item.round || 0}`, type: item.type, label: `${item.expertName || item.expertId || '专家'}异常已处理`, ts })
-    if (item.type === 'moderator_error') checkpoints.push({ key: `legacy-moderator-error-${index}`, type: item.type, label: '主持空响应，已降级', ts })
-    if (item.type === 'final') checkpoints.push({ key: 'legacy-done', type: 'done', label: '交付完成', ts })
-    if (item.type === 'stopped') checkpoints.push({ key: 'legacy-stopped', type: 'stopped', label: '用户停止运行', ts })
-    if (item.type === 'error') checkpoints.push({ key: 'legacy-error', type: 'error', label: '运行失败', ts })
+    if (item.type === 'round_start') checkpoints.push({ key: `legacy-round-${item.round || index}`, type: item.type, label: t('assistant.expertTeamRoundFraction', { round: item.round || 1, total: item.total || 1 }), ts })
+    if (item.type === 'expert_done') checkpoints.push({ key: `legacy-expert-done-${item.expertId || index}-${item.round || 0}`, type: item.type, label: t('assistant.expertTeamActorCompleted', { actor: item.expertName || item.expertId || t('assistant.expertTeamExpertFallback') }), ts })
+    if (item.type === 'expert_error') checkpoints.push({ key: `legacy-expert-error-${item.expertId || index}-${item.round || 0}`, type: item.type, label: t('assistant.expertTeamActorExceptionHandled', { actor: item.expertName || item.expertId || t('assistant.expertTeamExpertFallback') }), ts })
+    if (item.type === 'moderator_error') checkpoints.push({ key: `legacy-moderator-error-${index}`, type: item.type, label: t('assistant.expertTeamModeratorEmptyDegraded'), ts })
+    if (item.type === 'final') checkpoints.push({ key: 'legacy-done', type: 'done', label: t('assistant.expertTeamDeliveryComplete'), ts })
+    if (item.type === 'stopped') checkpoints.push({ key: 'legacy-stopped', type: 'stopped', label: t('assistant.expertTeamUserStoppedRun'), ts })
+    if (item.type === 'error') checkpoints.push({ key: 'legacy-error', type: 'error', label: t('assistant.expertTeamProgressFailed'), ts })
   })
   return checkpoints.slice(-32)
 }
@@ -5260,35 +5260,35 @@ function getExpertTeamGovernance(plan, transcript, progress) {
     : 0
   const topology = plan
     ? plan.mode === 'sequential'
-      ? `${getModeLabel(plan.mode)} · ${plan.maxRounds || 1}轮`
-      : `${getModeLabel(plan.mode)} · 并行${plan.maxParallel || 1}`
-    : '等待团队拓扑'
+      ? t('assistant.expertTeamTopologySequential', { mode: getModeLabel(plan.mode), rounds: plan.maxRounds || 1 })
+      : t('assistant.expertTeamTopologyParallel', { mode: getModeLabel(plan.mode), parallel: plan.maxParallel || 1 })
+    : t('assistant.expertTeamWaitingTopology')
   return [
     {
-      label: '协作拓扑',
+      label: t('assistant.expertTeamGovernanceTopology'),
       value: topology,
       iconName: 'target',
     },
     {
-      label: '角色配置',
-      value: memberCount ? `${memberCount}位专家${skillCount ? ` · ${skillCount}项能力` : ''}` : '加载成员',
+      label: t('assistant.expertTeamGovernanceRoles'),
+      value: memberCount ? t('assistant.expertTeamGovernanceRoleValue', { count: memberCount, skills: skillCount ? t('assistant.expertTeamGovernanceSkillSuffix', { count: skillCount }) : '' }) : t('assistant.expertTeamLoadingMembers'),
       iconName: 'users',
     },
     {
-      label: '自治级别',
+      label: t('assistant.expertTeamGovernanceAutonomy'),
       value: expertTeamApprovalLabel(plan?.approvalPolicy),
       iconName: 'shield',
     },
     {
-      label: '运行状态',
-      value: `${progress.statusLabel}${events.length ? ` · ${events.length}条记录` : ''}`,
+      label: t('assistant.expertTeamGovernanceRuntime'),
+      value: `${progress.statusLabel}${events.length ? ` · ${t('assistant.expertTeamRecordCount', { count: events.length })}` : ''}`,
       iconName: 'bar-chart',
     },
   ]
 }
 
 function renderExpertTeamGovernance(items) {
-  return `<div class="ast-expert-governance" aria-label="专家团治理摘要">
+  return `<div class="ast-expert-governance" aria-label="${escAttr(t('assistant.expertTeamGovernanceAria'))}">
     ${items.map(item => `<span class="ast-expert-governance-chip">
       ${icon(item.iconName, 13)}
       <span>${escHtml(item.label)}</span>
@@ -5306,28 +5306,28 @@ function renderExpertTeamCloseout(transcript, plan, progress) {
   const fallback = hasExpertTeamModeratorFallback(events)
   const expertDone = events.filter(item => item.type === 'expert_done').length
   const errorCount = events.filter(item => item.type === 'expert_error' || item.type === 'moderator_error' || item.type === 'error').length
-  const moderatorName = plan?.moderator?.name || plan?.moderator?.id || '主持专家'
+  const moderatorName = plan?.moderator?.name || plan?.moderator?.id || t('assistant.expertTeamModeratorFallback')
   const status = emptyFailure ? 'degraded' : failed ? 'error' : fallback ? 'degraded' : finalDone ? 'done' : stopped && progress.status !== 'running' ? 'stopped' : progress.status
   const nextStep = failed
-    ? '可查看错误并重新发起'
+    ? t('assistant.expertTeamCloseoutNextRetryAfterError')
     : fallback || emptyFailure
-      ? (emptyFailure ? '建议检查或更换模型后重新发起' : '建议重新综合生成正式交付')
+      ? (emptyFailure ? t('assistant.expertTeamNextCheckModel') : t('assistant.expertTeamCloseoutNextResynthesize'))
       : finalDone
-      ? '可继续追问或复制交付结果'
+      ? t('assistant.expertTeamCloseoutNextContinue')
       : stopped
-        ? '已保留专家意见，可继续主持综合'
-        : '等待质量门禁完成'
+        ? t('assistant.expertTeamCloseoutNextResume')
+        : t('assistant.expertTeamCloseoutNextWaitingGate')
   return `<div class="ast-expert-closeout ast-expert-closeout--${escAttr(status)}">
     <div class="ast-expert-closeout-head">
       ${icon('clipboard', 14)}
-      <strong>交付复盘</strong>
+      <strong>${escHtml(t('assistant.expertTeamCloseoutTitle'))}</strong>
       <span>${escHtml(expertTeamStageStatusLabel(status))}</span>
     </div>
     <div class="ast-expert-closeout-grid">
-      <span><small>专家意见</small><strong>${escHtml(String(expertDone))}份</strong></span>
-      <span><small>质量门禁</small><strong>${escHtml(emptyFailure ? '未获得可用专家输出' : fallback ? `${moderatorName}临时交付` : finalDone ? `${moderatorName}已综合` : `${moderatorName}待综合`)}</strong></span>
-      <span><small>异常处理</small><strong>${escHtml(errorCount ? `${errorCount}个` : '无')}</strong></span>
-      <span><small>下一步</small><strong>${escHtml(nextStep)}</strong></span>
+      <span><small>${escHtml(t('assistant.expertTeamMetricOpinions'))}</small><strong>${escHtml(t('assistant.expertTeamOpinionCount', { count: expertDone }))}</strong></span>
+      <span><small>${escHtml(t('assistant.expertTeamQualityGate'))}</small><strong>${escHtml(emptyFailure ? t('assistant.expertTeamNoUsableExpertOutput') : fallback ? t('assistant.expertTeamModeratorTempDelivery', { moderator: moderatorName }) : finalDone ? t('assistant.expertTeamModeratorSynthesizedState', { moderator: moderatorName }) : t('assistant.expertTeamModeratorWaitingState', { moderator: moderatorName }))}</strong></span>
+      <span><small>${escHtml(t('assistant.expertTeamExceptionHandling'))}</small><strong>${escHtml(errorCount ? t('assistant.expertTeamExceptionCount', { count: errorCount }) : t('assistant.expertTeamNone'))}</strong></span>
+      <span><small>${escHtml(t('assistant.expertTeamNextStep'))}</small><strong>${escHtml(nextStep)}</strong></span>
     </div>
   </div>`
 }
@@ -5532,21 +5532,21 @@ function renderExpertTeamLiveConsole(plan, transcript, isRunning, activeAgents) 
   const isModerator = active?.type?.startsWith('moderator')
   const retry = active?.type?.endsWith('_retry')
   const actorLabel = active
-    ? (isModerator ? '主持专家' : expertTeamActorLabel(active))
-    : '等待中'
-  const statusLabel = retry ? '重试中' : isModerator ? '综合中' : '输出中'
+    ? (isModerator ? t('assistant.expertTeamModeratorFallback') : expertTeamActorLabel(active))
+    : t('assistant.expertTeamStageWaiting')
+  const statusLabel = retry ? t('assistant.retrying') : isModerator ? t('assistant.expertTeamMemberSynthesizing') : t('assistant.expertTeamLiveOutputting')
   const modelLabel = active?.model ? modelTextFromSummary(active.model) : ''
   const liveId = active
     ? expertTeamLiveDomId(isModerator ? 'moderator' : 'expert', isModerator ? 'moderator' : active.expertId, active.round || 0)
     : ''
   const contentMeta = active?.content ? expertTeamContentMeta(active.content) : ''
   const detail = retry
-    ? `模型请求失败，正在第${active.attempt || 1}次重试`
+    ? t('assistant.expertTeamModelRetryDetail', { attempt: active.attempt || 1 })
     : contentMeta
-      ? `已输出 ${contentMeta}`
-      : isModerator ? '正在读取专家黑板并生成综合交付' : '已发送角色上下文，等待模型输出'
+      ? t('assistant.expertTeamOutputGenerated', { meta: contentMeta })
+      : isModerator ? t('assistant.expertTeamModeratorReadingBlackboard') : t('assistant.expertTeamExpertWaitingOutput')
 
-  return `<section class="ast-expert-live-console ast-expert-live-console--${escAttr(retry ? 'warning' : 'active')}" aria-label="实时输出">
+  return `<section class="ast-expert-live-console ast-expert-live-console--${escAttr(retry ? 'warning' : 'active')}" aria-label="${escAttr(t('assistant.expertTeamLiveOutputAria'))}">
     <div class="ast-expert-live-console-head">
       <span class="ast-expert-live-console-actor">
         <span class="ast-expert-live-console-dot" ${retry ? 'data-status="retry"' : ''}></span>
@@ -5598,36 +5598,36 @@ function getExpertTeamStages(transcript, plan, isRunning, progress) {
         : isRunning ? 'waiting' : 'waiting'
   return [
     {
-      name: '快速模式启动',
-      detail: progress?.status === 'idle' ? '等待查看' : '任务已接收',
+      name: t('assistant.expertTeamStageQuickStart'),
+      detail: progress?.status === 'idle' ? t('assistant.expertTeamStageReviewWaiting') : t('assistant.expertTeamActivityTaskReceived'),
       status: hasPlan ? 'done' : 'running',
-      label: hasPlan ? '已完成' : '进行中',
+      label: hasPlan ? t('assistant.expertTeamStatusDone') : t('assistant.expertTeamStageRunning'),
       icon: icon('zap', 13),
     },
     {
-      name: '创建团队',
-      detail: memberCount ? `${memberCount} 位专家` : '加载成员配置',
+      name: t('assistant.expertTeamStageCreateTeam'),
+      detail: memberCount ? t('assistant.expertTeamMemberCount', { count: memberCount }) : t('assistant.expertTeamLoadingMemberConfig'),
       status: plan ? 'done' : 'running',
-      label: plan ? '已创建' : '创建中',
+      label: plan ? t('assistant.expertTeamStageCreated') : t('assistant.expertTeamStageCreating'),
       icon: icon('users', 13),
     },
     {
-      name: '专家协作',
-      detail: `${Math.min(expertDone, expertTarget)} / ${expertTarget} 已完成`,
+      name: t('assistant.expertTeamPhaseExpertRound'),
+      detail: t('assistant.expertTeamStatsCompleted', { done: Math.min(expertDone, expertTarget), total: expertTarget }),
       status: expertStatus,
       label: expertTeamStageStatusLabel(expertStatus),
       icon: icon('hammer', 13),
     },
     {
-      name: '主持综合',
-      detail: emptyFailure ? '模型无可用输出' : fallback ? '模型空响应，已临时交付' : finalDone ? '结论已生成' : '等待专家意见',
+      name: t('assistant.expertTeamLiveModerator'),
+      detail: emptyFailure ? t('assistant.expertTeamNoUsableExpertOutput') : fallback ? t('assistant.expertTeamModelEmptyTempDelivery') : finalDone ? t('assistant.expertTeamConclusionGenerated') : t('assistant.expertTeamWaitingExpertOpinions'),
       status: moderatorStatus,
       label: expertTeamStageStatusLabel(moderatorStatus),
       icon: icon('crown', 13),
     },
     {
-      name: '交付复盘',
-      detail: emptyFailure ? '建议更换模型后重试' : fallback ? '可重新综合' : finalDone ? '闭环完成' : effectiveStopped ? '已退出专家团' : '等待质量门禁',
+      name: t('assistant.expertTeamCloseoutTitle'),
+      detail: emptyFailure ? t('assistant.expertTeamNextCheckModel') : fallback ? t('assistant.expertTeamResynthesize') : finalDone ? t('assistant.expertTeamClosedLoopComplete') : effectiveStopped ? t('assistant.expertTeamExited') : t('assistant.expertTeamCloseoutNextWaitingGate'),
       status: closeoutStatus,
       label: expertTeamStageStatusLabel(closeoutStatus),
       icon: icon('clipboard', 13),
@@ -5642,17 +5642,18 @@ function getExpertTeamActiveAgents(transcript) {
     .filter(item => liveTypes.includes(item.type))
     .map(item => {
       const isModerator = item.type?.startsWith('moderator')
-      const name = isModerator ? (item.expertName || '主持综合') : (item.expertName || item.expertId || '专家')
-      const identity = item.expertTitle || (isModerator ? '主持专家' : '')
+      const name = isModerator ? (item.expertName || t('assistant.expertTeamLiveModerator')) : (item.expertName || item.expertId || t('assistant.expertTeamExpertFallback'))
+      const identity = item.expertTitle || (isModerator ? t('assistant.expertTeamModeratorFallback') : '')
       const retry = item.type?.endsWith('_retry')
+      const stateLabel = retry ? t('assistant.retrying') : t('assistant.expertTeamStageRunning')
       return {
         expertId: isModerator ? 'moderator' : item.expertId,
         name,
-        initial: name.trim().slice(0, 1) || '专',
+        initial: name.trim().slice(0, 1) || t('assistant.expertTeamExpertFallback').slice(0, 1),
         status: retry ? 'retry' : 'running',
-        label: retry ? '重试中' : '进行中',
-        identity: identity ? `${identity} · ${retry ? '重试中' : '进行中'}` : (retry ? '重试中' : '进行中'),
-        title: `${expertTeamActorLabel(item)}${expertTeamRoundLabel(item)} · ${retry ? '重试中' : '进行中'}`,
+        label: stateLabel,
+        identity: identity ? `${identity} · ${stateLabel}` : stateLabel,
+        title: `${expertTeamActorLabel(item)}${expertTeamRoundLabel(item)} · ${stateLabel}`,
         liveId: expertTeamLiveDomId(isModerator ? 'moderator' : 'expert', isModerator ? 'moderator' : item.expertId, item.round || 0),
       }
     })
@@ -6037,49 +6038,49 @@ function expertTeamStageStatusLabel(status) {
 
 function expertTeamApprovalLabel(policy) {
   const map = {
-    none: '自动闭环',
-    before_final: '交付前确认',
-    before_tools: '工具前确认',
+    none: 'assistant.expertTeamApprovalNone',
+    before_final: 'assistant.expertTeamApprovalBeforeFinal',
+    before_tools: 'assistant.expertTeamApprovalBeforeTools',
   }
-  return map[policy || 'none'] || '自定义确认'
+  return t(map[policy || 'none'] || 'assistant.expertTeamApprovalCustom')
 }
 
 function expertTeamPhaseLabel(phase) {
   const map = {
-    queued: '排队准备',
-    planning: '规划团队',
-    expert_round: '专家协作',
-    expert_work: '专家生成',
-    moderator: '主持综合',
-    closed: '交付完成',
-    degraded: '临时交付',
-    stopped: '已停止',
-    failed: '运行失败',
-    running: '运行中',
-    done: '已完成',
-    error: '运行失败',
-    idle: '待查看',
+    queued: 'assistant.expertTeamPhaseQueued',
+    planning: 'assistant.expertTeamPhasePlanning',
+    expert_round: 'assistant.expertTeamPhaseExpertRound',
+    expert_work: 'assistant.expertTeamPhaseExpertWork',
+    moderator: 'assistant.expertTeamLiveModerator',
+    closed: 'assistant.expertTeamDeliveryComplete',
+    degraded: 'assistant.expertTeamTempDeliverableTitle',
+    stopped: 'assistant.expertTeamStatusStopped',
+    failed: 'assistant.expertTeamProgressFailed',
+    running: 'assistant.expertTeamStatusRunning',
+    done: 'assistant.expertTeamStatusDone',
+    error: 'assistant.expertTeamProgressFailed',
+    idle: 'assistant.expertTeamStatusIdle',
   }
-  return map[phase || 'queued'] || '运行中'
+  return t(map[phase || 'queued'] || 'assistant.expertTeamStatusRunning')
 }
 
 function expertTeamRunElapsed(run) {
-  if (!run?.startedAt) return '刚开始'
+  if (!run?.startedAt) return t('assistant.expertTeamElapsedJustStarted')
   const end = run.endedAt || run.updatedAt || Date.now()
   const seconds = Math.max(0, Math.round((end - run.startedAt) / 1000))
-  if (seconds < 1) return '刚开始'
-  if (seconds < 60) return `${seconds}秒`
+  if (seconds < 1) return t('assistant.expertTeamElapsedJustStarted')
+  if (seconds < 60) return t('assistant.expertTeamElapsedSeconds', { seconds })
   const minutes = Math.floor(seconds / 60)
   const rest = seconds % 60
-  if (minutes < 60) return rest ? `${minutes}分${rest}秒` : `${minutes}分钟`
+  if (minutes < 60) return rest ? t('assistant.expertTeamElapsedMinutesSeconds', { minutes, seconds: rest }) : t('assistant.expertTeamElapsedMinutes', { minutes })
   const hours = Math.floor(minutes / 60)
   const minuteRest = minutes % 60
-  return minuteRest ? `${hours}小时${minuteRest}分` : `${hours}小时`
+  return minuteRest ? t('assistant.expertTeamElapsedHoursMinutes', { hours, minutes: minuteRest }) : t('assistant.expertTeamElapsedHours', { hours })
 }
 
 function expertTeamShortRunId(id) {
   const raw = String(id || '').trim()
-  if (!raw) return '未记录'
+  if (!raw) return t('assistant.expertTeamNotRecorded')
   if (raw.length <= 12) return raw
   return raw.slice(-10)
 }
@@ -6098,14 +6099,14 @@ function expertTeamStageStatusIcon(status) {
 }
 
 function expertTeamCurrentLabel(item) {
-  if (item.type?.startsWith('moderator')) return item.type === 'moderator_retry' ? '主持综合正在重试' : '主持正在综合结论'
-  const name = item.expertName || item.expertId || '专家'
-  const action = item.type === 'expert_retry' ? '正在重试' : '正在生成'
+  if (item.type?.startsWith('moderator')) return item.type === 'moderator_retry' ? t('assistant.expertTeamModeratorRetryingSynthesis') : t('assistant.expertTeamModeratorSynthesizing')
+  const name = item.expertName || item.expertId || t('assistant.expertTeamExpertFallback')
+  const action = item.type === 'expert_retry' ? t('assistant.expertTeamActionRetrying') : t('assistant.expertTeamActionDrafting')
   return `${name}${expertTeamRoundLabel(item)}${action}`
 }
 
 function expertTeamRoundLabel(item) {
-  return item?.round && item.round > 0 ? ` (第${item.round}轮)` : ''
+  return item?.round && item.round > 0 ? ` (${t('assistant.expertTeamRoundName', { round: item.round })})` : ''
 }
 
 function expertTeamModelPill(model) {
@@ -6114,7 +6115,7 @@ function expertTeamModelPill(model) {
 }
 
 function expertTeamActorLabel(item = {}) {
-  const name = item.expertName || item.ownerName || item.expertId || '专家'
+  const name = item.expertName || item.ownerName || item.expertId || t('assistant.expertTeamExpertFallback')
   const title = item.expertTitle || item.ownerTitle || ''
   return title && !String(name).includes(title) ? `${name} · ${title}` : name
 }
@@ -7904,36 +7905,36 @@ function expertTeamRunPhase(type) {
 
 function expertTeamCheckpointFromEvent(event = {}) {
   if (event.type === 'start') {
-    return { type: event.type, key: 'start', label: '团队计划已创建' }
+    return { type: event.type, key: 'start', label: t('assistant.expertTeamPlanCreated') }
   }
   if (event.type === 'resume_start') {
-    return { type: event.type, key: `resume-${event.plan?.id || event.contributionCount || 'current'}`, label: `继续综合 ${event.contributionCount || 0} 份意见` }
+    return { type: event.type, key: `resume-${event.plan?.id || event.contributionCount || 'current'}`, label: t('assistant.expertTeamResumeOpinions', { count: event.contributionCount || 0 }) }
   }
   if (event.type === 'round_start') {
-    return { type: event.type, key: `round-${event.round || 0}`, label: `第${event.round || 1}/${event.total || 1}轮开始` }
+    return { type: event.type, key: `round-${event.round || 0}`, label: t('assistant.expertTeamRoundStarted', { round: event.round || 1, total: event.total || 1 }) }
   }
   if (event.type === 'expert_done') {
-    const name = event.message?.expertName || event.message?.expertId || '专家'
-    return { type: event.type, key: `expert-done-${event.message?.expertId || name}-${event.message?.round || 0}`, label: `${name}完成` }
+    const name = event.message?.expertName || event.message?.expertId || t('assistant.expertTeamExpertFallback')
+    return { type: event.type, key: `expert-done-${event.message?.expertId || name}-${event.message?.round || 0}`, label: t('assistant.expertTeamActorCompleted', { actor: name }) }
   }
   if (event.type === 'expert_error') {
-    const name = event.message?.expertName || event.message?.expertId || '专家'
-    return { type: event.type, key: `expert-error-${event.message?.expertId || name}-${event.message?.round || 0}`, label: `${name}异常已处理` }
+    const name = event.message?.expertName || event.message?.expertId || t('assistant.expertTeamExpertFallback')
+    return { type: event.type, key: `expert-error-${event.message?.expertId || name}-${event.message?.round || 0}`, label: t('assistant.expertTeamActorExceptionHandled', { actor: name }) }
   }
   if (event.type === 'moderator_start') {
-    return { type: event.type, key: 'moderator-start', label: '主持开始综合' }
+    return { type: event.type, key: 'moderator-start', label: t('assistant.expertTeamModeratorStarted') }
   }
   if (event.type === 'moderator_error') {
-    return { type: event.type, key: 'moderator-error', label: '主持异常，启用降级综合' }
+    return { type: event.type, key: 'moderator-error', label: t('assistant.expertTeamModeratorErrorDegraded') }
   }
   if (event.type === 'done') {
-    return { type: event.type, key: 'done', label: '交付完成' }
+    return { type: event.type, key: 'done', label: t('assistant.expertTeamDeliveryComplete') }
   }
   if (event.type === 'stopped') {
-    return { type: event.type, key: 'stopped', label: '用户停止运行' }
+    return { type: event.type, key: 'stopped', label: t('assistant.expertTeamUserStoppedRun') }
   }
   if (event.type === 'error') {
-    return { type: event.type, key: 'error', label: '运行失败' }
+    return { type: event.type, key: 'error', label: t('assistant.expertTeamProgressFailed') }
   }
   return null
 }
@@ -7945,7 +7946,7 @@ function appendExpertTeamCheckpoint(run, checkpoint) {
   const next = {
     key: checkpoint.key || `${checkpoint.type || 'checkpoint'}-${run.checkpoints.length + 1}`,
     type: checkpoint.type || 'checkpoint',
-    label: checkpoint.label || '检查点',
+    label: checkpoint.label || t('assistant.expertTeamCheckpointLabel'),
     ts: checkpoint.ts || Date.now(),
   }
   run.checkpoints.push(next)
