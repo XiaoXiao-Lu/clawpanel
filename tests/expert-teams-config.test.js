@@ -274,7 +274,7 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'renderExpertTeamOperationTrace',
     'getExpertTeamOperations',
     'ast-expert-trace',
-    '操作痕迹',
+    'expertTeamTraceTitle',
     '_expertTeamRun',
     'initExpertTeamRunMeta',
     'updateExpertTeamRunMeta',
@@ -351,8 +351,7 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'assistant.expertTeamRunDetailsDesc',
     '执行队列',
     'expertTeamToolTargetBrief',
-    '完整过程',
-    '默认收起',
+    'expertTeamProcessSummary',
     '专家团运行已停止。后续消息将按普通对话发送。',
     'assistant.expertTeamResumeRunStopped',
   ]) {
@@ -386,6 +385,54 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
   const renderedExpertTeamMessage = assistant.slice(assistant.indexOf('return `<div class="ast-msg ast-msg-ai ast-msg-expert-team"'), assistant.indexOf('function renderExpertTeamFocus'))
   assert.doesNotMatch(renderedExpertTeamMessage, /\$\{stageHtml\}/)
   assert.match(assistant, /<details class="ast-expert-run-details">/)
+})
+
+test('Assistant Expert Teams run card chrome renders from locale keys', () => {
+  const assistant = readFileSync(new URL('../src/pages/assistant.js', import.meta.url), 'utf8')
+  const assistantLocale = readFileSync(new URL('../src/locales/modules/assistant.js', import.meta.url), 'utf8')
+  for (const token of [
+    'expertTeamPlanMetaLabel',
+    "t('assistant.expertTeamStatsAria')",
+    "t('assistant.expertTeamActivityStripAria')",
+    "t('assistant.expertTeamDetailSummary')",
+    "t('assistant.expertTeamTabAll')",
+    "t('assistant.expertTeamStageBoardAria')",
+    "t('assistant.expertTeamWorkboardAria')",
+    "t('assistant.expertTeamActivityAria')",
+    "t('assistant.expertTeamTraceTitle')",
+    "t('assistant.expertTeamProcessSummary'",
+  ]) {
+    assert.match(assistant, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
+  for (const token of [
+    'expertTeamStatsAria',
+    'expertTeamPlanMetaSequential',
+    'expertTeamPlanMetaParallel',
+    'expertTeamDetailSummary',
+    'expertTeamWorkboardAria',
+    'expertTeamTraceTitle',
+    'expertTeamProcessSummary',
+  ]) {
+    assert.match(assistantLocale, new RegExp(`${token}:\\s*_\\(`), `${token} should be translated`)
+  }
+  const runCardBlock = assistant.slice(
+    assistant.indexOf('function renderExpertTeamStatsBar'),
+    assistant.indexOf('function getExpertTeamOperations'),
+  ).replace(/\/\/[^\n]*/g, '')
+  for (const hardcoded of [
+    '运行统计',
+    '最近动态',
+    '暂无过程记录',
+    '运行详情',
+    '专家团阶段进度',
+    '专家团执行看板',
+    '专家执行队列',
+    '专家团实时活动',
+    '操作痕迹',
+    '完整过程 · 默认收起',
+  ]) {
+    assert.doesNotMatch(runCardBlock, new RegExp(hardcoded))
+  }
 })
 
 test('Assistant Expert Teams resume controls expose complete and synthesis-only paths', () => {
