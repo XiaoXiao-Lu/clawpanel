@@ -4305,27 +4305,35 @@ function renderErrorBanner() {
   _messagesEl.insertBefore(banner, _messagesEl.firstChild)
 }
 
-function renderExpertTeamMessage(m, idx) {
-  const transcript = m._expertTeamTranscript || []
-  const isRunning = m._expertTeamRunning || false
-  const groupName = escHtml(m._expertTeamName || '专家团')
-  const plan = m._expertTeamPlan
-  const progress = getExpertTeamProgress(transcript, plan, isRunning)
-  const activeAgents = isRunning ? getExpertTeamActiveAgents(transcript) : []
+// ── Stats Bar：底栏关键指标 + 查看详情入口 ──
+function renderExpertTeamStatsBar(progress, plan, transcript, isRunning, runMeta) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const expertTotal = Math.max(Array.isArray(plan?.members) ? plan.members.length : 0, 1)
+  const expertDone = events.filter(item => item.type === 'expert_done' || item.type === 'expert_error').length
+  const errorCount = events.filter(item => item.type === 'expert_error' || item.type === 'error' || item.type === 'moderator_error').length
+  const hasWarning = events.some(item => item.type === 'moderator_error') || hasExpertTeamModeratorFallback(events)
+  const elapsed = expertTeamRunElapsed(runMeta)
 
-  // ── 子面板数据 ──
-  const hasFinal = transcript.some(item => item.type === 'final')
-  const legacyEmptyFallback = !hasFinal && isExpertTeamEmptyResponseFailure(transcript, isRunning)
-  const primaryItems = legacyEmptyFallback
-    ? [buildExpertTeamNoExpertResponseDisplayItem(transcript, plan)]
-    : transcript.filter(item => ['final', 'error'].includes(item.type) || (!isRunning && !hasFinal && item.type === 'stopped'))
-  const primaryHtml = primaryItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('')
-  const processItems = transcript.filter(item => !['final', 'error', 'stopped'].includes(item.type))
+  const chunks = [
+    `<span class="ast-stats-metric ast-stats-metric--done">${icon('check-circle', 12)} ${expertDone}/${expertTotal}</span>`,
+    errorCount ? `<span class="ast-stats-metric ast-stats-metric--error">${icon('alert-circle', 12)} ${errorCount} 异常</span>` : `<span class="ast-stats-metric">${icon('alert-circle', 12)} 0 异常</span>`,
+    elapsed ? `<span class="ast-stats-metric">${icon('clock', 12)} ${escHtml(elapsed)}</span>` : '',
+  ]
+  if (hasWarning && !errorCount) {
+    chunks[1] = `<span class="ast-stats-metric ast-stats-metric--warning">${icon('shield', 12)} 降级</span>`
+  }
 
-  // ── 专家成员芯片数据 ──
-  const memberStatuses = getExpertTeamMemberStatuses(plan, transcript, isRunning)
+  return `<div class="ast-expert-stats-bar" aria-label="运行统计">
+    <span class="ast-expert-stats-metrics">${chunks.filter(Boolean).join('<span class="ast-expert-stats-sep"></span>')}</span>
+    <button type="button" class="ast-expert-stats-btn" onclick="this.closest('.ast-expert-team-run').querySelector('.ast-expert-detail-panel').toggleAttribute('open')" aria-expanded="false" aria-label="查看运行详情">
+      ${icon('maximize-2', 12)} 查看详情
+    </button>
+  </div>`
+}
 
-  // ── 折叠区域数据 ──
+// ── 合并详情面板：Tab 切换（全部/活动/工具/参数）+ 完整过程 ──
+function renderExpertTeamDetailPanel(transcript, plan, progress, isRunning, m) {
+  const events = Array.isArray(transcript) ? transcript : []
   const activityHtml = renderExpertTeamActivityFeed(transcript, m._expertTeamRun, isRunning)
   const traceHtml = renderExpertTeamOperationTrace(transcript)
   const governanceHtml = renderExpertTeamGovernance(getExpertTeamGovernance(plan, transcript, progress))
@@ -4350,35 +4358,83 @@ function renderExpertTeamMessage(m, idx) {
       </div>
     </details>
   ` : ''
-  const detailsItems = [activityHtml, traceHtml, governanceHtml, closeoutHtml, planHtml, runMetaHtml].filter(Boolean)
-  const activityCount = buildExpertTeamActivities(transcript, m._expertTeamRun, isRunning).length
-  const traceCount = Math.min(5, getExpertTeamOperations(transcript).length)
 
-  // ── 完整过程数据 ──
+  // 完整过程（专家发言 items）
+  const processItems = events.filter(item => !['final', 'error', 'stopped'].includes(item.type))
   const processHtml = processItems.length ? processItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('') : `
     <div class="ast-expert-item ast-expert-item--pending">
       <div class="ast-expert-item-head">
         <span class="ast-expert-status-dot"></span>
-        <strong>正在准备专家团</strong>
+        <strong>暂无过程记录</strong>
       </div>
-      <div class="ast-expert-skeleton"><span></span><span></span></div>
     </div>
   `
-  const processCount = processItems.filter(item => item.type !== 'round_start').length || (processItems.length ? processItems.length : 1)
+
+  const allHtml = [activityHtml, traceHtml, processHtml ? `<div class="ast-expert-items">${processHtml}</div>` : '', closeoutHtml, governanceHtml, planHtml, runMetaHtml].filter(Boolean).join('')
+  const paramHtml = [governanceHtml, planHtml, runMetaHtml, closeoutHtml].filter(Boolean).join('')
+
+  // 用 CSS-only tab 切换（radio buttons）
+  const panelId = `expert-detail-${expertTeamDomId(m)}`
+
+  return `<details class="ast-expert-detail-panel" id="${escAttr(panelId)}">
+    <summary class="ast-expert-detail-summary">
+      <span>${icon('list', 12)} 运行详情</span>
+      <span class="ast-expert-detail-summary-tabs">
+        <span>全部</span>
+        <span>活动</span>
+        <span>工具</span>
+        <span>参数</span>
+      </span>
+      <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
+    </summary>
+    <div class="ast-expert-detail-body">
+      <input type="radio" name="${escAttr(panelId)}-tab" id="${escAttr(panelId)}-tab-all" class="ast-expert-detail-radio" checked>
+      <input type="radio" name="${escAttr(panelId)}-tab" id="${escAttr(panelId)}-tab-activity" class="ast-expert-detail-radio">
+      <input type="radio" name="${escAttr(panelId)}-tab" id="${escAttr(panelId)}-tab-tool" class="ast-expert-detail-radio">
+      <input type="radio" name="${escAttr(panelId)}-tab" id="${escAttr(panelId)}-tab-param" class="ast-expert-detail-radio">
+      <div class="ast-expert-detail-tab-bar">
+        <label for="${escAttr(panelId)}-tab-all" class="ast-expert-detail-tab">全部</label>
+        <label for="${escAttr(panelId)}-tab-activity" class="ast-expert-detail-tab">活动</label>
+        <label for="${escAttr(panelId)}-tab-tool" class="ast-expert-detail-tab">工具</label>
+        <label for="${escAttr(panelId)}-tab-param" class="ast-expert-detail-tab">参数</label>
+      </div>
+      <div class="ast-expert-detail-content" data-tab="all">${allHtml}</div>
+      <div class="ast-expert-detail-content" data-tab="activity">${activityHtml}</div>
+      <div class="ast-expert-detail-content" data-tab="tool">${traceHtml}</div>
+      <div class="ast-expert-detail-content" data-tab="param">${paramHtml}</div>
+    </div>
+  </details>`
+}
+function renderExpertTeamMessage(m, idx) {
+  const transcript = m._expertTeamTranscript || []
+  const isRunning = m._expertTeamRunning || false
+  const groupName = escHtml(m._expertTeamName || '专家团')
+  const plan = m._expertTeamPlan
+  const progress = getExpertTeamProgress(transcript, plan, isRunning)
+  const activeAgents = isRunning ? getExpertTeamActiveAgents(transcript) : []
+
+  // ── 子面板数据 ──
+  const hasFinal = transcript.some(item => item.type === 'final')
+  const legacyEmptyFallback = !hasFinal && isExpertTeamEmptyResponseFailure(transcript, isRunning)
+  const primaryItems = legacyEmptyFallback
+    ? [buildExpertTeamNoExpertResponseDisplayItem(transcript, plan)]
+    : transcript.filter(item => ['final', 'error'].includes(item.type) || (!isRunning && !hasFinal && item.type === 'stopped'))
+  const primaryHtml = primaryItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('')
+
+  // ── 专家成员芯片数据 ──
+  const memberStatuses = getExpertTeamMemberStatuses(plan, transcript, isRunning)
 
   // ── 恢复操作 ──
   const resumeActionsHtml = renderExpertTeamResumeActions(m, idx)
 
-  // ── 汇总信息（折叠面板描述行） ──
-  const detailsDesc = [
-    activityCount ? `${activityCount} 项活动` : '',
-    traceCount ? `${traceCount} 项操作` : '',
-    plan ? `${plan.members?.length || 0} 位成员` : '',
-  ].filter(Boolean).join(' · ')
+  // ── 精简布局：只保留核心层 + Stats Bar + 合并详情 ──
+  const runMeta = getExpertTeamRunMeta(m, progress)
+  const statsBarHtml = renderExpertTeamStatsBar(progress, plan, transcript, isRunning, runMeta)
+  const detailPanelHtml = renderExpertTeamDetailPanel(transcript, plan, progress, isRunning, m)
 
   return `<div class="ast-msg ast-msg-ai ast-msg-expert-team" data-msg-idx="${idx}" data-expert-dom-id="${escAttr(expertTeamDomId(m))}">
     <div class="ast-expert-team-run ast-expert-copy-source">
-      <!-- 1. 头部：标题 + 状态徽章 + 副标题 + 进度条 -->
+      <!-- 1. 头部 -->
       <div class="ast-expert-team-header">
         <div class="ast-expert-team-title">
           <span class="ast-expert-team-icon ast-expert-team-icon--${escAttr(progress.status)}">${expertTeamRunIcon(progress.status)}</span>
@@ -4416,25 +4472,9 @@ function renderExpertTeamMessage(m, idx) {
       <!-- 6. 恢复操作 -->
       ${resumeActionsHtml}
 
-      <!-- 7. 运行细节（折叠） -->
-      ${detailsItems.length ? `<details class="ast-expert-run-details">
-        <summary class="ast-expert-run-details-summary">
-          <span>${icon('settings', 13)} 运行细节</span>
-          <small>${detailsDesc || '查看详情'}</small>
-          <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
-        </summary>
-        ${detailsItems.join('')}
-      </details>` : ''}
-
-      <!-- 8. 完整过程（折叠） -->
-      <details class="ast-expert-process">
-        <summary class="ast-expert-process-summary">
-          <span>${icon('list', 13)} 完整过程</span>
-          <small>${escHtml(String(processCount))} 条记录 · ${isRunning ? '实时更新' : '已归档'}</small>
-          <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
-        </summary>
-        <div class="ast-expert-items">${processHtml}</div>
-      </details>
+      <!-- 7. Stats Bar + 合并详情面板 -->
+      ${statsBarHtml}
+      ${detailPanelHtml}
 
       ${isRunning ? '<div class="ast-expert-running"></div>' : ''}
     </div>

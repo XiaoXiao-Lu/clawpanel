@@ -281,9 +281,9 @@
 }
 
 /* ── 预览 Markdown 样式 ── */
-.memory-preview h1 { font-size: 1.6em; font-weight: 750; margin: 24px 0 14px; padding-bottom: 6px; border-bottom: 1px solid var(--border-secondary); }
+.memory-preview h1 { font-size: 1.6em; font-weight: 700; margin: 24px 0 14px; padding-bottom: 6px; border-bottom: 1px solid var(--border-secondary); }
 .memory-preview h2 { font-size: 1.3em; font-weight: 700; margin: 20px 0 10px; }
-.memory-preview h3 { font-size: 1.1em; font-weight: 650; margin: 16px 0 8px; }
+.memory-preview h3 { font-size: 1.1em; font-weight: 600; margin: 16px 0 8px; }
 .memory-preview h4 { font-size: 1em; font-weight: 600; margin: 12px 0 6px; }
 .memory-preview p { margin: 8px 0; }
 
@@ -328,7 +328,7 @@
 
 .memory-preview th {
   background: var(--surface-sunken);
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-secondary);
 }
 

@@ -10,7 +10,7 @@ import { navigate } from '../router.js'
 import { t } from '../lib/i18n.js'
 import { wsClient } from '../lib/ws-client.js'
 import { attachCliConflictBanner } from '../components/cli-conflict-banner.js'
-import { icon } from '../lib/icons.js'
+import { icon, statusIcon } from '../lib/icons.js'
 import { countMcpServers } from '../lib/mcp-config.js'
 import { escapeHtml } from '../lib/utils.js'
 
@@ -590,7 +590,7 @@ function renderStatCards(page, services, version, agents, config, panelConfig) {
              <button class="btn btn-secondary btn-xs" data-action="open-settings">${t('dashboard.goSettings')}</button>
            </div>`
         : multiInstall && cliBound
-          ? `<div class="dashboard-meta-ok">✓ ${t('dashboard.multiInstallBoundOk', { count: installCount })}</div>
+          ? `<div class="dashboard-meta-ok">${statusIcon('ok', 14)} ${t('dashboard.multiInstallBoundOk', { count: installCount })}</div>
              <div class="dashboard-action-row"><button class="btn btn-secondary btn-xs" data-action="open-cleanup">${t('services.cleanupTitle')}</button></div>`
         : ''}
     </div>

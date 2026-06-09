@@ -93,7 +93,7 @@ function renderDetectionHint(pathValue, sourceLabel = '') {
 function renderStatusCard(title, ok, meta) {
   return `
     <div class="setup-status-card ${ok ? 'is-ok' : 'is-pending'}">
-      <div class="setup-status-icon">${ok ? '✓' : '✦'}</div>
+      <div class="setup-status-icon">${ok ? statusIcon('ok', 18) : icon('sparkles', 18)}</div>
       <div class="setup-status-body">
         <div class="setup-status-title">${title}</div>
         <div class="setup-status-meta" title="${escapeHtml(meta)}">${escapeHtml(meta)}</div>
@@ -268,7 +268,7 @@ async function runDetect(page) {
 }
 
 function stepIcon(ok) {
-  return `<span class="setup-step-icon ${ok ? 'is-ok' : 'is-pending'}">${ok ? '✓' : '✗'}</span>`
+  return `<span class="setup-step-icon ${ok ? 'is-ok' : 'is-pending'}">${ok ? statusIcon('ok', 14) : statusIcon('err', 14)}</span>`
 }
 
 function renderSteps(page, { node, git, cliOk, config, version }) {
@@ -663,7 +663,7 @@ function bindEvents(page, nodeOk, detectState) {
     }
     try {
       const msg = await api.autoInstallGit()
-      if (resultEl) resultEl.innerHTML = `<span style="color:var(--success)">✓ ${msg}</span>`
+      if (resultEl) resultEl.innerHTML = `${statusIcon('ok', 14)} ${msg}`
       toast(t('setup.gitInstallSuccess'), 'success')
       // 安装成功后自动配置 HTTPS
       api.configureGitHttps().catch(() => {})
@@ -786,7 +786,7 @@ function bindEvents(page, nodeOk, detectState) {
       cfg.openclawDir = value
       await api.writePanelConfig(cfg)
       invalidate()
-      if (dirResultEl) dirResultEl.innerHTML = `<span style="color:var(--success)">✓ ${t('setup.pathSaved')}</span>`
+      if (dirResultEl) dirResultEl.innerHTML = `${statusIcon('ok', 14)} ${t('setup.pathSaved')}`
       const savedMsg = t('setup.customPathSaved')
       const refreshed = await maybeRefreshGatewayServiceBinding()
       if (refreshed) toast(savedMsg, 'success')
@@ -819,7 +819,7 @@ function bindEvents(page, nodeOk, detectState) {
       await api.writePanelConfig(cfg)
       invalidate()
       if (resultEl) {
-        resultEl.innerHTML = `<span style="color:var(--success)">✓ ${paths.length > 0 ? t('setup.searchOpenclawExtraPathsSaved') : t('setup.searchOpenclawExtraPathsCleared')}</span>`
+        resultEl.innerHTML = `${statusIcon('ok', 14)} ${paths.length > 0 ? t('setup.searchOpenclawExtraPathsSaved') : t('setup.searchOpenclawExtraPathsCleared')}`
       }
       toast(paths.length > 0 ? t('setup.searchOpenclawExtraPathsSaved') : t('setup.searchOpenclawExtraPathsCleared'), 'success')
       setTimeout(() => runDetect(page), 300)
@@ -842,7 +842,7 @@ function bindEvents(page, nodeOk, detectState) {
       await api.writePanelConfig(cfg)
       invalidate()
       if (dirInput) dirInput.value = ''
-      if (dirResultEl) { dirResultEl.style.display = 'block'; dirResultEl.innerHTML = `<span style="color:var(--success)">✓ ${t('setup.defaultRestored')}</span>` }
+      if (dirResultEl) { dirResultEl.style.display = 'block'; dirResultEl.innerHTML = `${statusIcon('ok', 14)} ${t('setup.defaultRestored')}` }
       const restoredMsg = t('setup.defaultRestoredToast')
       const refreshed = await maybeRefreshGatewayServiceBinding()
       if (refreshed) toast(restoredMsg, 'success')
@@ -897,7 +897,7 @@ function bindEvents(page, nodeOk, detectState) {
             ? ''
             : `<span style="font-size:11px;color:var(--danger)">${t('setup.nodeVersionTooLowShort', { required: r.requiredVersion || t('common.unknown') })}</span>`
           return `<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
-            <span style="color:${color}">${compatible ? '✓' : '✗'}</span>
+            ${compatible ? statusIcon('ok', 14) : statusIcon('err', 14)}
             <code style="flex:1;background:var(--bg-secondary);padding:2px 6px;border-radius:3px;font-size:11px">${escapeHtml(r.path)}</code>
             <span style="font-size:11px;color:var(--text-tertiary)">${escapeHtml(r.version)}</span>
             ${status}
@@ -937,11 +937,11 @@ function bindEvents(page, nodeOk, detectState) {
       const result = await api.checkNodeAtPath(dir)
       if (result.installed) {
         if (result.compatible === false) {
-          resultEl.innerHTML = `<span style="color:var(--danger)">✗ ${t('setup.nodeVersionUnsupported', { version: result.version || t('common.unknown'), required: result.requiredVersion || t('common.unknown') })}</span>`
+          resultEl.innerHTML = `${statusIcon('err', 14)} ${t('setup.nodeVersionUnsupported', { version: result.version || t('common.unknown'), required: result.requiredVersion || t('common.unknown') })}`
           return
         }
         await api.saveCustomNodePath(dir)
-        resultEl.innerHTML = `<span style="color:var(--success)">✓ ${t('setup.nodeFoundSaved', { version: result.version })}</span>`
+        resultEl.innerHTML = `${statusIcon('ok', 14)} ${t('setup.nodeFoundSaved', { version: result.version })}`
         toast(t('setup.nodeSaved'), 'success')
         setTimeout(() => runDetect(page), 300)
       } else {
@@ -965,7 +965,7 @@ function bindEvents(page, nodeOk, detectState) {
       await api.invalidatePathCache().catch(() => {})
       if (resultEl) {
         resultEl.style.display = 'block'
-        resultEl.innerHTML = `<span style="color:var(--success)">✓ ${successText}</span>`
+        resultEl.innerHTML = `${statusIcon('ok', 14)} ${successText}`
       }
       const refreshed = await maybeRefreshGatewayServiceBinding()
       if (refreshed) toast(successText, 'success')
@@ -1028,7 +1028,7 @@ function bindEvents(page, nodeOk, detectState) {
       }
       resultEl.innerHTML = `${results.map((item, index) => `
         <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
-          <span style="color:var(--success)">✓</span>
+          ${statusIcon('ok', 14)}
           <div style="flex:1;min-width:0">
             <code style="display:block;background:var(--bg-secondary);padding:2px 6px;border-radius:3px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(item.path)}">${escapeHtml(item.path)}</code>
             <span style="font-size:11px;color:var(--text-tertiary)">${escapeHtml(openclawSourceLabel(item.source))}${item.version ? ` · v${escapeHtml(item.version)}` : ''}</span>

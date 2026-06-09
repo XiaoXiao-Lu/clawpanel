@@ -6,7 +6,7 @@
 
 import { t } from '../lib/i18n.js'
 
-const BOT_ICON = '<svg viewBox="0 0 24 24"><path d="M12 8V4H8"/><rect x="5" y="8" width="14" height="12" rx="2"/><path d="M9 13h0"/><path d="M15 13h0"/><path d="M10 17h4"/></svg>'
+const BOT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="12" y1="12" x2="12" y2="12.01"/><circle cx="9" cy="12" r="0.5" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="0.5" fill="currentColor" stroke="none"/><path d="M9 16c.83.67 1.83 1 3 1s2.17-.33 3-1"/></svg>'
 
 const POS_KEY = 'clawpanel-fab-pos'
 const ENABLE_AI_FAB = true

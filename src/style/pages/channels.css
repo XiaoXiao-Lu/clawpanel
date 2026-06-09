@@ -179,7 +179,7 @@
   flex-shrink: 0;
 }
 .platform-name {
-  font-weight: 800;
+  font-weight: 700;
   font-size: var(--font-size-md);
   flex: 1;
 }

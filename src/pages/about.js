@@ -182,7 +182,7 @@ async function loadHermesData(page) {
                 <div class="hermes-config-row"><span class="hermes-config-label">Base URL:</span><span style="word-break:break-all">${esc(cfg.base_url || '-')}</span></div>
                 <div class="hermes-config-row"><span class="hermes-config-label">API Key:</span><span style="font-family:monospace">${esc(maskedKey)}</span></div>
                 <div class="hermes-config-row"><span class="hermes-config-label">${t('engine.configModel')}:</span><span style="word-break:break-all">${esc(cfg.model_raw || cfg.model || '-')}</span></div>
-                <div class="hermes-config-row"><span class="hermes-config-label">${t('about.hermesConfigFile')}:</span><span style="color:${cfg.config_exists ? 'var(--success)' : 'var(--warning)'}">${cfg.config_exists ? '✓' : '✗'}</span></div>
+                <div class="hermes-config-row"><span class="hermes-config-label">${t('about.hermesConfigFile')}:</span><span>${cfg.config_exists ? statusIcon('ok', 14) : statusIcon('err', 14)}</span></div>
               </div>
             `,
             buttons: [
@@ -230,7 +230,7 @@ async function loadHermesData(page) {
           modal.setDone(t('about.hermesUpgradeOk', { version: ver || '' }))
           modal.onClose(() => loadHermesData(page))
         } catch (e) {
-          modal.appendLog(`❌ ${e.message || e}`)
+          modal.appendHtmlLog(`${statusIcon('err', 14)} ${e.message || e}`)
           modal.setError(t('about.hermesUpgradeFail', { error: e.message || e }))
           modal.onClose(() => loadHermesData(page))
         } finally {
@@ -251,18 +251,18 @@ async function loadHermesData(page) {
           installing: t('about.uninstalling'),
           done: t('about.hermesUninstallOk'),
         })
-        modal.appendLog('🗑️ ' + t('about.uninstalling'))
-        if (cleanConfig) modal.appendLog('📁 ' + t('about.hermesUninstallCleanConfigHint'))
+        modal.appendHtmlLog(icon('trash-2', 14) + ' ' + t('about.uninstalling'))
+        if (cleanConfig) modal.appendHtmlLog(icon('folder', 14) + ' ' + t('about.hermesUninstallCleanConfigHint'))
         modal.setProgress(30)
 
         try {
           const result = await api.uninstallHermes(cleanConfig)
-          modal.appendLog('✅ ' + (result || t('about.hermesUninstallOk')))
+          modal.appendHtmlLog(statusIcon('ok', 14) + ' ' + (result || t('about.hermesUninstallOk')))
           modal.setProgress(100)
           modal.setDone(t('about.hermesUninstallOk'))
           modal.onClose(() => loadHermesData(page))
         } catch (e) {
-          modal.appendLog(`❌ ${e.message || e}`)
+          modal.appendHtmlLog(`${statusIcon('err', 14)} ${e.message || e}`)
           modal.setError(t('about.hermesUninstallFail', { error: e.message || e }))
           modal.onClose(() => loadHermesData(page))
         }
@@ -765,7 +765,7 @@ async function checkNewVersion(cards, panelVersion) {
 
     if (isFakeUpdate) {
       meta.innerHTML = renderPanelUpdateMeta({
-        statusHtml: `<span class="panel-update-warning">⚠️ ${t('about.versionMismatch', { frontend: panelVersion, binary: binaryVersion })}</span><span>${t('about.installerOnlyUpdateHint')}</span>`,
+        statusHtml: `<span class="panel-update-warning">${statusIcon('warn', 14)} ${t('about.versionMismatch', { frontend: panelVersion, binary: binaryVersion })}</span><span>${t('about.installerOnlyUpdateHint')}</span>`,
         installerSummary,
         websiteDownloadUrl,
         githubFallbackUrl,
@@ -789,7 +789,7 @@ async function checkNewVersion(cards, panelVersion) {
     meta.removeAttribute('style')
     if (isFakeUpdate) {
       meta.innerHTML = `
-        <div class="panel-update-status"><span class="panel-update-warning">⚠️ ${t('about.versionMismatch', { frontend: panelVersion, binary: binaryVersion })}</span></div>
+        <div class="panel-update-status"><span class="panel-update-warning">${statusIcon('warn', 14)} ${t('about.versionMismatch', { frontend: panelVersion, binary: binaryVersion })}</span></div>
         <div class="panel-update-actions">
           <a class="btn btn-primary btn-sm" href="https://claw.qt.cool" target="_blank" rel="noopener">${t('about.downloadFullInstaller')}</a>
         </div>

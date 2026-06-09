@@ -16,7 +16,7 @@
   display: flex;
   flex-direction: column;
   border: 1px solid color-mix(in srgb, var(--border-primary) 82%, transparent);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: var(--bg-secondary);
   color: var(--text-primary);
   box-shadow: 0 18px 48px rgba(15, 23, 42, 0.28);
@@ -131,7 +131,7 @@
   background: var(--bg-tertiary);
   color: var(--text-tertiary);
   font-size: 10px;
-  font-weight: 750;
+  font-weight: 700;
   line-height: 1;
 }
 .site-message-tab.active {
@@ -398,7 +398,7 @@
   margin-bottom: 8px;
   color: var(--accent);
   font-size: var(--font-size-xs);
-  font-weight: 760;
+  font-weight: 700;
 }
 .site-message-announcement-kicker small {
   padding: 3px 7px;
@@ -456,7 +456,7 @@
   .site-message-modal {
     width: 100%;
     max-height: calc(100vh - 20px);
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
   }
   .site-message-header {
     grid-template-columns: 1fr auto;

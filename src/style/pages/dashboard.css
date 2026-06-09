@@ -66,7 +66,7 @@
   background: color-mix(in srgb, var(--warning) 12%, transparent);
   color: var(--warning);
   font-size: var(--font-size-md);
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1;
 }
 
@@ -77,7 +77,7 @@
 .cli-conflict-banner-title {
   color: var(--text-primary);
   font-size: var(--font-size-sm);
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.4;
 }
 
@@ -646,7 +646,7 @@
 .overview-card-icon--muted { color: var(--text-tertiary); }
 .ws-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
 .ws-detail { font-weight: normal; color: var(--text-tertiary); font-size: var(--font-size-xs); }
-.channel-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px; background: var(--bg-secondary); font-size: var(--font-size-xs); white-space: nowrap; }
+.channel-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: var(--radius-pill); background: var(--bg-secondary); font-size: var(--font-size-xs); white-space: nowrap; }
 .channel-chip-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
 .channel-section { margin-top: 12px; }
 .channel-section-title { display: flex; flex-wrap: wrap; gap: 8px; }

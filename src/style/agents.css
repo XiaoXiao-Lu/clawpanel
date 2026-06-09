@@ -527,7 +527,7 @@
     color-mix(in srgb, var(--agent-color) 17%, var(--bg-card));
   border: 1px solid color-mix(in srgb, var(--agent-color) 34%, var(--border-gray-028));
   font-size: var(--font-size-md);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .agent-office-profile-main {
@@ -803,7 +803,7 @@
 .agent-office-activity-meta b {
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
-  font-weight: 650;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
