@@ -46,18 +46,18 @@
 }
 .btn-secondary:hover {
   background: var(--bg-card-hover);
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: var(--border-1);
   color: var(--text-1);
 }
 
 .btn-danger {
   background: var(--error-muted);
-  border-color: rgba(239, 68, 68, 0.18);
+  border-color: var(--error-border);
   color: var(--error);
 }
 .btn-danger:hover {
-  background: rgba(239, 68, 68, 0.14);
-  border-color: rgba(239, 68, 68, 0.30);
+  background: var(--error-muted);
+  border-color: var(--error-border);
 }
 
 .btn-ghost {
@@ -236,7 +236,7 @@
 }
 .input:hover,
 .form-input:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: var(--border-1);
   background: var(--bg-elevated);
 }
 .input:focus,
@@ -469,7 +469,7 @@ body.has-desktop-chrome .toast-container {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--overlay-dark);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -596,7 +596,7 @@ body.has-desktop-chrome .toast-container {
   height: 18px;
   border-radius: 50%;
   background: var(--bg-elevated);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  box-shadow: var(--shadow-1);
   transition: transform var(--ease-fast);
 }
 .toggle-switch input:checked + .toggle-slider {
@@ -921,9 +921,9 @@ mark:focus {
 .comm-approval-item:hover { background: var(--bg-hover); }
 .comm-approval-item:last-child { border-bottom:none }
 .comm-approval-item-main { min-width:0; flex:1 }
-.comm-approval-item-cmd { font-size:13px; font-family: var(--font-mono); }
-.comm-approval-item-badge { font-size:11px; margin-right:4px }
-.comm-approval-item-meta { font-size:12px; color:var(--text-tertiary); margin-top:2px }
+.comm-approval-item-cmd { font-size:var(--text-sm); font-family: var(--font-mono); }
+.comm-approval-item-badge { font-size:var(--text-xs); margin-right:4px }
+.comm-approval-item-meta { font-size:var(--text-sm); color:var(--text-tertiary); margin-top:2px }
 
 /* ─── Form utilities ─── */
 .form-group--row { display:flex; align-items:center; justify-content:space-between; gap: var(--space-3); }

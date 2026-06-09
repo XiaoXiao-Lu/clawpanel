@@ -43,7 +43,7 @@
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background var(--transition-fast);
 }
 .hermes-extra-item:hover {
   background: var(--bg-secondary);
@@ -985,7 +985,7 @@
   display: inline-block;
   font-size: var(--font-size-xs);
   margin-right: 6px;
-  transition: transform 0.18s ease;
+  transition: transform var(--ease-fast);
 }
 .page-inline-error-details[open] summary::before {
   transform: rotate(90deg);
@@ -993,7 +993,7 @@
 .page-inline-error-details pre {
   margin: 8px 0 0;
   padding: 10px 12px;
-  background: var(--bg-tertiary, rgba(0,0,0,0.04));
+  background: var(--bg-tertiary);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: var(--text-xs);

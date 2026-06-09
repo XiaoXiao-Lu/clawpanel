@@ -64,6 +64,7 @@
 - **可访问性**: 所有交互元素必须有焦点状态，表单必须有标签
 
 ## 最近修改
+- 2026-06-09: 深度 UI 审查第十轮 — 统一 38 处 escapeHtml、agents.css 33 处 rgba 清理、polish.css 拆分、11 处键盘可访问性修复，修改 55 个文件
 - 2026-06-09: 深度 UI 审查第九轮 — 修复 2 个 P0 + 3 个 P1 + 3 个 P2 问题，修改 27 个文件
 - 2026-06-09: 生成报告 reports/ui-review-2026-06-09-121014.md
 - 2026-06-09: 深度 UI 审查第八轮 — 修复 5 个 P0 + 5 个 P1 问题，修改 26 个文件
@@ -106,10 +107,8 @@
 ## 待处理高优先级问题
 1. **assistant.js 8321 行巨型文件**: 需拆分为 3-5 个子模块（settings/messages/experts/commands）
 2. **engines/hermes/pages/config.js 5008 行**: 需要拆分
-3. **事件监听器泄漏**: 575+ 处 addEventListener vs 35 处 removeEventListener，应引入 AbortController 模式
+3. **事件监听器泄漏**: 635 处 addEventListener vs 32 处 removeEventListener，应引入 AbortController 模式
 4. **hermes.css 7803 行**: 全项目最大 CSS 文件，需按子页面拆分
-5. **polish.css 901 行**: 职责不明确，应拆分回对应文件
-6. **agents.css 剩余 33 处 rgba**: 继续清理独特的渐变色
-7. **50+ 处 DOM innerHTML 全量更新**: 聊天消息等高频更新区域应改用增量更新
-8. **100+ 处图标按钮缺少 aria-label**: 需逐步补充
-9. **50+ 处可点击 div 缺少键盘事件**: 需添加 onkeydown 支持
+5. **50+ 处 DOM innerHTML 全量更新**: 聊天消息等高频更新区域应改用增量更新
+6. **100+ 处图标按钮缺少 aria-label**: 需逐步补充（本轮修复 4 个）
+7. **50+ 处可点击 div 缺少键盘事件**: 需添加 onkeydown 支持（本轮修复 11 处）

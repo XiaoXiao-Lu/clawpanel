@@ -707,8 +707,8 @@
 .expert-tag-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 200;
-  background: rgba(0, 0, 0, 0.45);
+  z-index: var(--z-modal);
+  background: var(--overlay-dark);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -836,4 +836,10 @@
   padding: 10px 16px;
   border-top: 1px solid var(--border);
   background: var(--bg-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .expert-list-skeleton {
+    animation: none !important;
+  }
 }

@@ -524,7 +524,7 @@
   border-style: dashed;
 }
 
-.btn-ghost {
+.models-ghost-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -539,7 +539,7 @@
   transition: color var(--transition-fast);
 }
 
-.btn-ghost:hover {
+.models-ghost-btn:hover {
   color: var(--accent);
 }
 
@@ -2151,6 +2151,15 @@
 .models-workbench .model-tag--rz {
   background: var(--brand-faint);
   color: var(--brand);
+}
+
+/* Focus visible for models interactive elements */
+.model-item:focus-visible,
+.provider-tab:focus-visible,
+.preset-btn:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  box-shadow: var(--shadow-glow);
 }
 
 /* ─── Latency badges ─── */

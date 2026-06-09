@@ -374,7 +374,8 @@
 }
 
 /* === 通用按钮 === */
-.btn-icon {
+.services-page .btn-icon,
+.service-card .btn-icon {
   background: none;
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-sm);
@@ -385,21 +386,24 @@
   color: inherit;
   transition: background var(--transition-fast), color var(--transition-fast);
 }
-.btn-icon:hover {
+.services-page .btn-icon:hover,
+.service-card .btn-icon:hover {
   background: var(--bg-secondary);
   border-color: var(--border-focus);
 }
-.btn-icon.danger:hover {
+.services-page .btn-icon.danger:hover,
+.service-card .btn-icon.danger:hover {
   background: var(--error-muted);
   border-color: var(--error);
 }
-.btn-icon:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+.services-page .btn-icon:disabled,
+.service-card .btn-icon:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
 
 /* 弹窗 */
 .docker-dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,.6);
+  background: var(--overlay-dark);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -408,7 +412,7 @@
 }
 .docker-dialog {
   background: var(--bg-primary);
-  border-radius: var(--radius-xl, 16px);
+  border-radius: var(--radius-xl);
   padding: var(--space-xl, 24px);
   width: 90%;
   max-width: 480px;
@@ -549,4 +553,13 @@
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* Focus visible for services interactive elements */
+.service-card:focus-visible,
+.gw-option-card:focus-visible,
+.tab-nav-btn:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  box-shadow: var(--shadow-glow);
 }

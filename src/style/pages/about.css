@@ -108,7 +108,7 @@
 .company-logo {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   flex-shrink: 0;
 }
 .company-name {
@@ -163,7 +163,7 @@
 .sponsor-qr {
   width: 64px;
   height: 64px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
   background: #fff;
   padding: 2px;
@@ -184,7 +184,7 @@
   font-size: var(--text-xxs);
   background: var(--bg-sunken);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   user-select: all;
   word-break: break-all;
   display: block;
@@ -213,7 +213,7 @@
   gap: 6px;
   cursor: pointer;
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   font-size: var(--text-sm);
   flex: 1;
@@ -232,7 +232,7 @@
   color: var(--text-3);
   line-height: 1.6;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--bg-sunken);
 }
 .version-actions-row {
@@ -274,7 +274,7 @@
 .qr-preview-img {
   width: 240px;
   height: 240px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   margin: 12px auto;
   display: block;
 }
@@ -287,7 +287,7 @@
   font-size: var(--text-xs);
   background: var(--bg-sunken);
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   user-select: all;
   word-break: break-all;
   display: block;

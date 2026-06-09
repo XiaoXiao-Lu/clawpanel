@@ -635,8 +635,8 @@
 .dashboard-error-card .btn { margin-top: 8px; }
 .dashboard-warning-hint { margin-top: 8px; color: var(--warning); line-height: 1.6; }
 .dashboard-warning-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-.dashboard-meta-xs { margin-top: 2px; font-size: 11px; opacity: 0.7; }
-.dashboard-meta-ok { margin-top: 4px; color: var(--text-tertiary); font-size: 11px; }
+.dashboard-meta-xs { margin-top: 2px; font-size: var(--text-xs); opacity: 0.7; }
+.dashboard-meta-ok { margin-top: 4px; color: var(--text-tertiary); font-size: var(--text-xs); }
 .dashboard-action-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .overview-card[data-nav] { cursor: pointer; }
 .overview-value-sm { font-size: var(--font-size-sm); }
@@ -654,9 +654,9 @@
 .session-section-title span { font-weight: normal; color: var(--text-tertiary); font-size: var(--font-size-xs); }
 .log-empty { color: var(--text-tertiary); padding: 12px; }
 .log-line-flex { display: flex; align-items: center; gap: 6px; }
-.log-line-time { color: var(--text-tertiary); font-size: 11px; opacity: 0.7; margin-right: 4px; }
+.log-line-time { color: var(--text-tertiary); font-size: var(--text-xs); opacity: 0.7; margin-right: 4px; }
 .log-line-msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.log-level-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.5px; }
+.log-level-badge { display: inline-block; padding: 1px 6px; border-radius: var(--radius-xs); font-size: var(--text-xxs); font-weight: 600; letter-spacing: 0.5px; }
 .log-level-badge--error { background: var(--error-muted); color: var(--error); border: 1px solid var(--error-border); }
 .log-level-badge--fatal { background: var(--error-muted); color: var(--error); border: 1px solid var(--error-border); }
 .log-level-badge--warn { background: var(--warning-muted); color: var(--warning); border: 1px solid var(--warning-border); }

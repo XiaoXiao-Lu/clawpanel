@@ -6096,7 +6096,7 @@ function renderMessages() {
   })
 }
 
-function _linkify(str) { return str.replace(/(https?:\/\/[^\s,，。；）)'"]+)/g, '<a href="$1" target="_blank" style="color:var(--primary)">$1</a>') }
+function _linkify(str) { return str.replace(/(https?:\/\/[^\s,，。；）)'"]+)/g, '<a href="$1" target="_blank" class="ast-link">$1</a>') }
 
 function buildTestResult({ success, elapsed, usedApi, reqUrl, reqBody, respStatus, respHeaders, respBody, respRawHex, respByteCount, reply, error }) {
   let html = ''

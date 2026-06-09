@@ -857,7 +857,7 @@ body.has-desktop-chrome #main-col {
   position: fixed;
   inset: 0;
   z-index: var(--z-overlay);
-  background: rgba(0,0,0,0.35);
+  background: var(--overlay-dark);
   opacity: 0;
   pointer-events: none;
   transition: opacity 200ms ease;

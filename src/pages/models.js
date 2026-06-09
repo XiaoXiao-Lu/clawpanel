@@ -591,7 +591,7 @@ function renderConsole(page, state) {
             }).join('')
           : `<span class="models-empty-fallback">${t('models.noFallback')}</span>`
         }
-        <button class="btn btn-sm btn-ghost" id="models-toggle-fallbacks">${icon('layers', 12)} ${t('models.manageFallbacks')}</button>
+        <button class="btn btn-sm models-ghost-btn" id="models-toggle-fallbacks">${icon('layers', 12)} ${t('models.manageFallbacks')}</button>
       `
       // 重新绑定备选 pill 点击
       fbInline.querySelectorAll('[data-action="toggle-fallback"]').forEach(pill => {
@@ -693,7 +693,7 @@ function renderConsole(page, state) {
                 }).join('')
               : `<span class="models-empty-fallback">${t('models.noFallback')}</span>`
             }
-            <button class="btn btn-sm btn-ghost" id="models-toggle-fallbacks">${icon('layers', 12)} ${t('models.manageFallbacks')}</button>
+            <button class="btn btn-sm models-ghost-btn" id="models-toggle-fallbacks">${icon('layers', 12)} ${t('models.manageFallbacks')}</button>
           </div>
         </div>
       </div>

@@ -176,7 +176,7 @@
   gap: 4px;
   padding: 10px 12px;
   border: 1px solid var(--border-1);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--bg-card);
   box-shadow: var(--shadow-1);
 }
@@ -249,7 +249,7 @@
   gap: 3px;
   padding: 10px 12px;
   border: 1px solid var(--agent-diag-working-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--agent-diag-working-bg);
 }
 
@@ -292,7 +292,7 @@
   gap: 3px;
   padding: 9px 10px;
   border: 1px solid var(--border-gray-018);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface-white-074);
 }
 
@@ -484,7 +484,7 @@
   width: auto;
   max-height: none;
   border: 1px solid var(--border-gray-024);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface-white-092);
   padding: 16px;
   min-width: 0;
@@ -520,7 +520,7 @@
   height: 44px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: color-mix(in srgb, var(--agent-color) 70%, var(--text-1));
   background:
     radial-gradient(circle at 30% 25%, var(--surface-white-096), transparent 34%),
@@ -620,7 +620,7 @@
   margin-bottom: 12px;
   padding: 12px;
   border: 1px solid var(--border-gray-020);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background:
     linear-gradient(180deg, var(--surface-slate-086), var(--surface-white-096));
 }
@@ -666,7 +666,7 @@
   margin: 0;
   padding: 16px;
   border: 1px solid var(--border-gray-024);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface-white-092);
   box-shadow: 0 12px 30px var(--shadow-slate-006);
 }
@@ -711,7 +711,7 @@
   gap: 2px;
   padding: 8px 9px;
   border: 1px solid var(--border-gray-022);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--text-tertiary);
   font-size: var(--font-size-xs);
   background: var(--surface-slate-076);
@@ -739,7 +739,7 @@
   gap: 10px;
   text-align: left;
   border: 1px solid var(--border-gray-018);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface-slate-062);
   padding: 9px 10px;
   cursor: pointer;
@@ -840,7 +840,7 @@
   text-align: left;
   border: 1px solid var(--border-gray-016);
   border-left: 3px solid var(--agent-idle);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface-slate-058);
   padding: 8px 9px;
   cursor: pointer;

@@ -1,5 +1,30 @@
 # Automation: UI Fix — 执行记录
 
+## 2026-06-09 15:50 — 深度 UI 审查与优化（第十一轮）
+
+- 审查范围：全部 CSS 文件 + 核心 JS 文件（使用 design-scanner/code-scanner/a11y-scanner/ux-scanner 4 个 agent 并行分析）
+- 修复 28 处硬编码 rgba 颜色 → CSS 变量（chat/layout/assistant/ai-drawer/services/expert-teams/command-palette/channels）
+- 修复 5 处硬编码 transition → CSS 变量（ai-drawer ×3 + misc）
+- 修复 4 处硬编码 box-shadow → var(--shadow-sm)（chat.css）
+- 修复 2 处 JS 问题：assistant.js _linkify 内联样式迁移为 CSS 类 .ast-link、ws-client.js 异常信息使用 e?.message
+- 修复 5 处错误 fallback 值（chat + services + misc）
+- 新增 6 个文件 focus-visible 可访问性样式（chat/assistant/models/channels/services/expert-teams）
+- 新增 4 个文件 prefers-reduced-motion（ai-drawer/debug/expert-teams + 完善 chat/assistant）
+- 新增 --radius-xs: 4px CSS 变量至 variables.css
+- 修改 15 个文件（10 CSS + 3 JS + 1 报告 + 1 记忆）
+- 生成报告：reports/ui-review-2026-06-09-155000.md
+- 遗留：assistant.js 8321 行拆分、renderMessages 增量更新、hermes.css 7803 行拆分、事件监听器泄漏、--accent 变量迁移
+
+## 2026-06-09 14:40 — 深度 UI 审查与优化（第十轮）
+
+- 审查范围：全部 CSS + JS + HTML + 响应式 + 性能 + UX创新（使用 4 个 agent 并行分析 + 3 个 agent 并行修复）
+- 修复 11 个 P0：CSS圆角层级缺失、dashboard日志Badge硬编码颜色、Hermes日志硬编码颜色、Modal焦点栈竞态、Modal键盘监听器泄漏、Toast XSS风险、Engagement焦点恢复缺失、Assistant cleanup不完整、噪点层z-index过高、移动端触摸目标不达标
+- 优化 4 个 P1：chat/assistant/services.css prefers-reduced-motion、sidebar overlay DOM泄漏
+- 发现 21 个 P2 + 15 个 P3 可选优化
+- 修改 13 个文件（7 CSS + 6 JS）
+- 生成报告：reports/ui-review-2026-06-09-144013.md
+- 遗留：assistant.js 8980行拆分、renderMessages增量更新、--accent-rgb缺失、Engine Select硬编码颜色
+
 ## 2026-06-09 12:10 — 深度 UI 审查与优化（第九轮）
 
 - 审查范围：全部 CSS + JS + HTML（使用 4 个 agent 并行分析 + 3 个 agent 并行修复）

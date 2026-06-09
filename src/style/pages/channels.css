@@ -191,7 +191,7 @@
 }
 .platform-status-dot.on {
   background: var(--success, #22c55e);
-  box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+  box-shadow: 0 0 6px var(--success-muted);
 }
 .platform-status-dot.off {
   background: var(--text-tertiary);
@@ -226,12 +226,12 @@
 .channel-runtime-notice.warning {
   color: var(--warning);
   background: var(--warning-muted);
-  border-color: rgba(217, 119, 6, 0.25);
+  border-color: var(--warning-border);
 }
 .channel-runtime-notice.error {
   color: var(--error);
   background: var(--error-muted);
-  border-color: rgba(220, 38, 38, 0.25);
+  border-color: var(--error-border);
 }
 .runtime-badge,
 .runtime-account {
@@ -374,7 +374,7 @@
 }
 .platform-pick.configured {
   border-color: var(--success, #22c55e);
-  background: rgba(34, 197, 94, 0.04);
+  background: var(--success-muted);
 }
 .platform-pick-name {
   font-weight: 600;
@@ -445,7 +445,7 @@
   font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--success, #22c55e);
-  background: rgba(34, 197, 94, 0.1);
+  background: var(--success-muted);
   padding: 2px 8px;
   border-radius: var(--radius-pill);
 }
@@ -826,3 +826,12 @@
 .setup-help-list { margin: 0 0 12px 18px; padding: 0; line-height: 1.8; color: var(--text-secondary); }
 .setup-warning-note { margin-top: 8px; padding: 8px 12px; background: var(--bg-tertiary); border-radius: var(--radius-sm); font-size: var(--font-size-xs); color: var(--warning, #f59e0b); line-height: 1.6; }
 .btn-compact { font-size: 11px; padding: 3px 10px; }
+
+/* Focus visible for channels interactive elements */
+.platform-card:focus-visible,
+.option-card:focus-visible,
+.account-item:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  box-shadow: var(--shadow-glow);
+}

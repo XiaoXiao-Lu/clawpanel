@@ -613,7 +613,7 @@ export class WsClient {
       }, 3000)
     } catch (e) {
       console.error('[ws] 自动配对失败:', e)
-      this._setConnected(false, 'error', `配对失败: ${e}`)
+      this._setConnected(false, 'error', `配对失败: ${e?.message || e}`)
     }
   }
 
@@ -640,7 +640,7 @@ export class WsClient {
       }, 3000)
     } catch (e) {
       console.error('[ws] 刷新凭据失败:', e)
-      this._setConnected(false, 'error', `凭据刷新失败: ${e}`)
+      this._setConnected(false, 'error', `凭据刷新失败: ${e?.message || e}`)
     }
   }
 

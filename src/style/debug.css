@@ -30,14 +30,16 @@
 }
 
 /* 状态概览卡片 */
-.config-section {
+.debug-page .config-section,
+.diagnose-page .config-section {
   background: var(--bg-secondary);
   border-radius: var(--radius-sm);
   padding: 12px;
   margin-bottom: 12px;
 }
 
-.config-section-title {
+.debug-page .config-section-title,
+.diagnose-page .config-section-title {
   font-size: var(--text-base);
   font-weight: 600;
   color: var(--text-primary);
@@ -147,4 +149,11 @@
   outline: 2px solid var(--brand);
   outline-offset: 2px;
   box-shadow: var(--shadow-glow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scan-ring-spin, .scan-inner, .scan-item, .result-summary {
+    animation: none !important;
+    transition: none !important;
+  }
 }
