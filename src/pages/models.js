@@ -1193,79 +1193,77 @@ function renderProviders(page, state) {
     </div>
   `
 
-  // 表格 HTML
+  // 卡片网格 HTML
   const tableHtml = allModels.length === 0
     ? `<div class="models-table-empty">${t('models.noModel')}</div>`
     : `
-      <div class="models-table-wrap">
-        <table class="models-table">
-          <thead>
-            <tr>
-              <th class="col-cb"><input type="checkbox" id="models-select-all"></th>
-              <th class="col-model">${t('models.colModel')}</th>
-              <th class="col-provider">${t('models.colProvider')}</th>
-              <th class="col-status">${t('models.colStatus')}</th>
-              <th class="col-latency">${t('models.colLatency')}</th>
-              <th class="col-actions">${t('models.colActions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${allModels.map(({ key, provider, model, id, name, full }) => {
-              const isPrimary = full === primary
-              const isFallback = !isPrimary && fallbackSet.has(full)
+      <div class="models-select-all-bar">
+        <label class="models-select-all-label">
+          <input type="checkbox" id="models-select-all">
+          <span>${t('models.selectAll')}</span>
+        </label>
+      </div>
+      <div class="models-card-grid">
+        ${allModels.map(({ key, provider, model, id, name, full }) => {
+          const isPrimary = full === primary
+          const isFallback = !isPrimary && fallbackSet.has(full)
 
-              // 状态
-              let statusHtml = ''
-              if (model.testStatus === 'fail') {
-                statusHtml = `<span class="models-table-status models-table-status--error">${t('models.unavailable')}</span>`
-              } else if (model.latency != null) {
-                statusHtml = `<span class="models-table-status models-table-status--ok">${t('models.normal')}</span>`
-              } else {
-                statusHtml = `<span class="models-table-status models-table-status--neutral">${t('models.notTested')}</span>`
-              }
+          // 状态
+          let statusHtml = ''
+          let statusClass = 'neutral'
+          if (model.testStatus === 'fail') {
+            statusHtml = t('models.unavailable')
+            statusClass = 'error'
+          } else if (model.latency != null) {
+            statusHtml = t('models.normal')
+            statusClass = 'ok'
+          } else {
+            statusHtml = t('models.notTested')
+            statusClass = 'neutral'
+          }
 
-              // 延迟
-              let latencyHtml = '—'
-              if (model.latency != null) {
-                latencyHtml = `${(model.latency / 1000).toFixed(1)}s`
-              }
+          // 延迟
+          let latencyHtml = '—'
+          if (model.latency != null) {
+            latencyHtml = `${(model.latency / 1000).toFixed(1)}s`
+          }
 
-              // 标签
-              const badges = []
-              if (isPrimary) badges.push(`<span class="model-tag model-tag--primary">${t('models.primaryModel')}</span>`)
-              if (isFallback) badges.push(`<span class="model-tag model-tag--fb">${t('models.fallbackShort')}</span>`)
-              if (model.reasoning) badges.push(`<span class="model-tag model-tag--rz">${t('models.reasoning')}</span>`)
+          // 标签
+          const badges = []
+          if (isPrimary) badges.push(`<span class="model-tag model-tag--primary">${t('models.primaryModel')}</span>`)
+          if (isFallback) badges.push(`<span class="model-tag model-tag--fb">${t('models.fallbackShort')}</span>`)
+          if (model.reasoning) badges.push(`<span class="model-tag model-tag--rz">${t('models.reasoning')}</span>`)
 
-              const rowClass = isPrimary ? 'models-table-row--primary' : isFallback ? 'models-table-row--fallback' : ''
+          const cardClass = isPrimary ? 'models-card--primary' : isFallback ? 'models-card--fallback' : ''
 
-              return `
-                <tr class="models-table-row ${rowClass}" data-model-id="${escapeHtml(id)}" data-full="${escapeHtml(full)}" data-provider="${escapeHtml(key)}">
-                  <td class="col-cb"><input type="checkbox" class="models-row-cb" data-model-id="${escapeHtml(id)}"></td>
-                  <td class="col-model">
-                    <div class="models-table-model">
-                      <span class="models-table-model__name" title="${escapeHtml(id)}">${escapeHtml(name)}</span>
-                      ${badges.length ? `<div class="models-table-model__badges">${badges.join('')}</div>` : ''}
-                    </div>
-                  </td>
-                  <td class="col-provider">
-                    <span class="badge badge-api-type">${getApiTypeLabel(provider.api)}</span>
-                    <span class="models-table-provider-name">${escapeHtml(key)}</span>
-                  </td>
-                  <td class="col-status">${statusHtml}</td>
-                  <td class="col-latency">${latencyHtml}</td>
-                  <td class="col-actions">
-                    <div class="models-table-actions">
-                      ${!isPrimary ? `<button class="btn-icon" data-action="set-primary" title="${t('models.setPrimary')}" aria-label="${t('models.setPrimary')}">${icon('star', 14)}</button>` : ''}
-                      <button class="btn-icon" data-action="test-model" title="${t('models.testBtn')}" aria-label="${t('models.testBtn')}">${icon('activity', 14)}</button>
-                      <button class="btn-icon" data-action="edit-model" title="${t('models.editModel')}" aria-label="${t('models.editModel')}">${icon('edit', 14)}</button>
-                      <button class="btn-icon btn-icon--danger" data-action="delete-model" title="${t('models.deleteModel')}" aria-label="${t('models.deleteModel')}">${icon('trash', 14)}</button>
-                    </div>
-                  </td>
-                </tr>
-              `
-            }).join('')}
-          </tbody>
-        </table>
+          return `
+            <div class="models-card ${cardClass}" data-model-id="${escapeHtml(id)}" data-full="${escapeHtml(full)}" data-provider="${escapeHtml(key)}">
+              <div class="models-card__check">
+                <input type="checkbox" class="models-row-cb" data-model-id="${escapeHtml(id)}">
+              </div>
+              <div class="models-card__body">
+                <div class="models-card__top">
+                  <span class="models-card__name" title="${escapeHtml(id)}">${escapeHtml(name)}</span>
+                  ${badges.length ? `<div class="models-card__badges">${badges.join('')}</div>` : ''}
+                </div>
+                <div class="models-card__meta">
+                  <span class="badge badge-api-type">${getApiTypeLabel(provider.api)}</span>
+                  <span class="models-card__provider">${escapeHtml(key)}</span>
+                </div>
+              </div>
+              <div class="models-card__info">
+                <span class="models-card-status models-card-status--${statusClass}">${statusHtml}</span>
+                <span class="models-card__latency">${latencyHtml}</span>
+              </div>
+              <div class="models-card__actions">
+                ${!isPrimary ? `<button class="btn-icon" data-action="set-primary" title="${t('models.setPrimary')}" aria-label="${t('models.setPrimary')}">${icon('star', 14)}</button>` : ''}
+                <button class="btn-icon" data-action="test-model" title="${t('models.testBtn')}" aria-label="${t('models.testBtn')}">${icon('activity', 14)}</button>
+                <button class="btn-icon" data-action="edit-model" title="${t('models.editModel')}" aria-label="${t('models.editModel')}">${icon('edit', 14)}</button>
+                <button class="btn-icon btn-icon--danger" data-action="delete-model" title="${t('models.deleteModel')}" aria-label="${t('models.deleteModel')}">${icon('trash', 14)}</button>
+              </div>
+            </div>
+          `
+        }).join('')}
       </div>
     `
 

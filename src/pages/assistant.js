@@ -4429,91 +4429,94 @@ function renderExpertTeamMessage(m, idx) {
 
   const memberStatuses = getExpertTeamMemberStatuses(plan, transcript, isRunning)
   const resumeActionsHtml = renderExpertTeamResumeActions(m, idx)
-  const runMeta = getExpertTeamRunMeta(m, progress)
-  const statsBarHtml = renderExpertTeamStatsBar(progress, plan, transcript, isRunning, runMeta)
-
   const hasFinal = transcript.some(item => item.type === 'final')
   const legacyEmptyFallback = !hasFinal && isExpertTeamEmptyResponseFailure(transcript, isRunning)
+
   const primaryItems = legacyEmptyFallback
     ? [buildExpertTeamNoExpertResponseDisplayItem(transcript, plan)]
     : transcript.filter(item => ['final', 'error'].includes(item.type) || (!isRunning && !hasFinal && item.type === 'stopped'))
   const primaryHtml = primaryItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('')
 
   const errorEvents = transcript.filter(item => item.type === 'expert_error' || item.type === 'moderator_error' || item.type === 'error')
-  const errorInline = errorEvents.length ? `<div class="ast-expert-error-inline">
-    ${errorEvents.map(item => `<div class="ast-expert-error-item">
-      ${icon('alert-circle', 13)} <span>${escHtml(expertTeamMessageText(item.message, '运行异常'))}</span>
-      ${item.expertName ? `<small>${escHtml(item.expertName)}</small>` : ''}
-    </div>`).join('')}
-  </div>` : ''
-
-  // 已完成专家预览卡片（运行时可见）
   const doneItems = isRunning ? transcript.filter(item => item.type === 'expert_done' && String(item.content || '').trim()) : []
-  const doneCardsHtml = doneItems.length ? `<div class="ast-expert-done-cards">
-    ${doneItems.map(item => `<div class="ast-expert-done-card">
-      <div class="ast-expert-done-card-head">
-        <span class="ast-expert-done-card-dot" style="--expert-color:${escAttr(getExpertColor(item.expertId))}"></span>
-        <strong>${escHtml(item.expertName || item.expertId || '专家')}</strong>
-        <span class="ast-expert-done-card-check">${icon('check-circle', 13)}</span>
-      </div>
-      <div class="ast-expert-done-card-body">${expertTeamLiveText(item.content, 160)}</div>
-      ${expertTeamContentMeta(item.content) ? `<small class="ast-expert-done-card-meta">${escHtml(expertTeamContentMeta(item.content))}${item.model ? ` · ${escHtml(modelTextFromSummary(item.model))}` : ''}</small>` : ''}
-    </div>`).join('')}
-  </div>` : ''
-
   const processItems = transcript.filter(item => !['final', 'error', 'stopped'].includes(item.type))
   const processHtml = processItems.length ? processItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('') : ''
   const processCount = processItems.filter(item => item.type !== 'round_start').length || 0
 
-  return `<div class="ast-msg ast-msg-ai ast-msg-expert-team" data-msg-idx="${idx}" data-expert-dom-id="${escAttr(expertTeamDomId(m))}">
-    <div class="ast-expert-team-run ast-expert-copy-source">
-      <div class="ast-expert-team-header">
-        <div class="ast-expert-team-title">
-          <span class="ast-expert-team-icon ast-expert-team-icon--${escAttr(progress.status)}">${expertTeamRunIcon(progress.status)}</span>
-          <div>
-            <strong>${groupName}</strong>
-            <span>${escHtml(progress.currentLabel)}</span>
-          </div>
-        </div>
-        <span class="ast-expert-badge ast-expert-badge--${escAttr(progress.status)}">${escHtml(progress.statusLabel)}</span>
-      </div>
-      ${isRunning ? `<div class="ast-expert-progress" aria-label="专家团进度">
-        <div class="ast-expert-progress-bar ast-expert-progress-bar--running" style="width:${progress.percent}%"></div>
-      </div>` : ''}
+  const runMeta = getExpertTeamRunMeta(m, progress)
+  const elapsed = expertTeamRunElapsed(runMeta)
+  const expertDone = transcript.filter(item => item.type === 'expert_done' || item.type === 'expert_error').length
+  const expertTotal = Math.max(Array.isArray(plan?.members) ? plan.members.length : 0, 1)
+  const errorCount = errorEvents.length
 
-      ${renderExpertTeamPipeline(transcript, plan, isRunning)}
-      ${isRunning ? renderExpertTeamLiveConsole(plan, transcript, isRunning, activeAgents) : ''}
-      ${doneCardsHtml}
+  const pipeline = getExpertTeamPipeline(transcript, plan, isRunning)
+  const pipeHtml = pipeline.steps.map((s, i) => {
+    const cls = s.status === 'done' ? 'is-done' : s.status === 'running' ? 'is-active' : ''
+    return '<span class="ex-pipe-step ' + cls + '"><span class="ex-pipe-dot"></span>' + escHtml(s.name) + '</span>'
+  }).join('<span class="ex-pipe-arrow">→</span>')
 
-      ${memberStatuses.length ? `<div class="ast-expert-member-track" aria-label="专家执行队列">
-        ${memberStatuses.map(member => `<span class="ast-expert-member-chip ast-expert-member-chip--${escAttr(member.status)}" style="--expert-color:${escAttr(getExpertColor(member.expertId))}" title="${escAttr(member.title)}">
-          <span class="ast-expert-member-avatar">${escHtml(member.initial)}</span>
-          <span class="ast-expert-member-copy">
-            <strong>${escHtml(member.name)}</strong>
-            <small>${escHtml(member.detail)}</small>
-          </span>
-        </span>`).join('')}
-      </div>` : ''}
+  const active = isRunning ? [...transcript].reverse().find(item =>
+    ['moderator_stream', 'moderator_start', 'moderator_retry', 'expert_stream', 'expert_start', 'expert_retry'].includes(item.type)
+  ) : null
+  const liveId = active ? expertTeamLiveDomId(
+    active.type?.startsWith('moderator') ? 'moderator' : 'expert',
+    active.type?.startsWith('moderator') ? 'moderator' : active.expertId,
+    active.round || 0
+  ) : ''
+  const liveLabel = active ? (active.type?.startsWith('moderator') ? '主持综合' : (active.expertName || '输出中')) : ''
+  const liveModel = active?.model ? escHtml(modelTextFromSummary(active.model)) : ''
 
-      ${errorInline}
-      ${!isRunning && primaryHtml ? `<div class="ast-expert-final-area">${primaryHtml}</div>` : ''}
-
-      ${statsBarHtml}
-
-      ${!isRunning && processCount ? `<details class="ast-expert-process">
-        <summary class="ast-expert-process-summary">
-          <span>${icon('list', 13)} 完整过程</span>
-          <small>${escHtml(String(processCount))} 条记录</small>
-          <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
-        </summary>
-        <div class="ast-expert-items">${processHtml}</div>
-      </details>` : ''}
-
-      ${resumeActionsHtml}
-      ${isRunning ? '<div class="ast-expert-running"></div>' : ''}
-    </div>
-    <div class="ast-msg-meta"><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${icon('copy', 12)}</button></div>
-  </div>`
+  let html = '<div class="ast-msg ast-msg-ai ast-msg-expert-team" data-msg-idx="' + escAttr(String(idx)) + '" data-expert-dom-id="' + escAttr(expertTeamDomId(m)) + '">'
+  html += '<div class="ex-card ast-expert-copy-source">'
+  html += '<div class="ex-head"><span class="ex-head-title">' + escHtml(groupName) + '</span><span class="ex-head-badge ex-head-badge--' + escAttr(progress.status) + '">' + escHtml(progress.statusLabel) + '</span></div>'
+  html += '<div class="ex-pipe">' + pipeHtml + '</div>'
+  if (isRunning) html += '<div class="ex-progress"><div class="ex-progress-bar" style="width:' + progress.percent + '%"></div></div>'
+  if (isRunning && active) {
+    html += '<div class="ex-section"><div class="ex-section-label">当前输出</div>'
+    html += '<div class="ex-live-head"><span class="ex-live-dot"></span><span class="ex-live-name">' + escHtml(liveLabel) + '</span>'
+    if (liveModel) html += '<span class="ex-live-model">' + liveModel + '</span>'
+    html += '</div><div class="ex-live-body" data-expert-live-id="' + escAttr(liveId) + '">'
+    if (active.content) html += '<div class="ex-live-text">' + escHtml(expertTeamLiveText(active.content, 900)) + '</div>'
+    else html += '<div class="ex-skel"><span></span><span></span></div>'
+    html += '</div></div>'
+  }
+  if (doneItems.length) {
+    html += '<div class="ex-section"><div class="ex-section-label">已完成</div>'
+    for (const item of doneItems) {
+      html += '<div class="ex-done"><div class="ex-done-head"><span class="ex-done-dot" style="--c:' + escAttr(getExpertColor(item.expertId)) + '"></span><span class="ex-done-name">' + escHtml(item.expertName || item.expertId || '专家') + '</span></div>'
+      html += '<div class="ex-done-body">' + escHtml(expertTeamLiveText(item.content, 180)) + '</div></div>'
+    }
+    html += '</div>'
+  }
+  if (errorEvents.length) {
+    html += '<div class="ex-section">'
+    for (const item of errorEvents) {
+      html += '<div class="ex-error"><span class="ex-error-dot"></span><span>' + escHtml(expertTeamMessageText(item.message, '运行异常')) + '</span>'
+      if (item.expertName) html += '<span class="ex-error-who">' + escHtml(item.expertName) + '</span>'
+      html += '</div>'
+    }
+    html += '</div>'
+  }
+  if (!isRunning && primaryHtml) html += '<div class="ex-section">' + primaryHtml + '</div>'
+  if (memberStatuses.length) {
+    html += '<div class="ex-section"><div class="ex-members">'
+    for (const m of memberStatuses) {
+      const sc = m.status === 'done' ? 'is-done' : m.status === 'running' ? 'is-active' : m.status === 'error' || m.status === 'warning' ? 'is-err' : ''
+      html += '<span class="ex-member ' + sc + '"><span class="ex-member-dot" style="--c:' + escAttr(getExpertColor(m.expertId)) + '"></span>' + escHtml(m.name) + '</span>'
+    }
+    html += '</div></div>'
+  }
+  html += '<div class="ex-stats"><span class="ex-stats-done">' + escHtml(String(expertDone)) + '/' + escHtml(String(expertTotal)) + ' 已完成</span>'
+  if (errorCount) html += '<span class="ex-stats-err">' + escHtml(String(errorCount)) + ' 异常</span>'
+  if (elapsed) html += '<span>' + escHtml(elapsed) + '</span>'
+  html += '</div>'
+  if (resumeActionsHtml) html += resumeActionsHtml
+  if (!isRunning && processCount) {
+    html += '<details class="ex-process"><summary class="ex-process-summary">完整过程 · ' + escHtml(String(processCount)) + ' 条记录</summary><div class="ex-process-body">' + processHtml + '</div></details>'
+  }
+  if (isRunning) html += '<div class="ex-running-bar"></div>'
+  html += '</div><div class="ast-msg-meta"><button class="msg-copy-btn" title="' + t('common.copy') + '" aria-label="' + t('common.copy') + '">' + icon('copy', 12) + '</button></div></div>'
+  return html
 }
 
 function renderExpertTeamFocus(focus) {

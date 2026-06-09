@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClawPanel · 模型配置</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  :root {
+    --bg-root: #020617;
+    --bg-card: #0a0f1e;
+    --bg-surface: #111827;
+    --border: rgba(255,255,255,0.06);
+    --border-card: rgba(255,255,255,0.08);
+    --border-hover: rgba(255,255,255,0.14);
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-tertiary: #64748b;
+    --brand: #6366f1;
+    --brand-muted: rgba(99,102,241,0.12);
+    --success: #22c55e;
+    --success-muted: rgba(34,197,94,0.10);
+    --info: #38bdf8;
+    --info-muted: rgba(56,189,248,0.10);
+    --warning: #f59e0b;
+    --error: #ef4444;
+    --error-muted: rgba(239,68,68,0.10);
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 18px;
+    --font-sans: 'Fira Sans', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+    --font-mono: 'Fira Code', 'JetBrains Mono', 'Cascadia Code', monospace;
+    --ease: 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  body {
+    background: var(--bg-root);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  /* Ambient background texture */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image: 
+      radial-gradient(ellipse 50% 40% at 20% 0%, rgba(99,102,241,0.05) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 40% at 80% 100%, rgba(34,197,94,0.03) 0%, transparent 70%);
+  }
+
+  .app {
+    position: relative; z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 40px 48px;
+  }
+
+  /* ─── Page Header ─── */
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+  .page-header h1 {
+    font-family: var(--font-mono);
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    color: var(--text-primary);
+  }
+  .header-actions {
+    display: flex; gap: 10px; align-items: center;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-size: 13px; font-weight: 500;
+    cursor: pointer;
+    transition: all var(--ease);
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--border-hover); color: var(--text-primary); }
+  .btn--primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
+  .btn--primary:hover { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+  .btn svg { width: 14px; height: 14px; }
+
+  /* ─── Stats Bar ─── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .stat {
+    display: flex; align-items: center; gap: 14px;
+    padding: 18px 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-card);
+    transition: border-color var(--ease);
+  }
+  .stat:hover { border-color: var(--border-hover); }
+  .stat__icon {
+    width: 42px; height: 42px;
+    display: grid; place-items: center;
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+    color: var(--text-tertiary);
+  }
+  .stat__icon--models { color: var(--brand); background: var(--brand-muted); }
+  .stat__icon--active { color: var(--success); background: var(--success-muted); }
+  .stat__icon--fallback { color: var(--info); background: var(--info-muted); }
+  .stat__label { font-size: 12px; color: var(--text-tertiary); font-weight: 500; line-height: 1.2; }
+  .stat__value { font-family: var(--font-mono); font-size: 22px; font-weight: 600; color: var(--text-primary); margin-top: 2px; }
+
+  /* ─── Primary Model Hero ─── */
+  .primary-hero {
+    display: flex; align-items: center; gap: 24px;
+    padding: 24px 28px;
+    margin-bottom: 28px;
+    border: 1px solid rgba(34,197,94,0.15);
+    border-radius: var(--radius-xl);
+    background: linear-gradient(135deg, rgba(34,197,94,0.04) 0%, var(--bg-card) 50%, rgba(99,102,241,0.02) 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  .primary-hero::before {
+    content: '';
+    position: absolute; left: 0; top: 20%; bottom: 20%;
+    width: 3px; border-radius: 2px;
+    background: var(--success);
+  }
+  .hero-icon {
+    width: 52px; height: 52px;
+    display: grid; place-items: center; flex-shrink: 0;
+    border-radius: var(--radius-lg);
+    background: var(--success-muted);
+    color: var(--success);
+    border: 1px solid rgba(34,197,94,0.12);
+  }
+  .hero-info { flex: 1; min-width: 0; }
+  .hero-label { font-size: 11px; font-weight: 600; color: var(--success); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+  .hero-name { font-family: var(--font-mono); font-size: 20px; font-weight: 600; color: var(--text-primary); }
+  .hero-meta { display: flex; gap: 16px; margin-top: 6px; }
+  .hero-meta span { font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary); }
+  .hero-meta span strong { color: var(--text-secondary); font-weight: 600; }
+  .hero-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 12px; border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+    border: 1px solid var(--border);
+  }
+  .hero-badge--primary { background: var(--success-muted); border-color: rgba(34,197,94,0.2); color: var(--success); }
+  .hero-badge--reasoning { background: var(--brand-muted); border-color: rgba(99,102,241,0.15); color: var(--brand); }
+
+  /* ─── Fallback Chain ─── */
+  .fallback-chain {
+    display: flex; align-items: center; gap: 6px;
+    margin-bottom: 28px;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-card);
+  }
+  .fallback-chain__label {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--text-tertiary); font-weight: 600;
+    margin-right: 6px; flex-shrink: 0;
+  }
+  .fallback-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--text-secondary);
+    transition: all var(--ease);
+  }
+  .fallback-arrow { color: var(--text-tertiary); font-size: 10px; }
+  .btn--ghost {
+    border: 1px dashed var(--border); background: transparent;
+    color: var(--text-tertiary); font-size: 12px;
+  }
+  .btn--ghost:hover { color: var(--brand); border-color: var(--brand-muted); }
+
+  /* ─── Toolbar ─── */
+  .toolbar {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 20px;
+  }
+  .search-wrap {
+    position: relative; flex: 1; max-width: 400px;
+  }
+  .search-wrap svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-tertiary); width: 15px; height: 15px; }
+  .search-input {
+    width: 100%; padding: 10px 14px 10px 40px;
+    border: 1px solid var(--border); border-radius: var(--radius-md);
+    background: var(--bg-card); color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 13px;
+    outline: none;
+    transition: border-color var(--ease);
+  }
+  .search-input:focus { border-color: var(--brand); }
+  .search-input::placeholder { color: var(--text-tertiary); }
+
+  /* ─── Provider Tabs ─── */
+  .tabs {
+    display: flex; gap: 0;
+    margin-bottom: 20px;
+    padding: 3px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    overflow-x: auto;
+    -ms-overflow-style: none; scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    padding: 8px 16px;
+    border: none; border-radius: var(--radius-sm);
+    background: transparent;
+    font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+    color: var(--text-tertiary);
+    cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    transition: all var(--ease);
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .tab:hover { color: var(--text-secondary); background: rgba(255,255,255,0.03); }
+  .tab.active { background: var(--bg-surface); color: var(--text-primary); }
+  .tab__count {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+    padding: 1px 6px; border-radius: 8px;
+    background: rgba(255,255,255,0.05); color: var(--text-tertiary);
+  }
+  .tab.active .tab__count { background: var(--brand-muted); color: var(--brand); }
+
+  /* ─── Model Cards Grid ─── */
+  .model-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 12px;
+  }
+  .model-card {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 20px 22px;
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-lg);
+    background: var(--bg-card);
+    transition: all var(--ease);
+    cursor: default;
+    position: relative;
+  }
+  .model-card:hover { 
+    border-color: var(--border-hover); 
+    background: var(--bg-surface);
+    transform: translateY(-1px);
+  }
+  .model-card--primary {
+    border-color: rgba(34,197,94,0.2);
+    background: linear-gradient(135deg, rgba(34,197,94,0.03), var(--bg-card));
+  }
+  .model-card--primary:hover { border-color: rgba(34,197,94,0.35); }
+  .model-card--fallback {
+    border-color: rgba(56,189,248,0.15);
+  }
+  .model-card--fallback:hover { border-color: rgba(56,189,248,0.3); }
+
+  .model-card__header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px;
+  }
+  .model-card__name {
+    font-family: var(--font-mono); font-size: 14px; font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .model-card__tags { display: flex; gap: 5px; flex-shrink: 0; }
+  .model-tag {
+    font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+    padding: 2px 8px; border-radius: 4px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .model-tag--primary { background: var(--success-muted); color: var(--success); }
+  .model-tag--fb { background: var(--info-muted); color: var(--info); }
+  .model-tag--rz { background: var(--brand-muted); color: var(--brand); }
+
+  .model-card__body {
+    display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap;
+  }
+  .model-card__provider {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--text-tertiary);
+  }
+  .model-card__api {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+    padding: 2px 7px; border-radius: 4px;
+    background: var(--brand-muted); color: var(--brand);
+    white-space: nowrap;
+  }
+
+  .model-card__footer {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .model-card__status {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px;
+  }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot--ok { background: var(--success); box-shadow: 0 0 6px rgba(34,197,94,0.4); }
+  .status-dot--error { background: var(--error); }
+  .status-dot--neutral { background: var(--text-tertiary); }
+  .model-card__latency {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+    color: var(--text-tertiary);
+  }
+  .model-card__actions {
+    display: flex; gap: 2px;
+    opacity: 0; transition: opacity var(--ease);
+  }
+  .model-card:hover .model-card__actions { opacity: 1; }
+  .icon-btn {
+    display: inline-grid; place-items: center;
+    width: 30px; height: 30px;
+    border: 1px solid transparent; border-radius: var(--radius-sm);
+    background: transparent; color: var(--text-tertiary);
+    cursor: pointer; transition: all var(--ease);
+  }
+  .icon-btn:hover { background: var(--brand-muted); color: var(--brand); border-color: rgba(99,102,241,0.15); }
+  .icon-btn--danger:hover { background: var(--error-muted); color: var(--error); border-color: rgba(239,68,68,0.15); }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 1024px) { .app { padding: 24px 28px; } .stats-bar { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 768px) { .app { padding: 20px; } .stats-bar { grid-template-columns: 1fr; } .model-grid { grid-template-columns: 1fr; } .primary-hero { flex-direction: column; align-items: flex-start; } }
+
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="page-header">
+    <h1>模型配置</h1>
+    <div class="header-actions">
+      <button class="btn">⚡ 推荐</button>
+      <button class="btn">导入配置</button>
+      <button class="btn">↩ 撤销</button>
+      <button class="btn btn--primary">+ 添加服务商</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat__icon stat__icon--models">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"/><rect x="3" y="10" width="18" height="11" rx="2"/><path d="M21 13l-8 8-3-3-4 4"/></svg>
+      </div>
+      <div>
+        <div class="stat__label">服务商</div>
+        <div class="stat__value">8</div>
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat__icon stat__icon--models">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+      </div>
+      <div>
+        <div class="stat__label">模型总数</div>
+        <div class="stat__value">24</div>
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat__icon stat__icon--active">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </div>
+      <div>
+        <div class="stat__label">主模型</div>
+        <div class="stat__value">deepseek-v4</div>
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat__icon stat__icon--fallback">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+      </div>
+      <div>
+        <div class="stat__label">备用链路</div>
+        <div class="stat__value">3</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Primary Model Hero -->
+  <div class="primary-hero">
+    <div class="hero-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1"/><circle cx="10" cy="6" r="1"/></svg>
+    </div>
+    <div class="hero-info">
+      <div class="hero-label">当前主模型</div>
+      <div class="hero-name">deepseek/deepseek-v4-flash</div>
+      <div class="hero-meta">
+        <span>DeepSeek · Chat Completions API</span>
+        <span>上下文 <strong>128K</strong></span>
+        <span>延迟 <strong>0.8s</strong></span>
+      </div>
+    </div>
+    <div class="hero-actions">
+      <span class="hero-badge hero-badge--primary">主模型</span>
+      <span class="hero-badge hero-badge--reasoning">推理模型</span>
+    </div>
+  </div>
+
+  <!-- Fallback Chain -->
+  <div class="fallback-chain">
+    <span class="fallback-chain__label">备用链路</span>
+    <span class="fallback-chip">gpt-4o</span>
+    <span class="fallback-arrow">→</span>
+    <span class="fallback-chip">claude-sonnet-4</span>
+    <span class="fallback-arrow">→</span>
+    <span class="fallback-chip">gemini-2.5-pro</span>
+    <button class="btn btn--ghost" style="margin-left: auto;">管理备选</button>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="search-input" type="text" placeholder="搜索模型名称或 ID...">
+    </div>
+  </div>
+
+  <!-- Provider Tabs -->
+  <div class="tabs">
+    <button class="tab active">全部 <span class="tab__count">24</span></button>
+    <button class="tab">deepseek <span class="tab__count">5</span></button>
+    <button class="tab">openai <span class="tab__count">6</span></button>
+    <button class="tab">anthropic <span class="tab__count">4</span></button>
+    <button class="tab">google <span class="tab__count">3</span></button>
+    <button class="tab">siliconflow <span class="tab__count">4</span></button>
+    <button class="tab">qtcool <span class="tab__count">2</span></button>
+  </div>
+
+  <!-- Model Cards Grid -->
+  <div class="model-grid">
+    <!-- Card 1: Primary -->
+    <div class="model-card model-card--primary">
+      <div class="model-card__header">
+        <span class="model-card__name">deepseek-v4-flash</span>
+        <div class="model-card__tags">
+          <span class="model-tag model-tag--primary">主模型</span>
+          <span class="model-tag model-tag--rz">推理</span>
+        </div>
+      </div>
+      <div class="model-card__body">
+        <span class="model-card__api">OpenAI Chat</span>
+        <span class="model-card__provider">deepseek</span>
+      </div>
+      <div class="model-card__footer">
+        <div class="model-card__status">
+          <span class="status-dot status-dot--ok"></span>
+          <span style="color:var(--success)">正常</span>
+          <span class="model-card__latency">0.8s</span>
+        </div>
+        <div class="model-card__actions">
+          <button class="icon-btn" title="测试"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></button>
+          <button class="icon-btn" title="编辑"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 114 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+          <button class="icon-btn icon-btn--danger" title="删除"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: Fallback -->
+    <div class="model-card model-card--fallback">
+      <div class="model-card__header">
+        <span class="model-card__name">gpt-4o</span>
+        <div class="model-card__tags">
+          <span class="model-tag model-tag--fb">备选</span>
+        </div>
+      </div>
+      <div class="model-card__body">
+        <span class="model-card__api">OpenAI Chat</span>
+        <span class="model-card__provider">openai</span>
+      </div>
+      <div class="model-card__footer">
+        <div class="model-card__status">
+          <span class="status-dot status-dot--ok"></span>
+          <span style="color:var(--success)">正常</span>
+          <span class="model-card__latency">1.2s</span>
+        </div>
+        <div class="model-card__actions">
+          <button class="icon-btn" title="设为主模型"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></button>
+          <button class="icon-btn" title="测试"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></button>
+          <button class="icon-btn" title="编辑"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 114 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+          <button class="icon-btn icon-btn--danger" title="删除"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3 -->
+    <div class="model-card model-card--fallback">
+      <div class="model-card__header">
+        <span class="model-card__name">claude-sonnet-4-20250514</span>
+        <div class="model-card__tags">
+          <span class="model-tag model-tag--fb">备选</span>
+        </div>
+      </div>
+      <div class="model-card__body">
+        <span class="model-card__api">Anthropic Msg</span>
+        <span class="model-card__provider">anthropic</span>
+      </div>
+      <div class="model-card__footer">
+        <div class="model-card__status">
+          <span class="status-dot status-dot--ok"></span>
+          <span style="color:var(--success)">正常</span>
+          <span class="model-card__latency">2.1s</span>
+        </div>
+        <div class="model-card__actions">
+          <button class="icon-btn" title="设为主模型"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></button>
+          <button class="icon-btn" title="测试"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></button>
+          <button class="icon-btn" title="编辑"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 114 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+          <button class="icon-btn icon-btn--danger" title="删除"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 4 -->
+    <div class="model-card">
+      <div class="model-card__header">
+        <span class="model-card__name">gemini-2.5-pro</span>
+        <div class="model-card__tags"></div>
+      </div>
+      <div class="model-card__body">
+        <span class="model-card__api">Gemini API</span>
+        <span class="model-card__provider">google</span>
+      </div>
+      <div class="model-card__footer">
+        <div class="model-card__status">
+          <span class="status-dot status-dot--ok"></span>
+          <span style="color:var(--success)">正常</span>
+          <span class="model-card__latency">0.9s</span>
+        </div>
+        <div class="model-card__actions">
+          <button class="icon-btn" title="设为主模型"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></button>
+          <button class="icon-btn" title="测试"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></button>
+          <button class="icon-btn" title="编辑"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 114 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+          <button class="icon-btn icon-btn--danger" title="删除"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 5 -->
+    <div class="model-card">
+      <div class="model-card__header">
+        <span class="model-card__name">qwen3-235b-a22b</span>
+        <div class="model-card__tags">
+          <span class="model-tag model-tag--rz">推理</span>
+        </div>
+      </div>
+      <div class="model-card__body">
+        <span class="model-card__api">OpenAI Chat</span>
+        <span class="model-card__provider">siliconflow</span>
+      </div>
+      <div class="model-card__footer">
+        <div class="model-card__status">
+          <span class="status-dot status-dot--neutral"></span>
+          <span style="color:var(--text-tertiary)">未测试</span>
+          <span class="model-card__latency">—</span>
+        </div>
+        <div class="model-card__actions">
+          <button class="icon-btn" title="设为主模型"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></button>
+          <button class="icon-btn" title="测试"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></button>
+          <button class="icon-btn" title="编辑"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 114 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+          <button class="icon-btn icon-btn--danger" title="删除"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 6 -->
+    <div class="model-card">
+      <div class="model-card__header">
+        <span class="model-card__name">deepseek-r1</span>
+        <div class="model-card__tags">
+          <span class="model-tag model-tag--rz">推理</span>
+        </div>
+      </div>
+      <div class="model-card__body">
+        <span class="model-card__api">OpenAI Chat</span>
+        <span class="model-card__provider">deepseek</span>
+      </div>
+      <div class="model-card__footer">
+        <div class="model-card__status">
+          <span class="status-dot status-dot--error"></span>
+          <span style="color:var(--error)">不可用</span>
+          <span class="model-card__latency">—</span>
+        </div>
+        <div class="model-card__actions">
+          <button class="icon-btn" title="设为主模型"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></button>
+          <button class="icon-btn" title="测试"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></button>
+          <button class="icon-btn" title="编辑"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 114 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+          <button class="icon-btn icon-btn--danger" title="删除"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

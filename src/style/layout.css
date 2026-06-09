@@ -110,27 +110,13 @@ body.has-desktop-chrome .desktop-titlebar {
   width: var(--sidebar-width);
   height: 100vh;
   background: var(--sidebar-bg);
-  border-right: 1px solid rgba(255,255,255,0.05);
+  border-right: 1px solid var(--sidebar-border);
   color: var(--sidebar-text);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   transition: width var(--ease-normal);
   overflow: hidden;
-  position: relative;
-}
-
-/* Ambient indigo glow — stronger, more visible */
-#sidebar::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.08;
-  background:
-    radial-gradient(ellipse 80% 30% at 50% 0%, rgba(99,102,241,0.25) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 30% 40%, rgba(139,92,246,0.06) 0%, transparent 70%);
-  z-index: 0;
 }
 
 body.has-desktop-chrome #sidebar,
