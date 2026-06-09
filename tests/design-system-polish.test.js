@@ -14,9 +14,11 @@ function cssBlock(css, selector) {
 }
 
 test('design tokens define legacy aliases used across older pages', () => {
+  const rootTokens = cssBlock(variablesCss, ':root')
   for (const name of ['--primary', '--primary-hover', '--border', '--border-color', '--bg-hover']) {
     assert.match(variablesCss, new RegExp(`${name}\\s*:`), `${name} should be defined as a stable token`)
   }
+  assert.match(rootTokens, /--primary-hover:\s*var\(--brand-400\)/, '--primary-hover should follow the brand hover color')
 })
 
 test('global controls keep polished focus and touch affordances', () => {
