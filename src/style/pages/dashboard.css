@@ -196,7 +196,7 @@
   padding: var(--space-6);
   background: var(--bg-elevated);
   border: 1px solid var(--border-2);
-  border-left: 2px solid var(--accent);
+  border-left: 2px solid var(--brand);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-1);
 }
@@ -257,7 +257,7 @@
 }
 
 .dashboard-health-ring {
-  stroke: var(--accent);
+  stroke: var(--brand);
   stroke-linecap: round;
   transition: stroke-dasharray 0.5s var(--ease-out);
 }
@@ -355,9 +355,9 @@
   width: 100%;
   min-height: 44px;
   padding: 0 var(--space-lg);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--brand);
   border-radius: var(--radius-md);
-  background: var(--accent);
+  background: var(--brand);
   color: var(--text-inverse);
   font-family: var(--font-display);
   font-size: var(--font-size-sm);
@@ -367,7 +367,7 @@
   transition: background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 .dashboard-next-action:hover {
-  background: var(--accent-hover);
+  background: var(--brand-light);
   transform: translateY(-1px);
   box-shadow: 0 4px 14px -4px rgba(99, 102, 241, 0.35);
 }
@@ -460,7 +460,7 @@
   transform: translateY(-1px);
 }
 .overview-card[data-nav]:hover {
-  border-color: var(--accent);
+  border-color: var(--brand);
 }
 
 .overview-card-icon {
@@ -537,7 +537,7 @@
 }
 .session-model {
   font-size: var(--font-size-xs);
-  color: var(--accent);
+  color: var(--brand);
   background: var(--bg-hover);
   padding: 1px 6px;
   border-radius: var(--radius-sm);
@@ -589,7 +589,7 @@
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .usage-top-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 22%, var(--border-primary));
+  border-color: color-mix(in srgb, var(--brand) 22%, var(--border-primary));
   box-shadow: var(--shadow-md);
 }
 .usage-top-title {
@@ -618,7 +618,7 @@
 .usage-daily-bar {
   width: 100%;
   max-width: 24px;
-  background: var(--accent);
+  background: var(--brand);
   border-radius: var(--radius-sm) 2px 0 0;
   min-height: 2px;
   transition: height 0.3s ease;
@@ -640,7 +640,7 @@
 .dashboard-action-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .overview-card[data-nav] { cursor: pointer; }
 .overview-value-sm { font-size: var(--font-size-sm); }
-.overview-card-icon--accent { color: var(--accent); }
+.overview-card-icon--accent { color: var(--brand); }
 .overview-card-icon--warning { color: var(--warning); }
 .overview-card-icon--success { color: var(--success); }
 .overview-card-icon--muted { color: var(--text-tertiary); }

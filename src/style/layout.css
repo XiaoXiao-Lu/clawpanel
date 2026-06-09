@@ -388,15 +388,15 @@ body.has-desktop-chrome #main-col {
 .sidebar-tools > .sidebar-tool-btn:hover,
 .sidebar-tools > .lang-switcher > .sidebar-tool-btn:hover {
   border-color: var(--border-primary);
-  background: color-mix(in srgb, var(--primary) 7%, transparent);
-  color: var(--primary);
+  background: color-mix(in srgb, var(--brand) 7%, transparent);
+  color: var(--brand);
   box-shadow: none;
   transform: none;
 }
 
 .sidebar-tools > .sidebar-tool-btn:focus-visible,
 .sidebar-tools > .lang-switcher > .sidebar-tool-btn:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--primary) 58%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--brand) 58%, transparent);
   outline-offset: 2px;
 }
 
@@ -800,13 +800,13 @@ body.has-desktop-chrome #main-col {
 }
 
 .setup-source-option:hover {
-  border-color: var(--accent);
+  border-color: var(--brand);
   background: var(--bg-glass-hover);
 }
 
 .setup-source-option:has(input:checked) {
-  border-color: var(--accent);
-  background: var(--accent-muted);
+  border-color: var(--brand);
+  background: var(--brand-muted);
 }
 
 /* 完整安装包更新弹窗 */
@@ -913,8 +913,8 @@ body.has-desktop-chrome #main-col {
   place-items: center;
   flex-shrink: 0;
   border-radius: var(--radius-lg);
-  background: var(--accent-muted);
-  color: var(--accent);
+  background: var(--brand-muted);
+  color: var(--brand);
 }
 .installer-update-icon svg {
   width: 22px;
@@ -924,7 +924,7 @@ body.has-desktop-chrome #main-col {
   min-width: 0;
 }
 .installer-update-kicker {
-  color: var(--accent);
+  color: var(--brand);
   font-size: var(--font-size-xs);
   font-weight: 700;
   margin-bottom: 3px;
@@ -974,7 +974,7 @@ body.has-desktop-chrome #main-col {
 }
 .installer-update-version-card-new {
   border-color: rgba(99, 102, 241, 0.35);
-  background: var(--accent-muted);
+  background: var(--brand-muted);
 }
 .installer-update-asset,
 .installer-update-steps,
@@ -1049,7 +1049,7 @@ body.has-desktop-chrome #main-col {
   margin: 3px 0;
 }
 .installer-update-release-markdown a {
-  color: var(--accent);
+  color: var(--brand);
   text-decoration: none;
 }
 .installer-update-release-markdown a:hover {
@@ -1262,10 +1262,10 @@ body.has-desktop-chrome #main-col {
   align-items: center;
   justify-content: center;
   padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 24%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--accent);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  color: var(--brand);
   font-size: var(--font-size-xs);
   font-weight: 600;
   line-height: 1;
@@ -1273,7 +1273,7 @@ body.has-desktop-chrome #main-col {
   white-space: nowrap;
 }
 .password-change-action:hover {
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  background: color-mix(in srgb, var(--brand) 15%, transparent);
   text-decoration: none;
 }
 .password-change-close {

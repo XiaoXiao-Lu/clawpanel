@@ -25,6 +25,7 @@ import { api } from '../../../lib/tauri-api.js'
 import { toast } from '../../../components/toast.js'
 import { humanizeError } from '../../../lib/humanize-error.js'
 import { escapeHtml as escHtml } from '../../../lib/utils.js'
+import { statusIcon } from '../../../lib/icons.js'
 
 /**
  * Minimal, dependency-free Markdown renderer. Matches the feature-set used
@@ -445,7 +446,7 @@ export function render() {
           ${items.map(it => `
             <div class="hm-toolset-card ${it.enabled ? 'is-on' : 'is-off'}" title="${escHtml(it.description)}">
               <div class="hm-toolset-card-row">
-                <span class="hm-toolset-status ${it.enabled ? 'is-on' : 'is-off'}">${it.enabled ? '✓' : '✗'}</span>
+                <span class="hm-toolset-status ${it.enabled ? 'is-on' : 'is-off'}">${it.enabled ? statusIcon('ok', 14) : statusIcon('err', 14)}</span>
                 <span class="hm-toolset-name">${escHtml(it.name)}</span>
               </div>
               <div class="hm-toolset-desc">${escHtml(it.description)}</div>

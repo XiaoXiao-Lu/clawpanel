@@ -112,3 +112,15 @@
 5. **50+ 处 DOM innerHTML 全量更新**: 聊天消息等高频更新区域应改用增量更新
 6. **100+ 处图标按钮缺少 aria-label**: 需逐步补充（本轮修复 4 个）
 7. **50+ 处可点击 div 缺少键盘事件**: 需添加 onkeydown 支持（本轮修复 11 处）
+
+## 图标系统（2026-06-09 审计）
+
+- **集中化图标库**: `src/lib/icons.js` (85个图标) + `src/components/sidebar-icons.js` (24个) + `src/engines/hermes/lib/svg-icons.js` (30个)
+- **核心导出函数**: `icon(name, size)` / `statusIcon(type, size)` / `logIcon(name, size)` — 生成统一 SVG (stroke-width:2, fill:none, currentColor)
+- **风格**: Lucide/Feather 线性风格
+- **已知问题**: 
+  - Hermes引擎20+文件各自内联SVG，stroke-width 0.9~2.5 不统一
+  - 413+ 处 emoji/unicode 用作UI图标，仅替换了约 22 处
+  - 3个图标库（icons.js/svg-icons.js/sidebar-icons.js）功能大量重复
+- **修改 history**:
+  - 2026-06-09 23:28 — 重设计BOT_ICON + 站内信3图标 + 新增8个图标路径 + about/setup/dashboard去emoji化

@@ -113,9 +113,9 @@
 }
 
 .agent-office-view-tabs .btn.is-active {
-  color: var(--accent);
+  color: var(--brand);
   border-color: var(--border-focus);
-  background: var(--accent-muted);
+  background: var(--brand-muted);
 }
 
 .agent-office-eyebrow {
@@ -1087,7 +1087,7 @@
 }
 
 .agent-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--border-primary));
+  border-color: color-mix(in srgb, var(--brand) 30%, var(--border-primary));
   box-shadow: var(--shadow-md);
 }
 
@@ -1420,13 +1420,13 @@
 .agent-back-link {
   display: inline-block;
   font-size: var(--font-size-sm);
-  color: var(--accent);
+  color: var(--brand);
   text-decoration: none;
   margin-bottom: 4px;
   transition: color var(--transition-fast);
 }
 .agent-back-link:hover {
-  color: var(--accent-hover);
+  color: var(--brand-light);
 }
 
 .agent-section {
@@ -1671,7 +1671,7 @@
 }
 
 .agent-skill-card:hover:not(.is-muted) {
-  border-color: var(--accent);
+  border-color: var(--brand);
   box-shadow: var(--shadow-sm);
 }
 

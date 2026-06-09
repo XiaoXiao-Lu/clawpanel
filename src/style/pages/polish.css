@@ -190,7 +190,6 @@ select,
 }
 
 /* ─── 控制台/ hero 区域 ─── */
-.models-control-console,
 .connectors-console,
 .skills-hero {
   background: var(--bg-elevated);
@@ -292,8 +291,7 @@ select,
 }
 
 /* ─── Services / Models 工作台 ─── */
-.services-page,
-.models-page {
+.services-page {
   max-width: none;
   width: 100%;
 }
@@ -360,9 +358,9 @@ select,
   /* .control-console is flex column (models.css), grid properties have no effect here */
 }
 .models-workbench #providers-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(560px, 100%), 1fr));
-  gap: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
 }
 .models-workbench .models-provider-section { padding: var(--space-4); }
 

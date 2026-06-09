@@ -33,7 +33,7 @@
   padding: 14px 16px 12px;
   border-bottom: 1px solid var(--border-secondary);
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--accent) 5%, transparent), transparent 72%),
+    linear-gradient(180deg, color-mix(in srgb, var(--brand) 5%, transparent), transparent 72%),
     var(--bg-secondary);
 }
 .site-message-title {
@@ -49,8 +49,8 @@
   place-items: center;
   flex: 0 0 auto;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--accent) 13%, var(--bg-tertiary));
-  color: var(--accent);
+  background: color-mix(in srgb, var(--brand) 13%, var(--bg-tertiary));
+  color: var(--brand);
 }
 .site-message-title-icon svg {
   width: 17px;
@@ -106,7 +106,7 @@
 }
 .site-message-tab:focus-visible,
 .site-message-close:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent) 58%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--brand) 58%, transparent);
   outline-offset: 2px;
 }
 .site-message-tab svg,
@@ -135,13 +135,13 @@
   line-height: 1;
 }
 .site-message-tab.active {
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg-secondary));
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 9%, transparent);
+  background: color-mix(in srgb, var(--brand) 12%, var(--bg-secondary));
+  color: var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 28%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 9%, transparent);
 }
 .site-message-tab.active small {
-  background: var(--accent);
+  background: var(--brand);
   color: #fff;
 }
 .site-message-close {
@@ -198,8 +198,8 @@
   display: inline-grid;
   place-items: center;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--accent) 10%, var(--bg-tertiary));
-  color: var(--accent);
+  background: color-mix(in srgb, var(--brand) 10%, var(--bg-tertiary));
+  color: var(--brand);
 }
 .site-message-empty strong {
   color: var(--text-primary);
@@ -215,7 +215,7 @@
 }
 .site-message-dismissed-empty {
   border-style: solid;
-  background: color-mix(in srgb, var(--accent) 4%, var(--bg-card));
+  background: color-mix(in srgb, var(--brand) 4%, var(--bg-card));
 }
 .site-message-dismissed-empty .btn {
   margin-top: 4px;
@@ -331,7 +331,7 @@
   align-items: center;
   justify-content: center;
   min-height: 32px;
-  color: var(--accent);
+  color: var(--brand);
   font-size: var(--font-size-sm);
   font-weight: 700;
   text-decoration: none;
@@ -358,7 +358,7 @@
   border: 1px solid var(--border-primary);
   border-radius: 12px;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 5%, transparent), transparent 58%),
+    linear-gradient(135deg, color-mix(in srgb, var(--brand) 5%, transparent), transparent 58%),
     var(--bg-card);
   overflow: hidden;
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
@@ -368,7 +368,7 @@
   position: absolute;
   inset: 0 auto 0 0;
   width: 3px;
-  background: var(--accent);
+  background: var(--brand);
 }
 .site-message-announcement.level-critical {
   border-color: color-mix(in srgb, var(--error) 30%, var(--border-primary));
@@ -396,7 +396,7 @@
   align-items: center;
   gap: 7px;
   margin-bottom: 8px;
-  color: var(--accent);
+  color: var(--brand);
   font-size: var(--font-size-xs);
   font-weight: 700;
 }
@@ -438,13 +438,13 @@
 .site-message-card-cta {
   min-height: 32px;
   padding: 0 11px;
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
   border-radius: 9px;
-  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  background: color-mix(in srgb, var(--brand) 9%, transparent);
   text-decoration: none;
 }
 .site-message-card-cta:hover {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
   text-decoration: none;
 }
 

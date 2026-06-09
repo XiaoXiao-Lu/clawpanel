@@ -707,11 +707,6 @@ function renderConsole(page, state) {
             <input type="number" id="models-max-concurrent" class="models-concurrency-input" min="1" max="100" step="1" value="${escapeHtml(String(maxConcurrent))}">
           </div>
 
-          <div class="models-concurrency-inline" title="${t('models.maxConcurrentHint')}">
-            <span class="models-concurrency-label">${t('models.maxConcurrent')}</span>
-            <input type="number" id="models-max-concurrent" class="models-concurrency-input" min="1" max="100" step="1" value="${escapeHtml(String(maxConcurrent))}">
-          </div>
-
           <div class="models-fallback-inline">
             ${fallbacks.length > 0
               ? fallbacks.map(f => {
@@ -1134,7 +1129,7 @@ function renderProviders(page, state) {
   const providerFilter = state._providerFilter || 'all'
 
   if (!keys.length) {
-    listEl.innerHTML = `<div class="models-empty-state">${t('models.noProvider')}</div>`
+    listEl.innerHTML = `<div class="models-empty-state"><span class="models-empty-state__icon">${icon('box', 28)}</span><div>${t('models.noProvider')}</div></div>`
     return
   }
 

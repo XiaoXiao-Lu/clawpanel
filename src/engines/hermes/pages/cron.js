@@ -6,6 +6,7 @@ import { t } from '../../../lib/i18n.js'
 import { api } from '../../../lib/tauri-api.js'
 import { humanizeError } from '../../../lib/humanize-error.js'
 import { escapeHtml as esc } from '../../../lib/utils.js'
+import { statusIcon } from '../../../lib/icons.js'
 
 function escAttr(s) { return esc(s) }
 
@@ -264,8 +265,8 @@ export function render() {
       }[state]
       const lastStatus = j.last_status
         ? (j.last_status === 'ok'
-            ? `<span class="hm-cron-last-ok">✓ ok</span>`
-            : `<span class="hm-cron-last-err" title="${esc(j.last_error || '')}">✗ ${esc(j.last_status)}</span>`)
+            ? `<span class="hm-cron-last-ok">${statusIcon('ok', 14)} ok</span>`
+            : `<span class="hm-cron-last-err" title="${esc(j.last_error || '')}">${statusIcon('err', 14)} ${esc(j.last_status)}</span>`)
         : ''
       const repeatTxt = j.repeat && typeof j.repeat === 'object'
         ? `${j.repeat.completed ?? 0} / ${j.repeat.times ?? '∞'}`

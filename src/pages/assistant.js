@@ -4324,10 +4324,24 @@ function renderExpertTeamStatsBar(progress, plan, transcript, isRunning, runMeta
   }
 
   return `<div class="ast-expert-stats-bar" aria-label="运行统计">
-    <span class="ast-expert-stats-metrics">${chunks.filter(Boolean).join('<span class="ast-expert-stats-sep"></span>')}</span>
-    <button type="button" class="ast-expert-stats-btn" onclick="this.closest('.ast-expert-team-run').querySelector('.ast-expert-detail-panel').toggleAttribute('open')" aria-expanded="false" aria-label="查看运行详情">
-      ${icon('maximize-2', 12)} 查看详情
-    </button>
+    ${chunks.filter(Boolean).join('<span class="ast-expert-stats-sep"></span>')}
+  </div>`
+}
+
+// ── 运行时活动指示条：最近动态，紧凑5条 ──
+function renderExpertTeamActivityStrip(transcript, run, isRunning) {
+  if (!isRunning) return ''
+  const activities = buildExpertTeamActivities(transcript, run, isRunning).slice(-5)
+  if (!activities.length) return ''
+
+  return `<div class="ast-expert-activity-strip" aria-label="最近动态">
+    ${activities.map(item => `<div class="ast-expert-activity-strip-item">
+      <span class="ast-expert-activity-strip-icon ast-expert-activity-strip-icon--${escAttr(item.status)}">${icon(item.iconName, 12)}</span>
+      <span class="ast-expert-activity-strip-text">
+        <strong>${escHtml(item.title)}</strong>
+        <small>${escHtml(item.detail)}</small>
+      </span>
+    </div>`).join('')}
   </div>`
 }
 
@@ -4413,7 +4427,11 @@ function renderExpertTeamMessage(m, idx) {
   const progress = getExpertTeamProgress(transcript, plan, isRunning)
   const activeAgents = isRunning ? getExpertTeamActiveAgents(transcript) : []
 
-  // ── 子面板数据 ──
+  const memberStatuses = getExpertTeamMemberStatuses(plan, transcript, isRunning)
+  const resumeActionsHtml = renderExpertTeamResumeActions(m, idx)
+  const runMeta = getExpertTeamRunMeta(m, progress)
+  const statsBarHtml = renderExpertTeamStatsBar(progress, plan, transcript, isRunning, runMeta)
+
   const hasFinal = transcript.some(item => item.type === 'final')
   const legacyEmptyFallback = !hasFinal && isExpertTeamEmptyResponseFailure(transcript, isRunning)
   const primaryItems = legacyEmptyFallback
@@ -4421,20 +4439,20 @@ function renderExpertTeamMessage(m, idx) {
     : transcript.filter(item => ['final', 'error'].includes(item.type) || (!isRunning && !hasFinal && item.type === 'stopped'))
   const primaryHtml = primaryItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('')
 
-  // ── 专家成员芯片数据 ──
-  const memberStatuses = getExpertTeamMemberStatuses(plan, transcript, isRunning)
+  const errorEvents = isRunning ? [] : transcript.filter(item => item.type === 'expert_error' || item.type === 'moderator_error' || item.type === 'error')
+  const errorInline = errorEvents.length ? `<div class="ast-expert-error-inline">
+    ${errorEvents.map(item => `<div class="ast-expert-error-item">
+      ${icon('alert-circle', 13)} <span>${escHtml(expertTeamMessageText(item.message, '运行异常'))}</span>
+      ${item.expertName ? `<small>${escHtml(item.expertName)}</small>` : ''}
+    </div>`).join('')}
+  </div>` : ''
 
-  // ── 恢复操作 ──
-  const resumeActionsHtml = renderExpertTeamResumeActions(m, idx)
-
-  // ── 精简布局：只保留核心层 + Stats Bar + 合并详情 ──
-  const runMeta = getExpertTeamRunMeta(m, progress)
-  const statsBarHtml = renderExpertTeamStatsBar(progress, plan, transcript, isRunning, runMeta)
-  const detailPanelHtml = renderExpertTeamDetailPanel(transcript, plan, progress, isRunning, m)
+  const processItems = transcript.filter(item => !['final', 'error', 'stopped'].includes(item.type))
+  const processHtml = processItems.length ? processItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('') : ''
+  const processCount = processItems.filter(item => item.type !== 'round_start').length || 0
 
   return `<div class="ast-msg ast-msg-ai ast-msg-expert-team" data-msg-idx="${idx}" data-expert-dom-id="${escAttr(expertTeamDomId(m))}">
     <div class="ast-expert-team-run ast-expert-copy-source">
-      <!-- 1. 头部 -->
       <div class="ast-expert-team-header">
         <div class="ast-expert-team-title">
           <span class="ast-expert-team-icon ast-expert-team-icon--${escAttr(progress.status)}">${expertTeamRunIcon(progress.status)}</span>
@@ -4449,13 +4467,9 @@ function renderExpertTeamMessage(m, idx) {
         <div class="ast-expert-progress-bar ast-expert-progress-bar--running" style="width:${progress.percent}%"></div>
       </div>` : ''}
 
-      <!-- 2. 执行管线 -->
       ${renderExpertTeamPipeline(transcript, plan, isRunning)}
-
-      <!-- 3. 实时控制台（运行时可见） -->
       ${isRunning ? renderExpertTeamLiveConsole(plan, transcript, isRunning, activeAgents) : ''}
 
-      <!-- 4. 专家成员状态芯片 -->
       ${memberStatuses.length ? `<div class="ast-expert-member-track" aria-label="专家执行队列">
         ${memberStatuses.map(member => `<span class="ast-expert-member-chip ast-expert-member-chip--${escAttr(member.status)}" style="--expert-color:${escAttr(getExpertColor(member.expertId))}" title="${escAttr(member.title)}">
           <span class="ast-expert-member-avatar">${escHtml(member.initial)}</span>
@@ -4466,16 +4480,23 @@ function renderExpertTeamMessage(m, idx) {
         </span>`).join('')}
       </div>` : ''}
 
-      <!-- 5. 最终交付内容 -->
+      ${errorInline}
       ${!isRunning && primaryHtml ? `<div class="ast-expert-final-area">${primaryHtml}</div>` : ''}
 
-      <!-- 6. 恢复操作 -->
-      ${resumeActionsHtml}
+      ${renderExpertTeamActivityStrip(transcript, m._expertTeamRun, isRunning)}
 
-      <!-- 7. Stats Bar + 合并详情面板 -->
       ${statsBarHtml}
-      ${detailPanelHtml}
 
+      ${!isRunning && processCount ? `<details class="ast-expert-process">
+        <summary class="ast-expert-process-summary">
+          <span>${icon('list', 13)} 完整过程</span>
+          <small>${escHtml(String(processCount))} 条记录</small>
+          <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
+        </summary>
+        <div class="ast-expert-items">${processHtml}</div>
+      </details>` : ''}
+
+      ${resumeActionsHtml}
       ${isRunning ? '<div class="ast-expert-running"></div>' : ''}
     </div>
     <div class="ast-msg-meta"><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${icon('copy', 12)}</button></div>

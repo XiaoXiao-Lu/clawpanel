@@ -11,6 +11,7 @@ import { t } from '../lib/i18n.js'
 import { navigate } from '../router.js'
 import { isTauriRuntime } from '../lib/tauri-api.js'
 import { escapeHtml as esc } from '../lib/utils.js'
+import { icon, statusIcon } from '../lib/icons.js'
 
 function openChannelsBindingPage(agentId) {
   const params = new URLSearchParams()
@@ -473,7 +474,7 @@ function showSkillPreview(name, agentId) {
   overlay.className = 'modal-overlay'
   overlay.innerHTML = `
     <div class="modal agent-skill-preview-modal">
-      <div class="modal-title">🧩 ${esc(name)}</div>
+      <div class="modal-title">${icon('puzzle', 14)} ${esc(name)}</div>
       <div class="modal-body" style="padding:40px;text-align:center;color:var(--text-tertiary)">加载中...</div>
       <div class="modal-actions">
         <button class="btn btn-secondary btn-sm" data-action="cancel">${t('common.close') || '关闭'}</button>
@@ -507,8 +508,8 @@ function showSkillPreview(name, agentId) {
     body.style.cssText = 'padding:16px 20px'
     body.innerHTML = '<div class="skill-preview-desc">' + esc(detail?.description || '暂无描述') + '</div>' +
       (allReqs.length ? '<div class="skill-preview-section"><h4>所需工具</h4><div class="skill-preview-tags">' + allReqs.map(r => '<span class="badge badge-api-type">' + esc(r) + '</span>').join('') + '</div></div>' : '') +
-      (allMissing.length ? '<div class="skill-preview-section"><h4>⚠ 缺少依赖</h4><div class="skill-preview-tags">' + allMissing.map(m => '<span class="badge" style="background:var(--error-muted);color:var(--error)">' + esc(String(m)) + '</span>').join('') + '</div></div>' : '') +
-      (detail?.homepage ? '<div class="skill-preview-section"><a href="' + esc(detail.homepage) + '" target="_blank" rel="noopener" style="color:var(--accent)">🔗 查看主页</a></div>' : '') +
+      (allMissing.length ? '<div class="skill-preview-section"><h4>' + statusIcon('warn', 14) + ' 缺少依赖</h4><div class="skill-preview-tags">' + allMissing.map(m => '<span class="badge" style="background:var(--error-muted);color:var(--error)">' + esc(String(m)) + '</span>').join('') + '</div></div>' : '') +
+      (detail?.homepage ? '<div class="skill-preview-section"><a href="' + esc(detail.homepage) + '" target="_blank" rel="noopener" style="color:var(--accent)">' + icon('link', 14) + ' 查看主页</a></div>' : '') +
       (detail?.source ? '<div class="skill-preview-section" style="color:var(--text-tertiary);font-size:12px">来源: ' + esc(detail.source) + (detail?.version ? ' · v' + esc(detail.version) : '') + (detail?.author ? ' · ' + esc(detail.author) : '') + '</div>' : '')
   }).catch(e => {
     const body = overlay.querySelector('.modal-body')

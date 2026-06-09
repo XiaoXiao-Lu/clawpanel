@@ -677,7 +677,7 @@
 }
 
 .expert-tag-picker-trigger:hover {
-  border-color: var(--accent);
+  border-color: var(--brand);
 }
 
 .expert-tag-picker-count {
@@ -696,8 +696,8 @@
   align-items: center;
   gap: 3px;
   padding: 1px 7px;
-  background: var(--accent-muted);
-  color: var(--accent);
+  background: var(--brand-muted);
+  color: var(--brand);
   border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
   line-height: 1.6;
@@ -813,7 +813,7 @@
 .expert-tag-modal-option input[type="checkbox"] {
   margin-top: 2px;
   flex-shrink: 0;
-  accent-color: var(--accent);
+  accent-color: var(--brand);
 }
 
 .expert-tag-modal-option strong {

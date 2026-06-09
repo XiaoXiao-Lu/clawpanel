@@ -6,7 +6,7 @@ import { api, invalidate, safeTauriListen } from '../lib/tauri-api.js'
 import { toast } from '../components/toast.js'
 import { humanizeError } from '../lib/humanize-error.js'
 import { showContentModal, showConfirm } from '../components/modal.js'
-import { icon } from '../lib/icons.js'
+import { icon, statusIcon } from '../lib/icons.js'
 import { CHANNEL_LABELS } from '../lib/channel-labels.js'
 import { t } from '../lib/i18n.js'
 import { termHelpHtml, attachTermTooltips } from '../lib/term-tooltip.js'
@@ -1660,7 +1660,7 @@ function renderAgentBindings(page, state) {
             </div>
           </div>`
       }).join('')
-      : `<div class="empty-state empty-compact" style="padding:14px 8px"><div class="empty-icon" style="font-size:28px">💬</div><div class="empty-desc">${t('channels.noBindings')}</div></div>`
+      : `<div class="empty-state empty-compact" style="padding:14px 8px"><div class="empty-icon" style="font-size:28px">${icon('message-square', 14)}</div><div class="empty-desc">${t('channels.noBindings')}</div></div>`
 
     const addDisabled = !canBind.length ? 'disabled' : ''
     return `
@@ -2035,7 +2035,7 @@ function showQqDiagnoseModal(result, options = {}) {
   const list = checks.map(c => {
     const ok = !!c.ok
     const color = ok ? 'var(--success)' : 'var(--error)'
-    const mark = ok ? '✓' : '✗'
+    const mark = ok ? statusIcon('ok', 14) : statusIcon('err', 14)
     return `<div style="border-left:3px solid ${color};padding:10px 12px;margin-bottom:8px;background:var(--bg-tertiary);border-radius:var(--radius-md)">
       <div style="font-weight:600;color:${color}">${mark} ${escapeAttr(c.title || '')}</div>
       <div style="font-size:var(--font-size-sm);color:var(--text-secondary);margin-top:6px;line-height:1.55;white-space:pre-wrap">${escapeAttr(c.detail || '')}</div>
@@ -2344,7 +2344,7 @@ async function openConfigDialog(pid, page, state, accountId) {
           const parts = []
           const installBtn = modal.querySelector('[data-channel-action="install"]')
           if (s.installed && s.compatible === false) {
-            parts.push(`<span style="color:var(--error);font-weight:600">⚠ ${t('channels.pluginIncompatible')}</span>`)
+            parts.push(`<span style="color:var(--error);font-weight:600">${statusIcon('warn', 14)} ${t('channels.pluginIncompatible')}</span>`)
             parts.push(`${t('channels.version')} <strong>${s.installedVersion || '?'}</strong>`)
             parts.push(`<br><span style="color:var(--error);font-size:var(--font-size-xs)">${s.compatError || t('channels.pluginCompatErrorHint')}</span>`)
             if (installBtn) {

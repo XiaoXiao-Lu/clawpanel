@@ -123,8 +123,8 @@
 
 .chat-session-search input:focus,
 .chat-session-filter:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-muted);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-muted);
 }
 
 .chat-session-bulk-bar {
@@ -133,7 +133,7 @@
   gap: 8px;
   padding: 8px 10px;
   border-bottom: 1px solid var(--border-primary);
-  background: var(--accent-muted);
+  background: var(--brand-muted);
   color: var(--text-primary);
   font-size: var(--font-size-xs);
 }
@@ -197,8 +197,8 @@
 
 .chat-workspace-trigger.is-active {
   background: var(--bg-secondary);  /* fallback */
-  background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
-  border-color: color-mix(in srgb, var(--accent) 24%, var(--border-primary));
+  background: color-mix(in srgb, var(--brand) 10%, var(--bg-secondary));
+  border-color: color-mix(in srgb, var(--brand) 24%, var(--border-primary));
 }
 
 .chat-workspace-trigger-label {
@@ -212,8 +212,8 @@
   min-width: 32px;
   padding: 1px 8px;
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg-tertiary));
-  color: var(--accent);
+  background: color-mix(in srgb, var(--brand) 12%, var(--bg-tertiary));
+  color: var(--brand);
   font-size: var(--font-size-xs);
   font-weight: 700;
 }
@@ -266,8 +266,8 @@
   min-width: 32px;
   padding: 2px 8px;
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--accent) 10%, var(--bg-primary));
-  color: var(--accent);
+  background: color-mix(in srgb, var(--brand) 10%, var(--bg-primary));
+  color: var(--brand);
   font-size: var(--font-size-xs);
   font-weight: 700;
 }
@@ -310,7 +310,7 @@
 .chat-workspace-icon-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
-  border-color: var(--accent);
+  border-color: var(--brand);
 }
 
 .chat-workspace-body {
@@ -369,13 +369,13 @@
 
 .chat-workspace-core-item:hover,
 .chat-workspace-core-item.active {
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-primary));
-  background: color-mix(in srgb, var(--accent) 8%, var(--bg-primary));
+  border-color: color-mix(in srgb, var(--brand) 28%, var(--border-primary));
+  background: color-mix(in srgb, var(--brand) 8%, var(--bg-primary));
 }
 
 .chat-workspace-core-icon {
   flex-shrink: 0;
-  color: var(--accent);
+  color: var(--brand);
 }
 
 .chat-workspace-core-copy {
@@ -422,7 +422,7 @@
 
 .chat-workspace-tree-row:hover,
 .chat-workspace-tree-row.active {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
 }
 
 .chat-workspace-tree-toggle {
@@ -647,7 +647,7 @@
 }
 
 .msg-user .msg-bubble {
-  background: var(--accent);
+  background: var(--brand);
   color: var(--text-inverse);
   border-bottom-right-radius: var(--radius-sm);
 }
@@ -696,7 +696,7 @@
 }
 
 .msg-ai .msg-bubble a {
-  color: var(--accent);
+  color: var(--brand);
   text-decoration: none;
 }
 
@@ -789,7 +789,7 @@
 }
 
 .msg-ai .msg-bubble tr:hover {
-  background: var(--accent-muted);
+  background: var(--brand-muted);
 }
 
 /* 行内代码 */
@@ -805,7 +805,7 @@
 .stream-cursor::after {
   content: '▊';
   animation: blink-cursor 0.8s step-end infinite;
-  color: var(--accent);
+  color: var(--brand);
 }
 
 @keyframes blink-cursor {
@@ -899,7 +899,7 @@
 }
 
 .chat-input-wrapper textarea:focus {
-  border-color: var(--accent);
+  border-color: var(--brand);
   box-shadow: var(--shadow-glow);
 }
 
@@ -915,7 +915,7 @@
   min-height: 44px;
   border-radius: var(--radius-lg, 12px);
   border: none;
-  background: var(--accent);
+  background: var(--brand);
   color: var(--text-inverse);
   cursor: pointer;
   display: flex;
@@ -929,7 +929,7 @@
 }
 
 .chat-send-btn:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: var(--brand-light);
   transform: scale(1.02);
 }
 
@@ -1103,11 +1103,11 @@
 
 .chat-session-card.active {
   background: var(--accent-muted, rgba(99, 102, 241, 0.1));
-  border-color: var(--accent-border, rgba(99, 102, 241, 0.3));
+  border-color: var(--brand-overlay, rgba(99, 102, 241, 0.3));
 }
 
 .chat-session-card.selected {
-  border-color: var(--accent);
+  border-color: var(--brand);
 }
 
 .chat-session-card.pinned:not(.active) {
@@ -1136,8 +1136,8 @@
 
 .chat-session-card.selected .chat-session-select,
 .chat-session-select:hover {
-  color: var(--accent);
-  background: var(--accent-muted);
+  color: var(--brand);
+  background: var(--brand-muted);
 }
 
 .chat-session-card .chat-session-label {
@@ -1158,7 +1158,7 @@
 }
 
 .chat-session-card.active .chat-session-label {
-  color: var(--accent);
+  color: var(--brand);
   font-weight: 600;
 }
 
@@ -1245,7 +1245,7 @@
 
 .msg.search-current .msg-bubble,
 .msg.search-current.msg-system {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 35%, transparent);
 }
 
 /* 模型选择组 */
@@ -1402,7 +1402,7 @@
 }
 
 .cmd-name {
-  color: var(--accent);
+  color: var(--brand);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   min-width: 80px;
@@ -1654,7 +1654,7 @@
   gap: 12px;
   padding: 12px 14px;
   background: var(--accent-muted, rgba(99, 102, 241, 0.08));
-  border: 1px solid var(--accent-border, rgba(99, 102, 241, 0.2));
+  border: 1px solid var(--brand-overlay, rgba(99, 102, 241, 0.2));
   border-radius: var(--radius-lg);
   font-size: var(--font-size-xs);
   line-height: 1.6;
@@ -1663,7 +1663,7 @@
 }
 .chat-guide-icon {
   flex-shrink: 0;
-  color: var(--accent);
+  color: var(--brand);
   margin-top: 2px;
 }
 .chat-guide-content b {
@@ -1907,7 +1907,7 @@
   left: 2px;
   transition: transform var(--ease-fast);
 }
-.hosted-agent-switch input:checked + .hosted-agent-track { background: var(--accent); }
+.hosted-agent-switch input:checked + .hosted-agent-track { background: var(--brand); }
 .hosted-agent-switch input:checked + .hosted-agent-track::after { transform: translateX(16px); }
 .hosted-agent-row {
   display: flex;
@@ -1933,9 +1933,9 @@
 /* 滑块控件 */
 .ha-slider-group { padding: 4px 0; }
 .ha-slider-label { font-size: var(--font-size-xs); color: var(--text-secondary); margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; }
-.ha-slider-val { font-weight: 700; color: var(--accent); font-size: var(--font-size-md); }
+.ha-slider-val { font-weight: 700; color: var(--brand); font-size: var(--font-size-md); }
 .ha-slider { width: 100%; height: 6px; -webkit-appearance: none; appearance: none; background: var(--bg-tertiary); border-radius: var(--radius-sm); outline: none; cursor: pointer; }
-.ha-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; box-shadow: var(--shadow-sm); }
+.ha-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--brand); cursor: pointer; box-shadow: var(--shadow-sm); }
 .ha-slider:disabled { opacity: 0.4; cursor: not-allowed; }
 .ha-slider-ticks { display: flex; justify-content: space-between; font-size: var(--font-size-xs); color: var(--text-tertiary); margin-top: 2px; }
 /* 定时器 */
@@ -1945,13 +1945,13 @@
 .ha-toggle input { display: none; }
 .ha-toggle-track { width: 34px; height: 18px; border-radius: var(--radius-md); background: var(--bg-tertiary); position: relative; transition: background var(--ease-fast); }
 .ha-toggle-track::after { content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: var(--text-inverse); top: 2px; left: 2px; transition: transform var(--ease-fast); }
-.ha-toggle input:checked + .ha-toggle-track { background: var(--accent); }
+.ha-toggle input:checked + .ha-toggle-track { background: var(--brand); }
 .ha-toggle input:checked + .ha-toggle-track::after { transform: translateX(16px); }
 .ha-timer-body { margin-top: 8px; }
 /* 倒计时 */
 .ha-countdown { margin-top: 8px; }
 .ha-countdown-bar { height: 6px; background: var(--bg-tertiary); border-radius: var(--radius-sm); overflow: hidden; }
-.ha-countdown-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success, #22c55e)); border-radius: var(--radius-sm); transition: width 1s linear; }
+.ha-countdown-fill { height: 100%; background: linear-gradient(90deg, var(--brand), var(--success, #22c55e)); border-radius: var(--radius-sm); transition: width 1s linear; }
 .ha-countdown-text { font-size: var(--font-size-xs); color: var(--text-tertiary); margin-top: 2px; display: block; text-align: right; }
 .hosted-agent-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .hosted-agent-actions {
@@ -1962,7 +1962,7 @@
   flex-shrink: 0;
   justify-content: center;
 }
-.hosted-agent-link { color: var(--accent); text-decoration: none; font-weight: 500; }
+.hosted-agent-link { color: var(--brand); text-decoration: none; font-weight: 500; }
 .hosted-agent-link:hover { text-decoration: underline; }
 .hosted-agent-footer {
   padding: 8px 12px;

@@ -11,6 +11,7 @@
 import { t } from '../lib/i18n.js'
 import { toast } from '../components/toast.js'
 import { humanizeError } from '../lib/humanize-error.js'
+import { statusIcon } from '../lib/icons.js'
 import {
   isPushSupported,
   pushPermission,
@@ -70,7 +71,7 @@ async function loadAndRender(page) {
           <div class="push-status-label">${escapeHtml(t('notifications.subscriptionLabel'))}</div>
           <div class="push-status-value">${
             sub
-              ? `<span class="lazy-deps-badge ok">✓ ${escapeHtml(t('notifications.subscribed'))}</span>`
+              ? `<span class="lazy-deps-badge ok">${statusIcon('ok', 14)} ${escapeHtml(t('notifications.subscribed'))}</span>`
               : `<span class="lazy-deps-badge warn">${escapeHtml(t('notifications.notSubscribed'))}</span>`
           }</div>
         </div>
@@ -153,7 +154,7 @@ async function loadAndRender(page) {
 }
 
 function renderPermBadge(perm) {
-  if (perm === 'granted') return `<span class="lazy-deps-badge ok">✓ ${escapeHtml(t('notifications.permGranted'))}</span>`
+  if (perm === 'granted') return `<span class="lazy-deps-badge ok">${statusIcon('ok', 14)} ${escapeHtml(t('notifications.permGranted'))}</span>`
   if (perm === 'denied')  return `<span class="lazy-deps-badge warn">${escapeHtml(t('notifications.permDenied'))}</span>`
   if (perm === 'default') return `<span class="lazy-deps-badge unknown">${escapeHtml(t('notifications.permDefault'))}</span>`
   return `<span class="lazy-deps-badge unknown">${escapeHtml(t('notifications.permUnsupported'))}</span>`

@@ -42,8 +42,8 @@ body::after {
   width: 100vw;
 }
 
-a { color: var(--accent); text-decoration: none; }
-a:hover { color: var(--accent-hover); }
+a { color: var(--brand); text-decoration: none; }
+a:hover { color: var(--brand-light); }
 a:focus-visible,
 button:focus-visible,
 [role="button"]:focus-visible,

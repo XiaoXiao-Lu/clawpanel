@@ -137,7 +137,7 @@
   margin-bottom: 4px;
 }
 .company-card a {
-  color: var(--accent);
+  color: var(--brand);
 }
 .company-desc {
   font-size: var(--text-xs);
@@ -221,11 +221,11 @@
   transition: background 150ms ease, border-color 150ms ease;
 }
 .version-radio-label--active {
-  border-color: var(--primary);
+  border-color: var(--brand);
   background: var(--brand-faint);
 }
 .version-radio-label input[type="radio"] {
-  accent-color: var(--primary);
+  accent-color: var(--brand);
 }
 .version-hint-box {
   font-size: var(--text-xs);

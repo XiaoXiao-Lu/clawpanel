@@ -10,6 +10,7 @@ import { showConfirm, showContentModal } from '../components/modal.js'
 import { t } from '../lib/i18n.js'
 import { wsClient } from '../lib/ws-client.js'
 import { escapeHtml as esc } from '../lib/utils.js'
+import { icon, statusIcon } from '../lib/icons.js'
 
 let _loadSeq = 0
 let _selectedAgentId = null
@@ -397,10 +398,10 @@ function renderSkillPreviewContent(item, options = {}) {
         ${tagRows.length ? `<div class="skills-store-tags">${tagRows.map(tag => `<span>${esc(tag)}</span>`).join('')}</div>` : ''}
         ${reqRows.length ? `
           <div class="skills-preview-requirements">
-            ${reqRows.map(([label, value, missing]) => `<div class="${missing ? 'missing' : ''}"><span>${esc(label)}</span><code>${missing ? '✗' : '✓'} ${esc(value)}</code></div>`).join('')}
+            ${reqRows.map(([label, value, missing]) => `<div class="${missing ? 'missing' : ''}"><span>${esc(label)}</span><code>${missing ? statusIcon('err', 14) : statusIcon('ok', 14)} ${esc(value)}</code></div>`).join('')}
             ${compact && data.reqHtml.length > reqRows.length ? `<div><span>${t('skills.requirements')}</span><code>+${data.reqHtml.length - reqRows.length}</code></div>` : ''}
           </div>` : ''}
-        ${data.homepage && !compact ? `<a class="btn btn-secondary btn-sm" href="${esc(data.homepage)}" target="_blank" rel="noopener">🔗 ${t('skills.openHomepage')}</a>` : ''}
+        ${data.homepage && !compact ? `<a class="btn btn-secondary btn-sm" href="${esc(data.homepage)}" target="_blank" rel="noopener">${icon('link', 14)} ${t('skills.openHomepage')}</a>` : ''}
       </div>`
 }
 
@@ -543,7 +544,7 @@ export async function render() {
     <!-- Hero 统计栏 -->
     <div class="skills-hero">
       <div class="skills-hero-left">
-        <div class="skills-hero-icon">🧩</div>
+        <div class="skills-hero-icon">${icon('puzzle', 14)}</div>
         <div>
           <div class="skills-hero-title">${t('skills.title')}</div>
           <div class="skills-hero-subtitle">${t('skills.desc')}</div>
@@ -570,7 +571,7 @@ export async function render() {
     <!-- Pill 风格 Tab -->
     <div class="skills-tab-nav" id="skills-main-tabs" role="tablist">
       <button class="skills-tab-btn active" id="skills-tab-btn-installed" role="tab" aria-selected="true" aria-controls="skills-tab-installed" data-main-tab="installed">
-        📋 ${t('skills.tabInstalled')}
+        ${icon('clipboard', 14)} ${t('skills.tabInstalled')}
         <span class="skills-tab-count" id="tab-count-installed">--</span>
       </button>
       <button class="skills-tab-btn" id="skills-tab-btn-store" role="tab" aria-selected="false" aria-controls="skills-tab-store" data-main-tab="store" tabindex="-1">
@@ -595,14 +596,14 @@ export async function render() {
         </div>
         <div class="skills-store-header-actions">
           <input type="file" id="skill-zip-input" accept=".zip,application/zip" style="display:none">
-          <button class="btn btn-secondary btn-sm" data-action="skill-install-zip">📦 ${t('skills.installZip')}</button>
-          <a class="btn btn-secondary btn-sm" id="skill-store-browse" href="https://www.skillhub.cn/" target="_blank" rel="noopener">🔗 ${t('skills.browseCn')}</a>
+          <button class="btn btn-secondary btn-sm" data-action="skill-install-zip">${icon('package', 14)} ${t('skills.installZip')}</button>
+          <a class="btn btn-secondary btn-sm" id="skill-store-browse" href="https://www.skillhub.cn/" target="_blank" rel="noopener">${icon('link', 14)} ${t('skills.browseCn')}</a>
         </div>
       </div>
 
       <div class="skills-store-searchbar">
         <input class="input clawhub-search-input" id="skill-store-search" placeholder="${t('skills.searchPlaceholder')}" type="text">
-        <button class="btn btn-primary btn-sm" data-action="store-search">🔍 ${t('skills.search')}</button>
+        <button class="btn btn-primary btn-sm" data-action="store-search">${icon('search', 14)} ${t('skills.search')}</button>
       </div>
 
       <div class="skills-store-filters">
@@ -680,10 +681,10 @@ async function loadSkills(page) {
     el.innerHTML = `
       <div class="skills-load-error">
         <div class="skills-empty-state">
-          <div class="skills-empty-icon">⚠️</div>
+          <div class="skills-empty-icon">${statusIcon('warn', 14)}</div>
           <div class="skills-empty-title">${t('skills.loadFailed')}</div>
           <div class="skills-empty-desc">${esc(e?.message || e)}</div>
-          <button class="btn btn-primary btn-sm" data-action="skill-retry">🔄 ${t('skills.retry')}</button>
+          <button class="btn btn-primary btn-sm" data-action="skill-retry">${icon('refresh-cw', 14)} ${t('skills.retry')}</button>
         </div>
       </div>`
   }
@@ -719,7 +720,7 @@ function renderSkills(el, data) {
   el.innerHTML = `
     <div class="clawhub-toolbar">
       <input class="input clawhub-search-input" id="skill-filter-input" placeholder="${t('skills.filterPlaceholder')}" type="text">
-      <button class="btn btn-secondary btn-sm" data-action="skill-retry">🔄 ${t('skills.refresh')}</button>
+      <button class="btn btn-secondary btn-sm" data-action="skill-retry">${icon('refresh-cw', 14)} ${t('skills.refresh')}</button>
     </div>
 
     <div class="skills-summary" style="margin-bottom:var(--space-lg);color:var(--text-secondary);font-size:var(--font-size-sm)">
@@ -729,7 +730,7 @@ function renderSkills(el, data) {
     ${eligible.length ? `
     <div class="clawhub-panel" style="margin-bottom:var(--space-lg)">
       <div class="clawhub-panel-title" style="color:var(--success)">
-        <span class="panel-icon" style="background:var(--success-muted);color:var(--success)">✓</span>
+        <span class="panel-icon" style="background:var(--success-muted)">${statusIcon('ok', 14)}</span>
         ${t('skills.eligibleGroup')}
         <span class="panel-count">${eligible.length}</span>
       </div>
@@ -741,10 +742,10 @@ function renderSkills(el, data) {
     ${missing.length ? `
     <div class="clawhub-panel" style="margin-bottom:var(--space-lg)">
       <div class="clawhub-panel-title" style="color:var(--warning)">
-        <span class="panel-icon" style="background:var(--warning-muted);color:var(--warning)">⚠</span>
+        <span class="panel-icon" style="background:var(--warning-muted)">${statusIcon('warn', 14)}</span>
         ${t('skills.missingGroup')}
         <span class="panel-count">${missing.length}</span>
-        <button class="btn btn-secondary btn-sm" data-action="skill-ai-fix" style="margin-left:auto;font-size:var(--font-size-xs);padding:3px 10px">🤖 ${t('skills.aiFixBtn')}</button>
+        <button class="btn btn-secondary btn-sm" data-action="skill-ai-fix" style="margin-left:auto;font-size:var(--font-size-xs);padding:3px 10px">${icon('bot', 14)} ${t('skills.aiFixBtn')}</button>
       </div>
       <div class="skills-installed-grid skills-scroll-area skills-installed-scroll" id="skills-missing">
         ${missing.map(s => renderSkillCard(s, 'missing')).join('')}
@@ -778,7 +779,7 @@ function renderSkills(el, data) {
     ${!skills.length ? `
     <div class="clawhub-panel">
       <div class="skills-empty-state">
-        <div class="skills-empty-icon">🛠️</div>
+        <div class="skills-empty-icon">${icon('wrench', 14)}</div>
         <div class="skills-empty-title">${t('skills.noSkills')}</div>
         <div class="skills-empty-desc">${t('skills.noSkillsHint')}</div>
         <button class="btn btn-primary" data-empty-cta="go-store">🛒 ${t('skills.tabStore')}</button>
@@ -848,9 +849,9 @@ function renderSkillCard(skill, status) {
   }
 
   let missingHtml = ''
-  if (missingBins.length) missingHtml += `<div class="clawhub-item-meta">📦 ${t('skills.missingCmd')}: ${missingBins.map(b => `<code>${esc(b)}</code>`).join(', ')}</div>`
+  if (missingBins.length) missingHtml += `<div class="clawhub-item-meta">${icon('package', 14)} ${t('skills.missingCmd')}: ${missingBins.map(b => `<code>${esc(b)}</code>`).join(', ')}</div>`
   if (missingEnv.length) missingHtml += `<div class="clawhub-item-meta">🔑 ${t('skills.missingEnv')}: ${missingEnv.map(e => `<code>${esc(e)}</code>`).join(', ')} <span style="color:var(--text-tertiary);font-size:11px">${t('skills.missingEnvHint')}</span></div>`
-  if (missingConfig.length) missingHtml += `<div class="clawhub-item-meta">⚙️ ${t('skills.missingConfig')}: ${missingConfig.map(c => `<code>${esc(c)}</code>`).join(', ')} <span style="color:var(--text-tertiary);font-size:11px">${t('skills.missingConfigHint')}</span></div>`
+  if (missingConfig.length) missingHtml += `<div class="clawhub-item-meta">${icon('gear', 14)} ${t('skills.missingConfig')}: ${missingConfig.map(c => `<code>${esc(c)}</code>`).join(', ')} <span style="color:var(--text-tertiary);font-size:11px">${t('skills.missingConfigHint')}</span></div>`
 
   let installHtml = ''
   if (status === 'missing') {
@@ -947,7 +948,7 @@ async function loadStore(page) {
     if (meta) meta.innerHTML = `<span class="meta-dot"></span>${t('skills.featuredMeta', { count: _storeItems.length })}`
     renderStoreItems(results, _storeIndex)
   } catch (e) {
-    results.innerHTML = `<div class="skills-empty-state"><div class="skills-empty-icon">🌐</div><div class="skills-empty-title">${t('skills.storeLoadFailed')}</div><div class="skills-empty-desc">${esc(e?.message || e)}</div></div>`
+    results.innerHTML = `<div class="skills-empty-state"><div class="skills-empty-icon">${icon('globe', 14)}</div><div class="skills-empty-title">${t('skills.storeLoadFailed')}</div><div class="skills-empty-desc">${esc(e?.message || e)}</div></div>`
   }
 }
 
@@ -970,7 +971,7 @@ function updateStoreSourceUi(page) {
 
 function renderStoreItems(el, items) {
   if (!items?.length) {
-    el.innerHTML = `<div class="skills-empty-state"><div class="skills-empty-icon">🔍</div><div class="skills-empty-title">${t('skills.noResults')}</div></div>`
+    el.innerHTML = `<div class="skills-empty-state"><div class="skills-empty-icon">${icon('search', 14)}</div><div class="skills-empty-title">${t('skills.noResults')}</div></div>`
     return
   }
   _storeItems = items
@@ -1044,7 +1045,7 @@ async function handleStoreSearch(page) {
     if (meta) meta.innerHTML = `<span class="meta-dot"></span>${t('skills.searchMeta', { count: items?.length || 0, query: q })}`
     renderStoreItems(results, items)
   } catch (e) {
-    results.innerHTML = `<div class="skills-empty-state"><div class="skills-empty-icon">⚠️</div><div class="skills-empty-title">${t('skills.searchFailed')}</div><div class="skills-empty-desc">${esc(e?.message || e)}</div></div>`
+    results.innerHTML = `<div class="skills-empty-state"><div class="skills-empty-icon">${statusIcon('warn', 14)}</div><div class="skills-empty-title">${t('skills.searchFailed')}</div><div class="skills-empty-desc">${esc(e?.message || e)}</div></div>`
   }
 }
 

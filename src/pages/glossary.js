@@ -7,6 +7,7 @@
  *   - 数据直接内嵌（非走 locales 模块），后期需要更多语言时再迁
  */
 import { t, getLang } from '../lib/i18n.js'
+import { icon } from '../lib/icons.js'
 import { navigate } from '../router.js'
 import { escapeHtml as esc } from '../lib/utils.js'
 
@@ -221,7 +222,7 @@ export async function render() {
     if (!items.length) {
       listEl.innerHTML = `
         <div class="empty-state">
-          <div class="empty-icon">🔍</div>
+          <div class="empty-icon">${icon('search', 14)}</div>
           <div class="empty-desc">${esc(t('glossary.noMatch'))}</div>
         </div>
       `
