@@ -32,7 +32,7 @@
   --text-primary:       var(--text-1);
   --text-2:             #9494B8;
   --text-secondary:     var(--text-2);
-  --text-3:             #9090B0;
+  --text-3:             #A5A5C0;
   --text-tertiary:      var(--text-3);
   --text-inverse:       #0F0F18;
   --text-muted:         var(--text-3);
@@ -426,7 +426,7 @@
 
   --text-1:             #EBEBF5;
   --text-2:             #9494B8;
-  --text-3:             #9090B0;
+  --text-3:             #A5A5C0;
 
   --border-1:           rgba(255, 255, 255, 0.08);
   --border-2:           rgba(255, 255, 255, 0.05);

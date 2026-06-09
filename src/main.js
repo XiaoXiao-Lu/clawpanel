@@ -506,12 +506,13 @@ function showLoginOverlay(defaultPw) {
           ? `<div class="login-security-note">${statusIcon('warn', 14)}<span>${t('security.firstLoginChangeHint', { security: securityLabel })}</span></div>`
           : `<div class="login-desc">${t('security.accessPasswordPlaceholder')}</div>`}
       </div>
-      <form id="login-form">
+      <form id="login-form" aria-label="${t('security.loginAction')}">
         <div class="login-field">
+          <label for="login-pw" class="sr-only">${t('security.accessPasswordPlaceholder')}</label>
           <input class="login-input" type="${hasDefault ? 'text' : 'password'}" id="login-pw" placeholder="${t('security.accessPasswordPlaceholder')}" autocomplete="current-password" autofocus value="${defaultPwValue}" />
         </div>
         <div id="login-captcha" class="login-captcha" style="display:${_captcha ? 'block' : 'none'}">
-          <div class="login-captcha-label">${t('security.captchaPrompt')}<strong id="captcha-q">${_captcha ? _captcha.q : ''}</strong></div>
+          <label for="login-captcha-input" class="login-captcha-label">${t('security.captchaPrompt')}<strong id="captcha-q">${_captcha ? _captcha.q : ''}</strong></label>
           <input class="login-input login-captcha-input" type="number" id="login-captcha-input" placeholder="${t('security.captchaPlaceholder')}" />
         </div>
         <button class="login-btn" type="submit">${t('security.loginAction')}</button>

@@ -44,6 +44,8 @@
   "sidebar": {
     "collapse": "Einklappen",
     "closeMenu": "Menü schließen",
+    "search": "Navigation durchsuchen",
+    "navLabel": "Hauptnavigation",
     "themeLight": "Hell",
     "themeDark": "Dunkel",
     "sectionMonitor": "Überwachung",

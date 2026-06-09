@@ -331,13 +331,30 @@ export function showUpgradeModal(title) {
   function closeModal() {
     if (_closed) return
     _closed = true
-    overlay.remove()
-    if (!_finished) {
-      showTaskBar()
-    } else {
-      if (_taskBar) { _taskBar.remove(); _taskBar = null }
-      setTimeout(() => _onClose?.(), 0)
+    // Fade-out animation before removal
+    overlay.style.opacity = '0'
+    overlay.style.transform = 'translateY(8px)'
+    overlay.style.transition = 'opacity 200ms ease, transform 250ms var(--ease-out)'
+    const onTransitionEnd = () => {
+      overlay.removeEventListener('transitionend', onTransitionEnd)
+      overlay.remove()
+      if (!_finished) {
+        showTaskBar()
+      } else {
+        if (_taskBar) { _taskBar.remove(); _taskBar = null }
+        setTimeout(() => _onClose?.(), 0)
+      }
     }
+    overlay.addEventListener('transitionend', onTransitionEnd)
+    // Fallback: force remove after 350ms if transitionend doesn't fire
+    setTimeout(() => {
+      if (overlay.parentNode) {
+        overlay.removeEventListener('transitionend', onTransitionEnd)
+        overlay.remove()
+        if (!_finished) { showTaskBar() }
+        else { if (_taskBar) { _taskBar.remove(); _taskBar = null }; setTimeout(() => _onClose?.(), 0) }
+      }
+    }, 400)
   }
 
   // 全局任务状态栏：关闭弹窗后显示在页面顶部
@@ -362,7 +379,6 @@ export function showUpgradeModal(title) {
     }
   }
 
-  closeBtn.onclick = closeModal
   closeBtn.addEventListener('click', (e) => {
     e.preventDefault()
     e.stopPropagation()

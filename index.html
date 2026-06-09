@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#060610" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#F6F7FA" media="(prefers-color-scheme: light)" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="description" content="ClawPanel — AI Agent 管理面板，多引擎协作平台" />
   <title>ClawPanel</title>
   <link rel="icon" href="/favicon.ico">
   <!-- Typography: load remote fonts without blocking the splash screen; local fallback is immediate. -->
@@ -464,11 +468,12 @@
   })();
   </script>
 
+  <a href="#content" class="skip-link">跳转到主内容</a>
   <div id="app">
-    <aside id="sidebar"></aside>
+    <aside id="sidebar" aria-label="主导航"></aside>
     <div id="main-col">
-      <div id="gw-banner" class="gw-banner gw-banner-hidden"></div>
-      <div id="context-bar" class="context-bar"></div>
+      <section id="gw-banner" class="gw-banner gw-banner-hidden" role="alert"></section>
+      <nav id="context-bar" class="context-bar" aria-label="面包屑导航"></nav>
       <main id="content"></main>
     </div>
   </div>

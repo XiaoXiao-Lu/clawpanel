@@ -44,6 +44,8 @@
   "sidebar": {
     "collapse": "折りたたみ/展開",
     "closeMenu": "メニューを閉じる",
+    "search": "ナビゲーション検索",
+    "navLabel": "メインナビゲーション",
     "themeLight": "ライトモード",
     "themeDark": "ダークモード",
     "sectionMonitor": "モニター",

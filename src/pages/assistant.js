@@ -4311,16 +4311,26 @@ function renderExpertTeamMessage(m, idx) {
   const groupName = escHtml(m._expertTeamName || '专家团')
   const plan = m._expertTeamPlan
   const progress = getExpertTeamProgress(transcript, plan, isRunning)
-  const stages = getExpertTeamStages(transcript, plan, isRunning, progress)
   const activeAgents = isRunning ? getExpertTeamActiveAgents(transcript) : []
-  const governanceHtml = renderExpertTeamGovernance(getExpertTeamGovernance(plan, transcript, progress))
-  const runMetaHtml = renderExpertTeamRunMeta(getExpertTeamRunMeta(m, progress), progress)
-  const closeoutHtml = renderExpertTeamCloseout(transcript, plan, progress)
-  const resumeActionsHtml = renderExpertTeamResumeActions(m, idx)
+
+  // ── 子面板数据 ──
+  const hasFinal = transcript.some(item => item.type === 'final')
+  const legacyEmptyFallback = !hasFinal && isExpertTeamEmptyResponseFailure(transcript, isRunning)
+  const primaryItems = legacyEmptyFallback
+    ? [buildExpertTeamNoExpertResponseDisplayItem(transcript, plan)]
+    : transcript.filter(item => ['final', 'error'].includes(item.type) || (!isRunning && !hasFinal && item.type === 'stopped'))
+  const primaryHtml = primaryItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('')
+  const processItems = transcript.filter(item => !['final', 'error', 'stopped'].includes(item.type))
+
+  // ── 专家成员芯片数据 ──
+  const memberStatuses = getExpertTeamMemberStatuses(plan, transcript, isRunning)
+
+  // ── 折叠区域数据 ──
   const activityHtml = renderExpertTeamActivityFeed(transcript, m._expertTeamRun, isRunning)
   const traceHtml = renderExpertTeamOperationTrace(transcript)
-  const focusHtml = renderExpertTeamFocus(getExpertTeamFocus(transcript, plan, progress, isRunning))
-
+  const governanceHtml = renderExpertTeamGovernance(getExpertTeamGovernance(plan, transcript, progress))
+  const runMetaHtml = renderExpertTeamRunMeta(getExpertTeamRunMeta(m, progress), progress)
+  const closeoutHtml = isRunning ? '' : renderExpertTeamCloseout(transcript, plan, progress)
   const planMeta = plan
     ? `${plan.members?.length || 0}位专家 · ${getModeLabel(plan.mode)}${plan.mode === 'sequential' ? ` · ${plan.maxRounds || 1}轮` : ` · 并行${plan.maxParallel || 1}`}`
     : ''
@@ -4340,33 +4350,11 @@ function renderExpertTeamMessage(m, idx) {
       </div>
     </details>
   ` : ''
-  const detailsHtml = renderExpertTeamRunDetails({
-    activityHtml,
-    closeoutHtml: isRunning ? '' : closeoutHtml,
-    governanceHtml,
-    planHtml,
-    runMetaHtml,
-    traceHtml,
-  })
+  const detailsItems = [activityHtml, traceHtml, governanceHtml, closeoutHtml, planHtml, runMetaHtml].filter(Boolean)
+  const activityCount = buildExpertTeamActivities(transcript, m._expertTeamRun, isRunning).length
+  const traceCount = Math.min(5, getExpertTeamOperations(transcript).length)
 
-  const hasFinal = transcript.some(item => item.type === 'final')
-  const legacyEmptyFallback = !hasFinal && isExpertTeamEmptyResponseFailure(transcript, isRunning)
-  const primaryItems = legacyEmptyFallback
-    ? [buildExpertTeamNoExpertResponseDisplayItem(transcript, plan)]
-    : transcript.filter(item => ['final', 'error'].includes(item.type) || (!isRunning && !hasFinal && item.type === 'stopped'))
-  const processItems = transcript.filter(item => !['final', 'error', 'stopped'].includes(item.type))
-  const primaryHtml = primaryItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('')
-  const topPrimaryHtml = !isRunning && primaryHtml ? primaryHtml : ''
-  const inlinePrimaryHtml = isRunning ? primaryHtml : ''
-  const workboardHtml = renderExpertTeamWorkboard(plan, transcript, progress, isRunning, activeAgents)
-  const showWorkboard = isRunning || !hasFinal
-  const stageHtml = `<div class="ast-expert-stage-board" aria-label="专家团流程进度">
-    ${stages.map((stage, stepIndex) => `<div class="ast-expert-stage-row ast-expert-stage-row--${escAttr(stage.status)}">
-      <span class="ast-expert-stage-index">${escHtml(String(stepIndex + 1))}</span>
-      <span class="ast-expert-stage-name">${stage.icon}<span>${escHtml(stage.name)}</span>${stage.detail ? `<small>${escHtml(stage.detail)}</small>` : ''}</span>
-      <span class="ast-expert-stage-status">${expertTeamStageStatusIcon(stage.status)}${escHtml(stage.label)}</span>
-    </div>`).join('')}
-  </div>`
+  // ── 完整过程数据 ──
   const processHtml = processItems.length ? processItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('') : `
     <div class="ast-expert-item ast-expert-item--pending">
       <div class="ast-expert-item-head">
@@ -4376,24 +4364,24 @@ function renderExpertTeamMessage(m, idx) {
       <div class="ast-expert-skeleton"><span></span><span></span></div>
     </div>
   `
-  const processOpenAttr = ''
   const processCount = processItems.filter(item => item.type !== 'round_start').length || (processItems.length ? processItems.length : 1)
-  const processBlock = `<details class="ast-expert-process"${processOpenAttr}>
-    <summary class="ast-expert-process-summary">
-      <span>${icon('list', 13)} 完整过程</span>
-      <small>${escHtml(processCount)} 条记录 · 默认收起</small>
-      <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
-    </summary>
-    ${stageHtml}
-    <div class="ast-expert-items">${processHtml}</div>
-  </details>`
-  const runningIndicator = isRunning ? '<div class="ast-expert-running"></div>' : ''
+
+  // ── 恢复操作 ──
+  const resumeActionsHtml = renderExpertTeamResumeActions(m, idx)
+
+  // ── 汇总信息（折叠面板描述行） ──
+  const detailsDesc = [
+    activityCount ? `${activityCount} 项活动` : '',
+    traceCount ? `${traceCount} 项操作` : '',
+    plan ? `${plan.members?.length || 0} 位成员` : '',
+  ].filter(Boolean).join(' · ')
 
   return `<div class="ast-msg ast-msg-ai ast-msg-expert-team" data-msg-idx="${idx}" data-expert-dom-id="${escAttr(expertTeamDomId(m))}">
     <div class="ast-expert-team-run ast-expert-copy-source">
+      <!-- 1. 头部：标题 + 状态徽章 + 副标题 + 进度条 -->
       <div class="ast-expert-team-header">
         <div class="ast-expert-team-title">
-          <span class="ast-expert-team-icon">${expertTeamRunIcon(progress.status)}</span>
+          <span class="ast-expert-team-icon ast-expert-team-icon--${escAttr(progress.status)}">${expertTeamRunIcon(progress.status)}</span>
           <div>
             <strong>${groupName}</strong>
             <span>${escHtml(progress.currentLabel)}</span>
@@ -4401,22 +4389,54 @@ function renderExpertTeamMessage(m, idx) {
         </div>
         <span class="ast-expert-badge ast-expert-badge--${escAttr(progress.status)}">${escHtml(progress.statusLabel)}</span>
       </div>
-      <div class="ast-expert-progress" aria-label="专家团进度">
-        <div class="ast-expert-progress-bar ast-expert-progress-bar--${escAttr(progress.status)}" style="width:${progress.percent}%"></div>
-      </div>
-      ${progress.status === 'running' ? `<div class="ast-expert-run-summary">
-        <span>${escHtml(progress.completed)} / ${escHtml(progress.total)} 步</span>
-        <span>${escHtml(progress.summary)}</span>
-        ${progress.errorCount ? `<span class="ast-expert-run-warning">${escHtml(progress.errorCount)} 个异常已处理</span>` : ''}
+      ${isRunning ? `<div class="ast-expert-progress" aria-label="专家团进度">
+        <div class="ast-expert-progress-bar ast-expert-progress-bar--running" style="width:${progress.percent}%"></div>
       </div>` : ''}
-      ${focusHtml}
-      ${topPrimaryHtml}
-      ${showWorkboard ? workboardHtml : ''}
-      ${inlinePrimaryHtml}
+
+      <!-- 2. 执行管线 -->
+      ${renderExpertTeamPipeline(transcript, plan, isRunning)}
+
+      <!-- 3. 实时控制台（运行时可见） -->
+      ${isRunning ? renderExpertTeamLiveConsole(plan, transcript, isRunning, activeAgents) : ''}
+
+      <!-- 4. 专家成员状态芯片 -->
+      ${memberStatuses.length ? `<div class="ast-expert-member-track" aria-label="专家执行队列">
+        ${memberStatuses.map(member => `<span class="ast-expert-member-chip ast-expert-member-chip--${escAttr(member.status)}" style="--expert-color:${escAttr(getExpertColor(member.expertId))}" title="${escAttr(member.title)}">
+          <span class="ast-expert-member-avatar">${escHtml(member.initial)}</span>
+          <span class="ast-expert-member-copy">
+            <strong>${escHtml(member.name)}</strong>
+            <small>${escHtml(member.detail)}</small>
+          </span>
+        </span>`).join('')}
+      </div>` : ''}
+
+      <!-- 5. 最终交付内容 -->
+      ${!isRunning && primaryHtml ? `<div class="ast-expert-final-area">${primaryHtml}</div>` : ''}
+
+      <!-- 6. 恢复操作 -->
       ${resumeActionsHtml}
-      ${detailsHtml}
-      ${processBlock}
-      ${runningIndicator}
+
+      <!-- 7. 运行细节（折叠） -->
+      ${detailsItems.length ? `<details class="ast-expert-run-details">
+        <summary class="ast-expert-run-details-summary">
+          <span>${icon('settings', 13)} 运行细节</span>
+          <small>${detailsDesc || '查看详情'}</small>
+          <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
+        </summary>
+        ${detailsItems.join('')}
+      </details>` : ''}
+
+      <!-- 8. 完整过程（折叠） -->
+      <details class="ast-expert-process">
+        <summary class="ast-expert-process-summary">
+          <span>${icon('list', 13)} 完整过程</span>
+          <small>${escHtml(String(processCount))} 条记录 · ${isRunning ? '实时更新' : '已归档'}</small>
+          <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
+        </summary>
+        <div class="ast-expert-items">${processHtml}</div>
+      </details>
+
+      ${isRunning ? '<div class="ast-expert-running"></div>' : ''}
     </div>
     <div class="ast-msg-meta"><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${icon('copy', 12)}</button></div>
   </div>`
@@ -5278,6 +5298,110 @@ function buildExpertTeamNoExpertResponseDisplayItem(transcript, plan) {
   }
 }
 
+// ── 执行管线：4 步流程可视化 ──
+function getExpertTeamPipeline(transcript, plan, isRunning) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const memberCount = Array.isArray(plan?.members) ? plan.members.length : 0
+  const rounds = plan?.mode === 'sequential' ? Math.max(1, Number.parseInt(plan.maxRounds || 1, 10) || 1) : 1
+  const expertTarget = Math.max(memberCount * rounds, 1)
+  const expertDone = events.filter(item => item.type === 'expert_done' || item.type === 'expert_error').length
+  const expertLive = events.some(item => ['expert_start', 'expert_stream', 'expert_retry'].includes(item.type))
+  const moderatorLive = events.some(item => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(item.type))
+  const finalDone = events.some(item => item.type === 'final')
+  const fallback = hasExpertTeamModeratorFallback(events)
+  const emptyFailure = isExpertTeamEmptyResponseFailure(events, isRunning)
+  const stopped = events.some(item => item.type === 'stopped')
+  const failed = events.some(item => item.type === 'error') && !isRunning && !emptyFailure
+  const hasPlan = !!plan || events.length > 0 || isRunning
+
+  function stepStatus(step) {
+    if (failed) return step <= 2 ? 'done' : 'error'
+    if (stopped && !isRunning && !finalDone) return step <= 2 ? 'done' : 'stopped'
+    if (emptyFailure || fallback) return step <= 3 ? 'done' : 'warning'
+    if (finalDone) return 'done'
+    if (!hasPlan) return step === 1 ? 'running' : 'waiting'
+    switch (step) {
+      case 1: return 'done'
+      case 2: return expertDone >= expertTarget ? 'done' : expertLive ? 'running' : 'waiting'
+      case 3: return expertDone > 0 || moderatorLive ? (moderatorLive ? 'running' : 'waiting') : 'waiting'
+      case 4: return 'waiting'
+      default: return 'waiting'
+    }
+    return 'waiting'
+  }
+
+  const steps = [
+    { name: '准备', status: stepStatus(1), detail: hasPlan ? `${memberCount}位专家·${getModeLabel(plan?.mode)}` : '加载配置中' },
+    { name: '专家协作', status: stepStatus(2), detail: `${Math.min(expertDone, expertTarget)}/${expertTarget}` },
+    { name: '主持综合', status: stepStatus(3), detail: finalDone ? '已交付' : fallback ? '降级交付' : '待综合' },
+    { name: '交付', status: stepStatus(4), detail: finalDone ? '已完成' : emptyFailure ? '需重试' : '等待中' },
+  ]
+
+  const statusOrder = { done: 3, warning: 2, running: 1, error: 0, stopped: 0, waiting: -1 }
+  const activeStep = steps.reduce((best, s, i) => (statusOrder[s.status] > statusOrder[steps[best]?.status] ? i : best), 0)
+  return { steps, activeStep }
+}
+
+function renderExpertTeamPipeline(transcript, plan, isRunning) {
+  const { steps, activeStep } = getExpertTeamPipeline(transcript, plan, isRunning)
+  const pipeIcons = { done: 'check-circle', running: 'radio', warning: 'shield', error: 'alert-circle', stopped: 'stop', waiting: 'circle' }
+
+  return `<div class="ast-expert-pipeline" aria-label="执行管线">
+    ${steps.map((step, i) => `
+      <div class="ast-expert-pipe-step ast-expert-pipe-step--${escAttr(step.status)}${i === activeStep ? ' ast-expert-pipe-step--active' : ''}">
+        <div class="ast-expert-pipe-dot">${icon(pipeIcons[step.status] || 'circle', step.status === 'running' ? 16 : 14)}</div>
+        <div class="ast-expert-pipe-label">
+          <strong>${escHtml(step.name)}</strong>
+          <small>${escHtml(step.detail)}</small>
+        </div>
+      </div>
+      ${i < steps.length - 1 ? `<span class="ast-expert-pipe-connector ast-expert-pipe-connector--${escAttr(step.status)}"></span>` : ''}
+    `).join('')}
+  </div>`
+}
+
+// ── 实时控制台（从工作台提取，更突出） ──
+function renderExpertTeamLiveConsole(plan, transcript, isRunning, activeAgents) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const active = isRunning
+    ? [...events].reverse().find(item => ['moderator_stream', 'moderator_start', 'moderator_retry', 'expert_stream', 'expert_start', 'expert_retry'].includes(item.type))
+    : null
+  if (!active && !isRunning) return ''
+
+  const isModerator = active?.type?.startsWith('moderator')
+  const retry = active?.type?.endsWith('_retry')
+  const actorLabel = active
+    ? (isModerator ? '主持专家' : expertTeamActorLabel(active))
+    : '等待中'
+  const statusLabel = retry ? '重试中' : isModerator ? '综合中' : '输出中'
+  const modelLabel = active?.model ? modelTextFromSummary(active.model) : ''
+  const liveId = active
+    ? expertTeamLiveDomId(isModerator ? 'moderator' : 'expert', isModerator ? 'moderator' : active.expertId, active.round || 0)
+    : ''
+  const contentMeta = active?.content ? expertTeamContentMeta(active.content) : ''
+  const detail = retry
+    ? `模型请求失败，正在第${active.attempt || 1}次重试`
+    : contentMeta
+      ? `已输出 ${contentMeta}`
+      : isModerator ? '正在读取专家黑板并生成综合交付' : '已发送角色上下文，等待模型输出'
+
+  return `<section class="ast-expert-live-console ast-expert-live-console--${escAttr(retry ? 'warning' : 'active')}" aria-label="实时输出">
+    <div class="ast-expert-live-console-head">
+      <span class="ast-expert-live-console-actor">
+        <span class="ast-expert-live-console-dot" ${retry ? 'data-status="retry"' : ''}></span>
+        <strong>${escHtml(actorLabel)}</strong>
+        <span class="ast-expert-live-console-status">${statusLabel}</span>
+        ${modelLabel ? `<small class="ast-expert-live-console-model">${escHtml(modelLabel)}</small>` : ''}
+      </span>
+      <small>${escHtml(detail)}</small>
+    </div>
+    ${liveId ? `<div class="ast-expert-live-slot ast-expert-live-console-body" data-expert-live-id="${escAttr(liveId)}">
+      ${active?.content ? `<div class="ast-expert-live-text">${escHtml(expertTeamLiveText(active.content, isModerator ? 900 : 700))}</div>` : '<div class="ast-expert-skeleton"><span></span><span></span></div>'}
+    </div>` : ''}
+  </section>`
+}
+
+// 保留旧函数以兼容「完整过程」中的阶段面板（如有引用）
 function getExpertTeamStages(transcript, plan, isRunning, progress) {
   const events = Array.isArray(transcript) ? transcript : []
   const hasPlan = !!plan || events.length > 0 || isRunning

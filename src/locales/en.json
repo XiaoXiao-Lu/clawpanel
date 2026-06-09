@@ -44,6 +44,8 @@
   "sidebar": {
     "collapse": "Collapse / Expand",
     "closeMenu": "Close menu",
+    "search": "Search navigation",
+    "navLabel": "Main navigation",
     "themeLight": "Light Mode",
     "themeDark": "Dark Mode",
     "sectionMonitor": "Monitor",

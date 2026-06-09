@@ -93,9 +93,9 @@ export function renderSidebar(el) {
     ${renderEngineSwitcher()}
     <div class="sidebar-search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input class="sidebar-search-input" id="sidebar-search" type="text" placeholder="搜索..." autocomplete="off">
+      <input class="sidebar-search-input" id="sidebar-search" type="text" placeholder="搜索..." autocomplete="off" aria-label="${t('sidebar.search')}">
     </div>
-    <nav class="sidebar-nav">
+    <nav class="sidebar-nav" aria-label="${t('sidebar.navLabel')}">
   `
 
   // 从当前引擎获取菜单（回退到原有逻辑）
@@ -153,8 +153,8 @@ export function renderSidebar(el) {
   html += renderKernelUpgradeHint(_kernelPolicyInfo)
 
   html += `
-    <div class="sidebar-footer">
-      <div class="sidebar-tools" aria-label="ClawPanel tools">
+    <footer class="sidebar-footer">
+      <div class="sidebar-tools" role="toolbar" aria-label="${t('sidebar.tools') || 'Toolbar'}">
         <button class="sidebar-tool-btn site-message-trigger" type="button" title="${t('siteMessages.title')}" aria-label="${t('siteMessages.title')}">
           ${bellIcon}
           <span class="site-message-tool-badge" aria-hidden="true"></span>

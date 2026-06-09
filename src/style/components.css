@@ -573,6 +573,10 @@ body.has-desktop-chrome .toast-container {
   from { opacity: 0; transform: scale(0.97) translateY(4px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
+@keyframes modalOut {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to   { opacity: 0; transform: scale(0.97) translateY(4px); }
+}
 
 /* ─── Empty State ─── */
 .empty-state {
@@ -919,7 +923,7 @@ mark:focus {
 #login-overlay {
   position: fixed;
   inset: 0;
-  z-index: 99998;
+  z-index: var(--z-splash);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1311,7 +1315,7 @@ mark:focus {
 .engage-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1100;
+  z-index: var(--z-overlay);
   background: var(--overlay-dark);
   backdrop-filter: blur(4px);
   display: flex;
@@ -1481,6 +1485,12 @@ mark:focus {
   opacity: 1;
   text-decoration: underline;
 }
+
+/* Dark mode — engage action badges & QR backgrounds */
+[data-theme="dark"] .engage-action-star { background: rgba(251, 191, 36, 0.12); }
+[data-theme="dark"] .engage-action-link { background: rgba(99, 102, 241, 0.10); }
+[data-theme="dark"] .engage-qr-item img { background: rgba(255, 255, 255, 0.04); }
+
 @media (max-width: 768px) {
   .engage-modal {
     width: 92vw;

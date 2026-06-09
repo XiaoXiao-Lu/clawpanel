@@ -106,8 +106,8 @@ export function toast(message, type = 'info', options = {}) {
   // 添加关闭按钮
   const closeBtn = document.createElement('button')
   closeBtn.className = 'toast-close'
-  closeBtn.innerHTML = '&times;'
-  closeBtn.setAttribute('aria-label', 'Close')
+  closeBtn.innerHTML = '<span aria-hidden="true">&times;</span>'
+  closeBtn.setAttribute('aria-label', t('common.close'))
   closeBtn.addEventListener('click', (e) => {
     e.stopPropagation()
     clearTimeout(autoRemoveTimer)

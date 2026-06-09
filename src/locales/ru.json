@@ -44,6 +44,8 @@
   "sidebar": {
     "collapse": "Свернуть",
     "closeMenu": "Закрыть меню",
+    "search": "Поиск навигации",
+    "navLabel": "Главная навигация",
     "themeLight": "Светлая",
     "themeDark": "Тёмная",
     "sectionMonitor": "Мониторинг",

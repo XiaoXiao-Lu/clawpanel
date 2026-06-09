@@ -3268,9 +3268,9 @@ function showLightbox(src) {
   const lb = document.createElement('div')
   lb.className = 'chat-lightbox'
   lb.setAttribute('role', 'dialog')
-  lb.setAttribute('aria-label', 'Image lightbox')
+  lb.setAttribute('aria-label', t('common.imagePreview') || 'Image preview')
   lb.setAttribute('tabindex', '-1')
-  lb.innerHTML = `<img src="${src}" class="chat-lightbox-img" />`
+  lb.innerHTML = `<img src="${src}" class="chat-lightbox-img" alt="${t('common.imagePreview') || 'Enlarged image'}" />`
   lb.onclick = (e) => { if (e.target === lb || e.target.tagName !== 'IMG') lb.remove() }
   document.body.appendChild(lb)
   lb.focus()

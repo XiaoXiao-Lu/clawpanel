@@ -44,6 +44,8 @@
   "sidebar": {
     "collapse": "Thu gọn",
     "closeMenu": "Đóng menu",
+    "search": "Tìm kiếm điều hướng",
+    "navLabel": "Điều hướng chính",
     "themeLight": "Sáng",
     "themeDark": "Tối",
     "sectionMonitor": "Giám sát",

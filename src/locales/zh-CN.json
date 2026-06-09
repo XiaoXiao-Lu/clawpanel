@@ -44,6 +44,8 @@
   "sidebar": {
     "collapse": "折叠/展开",
     "closeMenu": "关闭菜单",
+    "search": "搜索导航项",
+    "navLabel": "主导航",
     "themeLight": "日间模式",
     "themeDark": "夜间模式",
     "sectionMonitor": "监控",

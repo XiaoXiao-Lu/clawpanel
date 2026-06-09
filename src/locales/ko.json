@@ -44,6 +44,8 @@
   "sidebar": {
     "collapse": "접기/펼치기",
     "closeMenu": "메뉴 닫기",
+    "search": "탐색 검색",
+    "navLabel": "주 탐색",
     "themeLight": "라이트 모드",
     "themeDark": "다크 모드",
     "sectionMonitor": "모니터링",

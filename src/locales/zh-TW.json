@@ -44,6 +44,8 @@
   "sidebar": {
     "collapse": "摺疊/展開",
     "closeMenu": "關閉菜單",
+    "search": "搜尋導航項",
+    "navLabel": "主導航",
     "themeLight": "日間模式",
     "themeDark": "夜間模式",
     "sectionMonitor": "監控",

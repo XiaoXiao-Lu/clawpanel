@@ -44,6 +44,8 @@
   "sidebar": {
     "collapse": "Réduire",
     "closeMenu": "Fermer le menu",
+    "search": "Rechercher navigation",
+    "navLabel": "Navigation principale",
     "themeLight": "Clair",
     "themeDark": "Sombre",
     "sectionMonitor": "Surveillance",
