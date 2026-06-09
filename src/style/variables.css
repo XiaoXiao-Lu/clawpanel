@@ -100,7 +100,7 @@
   --shadow-glow-strong: 0 0 20px -6px rgba(99, 102, 241, 0.35);
 
   /* ═══ Sidebar ═══ */
-  --sidebar-bg:         #080812;
+  --sidebar-bg:         #12122A;
   --sidebar-text:       var(--text-1);
   --sidebar-text-2:     var(--text-2);
   --sidebar-border:     rgba(255, 255, 255, 0.04);
@@ -436,7 +436,7 @@
   --shadow-3:           0 8px 28px rgba(0, 0, 0, 0.48);
   --shadow-xl:          0 16px 48px rgba(0, 0, 0, 0.55);
 
-  --sidebar-bg:         #080812;
+  --sidebar-bg:         #12122A;
   --bg-code:            #10101E;
 
   --brand:              #818cf8;

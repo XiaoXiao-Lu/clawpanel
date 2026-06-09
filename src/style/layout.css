@@ -109,8 +109,8 @@ body.has-desktop-chrome .desktop-titlebar {
 #sidebar {
   width: var(--sidebar-width);
   height: 100vh;
-  background: linear-gradient(180deg, #080812 0%, #0A0A18 60%, #0C0C1E 100%);
-  border-right: 1px solid rgba(255,255,255,0.04);
+  background: var(--sidebar-bg);
+  border-right: 1px solid rgba(255,255,255,0.05);
   color: var(--sidebar-text);
   display: flex;
   flex-direction: column;
