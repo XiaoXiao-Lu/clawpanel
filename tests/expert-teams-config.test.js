@@ -94,9 +94,9 @@ test('Expert Teams page supports expert editing and team member selection', () =
     'group-max-parallel',
     'group-approval-policy',
     'expert-workflow-grid-wide',
-    '轮次说明',
-    '当前模式不使用多轮接力',
-    '不会从空白重写',
+    'workflowRounds',
+    'workflowParallelRoundMeaning',
+    'workflowSequentialRoundMeaning',
     'classList.toggle(\'is-muted\'',
     'availableSkills',
     'normalizeSkillOptions',
@@ -123,12 +123,12 @@ test('Expert Teams page supports expert editing and team member selection', () =
     'workflowGuide',
     'updateGroupWorkflowGuide',
     'expert-workflow-guide',
-    '执行次数',
-    '沟通方式',
-    '适合任务',
-    '参数建议',
-    '每位专家通常执行 1 次',
-    '最多 ${maxRounds} 轮',
+    'workflowExecution',
+    'workflowCommunication',
+    'workflowBestFor',
+    'workflowTuning',
+    'workflowParallelExecution',
+    'workflowSequentialExecution',
     'memberOrderLabel',
     'syncMemberOrderLabel',
   ]) {
@@ -145,8 +145,25 @@ test('Expert Teams page supports expert editing and team member selection', () =
   assert.doesNotMatch(page, />确认</)
   assert.doesNotMatch(page, /已选 \$\{[^}]+\} 项/)
   assert.doesNotMatch(page, /点击选择\.\.\./)
+  const workflowSection = page.slice(page.indexOf('function renderWorkflowGuide'), page.indexOf('function currentGroupFromForm'))
+  for (const hardcodedWorkflowText of [
+    '执行次数',
+    '沟通方式',
+    '适合任务',
+    '参数建议',
+    '轮次说明',
+    '每位专家通常执行 1 次',
+    '当前模式不使用多轮接力',
+    '不会从空白重写',
+    '多位专家独立看同一个问题',
+    '专家按顺序接力',
+  ]) {
+    assert.doesNotMatch(workflowSection, new RegExp(hardcodedWorkflowText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
   assert.doesNotMatch(page, /modal\.querySelector\('\.expert-tag-modal-overlay'\)/)
   assert.match(expertTeamsLocale, /modelIdInvalid/)
+  assert.match(expertTeamsLocale, /workflowSequentialRoundMeaning/)
+  assert.match(expertTeamsLocale, /workflowResearchTuning/)
 
   for (const token of [
     'expert-run-panel',

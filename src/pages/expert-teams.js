@@ -530,11 +530,11 @@ function renderWorkflowGuide(group = {}) {
   const maxRounds = clampInt(group.maxRounds, 3, 1, 10)
   const maxParallel = clampInt(group.maxParallel, 3, 1, 8)
   const execution = mode === 'sequential'
-    ? `每位专家会按顺序执行，最多 ${maxRounds} 轮；后一位能看到前面专家输出，下一轮能看到上一轮结果。`
-    : `每位专家通常执行 1 次；按最多 ${maxParallel} 位并行分批收集意见，最后由主持专家综合。`
+    ? t('expertTeams.workflowSequentialExecution', { maxRounds })
+    : t('expertTeams.workflowParallelExecution', { maxParallel })
   const roundMeaning = mode === 'sequential'
-    ? `当前会产生最多 ${maxRounds * Math.max(1, Array.isArray(group.members) ? group.members.length : 1)} 次专家发言；第二轮会基于第一轮黑板继续深化，不会从空白重写。`
-    : '当前模式不使用多轮接力；最大轮次只在“串联接力”中生效。'
+    ? t('expertTeams.workflowSequentialRoundMeaning', { maxContributions: maxRounds * Math.max(1, Array.isArray(group.members) ? group.members.length : 1) })
+    : t('expertTeams.workflowParallelRoundMeaning')
   return `
     <div class="expert-workflow-guide">
       <div class="expert-workflow-guide-head">
@@ -546,23 +546,23 @@ function renderWorkflowGuide(group = {}) {
       </div>
       <div class="expert-workflow-grid">
         <span>
-          <small>执行次数</small>
+          <small>${t('expertTeams.workflowExecution')}</small>
           <strong>${escapeHtml(execution)}</strong>
         </span>
         <span>
-          <small>沟通方式</small>
+          <small>${t('expertTeams.workflowCommunication')}</small>
           <strong>${escapeHtml(guide.communication)}</strong>
         </span>
         <span>
-          <small>适合任务</small>
+          <small>${t('expertTeams.workflowBestFor')}</small>
           <strong>${escapeHtml(guide.bestFor)}</strong>
         </span>
         <span>
-          <small>参数建议</small>
+          <small>${t('expertTeams.workflowTuning')}</small>
           <strong>${escapeHtml(guide.tuning)}</strong>
         </span>
         <span class="expert-workflow-grid-wide">
-          <small>轮次说明</small>
+          <small>${t('expertTeams.workflowRounds')}</small>
           <strong>${escapeHtml(roundMeaning)}</strong>
         </span>
       </div>
@@ -574,51 +574,51 @@ function workflowGuide(mode) {
   return {
     panel: {
       icon: 'users',
-      title: '专家会诊',
-      summary: '多位专家独立看同一个问题，主持人归纳共识和分歧。',
-      communication: '专家之间不自由聊天，通过共享黑板和主持综合间接沟通。',
-      bestFor: '方案判断、疑难问题、需要多视角诊断。',
-      tuning: 'maxParallel 控制同时跑几位专家；一般 2-4 比较稳。',
+      title: t('expertTeams.modePanel'),
+      summary: t('expertTeams.workflowPanelSummary'),
+      communication: t('expertTeams.workflowPanelCommunication'),
+      bestFor: t('expertTeams.workflowPanelBestFor'),
+      tuning: t('expertTeams.workflowPanelTuning'),
     },
     creation: {
       icon: 'edit',
-      title: '团队创作',
-      summary: '不同角色分别产出素材、结构、实现建议，再合成可交付结果。',
-      communication: '先分工创作，再由主持人整合成统一版本。',
-      bestFor: '文案、产品方案、功能设计、代码方案草稿。',
-      tuning: '选择互补角色；maxParallel 可稍高以加快产出。',
+      title: t('expertTeams.modeCreation'),
+      summary: t('expertTeams.workflowCreationSummary'),
+      communication: t('expertTeams.workflowCreationCommunication'),
+      bestFor: t('expertTeams.workflowCreationBestFor'),
+      tuning: t('expertTeams.workflowCreationTuning'),
     },
     debate: {
       icon: 'message-square',
-      title: '辩论评审',
-      summary: '让角色从不同立场挑战方案，暴露反例、风险和权衡。',
-      communication: '专家基于任务和黑板提出观点，主持人保留强分歧。',
-      bestFor: '重大决策、架构选型、商业策略、争议方案。',
-      tuning: '成员最好包含支持方、反对方、风险/成本视角。',
+      title: t('expertTeams.modeDebate'),
+      summary: t('expertTeams.workflowDebateSummary'),
+      communication: t('expertTeams.workflowDebateCommunication'),
+      bestFor: t('expertTeams.workflowDebateBestFor'),
+      tuning: t('expertTeams.workflowDebateTuning'),
     },
     review: {
       icon: 'shield',
-      title: '交叉审稿',
-      summary: '各专家从质量、风险、测试、体验等角度找问题。',
-      communication: '独立审查为主，主持人按严重度合并问题。',
-      bestFor: '代码评审、PRD 评审、上线前检查、UI 体验检查。',
-      tuning: 'maxParallel 2-3；保留测试/安全/体验等角色。',
+      title: t('expertTeams.modeReview'),
+      summary: t('expertTeams.workflowReviewSummary'),
+      communication: t('expertTeams.workflowReviewCommunication'),
+      bestFor: t('expertTeams.workflowReviewBestFor'),
+      tuning: t('expertTeams.workflowReviewTuning'),
     },
     research: {
       icon: 'search',
-      title: '并行调研',
-      summary: '多名专家并行收集线索或分析方向，主持人汇总证据。',
-      communication: '共享黑板记录发现；主持人区分事实、推断和缺口。',
-      bestFor: '资料调研、竞品分析、技术选型前调查。',
-      tuning: '如启用联网工具，建议开启工具前确认或保留只读工具。',
+      title: t('expertTeams.modeResearch'),
+      summary: t('expertTeams.workflowResearchSummary'),
+      communication: t('expertTeams.workflowResearchCommunication'),
+      bestFor: t('expertTeams.workflowResearchBestFor'),
+      tuning: t('expertTeams.workflowResearchTuning'),
     },
     sequential: {
       icon: 'refresh-cw',
-      title: '串联接力',
-      summary: '专家按顺序接力，后一位必须基于前一位输出推进。',
-      communication: '这是最像“对话接力”的模式；多轮时会反复深化。',
-      bestFor: '复杂创作、架构推演、逐步完善方案、WorkBuddy 式接力流程。',
-      tuning: 'maxRounds 决定每位专家最多执行几轮；轮数越高越慢、成本越高。',
+      title: t('expertTeams.modeSequential'),
+      summary: t('expertTeams.workflowSequentialSummary'),
+      communication: t('expertTeams.workflowSequentialCommunication'),
+      bestFor: t('expertTeams.workflowSequentialBestFor'),
+      tuning: t('expertTeams.workflowSequentialTuning'),
     },
   }[mode || 'panel'] || workflowGuide('panel')
 }
