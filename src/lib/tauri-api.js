@@ -4,9 +4,10 @@
  */
 
 import { t } from './i18n.js'
+import { wsClient } from './ws-client.js'
 
 export function isTauriRuntime() {
-  return !!window.__TAURI_INTERNALS__ || !!window.__TAURI__ || window.location?.hostname === 'tauri.localhost'
+  return !!window.__TAURI_INTERNALS__ || !!window.__TAURI__ || window.location?.hostname === 'tauri.localhost' || window.location?.protocol === 'tauri:'
 }
 
 let _tauriListenFn = null
@@ -55,7 +56,8 @@ async function getTauriInvoke() {
 // 简单缓存：避免页面切换时重复请求后端
 const _cache = new Map()
 const _inflight = new Map() // in-flight 请求去重，防止缓存过期后同一命令并发 spawn 多个进程
-const CACHE_TTL = 15000 // 15秒
+const CACHE_TTL = 60000 // 60秒
+const LONG_CACHE_TTL = 300000 // 5分钟（安装状态等低频数据）
 
 // 网络请求日志（用于调试）
 const _requestLogs = []
@@ -213,6 +215,21 @@ async function webStreamInvoke(cmd, args, onEvent, options = {}) {
   }
 }
 
+async function webRawInvoke(cmd, args, options = {}) {
+  if (isTauriRuntime()) return null
+  const resp = await fetch(`/__api/${cmd}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(args || {}),
+    signal: options.signal,
+  })
+  if (resp.status === 401) {
+    if (window.__clawpanel_show_login) window.__clawpanel_show_login()
+    throw new Error(t('common.loginRequired'))
+  }
+  return resp
+}
+
 // 后端连接状态
 let _backendOnline = null // null=未检测, true=在线, false=离线
 const _backendListeners = []
@@ -309,10 +326,14 @@ export const api = {
   testModel: (baseUrl, apiKey, modelId, apiType = null) => invoke('test_model', { baseUrl, apiKey, modelId, apiType }),
   testModelVerbose: (baseUrl, apiKey, modelId, apiType = null) => invoke('test_model_verbose', { baseUrl, apiKey, modelId, apiType }),
   listRemoteModels: (baseUrl, apiKey, apiType = null) => invoke('list_remote_models', { baseUrl, apiKey, apiType }),
+  modelChatCompletionsProxy: (baseUrl, apiKey, apiType, body) => invoke('model_chat_completions_proxy', { baseUrl, apiKey, apiType, body }),
+  modelChatCompletionsProxyStream: (baseUrl, apiKey, apiType, body, options) => webRawInvoke('model_chat_completions_proxy_stream', { baseUrl, apiKey, apiType, body }, options),
   scanModelClientConfigs: () => invoke('scan_model_client_configs'),
 
   // Agent 管理
   listAgents: () => cachedInvoke('list_agents'),
+  listAgentActivity: () => invoke('list_agent_activity'),
+  agentActivityStream: (onEvent, options) => isTauriRuntime() ? Promise.resolve() : webStreamInvoke('agent_activity_stream', {}, onEvent, options),
   getAgentDetail: (id) => cachedInvoke('get_agent_detail', { id }, 5000),
   listAgentFiles: (id) => cachedInvoke('list_agent_files', { id }, 5000),
   readAgentFile: (id, name) => invoke('read_agent_file', { id, name }),
@@ -330,6 +351,14 @@ export const api = {
   updateAgentIdentity: (id, name, emoji) => { invalidate('list_agents', 'get_agent_detail'); return invoke('update_agent_identity', { id, name, emoji }) },
   updateAgentModel: (id, model) => { invalidate('list_agents', 'get_agent_detail'); return invoke('update_agent_model', { id, model }) },
   backupAgent: (id) => invoke('backup_agent', { id }),
+
+  // Expert teams
+  listExperts: () => cachedInvoke('list_experts', {}, 5000),
+  saveExpert: (expert) => { invalidate('list_experts', 'list_expert_groups'); return invoke('save_expert', { expert }) },
+  deleteExpert: (id) => { invalidate('list_experts', 'list_expert_groups'); return invoke('delete_expert', { id }) },
+  listExpertGroups: () => cachedInvoke('list_expert_groups', {}, 5000),
+  saveExpertGroup: (group) => { invalidate('list_expert_groups'); return invoke('save_expert_group', { group }) },
+  deleteExpertGroup: (id) => { invalidate('list_expert_groups'); return invoke('delete_expert_group', { id }) },
 
   // 日志（短缓存）
   readLogTail: (logName, lines = 100) => cachedInvoke('read_log_tail', { logName, lines }, 5000),
@@ -385,16 +414,16 @@ export const api = {
   testProxy: (url) => invoke('test_proxy', { url: url || null }),
 
   // 安装/部署
-  checkInstallation: () => cachedInvoke('check_installation', {}, 60000),
+  checkInstallation: () => cachedInvoke('check_installation', {}, LONG_CACHE_TTL),
   initOpenclawConfig: () => { invalidate('check_installation'); return invoke('init_openclaw_config') },
-  checkNode: () => cachedInvoke('check_node', {}, 60000),
+  checkNode: () => cachedInvoke('check_node', {}, LONG_CACHE_TTL),
   checkNodeAtPath: (nodeDir) => invoke('check_node_at_path', { nodeDir }),
   checkOpenclawAtPath: (cliPath) => invoke('check_openclaw_at_path', { cliPath }),
   scanNodePaths: () => invoke('scan_node_paths'),
   scanOpenclawPaths: () => invoke('scan_openclaw_paths'),
   saveCustomNodePath: (nodeDir) => invoke('save_custom_node_path', { nodeDir }).then(r => { invalidate('check_node', 'get_services_status'); invoke('invalidate_path_cache').catch(() => {}); return r }),
   invalidatePathCache: () => invoke('invalidate_path_cache'),
-  checkGit: () => cachedInvoke('check_git', {}, 60000),
+  checkGit: () => cachedInvoke('check_git', {}, LONG_CACHE_TTL),
   scanGitPaths: () => invoke('scan_git_paths'),
   autoInstallGit: () => invoke('auto_install_git'),
   autoInstallNode: () => invoke('auto_install_node').then(r => { invalidate('check_node', 'get_services_status'); invoke('invalidate_path_cache').catch(() => {}); return r }),
@@ -436,6 +465,7 @@ export const api = {
   skillsInfo: (name, agentId) => invoke('skills_info', { name, agent_id: agentId || null }),
   skillsCheck: () => invoke('skills_check'),
   skillsInstallDep: (kind, spec) => invoke('skills_install_dep', { kind, spec }),
+  skillsInstallZip: (name, zipBase64, agentId) => { invalidate('skills_list'); return invoke('skills_install_zip', { name, zip_base64: zipBase64, agent_id: agentId || null }) },
   skillsUninstall: (name, agentId) => invoke('skills_uninstall', { name, agent_id: agentId || null }),
   // SkillHub SDK（内置 HTTP，不依赖 CLI）
   skillhubSearch: (query, limit) => invoke('skillhub_search', { query, limit }),
@@ -480,7 +510,7 @@ export const api = {
   deleteImage: (id) => invoke('assistant_delete_image', { id }),
 
   // Hermes Agent 管理
-  checkPython: () => cachedInvoke('check_python', {}, 60000),
+  checkPython: () => cachedInvoke('check_python', {}, LONG_CACHE_TTL),
   checkHermes: () => cachedInvoke('check_hermes', {}, 30000),
   installHermes: (method = 'uv-tool', extras = []) => invoke('install_hermes', { method, extras }),
   configureHermes: (provider, apiKey, model, baseUrl) => invoke('configure_hermes', { provider, apiKey, model: model || null, baseUrl: baseUrl || null }),

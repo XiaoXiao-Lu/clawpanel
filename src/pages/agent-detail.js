@@ -9,11 +9,8 @@ import { showConfirm } from '../components/modal.js'
 import { CHANNEL_LABELS } from '../lib/channel-labels.js'
 import { t } from '../lib/i18n.js'
 import { navigate } from '../router.js'
-
-function esc(str) {
-  if (!str) return ''
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { isTauriRuntime } from '../lib/tauri-api.js'
+import { escapeHtml as esc } from '../lib/utils.js'
 
 function openChannelsBindingPage(agentId) {
   const params = new URLSearchParams()
@@ -36,6 +33,9 @@ export async function render() {
         <a class="agent-back-link" href="#/agents">${t('agentDetail.back')}</a>
         <h1 class="page-title" id="agent-detail-title">Agent: ${esc(agentId)}</h1>
       </div>
+      <div class="agent-detail-actions" style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-sm btn-secondary" id="btn-backup-agent">${t('agents.backup') || '备份'}</button>
+      </div>
     </div>
     <div class="tab-bar" id="agent-tabs">
       <div class="tab active" data-tab="overview">${t('agentDetail.tabOverview')}</div>
@@ -52,7 +52,7 @@ export async function render() {
   const state = { agentId, detail: null, files: null, models: [], skillsCatalog: [] }
 
   // Tab 切换
-  page.querySelector('#agent-tabs').addEventListener('click', (e) => {
+  page.querySelector('#agent-tabs')?.addEventListener('click', (e) => {
     const tab = e.target.closest('.tab')
     if (!tab) return
     page.querySelectorAll('#agent-tabs .tab').forEach(t => t.classList.remove('active'))
@@ -60,10 +60,31 @@ export async function render() {
     switchTab(page, state, tab.dataset.tab)
   })
 
+  // 备份按钮
+  page.querySelector('#btn-backup-agent')?.addEventListener('click', () => backupAgent(state.agentId))
+
   // 首次加载
   loadDetail(page, state)
 
   return page
+}
+
+async function backupAgent(id) {
+  toast(t('agents.backingUp', { id }), 'info')
+  try {
+    const zipPath = await api.backupAgent(id)
+    try {
+      const { open } = await import('@tauri-apps/plugin-shell')
+      // 兼容 Windows 和 Unix 路径分隔符
+      const sep = zipPath.includes('\\') ? '\\' : '/'
+      const dir = zipPath.substring(0, zipPath.lastIndexOf(sep)) || zipPath
+      await open(dir)
+    } catch { /* fallback */ }
+    const fileName = zipPath.includes('\\') ? zipPath.split('\\').pop() : zipPath.split('/').pop()
+    toast(t('agents.backupDone', { file: fileName }), 'success')
+  } catch (e) {
+    toast(humanizeError(e, t('agents.backupFailed')), 'error')
+  }
 }
 
 async function loadDetail(page, state) {
@@ -187,21 +208,21 @@ function renderOverview(container, state) {
   `
 
   // 添加备选模型
-  container.querySelector('#btn-add-fallback').addEventListener('click', () => {
+  container.querySelector('#btn-add-fallback')?.addEventListener('click', () => {
     const list = container.querySelector('#ov-fallbacks')
     const idx = list.querySelectorAll('.fallback-row').length
     list.insertAdjacentHTML('beforeend', renderFallbackRow('', state.models, idx))
   })
 
   // 移除备选模型（事件代理）
-  container.querySelector('#ov-fallbacks').addEventListener('click', (e) => {
+  container.querySelector('#ov-fallbacks')?.addEventListener('click', (e) => {
     if (e.target.closest('.btn-remove-fallback')) {
       e.target.closest('.fallback-row').remove()
     }
   })
 
   // 保存
-  container.querySelector('#btn-save-overview').addEventListener('click', () => saveOverview(container, state))
+  container.querySelector('#btn-save-overview')?.addEventListener('click', () => saveOverview(container, state))
 }
 
 function renderModelSelect(id, selected, models) {
@@ -332,7 +353,7 @@ function renderTools(container, state) {
     </div>
   `
 
-  container.querySelector('#btn-save-tools').addEventListener('click', () => saveTools(container, state))
+  container.querySelector('#btn-save-tools')?.addEventListener('click', () => saveTools(container, state))
 }
 
 async function saveTools(container, state) {
@@ -363,15 +384,30 @@ async function saveTools(container, state) {
 function renderSkills(container, state) {
   const selected = new Set(Array.isArray(state.detail?.skills) ? state.detail.skills : [])
   const skills = state.skillsCatalog || []
+  const selectableCount = skills.filter(skill => skill.disabled !== true).length
+  const selectedCount = skills.filter(skill => skill.disabled !== true && selected.has(skill.name)).length
 
   container.innerHTML = `
     <div class="agent-overview">
       <section class="agent-section">
         <h3 class="agent-section-title">${t('agentDetail.skillsTitle')}</h3>
         <p class="agent-section-desc">${t('agentDetail.skillsDesc')}</p>
-        <div class="agent-skills-list">
-          ${skills.length ? skills.map(skill => renderSkillCard(skill, selected.has(skill.name))).join('') : `<div class="agent-hint">${t('agentDetail.noSkills')}</div>`}
-        </div>
+        ${skills.length ? `
+          <div class="agent-skills-toolbar">
+            <span class="agent-skills-count" id="agent-skills-count">${t('agentDetail.skillsSelectedCount', { selected: selectedCount, total: selectableCount })}</span>
+            <div class="agent-skills-actions">
+              <button class="btn btn-secondary btn-sm" id="btn-select-all-skills" type="button">${t('agentDetail.selectAllSkills')}</button>
+              <button class="btn btn-secondary btn-sm" id="btn-clear-skills" type="button">${t('agentDetail.clearSkills')}</button>
+            </div>
+          </div>
+          <div class="agent-skills-filter">
+            <input type="text" class="form-input" id="agent-skill-filter-input" placeholder="🔍 ${t('skills.filterPlaceholder') || '搜索技能名称或描述...'}">
+          </div>
+          <div class="agent-skills-list">
+            ${skills.map(skill => renderSkillCard(skill, selected.has(skill.name))).join('')}
+          </div>
+          <div class="agent-skills-empty" id="agent-skills-empty" style="display:none;padding:24px;text-align:center;color:var(--text-tertiary)">${t('skills.noResults')}</div>
+        ` : `<div class="agent-skills-list"><div class="agent-hint">${t('agentDetail.noSkills')}</div></div>`}
       </section>
       <div class="agent-save-bar">
         <button class="btn btn-primary" id="btn-save-skills">${t('agentDetail.saveSkills')}</button>
@@ -379,7 +415,105 @@ function renderSkills(container, state) {
     </div>
   `
 
-  container.querySelector('#btn-save-skills').addEventListener('click', () => saveSkills(container, state))
+  container.querySelector('#btn-save-skills')?.addEventListener('click', () => saveSkills(container, state))
+  const refreshSkillCount = () => {
+    const countEl = container.querySelector('#agent-skills-count')
+    if (!countEl) return
+    const checked = container.querySelectorAll('.agent-skill-checkbox:not(:disabled):checked').length
+    const total = container.querySelectorAll('.agent-skill-checkbox:not(:disabled)').length
+    countEl.textContent = t('agentDetail.skillsSelectedCount', { selected: checked, total })
+  }
+  container.querySelector('#btn-select-all-skills')?.addEventListener('click', () => {
+    container.querySelectorAll('.agent-skill-checkbox:not(:disabled)').forEach(input => { input.checked = true })
+    refreshSkillCount()
+  })
+  container.querySelector('#btn-clear-skills')?.addEventListener('click', () => {
+    container.querySelectorAll('.agent-skill-checkbox:not(:disabled)').forEach(input => { input.checked = false })
+    refreshSkillCount()
+  })
+  container.querySelectorAll('.agent-skill-checkbox').forEach(input => {
+    input.addEventListener('change', refreshSkillCount)
+  })
+
+  // 技能搜索过滤
+  const filterInput = container.querySelector('#agent-skill-filter-input')
+  const emptyEl = container.querySelector('#agent-skills-empty')
+  if (filterInput) {
+    filterInput.addEventListener('input', () => {
+      const q = filterInput.value.trim().toLowerCase()
+      const list = container.querySelector('.agent-skills-list')
+      let visibleCount = 0
+      list.querySelectorAll('.agent-skill-card').forEach(card => {
+        const name = (card.dataset.name || '').toLowerCase()
+        const desc = (card.dataset.desc || '').toLowerCase()
+        const match = !q || name.includes(q) || desc.includes(q)
+        card.style.display = match ? '' : 'none'
+        if (match) visibleCount++
+      })
+      if (emptyEl) {
+        emptyEl.style.display = q && visibleCount === 0 ? '' : 'none'
+      }
+    })
+  }
+
+  // 点击技能卡片（非 checkbox）弹出预览
+  container.querySelectorAll('.agent-skill-card').forEach(card => {
+    card.addEventListener('click', async (e) => {
+      if (e.target.tagName === 'INPUT') return // 不拦截 checkbox
+      const name = card.querySelector('.agent-skill-checkbox')?.dataset.skillName
+      if (!name) return
+      showSkillPreview(name, state.agentId)
+    })
+  })
+}
+
+function showSkillPreview(name, agentId) {
+  // 显示加载中弹窗
+  const overlay = document.createElement('div')
+  overlay.className = 'modal-overlay'
+  overlay.innerHTML = `
+    <div class="modal agent-skill-preview-modal">
+      <div class="modal-title">🧩 ${esc(name)}</div>
+      <div class="modal-body" style="padding:40px;text-align:center;color:var(--text-tertiary)">加载中...</div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" data-action="cancel">${t('common.close') || '关闭'}</button>
+      </div>
+    </div>
+  `
+  document.body.appendChild(overlay)
+
+  const close = () => overlay.remove()
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
+  overlay.querySelector('[data-action="cancel"]').onclick = close
+
+  // 异步加载详情
+  api.skillsInfo(name, agentId).then(detail => {
+    const deps = (detail?.dependencies || []).length
+    const missingInfo = detail?.missing || {}
+    const reqs = detail?.requirements || {}
+    const allMissing = [
+      ...(missingInfo.bins || []),
+      ...(missingInfo.anyBins || []),
+      ...(missingInfo.env || []),
+      ...(missingInfo.config || []),
+    ]
+    const allReqs = [
+      ...(reqs.bins || []).map(b => typeof b === 'string' ? b : b.name || JSON.stringify(b)),
+      ...(reqs.env || []).map(e => typeof e === 'string' ? e : e.name || JSON.stringify(e)),
+    ]
+
+    const body = overlay.querySelector('.modal-body')
+    if (!body) return
+    body.style.cssText = 'padding:16px 20px'
+    body.innerHTML = '<div class="skill-preview-desc">' + esc(detail?.description || '暂无描述') + '</div>' +
+      (allReqs.length ? '<div class="skill-preview-section"><h4>所需工具</h4><div class="skill-preview-tags">' + allReqs.map(r => '<span class="badge badge-api-type">' + esc(r) + '</span>').join('') + '</div></div>' : '') +
+      (allMissing.length ? '<div class="skill-preview-section"><h4>⚠ 缺少依赖</h4><div class="skill-preview-tags">' + allMissing.map(m => '<span class="badge" style="background:var(--error-muted);color:var(--error)">' + esc(String(m)) + '</span>').join('') + '</div></div>' : '') +
+      (detail?.homepage ? '<div class="skill-preview-section"><a href="' + esc(detail.homepage) + '" target="_blank" rel="noopener" style="color:var(--accent)">🔗 查看主页</a></div>' : '') +
+      (detail?.source ? '<div class="skill-preview-section" style="color:var(--text-tertiary);font-size:12px">来源: ' + esc(detail.source) + (detail?.version ? ' · v' + esc(detail.version) : '') + (detail?.author ? ' · ' + esc(detail.author) : '') + '</div>' : '')
+  }).catch(e => {
+    const body = overlay.querySelector('.modal-body')
+    if (body) body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--error)">加载失败: ' + esc(String(e)) + '</div>'
+  })
 }
 
 function renderSkillCard(skill, checked) {
@@ -388,7 +522,7 @@ function renderSkillCard(skill, checked) {
   const eligible = skill.eligible !== false
   const disabled = skill.disabled === true
   return `
-    <label class="agent-skill-card ${!eligible || disabled ? 'is-muted' : ''}">
+    <label class="agent-skill-card ${!eligible || disabled ? 'is-muted' : ''}" data-name="${esc(skill.name)}" data-desc="${esc(desc)}">
       <input type="checkbox" class="agent-skill-checkbox" data-skill-name="${esc(skill.name)}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
       <div class="agent-skill-main">
         <div class="agent-skill-head">
@@ -593,7 +727,7 @@ async function renderChannels(container, state) {
 
   renderBindingsList(container, state, bindings)
 
-  container.querySelector('#btn-add-binding').addEventListener('click', () => {
+  container.querySelector('#btn-add-binding')?.addEventListener('click', () => {
     openChannelsBindingPage(state.agentId)
   })
 }

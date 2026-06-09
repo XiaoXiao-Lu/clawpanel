@@ -9,153 +9,30 @@ import { toast } from './toast.js'
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0'
 import { t, getLang, setLang, getAvailableLangs } from '../lib/i18n.js'
 import { isFeatureAvailable } from '../lib/feature-gates.js'
-import { getKernelSnapshot, recommendedIsNewer } from '../lib/kernel.js'
+import { getKernelSnapshot } from '../lib/kernel.js'
 import { triggerKernelUpgrade } from '../lib/kernel-upgrade.js'
 import { getActiveEngine, getActiveEngineId, listEngines, needsInitialEngineChoice, isEngineSetupDeferred, switchEngine, onEngineChange } from '../lib/engine-manager.js'
+import { escapeHtml as _escSidebar } from '../lib/utils.js'
+import { ICONS } from './sidebar-icons.js'
+import { NAV_ITEMS_FULL, NAV_ITEMS_SETUP, NAV_ITEMS_ENGINE_SELECT, renderEngineSwitcher, renderKernelUpgradeHint, SS_DISMISSED_KERNEL_UPGRADE } from './sidebar-nav.js'
+import { showConfirm } from './modal.js'
+
+const SIDEBAR_CONNECTORS_I18N_KEY = 'sidebar.connectors'
+const SIDEBAR_NAV_COMPAT_KEYS = { connectors: SIDEBAR_CONNECTORS_I18N_KEY }
 
 // 当用户点 "暂时不升级" 时，本地会话内不再显示升级提示
-const SS_DISMISSED_KERNEL_UPGRADE = 'clawpanel_kernel_upgrade_dismissed'
 const KERNEL_POLICY_TTL = 5 * 60 * 1000
 let _kernelPolicyInfo = null
 let _kernelPolicyFetchedAt = 0
 let _kernelPolicyLoading = false
 
-function NAV_ITEMS_FULL() { return [
-  {
-    section: t('sidebar.sectionMonitor'),
-    items: [
-      { route: '/dashboard', label: t('sidebar.dashboard'), icon: 'dashboard' },
-      { route: '/assistant', label: t('sidebar.assistant'), icon: 'assistant' },
-      { route: '/chat', label: t('sidebar.chat'), icon: 'chat' },
-      { route: '/route-map', label: t('sidebar.routeMap'), icon: 'route-map' },
-      { route: '/services', label: t('sidebar.services'), icon: 'services' },
-      { route: '/logs', label: t('sidebar.logs'), icon: 'logs' },
-    ]
-  },
-  {
-    section: t('sidebar.sectionConfig'),
-    items: [
-      { route: '/models', label: t('sidebar.models'), icon: 'models' },
-      { route: '/agents', label: t('sidebar.agents'), icon: 'agents' },
-      { route: '/gateway', label: t('sidebar.gateway'), icon: 'gateway' },
-      { route: '/channels', label: t('sidebar.channels'), icon: 'channels' },
-      { route: '/communication', label: t('sidebar.communication'), icon: 'settings' },
-      { route: '/security', label: t('sidebar.security'), icon: 'security' },
-    ]
-  },
-  {
-    section: t('sidebar.sectionData'),
-    items: [
-      { route: '/memory', label: t('sidebar.memory'), icon: 'memory', gate: 'memory' },
-      { route: '/dreaming', label: t('sidebar.dreaming'), icon: 'dreaming', gate: 'dreaming' },
-      { route: '/cron', label: t('sidebar.cron'), icon: 'clock', gate: 'cron' },
-      { route: '/usage', label: t('sidebar.usage'), icon: 'bar-chart' },
-    ]
-  },
-  {
-    section: t('sidebar.sectionExtension'),
-    items: [
-      { route: '/skills', label: t('sidebar.skills'), icon: 'skills', gate: 'skills' },
-      { route: '/plugin-hub', label: t('sidebar.pluginHub'), icon: 'extensions' },
-    ]
-  },
-  {
-    section: '',
-    items: [
-      { route: '/settings', label: t('sidebar.settings'), icon: 'settings' },
-      { route: '/chat-debug', label: t('sidebar.checkRepair'), icon: 'diagnose' },
-      { route: '/about', label: t('sidebar.about'), icon: 'about' },
-    ]
-  }
-] }
 
-function NAV_ITEMS_SETUP() { return [
-  {
-    section: '',
-    items: [
-      { route: '/setup', label: t('sidebar.setup'), icon: 'setup' },
-      { route: '/assistant', label: t('sidebar.assistant'), icon: 'assistant' },
-    ]
-  },
-  {
-    section: '',
-    items: [
-      { route: '/settings', label: t('sidebar.settings'), icon: 'settings' },
-      { route: '/chat-debug', label: t('sidebar.chatDebug'), icon: 'debug' },
-      { route: '/about', label: t('sidebar.about'), icon: 'about' },
-    ]
-  }
-] }
 
-function NAV_ITEMS_ENGINE_SELECT() { return [
-  {
-    section: '',
-    items: [
-      { route: '/engine-select', label: t('engine.choiceNav'), icon: 'setup' },
-      { route: '/assistant', label: t('sidebar.assistant'), icon: 'assistant' },
-    ]
-  },
-  {
-    section: '',
-    items: [
-      { route: '/settings', label: t('sidebar.settings'), icon: 'settings' },
-      { route: '/about', label: t('sidebar.about'), icon: 'about' },
-    ]
-  }
-] }
 
-const ICONS = {
-  setup: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>',
-  dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
-  chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
-  services: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>',
-  logs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
-  models: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>',
-  agents: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>',
-  gateway: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>',
-  memory: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>',
-  inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>',
-  folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>',
-  extensions: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
-  package: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
-  about: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
-  assistant: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/><path d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg>',
-  security: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>',
-  dreaming: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 109.8 9.8z"/><path d="M17 4l.8 1.7L19.5 6.5l-1.7.8L17 9l-.8-1.7-1.7-.8 1.7-.8L17 4z"/></svg>',
-  skills: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>',
-  channels: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
-  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
-  'bar-chart': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>',
-  settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
-  debug: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="3"/></svg>',
-  'route-map': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 6h10M7 18h10M5 8v8M19 8v8"/></svg>',
-  diagnose: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
-}
 
 let _delegated = false
+let _sidebarRendered = false  // 首次渲染标记
 
-// === 引擎切换器 ===
-function _renderEngineSwitcher() {
-  const engines = listEngines()
-  if (engines.length < 2) return '' // 只有一个引擎时不显示
-  const active = getActiveEngine()
-  if (!active) return ''
-  return `<div class="engine-switcher" id="engine-switcher">
-    <div class="engine-switcher-label">${_escSidebar(t('engine.switcherSectionLabel'))}</div>
-    <button class="engine-current" id="btn-engine-toggle" title="${_escSidebar(t('engine.switcherTooltip'))}" aria-haspopup="listbox" aria-expanded="false">
-      <span class="engine-icon">${active.icon || ''}</span>
-      <span class="engine-label">${_escSidebar(active.name)}</span>
-      <svg class="engine-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
-    <div class="engine-dropdown" id="engine-dropdown">
-      ${engines.map(e => `<div class="engine-option${e.id === active.id ? ' active' : ''}" data-engine="${e.id}">
-        <span class="engine-opt-icon">${e.icon || ''}</span>
-        <span class="engine-opt-name">${_escSidebar(e.name)}</span>
-        ${e.id === active.id ? '<span class="engine-active-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></span>' : ''}
-      </div>`).join('')}
-    </div>
-  </div>`
-}
 
 function _closeEngineDropdown() {
   const dd = document.getElementById('engine-dropdown')
@@ -196,6 +73,13 @@ function _setDesktopSidebarCollapsed(collapsed) {
 export function renderSidebar(el) {
   const current = getCurrentRoute()
 
+  // 增量更新路径：非首次渲染时，只更新变化的部分
+  if (_sidebarRendered) {
+    _updateSidebarIncremental(el, current)
+    return
+  }
+  _sidebarRendered = true
+
   const collapsed = _isDesktopSidebarCollapsed()
   let html = `
     <div class="sidebar-header">
@@ -206,7 +90,11 @@ export function renderSidebar(el) {
       <button class="sidebar-collapse-btn" id="btn-sidebar-collapse" title="${t('sidebar.collapse')}">${collapsed ? '»' : '«'}</button>
       <button class="sidebar-close-btn" id="btn-sidebar-close" title="${t('sidebar.closeMenu')}">&times;</button>
     </div>
-    ${_renderEngineSwitcher()}
+    ${renderEngineSwitcher()}
+    <div class="sidebar-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="sidebar-search-input" id="sidebar-search" type="text" placeholder="搜索..." autocomplete="off">
+    </div>
     <nav class="sidebar-nav">
   `
 
@@ -216,20 +104,27 @@ export function renderSidebar(el) {
     ? NAV_ITEMS_ENGINE_SELECT()
     : (engine ? engine.getNavItems() : (isOpenclawReady() ? NAV_ITEMS_FULL() : NAV_ITEMS_SETUP()))
 
+  let sectionIndex = 0
   for (const section of navItems) {
-    html += `<div class="nav-section">
-      <div class="nav-section-title">${section.section}</div>`
+    const hasTitle = section.section && section.section.trim()
+    const sectionId = `nav-section-${sectionIndex++}`
+    html += `<div class="nav-section" data-section-id="${sectionId}">
+      ${hasTitle ? `<button type="button" class="nav-section-title" data-toggle="${sectionId}" aria-expanded="true">
+        <span>${section.section}</span>
+        <svg class="nav-section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>` : ''}
+      <div class="nav-section-items" id="${sectionId}">`
 
     for (const item of section.items) {
       if (item.gate && engine && !engine.isFeatureAvailable(item.gate)) continue
       if (item.gate && !engine && !isFeatureAvailable(item.gate)) continue
       const active = current === item.route ? ' active' : ''
-      html += `<div class="nav-item${active}" data-route="${item.route}">
+      html += `<div class="nav-item${active}" data-route="${item.route}" data-nav-icon="${item.icon || ''}" data-nav-label="${item.label.toLowerCase()}">
         ${ICONS[item.icon] || ''}
         <span>${item.label}</span>
       </div>`
     }
-    html += '</div>'
+    html += `</div></div>`
   }
 
   html += '</nav>'
@@ -255,7 +150,7 @@ export function renderSidebar(el) {
   `).join('')
 
   // 内核可升级卡片（仅 openclaw 引擎、已连接、低于推荐版时显示）
-  html += _renderKernelUpgradeHint()
+  html += renderKernelUpgradeHint(_kernelPolicyInfo)
 
   html += `
     <div class="sidebar-footer">
@@ -294,12 +189,32 @@ export function renderSidebar(el) {
   // 事件委托：只绑定一次，避免重复绑定
   if (!_delegated) {
     _delegated = true
-    el.addEventListener('click', (e) => {
+    // ESC 键关闭移动端侧边栏
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const sidebar = document.getElementById('sidebar')
+        if (sidebar && sidebar.classList.contains('sidebar-open')) {
+          _closeMobileSidebar()
+        }
+      }
+    })
+    el.addEventListener('click', async (e) => {
       // 导航点击
       const navItem = e.target.closest('.nav-item[data-route]')
       if (navItem) {
         navigate(navItem.dataset.route)
         _closeMobileSidebar()
+        return
+      }
+      // 分区折叠
+      const sectionToggle = e.target.closest('[data-toggle]')
+      if (sectionToggle) {
+        const id = sectionToggle.dataset.toggle
+        const items = el.querySelector(`#${id}`)
+        const section = sectionToggle.closest('.nav-section')
+        if (items) items.classList.toggle('collapsed')
+        if (section) section.classList.toggle('section-collapsed')
+        sectionToggle.setAttribute('aria-expanded', items && !items.classList.contains('collapsed'))
         return
       }
       // 移动端关闭按钮
@@ -375,6 +290,17 @@ export function renderSidebar(el) {
         const eid = engineOpt.dataset.engine
         _closeEngineDropdown()
         if (eid !== getActiveEngineId()) {
+          // 确认弹窗
+          const engines = listEngines()
+          const targetEngine = engines.find(e => e.id === eid)
+          const confirmed = await showConfirm({
+            message: `确定切换到 ${targetEngine?.name || eid} 引擎吗？`,
+            title: '切换引擎',
+            confirmText: '确定',
+            cancelText: '取消',
+            variant: 'primary',
+          })
+          if (!confirmed) return
           engineOpt.style.opacity = '0.5'
           // 立即在内容区显示加载骨架，避免切换期间空白
           const contentEl = document.getElementById('content')
@@ -422,20 +348,46 @@ export function renderSidebar(el) {
       }
     })
 
+    // 搜索功能
+    const searchInput = el.querySelector('#sidebar-search')
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        const q = (searchInput.value || '').toLowerCase()
+        el.querySelectorAll('.nav-item[data-nav-label]').forEach(item => {
+          const label = (item.dataset.navLabel || '')
+          item.style.display = q && !label.includes(q) ? 'none' : ''
+        })
+        // 展开所有包含匹配项的分区
+        el.querySelectorAll('.nav-section').forEach(sec => {
+          if (!q) { sec.classList.add('section-collapsed'); return }
+          const hasVisible = sec.querySelector('.nav-item[data-nav-label][style*="display: none"]')
+          if (!hasVisible) {
+            const items = sec.querySelector('.nav-section-items')
+            const section = sec
+            if (items) items.classList.remove('collapsed')
+            if (section) section.classList.remove('section-collapsed')
+          }
+        })
+      })
+    }
+
+    // 分区折叠键盘支持 (Enter/Space)
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        const sectionToggle = e.target.closest('[data-toggle]')
+        if (sectionToggle) {
+          e.preventDefault()
+          sectionToggle.click()
+        }
+      }
+    })
+
   }
 }
 
-function _escSidebar(s) { return String(s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
 
-function _kernelPolicyTarget(snap) {
-  return _kernelPolicyInfo?.recommended || snap?.target || ''
-}
 
-function _isRunningGatewayBelowTarget(snap) {
-  if (!snap?.version) return false
-  const target = _kernelPolicyTarget(snap)
-  return target ? recommendedIsNewer(target, snap.version) : !snap.isLatest
-}
+// === 移动端侧边栏 ===
 
 function _ensureKernelPolicyInfo(el) {
   const snap = getKernelSnapshot()
@@ -456,43 +408,61 @@ function _ensureKernelPolicyInfo(el) {
 }
 
 /**
- * 渲染"内核可升级"卡片。
- *
- * 显示条件（同时满足）：
- * - 当前引擎是 openclaw
- * - 已成功握手 Gateway（snapshot 有 version）
- * - 高于硬地板（< floor 由 floor-blocker 接管）
- * - 运行中的 Gateway 低于推荐目标
- * - 用户未在本会话中点击过 "暂不升级"
- *
- * 不满足任何一条返回空串。
+ * 增量更新侧边栏：只更新变化的部分，避免全量 innerHTML 重绘
  */
-function _renderKernelUpgradeHint() {
-  if (getActiveEngineId() !== 'openclaw') return ''
-  if (sessionStorage.getItem(SS_DISMISSED_KERNEL_UPGRADE) === '1') return ''
+function _updateSidebarIncremental(el, current) {
+  // 1. 更新导航激活状态
+  const navItems = el.querySelectorAll('.nav-item[data-route]')
+  navItems.forEach(item => {
+    item.classList.toggle('active', item.dataset.route === current)
+  })
 
-  const snap = getKernelSnapshot()
-  if (!snap || !snap.version) return ''
-  if (!snap.aboveFloor) return ''   // floor-blocker 处理
-  if (!_isRunningGatewayBelowTarget(snap)) return '' // 运行中的 Gateway 已经达到推荐目标
+  // 2. 更新主题按钮
+  const themeBtn = el.querySelector('#btn-theme-toggle')
+  if (themeBtn) {
+    const isDark = getTheme() === 'dark'
+    const sunIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
+    const moonIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
+    themeBtn.innerHTML = `${isDark ? sunIcon : moonIcon}<span>${isDark ? t('sidebar.themeLight') : t('sidebar.themeDark')}</span>`
+  }
 
-  const arrowIcon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>'
-  const sparkIcon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L13.5 8.5 20 10l-6.5 1.5L12 18l-1.5-6.5L4 10l6.5-1.5z"/></svg>'
+  // 3. 更新语言切换器文字
+  const langTrigger = el.querySelector('#btn-lang-toggle span')
+  if (langTrigger) {
+    const langCode = getLang()
+    const langs = getAvailableLangs()
+    const currentLang = langs.find(l => l.code === langCode) || langs[0]
+    langTrigger.textContent = currentLang.label
+  }
 
-  const fromLabel = snap.versionLabel || snap.version
-  const toLabel = _kernelPolicyTarget(snap)
+  // 4. 更新引擎切换器
+  const engineSwitcher = el.querySelector('.engine-switcher')
+  if (engineSwitcher) {
+    const newSwitcher = renderEngineSwitcher()
+    const temp = document.createElement('div')
+    temp.innerHTML = newSwitcher
+    const newEl = temp.firstElementChild
+    if (newEl) engineSwitcher.replaceWith(newEl)
+  }
 
-  return `
-    <div class="kernel-upgrade-hint" id="kernel-upgrade-hint" role="button" tabindex="0">
-      <div class="kernel-upgrade-hint-icon">${sparkIcon}</div>
-      <div class="kernel-upgrade-hint-body">
-        <div class="kernel-upgrade-hint-title">${_escSidebar(t('kernel.upgradeHint.title'))}</div>
-        <div class="kernel-upgrade-hint-meta">${_escSidebar(t('kernel.upgradeHint.subtitle', { from: fromLabel, to: toLabel }))}</div>
-      </div>
-      <div class="kernel-upgrade-hint-arrow">${arrowIcon}</div>
-      <button class="kernel-upgrade-hint-dismiss" id="btn-kernel-upgrade-dismiss" title="${_escSidebar(t('kernel.upgradeHint.dismissTooltip'))}" aria-label="${_escSidebar(t('kernel.upgradeHint.dismissTooltip'))}">×</button>
-    </div>
-  `
+  // 5. 更新内核升级提示
+  const existingHint = el.querySelector('#kernel-upgrade-hint')
+  const newHintHtml = renderKernelUpgradeHint(_kernelPolicyInfo)
+  const tempHint = document.createElement('div')
+  tempHint.innerHTML = newHintHtml
+  const newHint = tempHint.firstElementChild
+  if (newHint && !existingHint) {
+    // 新增提示卡：插到 sidebar-footer 之前
+    const footer = el.querySelector('.sidebar-footer')
+    if (footer) footer.before(newHint)
+  } else if (!newHint && existingHint) {
+    existingHint.remove()
+  } else if (newHint && existingHint) {
+    existingHint.replaceWith(newHint)
+  }
+
+  // 6. 应用折叠态
+  _setDesktopSidebarCollapsed(_isDesktopSidebarCollapsed())
 }
 
 // === 移动端侧边栏 ===
@@ -500,7 +470,10 @@ function _closeMobileSidebar() {
   const sidebar = document.getElementById('sidebar')
   const overlay = document.getElementById('sidebar-overlay')
   if (sidebar) sidebar.classList.remove('sidebar-open')
-  if (overlay) overlay.classList.remove('visible')
+  if (overlay) {
+    overlay.classList.remove('visible')
+    overlay.remove()
+  }
 }
 
 export function openMobileSidebar() {

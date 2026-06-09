@@ -5,7 +5,7 @@ mod utils;
 
 use commands::{
     agent, assistant, cli_conflict, config, device, diagnose, extensions, hermes, hermes_providers,
-    logs, memory, messaging, pairing, service, site_api, skills, update,
+    logs, memory, messaging, pairing, service, site_api, skills, team, update,
 };
 
 pub fn run() {
@@ -97,6 +97,7 @@ pub fn run() {
             config::restart_gateway,
             config::test_model,
             config::test_model_verbose,
+            config::model_chat_completions_proxy,
             config::list_remote_models,
             config::scan_model_client_configs,
             config::list_openclaw_versions,
@@ -165,6 +166,7 @@ pub fn run() {
             extensions::install_clawapp,
             // Agent 管理
             agent::list_agents,
+            agent::list_agent_activity,
             agent::get_agent_detail,
             agent::list_agent_files,
             agent::read_agent_file,
@@ -179,6 +181,13 @@ pub fn run() {
             agent::update_agent_identity,
             agent::update_agent_model,
             agent::backup_agent,
+            // Expert Teams
+            team::list_experts,
+            team::save_expert,
+            team::delete_expert,
+            team::list_expert_groups,
+            team::save_expert_group,
+            team::delete_expert_group,
             // AI 助手工具
             assistant::assistant_exec,
             assistant::assistant_read_file,
@@ -222,6 +231,7 @@ pub fn run() {
             skills::skills_info,
             skills::skills_check,
             skills::skills_install_dep,
+            skills::skills_install_zip,
             skills::skills_uninstall,
             skills::skills_validate,
             // SkillHub SDK（内置 HTTP，不依赖 CLI）

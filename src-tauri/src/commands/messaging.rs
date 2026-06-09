@@ -1264,7 +1264,12 @@ fn merge_channel_entry_for_account(
     new_entry: Map<String, Value>,
 ) -> Result<(), String> {
     if let Some(acct) = account_id.map(str::trim).filter(|s| !s.is_empty()) {
-        merge_account_channel_entry(channels_map, key, acct, new_entry)
+        if acct == "default" || acct == QQBOT_DEFAULT_ACCOUNT_ID {
+            merge_channel_entry(channels_map, key, new_entry);
+            Ok(())
+        } else {
+            merge_account_channel_entry(channels_map, key, acct, new_entry)
+        }
     } else {
         merge_channel_entry(channels_map, key, new_entry);
         Ok(())
@@ -2488,12 +2493,13 @@ pub async fn save_messaging_platform(
                 return Err("ClientSecret 不能为空".into());
             }
 
-            // 与 `openclaw channels add --channel qqbot --token "AppID:Secret"` 一致：凭证写在 accounts.<id> 下，并保留组合 token
+            // 当 account_id == "default" 时，凭据写到 channels.qqbot 顶层（插件对默认账户只读顶层）
             let acct_key = account_id
                 .as_deref()
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
                 .unwrap_or(QQBOT_DEFAULT_ACCOUNT_ID);
+            let is_default = acct_key == QQBOT_DEFAULT_ACCOUNT_ID;
             let token_combo = format!("{}:{}", app_id, client_secret);
 
             let qqbot_node = channels_map
@@ -2501,20 +2507,30 @@ pub async fn save_messaging_platform(
                 .or_insert_with(|| json!({ "enabled": true }));
             let qqbot_obj = qqbot_node.as_object_mut().ok_or("qqbot 节点格式错误")?;
             qqbot_obj.insert("enabled".into(), Value::Bool(true));
-            // 清除写在根上的旧字段，避免官方插件只认 accounts.* 时读不到账号
-            qqbot_obj.remove("appId");
-            qqbot_obj.remove("clientSecret");
-            qqbot_obj.remove("appSecret");
-            qqbot_obj.remove("token");
-
-            let accounts = qqbot_obj.entry("accounts").or_insert_with(|| json!({}));
-            let accounts_obj = accounts.as_object_mut().ok_or("accounts 格式错误")?;
-            let mut entry = Map::new();
-            entry.insert("appId".into(), Value::String(app_id));
-            entry.insert("clientSecret".into(), Value::String(client_secret));
-            entry.insert("token".into(), Value::String(token_combo));
-            entry.insert("enabled".into(), Value::Bool(true));
-            accounts_obj.insert(acct_key.to_string(), Value::Object(entry));
+            if is_default {
+                qqbot_obj.insert("appId".into(), Value::String(app_id));
+                qqbot_obj.insert("clientSecret".into(), Value::String(client_secret));
+                qqbot_obj.insert("token".into(), Value::String(token_combo));
+                if let Some(accounts) = qqbot_obj.get_mut("accounts").and_then(|a| a.as_object_mut()) {
+                    accounts.remove("default");
+                    if accounts.is_empty() {
+                        qqbot_obj.remove("accounts");
+                    }
+                }
+            } else {
+                qqbot_obj.remove("appId");
+                qqbot_obj.remove("clientSecret");
+                qqbot_obj.remove("appSecret");
+                qqbot_obj.remove("token");
+                let accounts = qqbot_obj.entry("accounts").or_insert_with(|| json!({}));
+                let accounts_obj = accounts.as_object_mut().ok_or("accounts 格式错误")?;
+                let mut entry = Map::new();
+                entry.insert("appId".into(), Value::String(app_id));
+                entry.insert("clientSecret".into(), Value::String(client_secret));
+                entry.insert("token".into(), Value::String(token_combo));
+                entry.insert("enabled".into(), Value::Bool(true));
+                accounts_obj.insert(acct_key.to_string(), Value::Object(entry));
+            }
 
             ensure_openclaw_qqbot_plugin(&mut cfg)?;
             ensure_chat_completions_enabled(&mut cfg)?;

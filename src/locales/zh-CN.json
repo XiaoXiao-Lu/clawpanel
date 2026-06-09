@@ -50,6 +50,7 @@
     "sectionConfig": "配置",
     "sectionData": "数据",
     "sectionExtension": "扩展",
+    "sectionSystem": "系统",
     "dashboard": "仪表盘",
     "assistant": "晴辰助手",
     "chat": "实时聊天",
@@ -204,6 +205,9 @@
     "checkUpdate": "检查更新",
     "createBackup": "创建备份",
     "recentLogs": "最近日志",
+    "statsTitle": "核心指标",
+    "overviewTitle": "运行概览",
+    "quickActionsTitle": "快捷操作",
     "cliPath": "CLI 路径",
     "cliSource": "安装来源",
     "cliSourceStandalone": "独立安装版",
@@ -696,6 +700,9 @@
     "skillsDesc": "勾选当前 Agent 允许使用的 Skills；留空表示不启用技能白名单。",
     "saveSkills": "保存技能配置",
     "skillsSaved": "技能配置已保存",
+    "selectAllSkills": "全选可用",
+    "clearSkills": "清空选择",
+    "skillsSelectedCount": "已选择 {selected} / {total} 个可用技能",
     "noSkills": "未获取到可用 Skills",
     "skillDisabled": "已禁用",
     "skillUnavailable": "环境未满足"
@@ -1597,7 +1604,9 @@
     "hostedModelNotConfigured": "托管 Agent 未配置模型（请在 AI 助手页面配置）",
     "hostedApiError": "API 错误 {code}",
     "hostedPrefix": "[托管 Agent] ",
-    "hostedContextSummary": "[上下文摘要 - 已压缩 {n} 条历史]"
+    "hostedContextSummary": "[上下文摘要 - 已压缩 {n} 条历史]",
+    "pasteWarning": "粘贴大文本",
+    "pasteLargeText": "你正在粘贴 {length} 个字符的文本，这可能会导致性能问题。确认继续吗？"
   },
   "chatDebug": {
     "title": "系统诊断",

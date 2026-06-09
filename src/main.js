@@ -5,52 +5,70 @@
 // 标记 JS 模块已加载（供 index.html 多阶段启动检测使用）
 window._jsLoaded = true
 
-import { registerRoute, initRouter, navigate, setDefaultRoute } from './router.js'
+import { registerRoute, initRouter, navigate, setDefaultRoute, reloadCurrentRoute } from './router.js'
 import { renderSidebar, openMobileSidebar } from './components/sidebar.js'
 import { initTheme } from './lib/theme.js'
-import { detectOpenclawStatus, isOpenclawReady, isUpgrading, isGatewayRunning, isGatewayForeign, onGatewayChange, startGatewayPoll, onGuardianGiveUp, resetAutoRestart, loadActiveInstance, getActiveInstance, onInstanceChange } from './lib/app-state.js'
+import { initDesktopWindowChrome } from './lib/window-chrome.js'
+import { detectOpenclawStatus, isOpenclawReady, isUpgrading, isGatewayRunning, isGatewayForeign, onGatewayChange, startGatewayPoll, onGuardianGiveUp, resetAutoRestart, loadActiveInstance, getActiveInstance, onInstanceChange, refreshGatewayStatus } from './lib/app-state.js'
 import { wsClient } from './lib/ws-client.js'
-import { api, checkBackendHealth, isBackendOnline, isTauriRuntime, onBackendStatusChange } from './lib/tauri-api.js'
+import { api, checkBackendHealth, isBackendOnline, isTauriRuntime, onBackendStatusChange, invalidate } from './lib/tauri-api.js'
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0'
 import { statusIcon } from './lib/icons.js'
 import { isForeignGatewayError, showGatewayConflictGuidance } from './lib/gateway-ownership.js'
 import { tryShowEngagement } from './components/engagement.js'
 import { toast } from './components/toast.js'
 import { initI18n, t, getLang, setLang, getAvailableLangs } from './lib/i18n.js'
+import { escapeHtml } from './lib/utils.js'
 import { renderMarkdown } from './lib/markdown.js'
 import { initFeatureGates } from './lib/feature-gates.js'
 import { onKernelChange } from './lib/kernel.js'
 import { showFloorBlocker, hideFloorBlocker } from './components/floor-blocker.js'
-import { registerEngine, initEngineManager, getActiveEngine, getActiveEngineId, needsInitialEngineChoice, isEngineSetupDeferred, adoptActiveEngineSelection, onEngineChange } from './lib/engine-manager.js'
+import { registerEngine, initEngineManager, getActiveEngine, getActiveEngineId, listEngines, switchEngine, needsInitialEngineChoice, isEngineSetupDeferred, adoptActiveEngineSelection, onEngineChange } from './lib/engine-manager.js'
 import { initSiteMessageCenter, refreshSiteMessageCenter } from './components/site-message-center.js'
 import openclawEngine from './engines/openclaw/index.js'
+import { initCommandPalette, registerCommands } from './components/command-palette.js'
 import hermesEngine from './engines/hermes/index.js'
 import xintianEngine from './engines/xintian/index.js'
 
-// 样式
+// 样式 — Layer 1: Variables
 import './style/variables.css'
+// Layer 2: Reset
 import './style/reset.css'
+// Layer 3: Layout
 import './style/layout.css'
+// Layer 4: Components
 import './style/components.css'
-import './style/pages.css'
+// Layer 5: Pages (by domain, split from pages.css)
+import './style/pages/dashboard.css'
+import './style/pages/about.css'
+import './style/pages/services.css'
+import './style/pages/models.css'
+import './style/pages/channels.css'
+import './style/pages/settings.css'
+import './style/pages/memory.css'
+import './style/pages/notifications.css'
+import './style/pages/expert-teams.css'
+import './style/pages/glossary.css'
+import './style/pages/misc.css'
+// Layer 6: Chat & Assistant
 import './style/chat.css'
 import './style/agents.css'
 import './style/debug.css'
 import './style/assistant.css'
+import './components/command-palette.css'
 import './style/ai-drawer.css'
 import './style/site-message-center.css'
-// 引擎专属样式（scope 到 [data-engine="<id>"] 子树，不影响其他引擎）
+// Layer 7: Engine-specific (scoped to [data-engine="<id>"])
 import './engines/hermes/style/hermes.css'
 import './engines/xintian/style/xintian.css'
+// Layer 8: Visual polish layer (absorbed from prototype-polish.css, loaded last for cascade priority)
+import './style/pages/polish.css'
 
 // 初始化主题 + 国际化
 initTheme()
 initI18n()
+initDesktopWindowChrome()
 
-/** HTML 转义，防止 XSS 注入 */
-function escapeHtml(str) {
-  return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 
 function sanitizeReleaseNotesHtml(html) {
   if (!html || typeof DOMParser === 'undefined') return ''
@@ -327,7 +345,6 @@ async function checkAuth() {
   if (isTauri) {
     // 桌面端：读 clawpanel.json，检查密码配置
     try {
-      const { api } = await import('./lib/tauri-api.js')
       const cfg = await api.readPanelConfig()
       if (!cfg.accessPassword) return { ok: true }
       if (sessionStorage.getItem('clawpanel_authed') === '1') return { ok: true }
@@ -381,8 +398,8 @@ function showBackendDownOverlay() {
         <span id="backend-retry-text">${t('common.checkAgain')}</span>
       </button>
       <div id="backend-retry-status" style="font-size:12px;color:var(--text-tertiary);margin-top:12px"></div>
-      <div style="margin-top:16px;font-size:11px;color:#aaa">
-        <a href="https://claw.qt.cool" target="_blank" rel="noopener" style="color:#aaa;text-decoration:none">claw.qt.cool</a>
+      <div style="margin-top:16px;font-size:11px;color:var(--text-3, #aaa)">
+        <a href="https://claw.qt.cool" target="_blank" rel="noopener" style="color:var(--text-3, #aaa);text-decoration:none">claw.qt.cool</a>
         <span style="margin:0 6px">&middot;</span>v${APP_VERSION}
       </div>
     </div>
@@ -462,6 +479,7 @@ function renderLoginLanguageSwitch() {
 
 function showLoginOverlay(defaultPw) {
   const hasDefault = !!defaultPw
+  const defaultPwValue = hasDefault ? escapeHtml(defaultPw) : ''
   const overlay = document.createElement('div')
   overlay.id = 'login-overlay'
   let _captcha = _loginFailCount >= CAPTCHA_THRESHOLD ? _genCaptcha() : null
@@ -488,7 +506,7 @@ function showLoginOverlay(defaultPw) {
       </div>
       <form id="login-form">
         <div class="login-field">
-          <input class="login-input" type="${hasDefault ? 'text' : 'password'}" id="login-pw" placeholder="${t('security.accessPasswordPlaceholder')}" autocomplete="current-password" autofocus value="${hasDefault ? defaultPw : ''}" />
+          <input class="login-input" type="${hasDefault ? 'text' : 'password'}" id="login-pw" placeholder="${t('security.accessPasswordPlaceholder')}" autocomplete="current-password" autofocus value="${defaultPwValue}" />
         </div>
         <div id="login-captcha" class="login-captcha" style="display:${_captcha ? 'block' : 'none'}">
           <div class="login-captcha-label">${t('security.captchaPrompt')}<strong id="captcha-q">${_captcha ? _captcha.q : ''}</strong></div>
@@ -549,7 +567,6 @@ function showLoginOverlay(defaultPw) {
       try {
         if (isTauri) {
           // 桌面端：本地比对密码
-          const { api } = await import('./lib/tauri-api.js')
           const cfg = await api.readPanelConfig()
           if (pw !== cfg.accessPassword) {
             _loginFailCount++
@@ -618,7 +635,22 @@ function showLoginOverlay(defaultPw) {
 window.__clawpanel_show_login = async function() {
   if (document.getElementById('login-overlay')) return
   await showLoginOverlay()
-  location.reload()
+  // 不强制全页面 reload，改为关闭登录遮罩后触发 WS 重连
+  const overlay = document.getElementById('login-overlay')
+  if (overlay) {
+    overlay.classList.add('hide')
+    setTimeout(() => overlay.remove(), 400)
+  }
+  // 主动触发 WebSocket 重连
+  try {
+    if (isGatewayRunning()) {
+      wsClient.reconnect()
+    }
+  } catch {}
+  // 刷新当前路由页面内容
+  try {
+    reloadCurrentRoute()
+  } catch {}
 }
 
 const sidebar = document.getElementById('sidebar')
@@ -633,6 +665,46 @@ async function boot() {
 
   // 初始化引擎管理器：读取 clawpanel.json 的 engineMode，注册对应路由
   await initEngineManager()
+
+  // 初始化 Command Palette
+  initCommandPalette()
+  // 注册导航命令（从引擎的 getNavItems 动态生成）
+  const navCommands = []
+  const engines = listEngines()
+  engines.forEach(engine => {
+    if (engine.getNavItems) {
+      const items = engine.getNavItems()
+      items.forEach(section => {
+        (section.items || []).forEach(item => {
+          navCommands.push({
+            id: `nav:${item.route}`,
+            category: 'navigation',
+            label: item.label,
+            hint: item.route,
+            icon: item.icon || '📄',
+            execute: () => navigate(item.route),
+            keywords: [item.route]
+          })
+        })
+      })
+    }
+  })
+
+  // 引擎切换命令
+  const engineCommands = engines.filter(e => e.id !== getActiveEngineId()).map(engine => ({
+    id: `engine:switch:${engine.id}`,
+    category: 'engine',
+    label: `切换到 ${engine.name}`,
+    hint: engine.id,
+    icon: '🔄',
+    execute: () => switchEngine(engine.id)
+  }))
+
+  registerCommands([
+    ...navCommands,
+    ...engineCommands,
+    { id: 'action:toggle-theme', category: 'settings', label: t('settings.theme') || '切换主题', icon: '🌓', execute: () => { /* theme toggle logic */ } },
+  ])
 
   // 用户尚未做过明确的引擎选择（无 engineSetupChoice）→ 立即把默认路由
   // 指向 /engine-select，避免初始化期间先闪到 /dashboard 或 /setup 再被
@@ -677,7 +749,7 @@ async function boot() {
   topbar.className = 'mobile-topbar'
   topbar.id = 'mobile-topbar'
   topbar.innerHTML = `
-    <button class="mobile-hamburger" id="btn-mobile-menu">
+    <button class="mobile-hamburger" id="btn-mobile-menu" aria-label="${t('common.menu')}">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
     <span class="mobile-topbar-title">ClawPanel</span>
@@ -718,7 +790,10 @@ async function boot() {
       sessionStorage.removeItem('clawpanel_must_change_pw')
     })
     banner.querySelector('[data-pw-banner-close]')?.addEventListener('click', () => banner.remove())
-    document.body.prepend(banner)
+    const mainColForBanner = document.getElementById('main-col')
+    const insertBefore = document.getElementById('update-banner') || mainColForBanner?.firstChild
+    if (mainColForBanner) mainColForBanner.insertBefore(banner, insertBefore)
+    else document.body.prepend(banner)
   }
 
   // Tauri 模式：确保 web session 存在（页面刷新后 cookie 可能丢失），然后加载实例和检测状态
@@ -807,6 +882,14 @@ async function boot() {
       // Gateway 横幅（所有引擎均注册，update() 内部按引擎判断显隐）
       setupGatewayBanner()
 
+      // 主动刷新 Gateway 横幅：WebSocket 状态变化时立即更新，避免 15s 轮询延迟
+      wsClient.onReady(() => setupGatewayBanner())
+      wsClient.onStatusChange((status) => {
+        if (status === 'ready' || status === 'disconnected' || status === 'error') {
+          setupGatewayBanner()
+        }
+      })
+
       // === OpenClaw 专属逻辑（WebSocket、Guardian 守护等） ===
       if (getActiveEngineId() === 'openclaw') {
         // 自动连接 WebSocket（如果 Gateway 正在运行）
@@ -859,7 +942,6 @@ async function boot() {
       import('@tauri-apps/api/event').then(async ({ listen }) => {
         const refreshAfterTask = async () => {
           // 清除 API 缓存，确保拿到最新状态
-          const { invalidate } = await import('./lib/tauri-api.js')
           invalidate('check_installation', 'get_services_status', 'get_version_info')
           await detectOpenclawStatus()
           renderSidebar(sidebar)
@@ -893,11 +975,18 @@ async function autoConnectWebSocket() {
     const password = (typeof rawPassword === 'string') ? rawPassword : ''
 
     // 启动前先确保设备已配对 + allowedOrigins 已写入，无需用户手动操作。
-    // 不在这里自动重启 Gateway：Windows 上手动启动的 Gateway 会被 stop/restart 打断。
+    // Web/headless 反代场景里 reload_gateway 会主动断开当前 /ws，容易和浏览器重连形成循环；
+    // 所以仅桌面本机模式自动 reload，Web 模式等用户显式保存/重启时生效。
     let needReload = false
     try {
       const pairResult = await api.autoPairDevice()
       console.log('[main] 设备配对 + origins 已就绪:', pairResult)
+      // 仅在配置实际变更时才需要 reload（dev-api 返回 {changed}，Tauri 返回字符串）
+      if (isTauriRuntime() && typeof pairResult === 'object' && pairResult.changed) {
+        needReload = true
+      } else if (isTauriRuntime() && typeof pairResult === 'string' && pairResult !== '设备已配对') {
+        needReload = true
+      }
     } catch (pairErr) {
       console.warn('[main] autoPairDevice 失败（非致命）:', pairErr)
     }
@@ -907,7 +996,7 @@ async function autoConnectWebSocket() {
       const patched = await api.patchModelVision()
       if (patched) {
         console.log('[main] 已为模型添加 vision 支持')
-        needReload = true
+        if (isTauriRuntime()) needReload = true
       }
     } catch (visionErr) {
       console.warn('[main] patchModelVision 失败（非致命）:', visionErr)
@@ -999,7 +1088,6 @@ function setupGatewayBanner() {
         try {
           await api.claimGateway()
           // 认领后立刻刷新全局状态
-          const { refreshGatewayStatus } = await import('./lib/app-state.js')
           await refreshGatewayStatus()
         } catch (err) {
           btn.disabled = false
@@ -1260,10 +1348,10 @@ function startAnnouncementChecker() {
     if (app) app.innerHTML = `
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
         <div style="font-size:48px;margin-bottom:16px">⚠️</div>
-        <div style="font-size:18px;font-weight:600;margin-bottom:8px;color:#18181b">${t('common.pageLoadFailed')}</div>
-        <div style="font-size:13px;color:#71717a;max-width:400px;line-height:1.6;margin-bottom:16px">${String(bootErr?.message || bootErr).replace(/</g,'&lt;')}</div>
-        <button onclick="location.reload()" style="padding:8px 20px;border-radius:8px;border:none;background:#6366f1;color:#fff;font-size:13px;cursor:pointer">${t('common.reloadRetry')}</button>
-        <div style="margin-top:24px;font-size:11px;color:#a1a1aa">${t('common.pageLoadFailedHint')}<br><a href="https://github.com/qingchencloud/clawpanel/issues" target="_blank" style="color:#6366f1">GitHub Issues</a></div>
+        <div style="font-size:18px;font-weight:600;margin-bottom:8px;color:var(--text-primary, #18181b)">${t('common.pageLoadFailed')}</div>
+        <div style="font-size:13px;color:var(--text-3, #71717a);max-width:400px;line-height:1.6;margin-bottom:16px">${String(bootErr?.message || bootErr).replace(/</g,'&lt;')}</div>
+        <button onclick="location.reload()" style="padding:8px 20px;border-radius:8px;border:none;background:var(--accent);color:var(--text-inverse, #fff);font-size:13px;cursor:pointer">${t('common.reloadRetry')}</button>
+        <div style="margin-top:24px;font-size:11px;color:var(--text-3, #a1a1aa)">${t('common.pageLoadFailedHint')}<br><a href="https://github.com/qingchencloud/clawpanel/issues" target="_blank" style="color:var(--accent)">GitHub Issues</a></div>
       </div>`
   }
   initSiteMessageCenter({
@@ -1279,9 +1367,6 @@ function startAnnouncementChecker() {
 
     // 注册各页面上下文提供器
     registerPageContext('/chat-debug', async () => {
-      const { isOpenclawReady, isGatewayRunning } = await import('./lib/app-state.js')
-      const { wsClient } = await import('./lib/ws-client.js')
-      const { api } = await import('./lib/tauri-api.js')
       const lines = ['## 系统诊断快照']
       lines.push(`- OpenClaw: ${isOpenclawReady() ? '就绪' : '未就绪'}`)
       lines.push(`- Gateway: ${isGatewayRunning() ? '运行中' : '未运行'}`)
@@ -1298,8 +1383,6 @@ function startAnnouncementChecker() {
     })
 
     registerPageContext('/services', async () => {
-      const { isGatewayRunning } = await import('./lib/app-state.js')
-      const { api } = await import('./lib/tauri-api.js')
       const lines = ['## 服务状态']
       lines.push(`- Gateway: ${isGatewayRunning() ? '运行中' : '未运行'}`)
       try {
@@ -1313,7 +1396,6 @@ function startAnnouncementChecker() {
     })
 
     registerPageContext('/gateway', async () => {
-      const { api } = await import('./lib/tauri-api.js')
       try {
         const config = await api.readOpenclawConfig()
         const gw = config?.gateway || {}

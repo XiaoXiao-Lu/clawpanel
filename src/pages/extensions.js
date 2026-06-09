@@ -7,16 +7,7 @@ import { toast } from '../components/toast.js'
 import { humanizeError } from '../lib/humanize-error.js'
 import { statusIcon } from '../lib/icons.js'
 import { t } from '../lib/i18n.js'
-
-// HTML 转义，防止 XSS
-function escapeHtml(str) {
-  if (!str) return ''
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+import { escapeHtml } from '../lib/utils.js'
 
 export async function render() {
   const page = document.createElement('div')
@@ -59,7 +50,7 @@ async function loadCftunnel(page) {
     const status = await api.getCftunnelStatus()
     renderCftunnel(el, status)
   } catch (e) {
-    el.innerHTML = `<div style="color:var(--error)">${t('common.loadFailed')}: ${e}</div>`
+    el.innerHTML = `<div style="color:var(--error)">${t('common.loadFailed')}: ${escapeHtml(e)}</div>`
   }
 }
 
@@ -152,7 +143,7 @@ async function loadClawapp(page) {
     const status = await api.getClawappStatus()
     renderClawapp(el, status)
   } catch (e) {
-    el.innerHTML = `<div style="color:var(--error)">${t('common.loadFailed')}: ${e}</div>`
+    el.innerHTML = `<div style="color:var(--error)">${t('common.loadFailed')}: ${escapeHtml(e)}</div>`
   }
 }
 
@@ -262,7 +253,7 @@ async function handleCftunnelLogs(page) {
       </div>
     `
   } catch (e) {
-    area.innerHTML = `<div style="color:var(--error);margin-top:var(--space-sm)">${t('ext.readLogsFailed')}: ${e}</div>`
+    area.innerHTML = `<div style="color:var(--error);margin-top:var(--space-sm)">${t('ext.readLogsFailed')}: ${escapeHtml(e)}</div>`
   }
 }
 

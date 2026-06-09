@@ -6,6 +6,7 @@ import { toast } from '../components/toast.js'
 import { navigate } from '../router.js'
 import { t } from '../lib/i18n.js'
 import { openAIDrawerWithError } from '../components/ai-drawer.js'
+import { escapeHtml as esc } from '../lib/utils.js'
 
 const PLUGIN_ICONS = {
   qqbot: '🐧', feishu: '🪶', dingtalk: '📌', telegram: '✈️',
@@ -16,8 +17,6 @@ const PLUGIN_ICONS = {
 
 let _allPlugins = []
 let _searchQuery = ''
-
-function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') }
 
 export async function render() {
   const page = document.createElement('div')

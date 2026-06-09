@@ -50,6 +50,7 @@
     "sectionConfig": "설정",
     "sectionData": "데이터",
     "sectionExtension": "확장",
+    "sectionSystem": "시스템",
     "dashboard": "대시보드",
     "assistant": "어시스턴트",
     "chat": "실시간 채팅",
@@ -1373,7 +1374,9 @@
     "hostedModelNotConfigured": "Hosted Agent model not configured (please configure in AI Assistant page)",
     "hostedApiError": "API Error {code}",
     "hostedPrefix": "[Hosted Agent] ",
-    "hostedContextSummary": "[Context Summary - compressed {n} history entries]"
+    "hostedContextSummary": "[Context Summary - compressed {n} history entries]",
+    "pasteWarning": "큰 텍스트 붙여넣기",
+    "pasteLargeText": "{length}자의 텍스트를 붙여넣고 있습니다. 성능 문제가 발생할 수 있습니다. 계속하시겠습니까?"
   },
   "chatDebug": {
     "title": "시스템 진단",

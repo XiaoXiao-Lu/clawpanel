@@ -1,0 +1,117 @@
+/* === Glossary === */
+
+.glossary-page {
+  max-width: 1180px;
+}
+
+.glossary-page .page-header {
+  margin-bottom: var(--space-lg);
+}
+
+.glossary-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-base);
+  display: grid;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+  padding: var(--space-lg);
+  background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(10px);
+}
+
+.glossary-toolbar .form-input {
+  min-height: 42px;
+  background: var(--surface-raised);
+}
+
+.glossary-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.glossary-tabs .tab {
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+}
+
+.glossary-tabs .tab.active {
+  background: var(--brand-muted);
+  border-color: color-mix(in srgb, var(--brand) 18%, transparent);
+}
+
+.glossary-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-md);
+}
+
+.glossary-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+  padding: var(--space-lg);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.glossary-card:hover {
+  border-color: color-mix(in srgb, var(--brand) 22%, var(--border-primary));
+  box-shadow: var(--shadow-md);
+}
+
+.glossary-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.glossary-term {
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.glossary-desc {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.75;
+}
+
+.glossary-list .empty-state {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 768px) {
+  .glossary-toolbar {
+    position: static;
+    padding: var(--space-md);
+  }
+
+  .glossary-list {
+    grid-template-columns: 1fr;
+  }
+
+  .glossary-card-head {
+    align-items: stretch;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .glossary-card-head .btn {
+    width: fit-content;
+  }
+}

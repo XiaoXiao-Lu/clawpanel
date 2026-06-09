@@ -50,6 +50,7 @@
     "sectionConfig": "Configuration",
     "sectionData": "Données",
     "sectionExtension": "Extensions",
+    "sectionSystem": "Système",
     "dashboard": "Tableau de bord",
     "assistant": "Assistant",
     "chat": "Chat",
@@ -1373,7 +1374,9 @@
     "hostedModelNotConfigured": "Hosted Agent model not configured (please configure in AI Assistant page)",
     "hostedApiError": "API Error {code}",
     "hostedPrefix": "[Hosted Agent] ",
-    "hostedContextSummary": "[Context Summary - compressed {n} history entries]"
+    "hostedContextSummary": "[Context Summary - compressed {n} history entries]",
+    "pasteWarning": "Coller un grand texte",
+    "pasteLargeText": "Vous collez {length} caractères de texte. Cela peut causer des problèmes de performance. Continuer ?"
   },
   "chatDebug": {
     "title": "Diagnostic système",

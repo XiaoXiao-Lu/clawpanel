@@ -2,32 +2,37 @@
 
 .ai-fab {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 9000;
+  bottom: var(--space-6);
+  right: var(--space-6);
+  z-index: var(--z-drawer);
   width: 48px;
   height: 48px;
   border-radius: 50%;
   background: var(--accent);
-  color: #fff;
+  color: var(--text-inverse);
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
-  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: var(--shadow-md);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
   touch-action: none; /* 拖动时禁止浏览器默认手势 */
   user-select: none;
 }
+.ai-fab:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  box-shadow: var(--shadow-glow);
+}
 .ai-fab:hover {
   transform: scale(1.08);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
+  box-shadow: var(--shadow-md);
 }
 .ai-fab.dragging {
   opacity: 0.85;
   transform: scale(1.12);
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.5);
+  box-shadow: var(--shadow-lg);
   cursor: grabbing;
 }
 .ai-fab svg {
@@ -51,7 +56,7 @@
   height: 12px;
   border-radius: 50%;
   background: var(--error, #ef4444);
-  border: 2px solid #fff;
+  border: 2px solid var(--text-inverse);
   animation: fab-pulse 1.5s ease-in-out infinite;
 }
 @keyframes fab-pulse {
@@ -61,12 +66,12 @@
 
 /* ── 错误上下文 Banner（助手页面内） ── */
 .ast-error-banner {
-  margin: 0 0 12px;
-  padding: 10px 14px;
-  background: var(--error-muted, rgba(239, 68, 68, 0.08));
-  border: 1px solid var(--error-border, rgba(239, 68, 68, 0.25));
-  border-radius: var(--radius-lg, 12px);
-  font-size: 12px;
+  margin: 0 0 var(--space-3);
+  padding: var(--space-sm) var(--space-3);
+  background: var(--error-muted);
+  border: 1px solid color-mix(in srgb, var(--error) 25%, transparent);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-sm);
   line-height: 1.5;
   color: var(--text-secondary);
   position: relative;
@@ -78,14 +83,14 @@
 }
 .ast-error-banner-icon {
   flex-shrink: 0;
-  color: var(--error, #ef4444);
-  font-size: 16px;
+  color: var(--error);
+  font-size: var(--font-size-lg);
 }
 .ast-error-banner-title {
   flex: 1;
   font-weight: 600;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--font-size-sm);
 }
 .ast-error-banner-actions {
   display: flex;
@@ -94,16 +99,16 @@
 }
 .ast-error-banner-actions button {
   padding: 3px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background var(--transition-fast);
 }
 .ast-error-banner .btn-analyze {
-  background: var(--error, #ef4444);
-  color: #fff;
-  border-color: var(--error, #ef4444);
+  background: var(--error);
+  color: var(--text-inverse);
+  border-color: var(--error);
 }
 .ast-error-banner .btn-analyze:hover {
   opacity: 0.9;
@@ -123,7 +128,7 @@
   margin-top: 8px;
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease;
+  transition: max-height var(--transition-normal);
 }
 .ast-error-banner-detail.expanded {
   max-height: 300px;
@@ -132,8 +137,8 @@
   margin: 0;
   padding: 8px 10px;
   background: var(--bg-tertiary);
-  border-radius: 6px;
-  font-size: 11px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all;
@@ -145,7 +150,7 @@
   background: none;
   border: none;
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   cursor: pointer;
   padding: 0;
   margin-top: 4px;
@@ -161,11 +166,11 @@
   top: -32px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.75);
-  color: #fff;
-  font-size: 11px;
+  background: var(--overlay-heavy);
+  color: var(--text-inverse);
+  font-size: var(--font-size-xs);
   padding: 4px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   white-space: nowrap;
   pointer-events: none;
   animation: fab-hint-fade 4s ease forwards;
@@ -175,4 +180,11 @@
   15% { opacity: 1; transform: translateX(-50%) translateY(0); }
   75% { opacity: 1; }
   100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-fab, .ai-fab-pulse-ring, .ai-fab-hint {
+    animation: none !important;
+    transition: none !important;
+  }
 }

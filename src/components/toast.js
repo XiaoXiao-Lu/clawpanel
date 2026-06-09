@@ -18,6 +18,8 @@ function ensureContainer() {
   if (!_container) {
     _container = document.createElement('div')
     _container.className = 'toast-container'
+    _container.setAttribute('aria-live', 'polite')
+    _container.setAttribute('role', 'status')
     document.body.appendChild(_container)
   }
   return _container
@@ -30,12 +32,15 @@ function isStructuredError(v) {
 export function toast(message, type = 'info', options = {}) {
   // 结构化错误对象需要展示「主行 + hint + 技术详情折叠」，duration 给长一些
   const structured = isStructuredError(message)
-  const duration = options.duration || (structured && (message.hint || message.raw) ? 6000 : 3000)
+  const duration = options.duration || (structured && (message.hint || message.raw) ? 6000
+    : (type === 'error' || type === 'warning') ? 8000 : 3000)
   const action = options.action // 可选的操作按钮（DOM 元素）
 
   const container = ensureContainer()
   const el = document.createElement('div')
   el.className = `toast ${type}${structured ? ' toast-structured' : ''}`
+  // 错误/警告用 assertive 播报，其他用 polite
+  el.setAttribute('role', (type === 'error' || type === 'warning') ? 'alert' : 'status')
 
   if (structured) {
     const body = document.createElement('div')
@@ -84,6 +89,7 @@ export function toast(message, type = 'info', options = {}) {
     el.appendChild(body)
   } else {
     const textSpan = document.createElement('span')
+    // SECURITY: options.html=true bypasses XSS protection — caller MUST ensure message is trusted
     if (options.html) {
       textSpan.innerHTML = message
     } else {
@@ -97,12 +103,51 @@ export function toast(message, type = 'info', options = {}) {
     el.appendChild(action)
   }
 
-  container.appendChild(el)
-
-  setTimeout(() => {
+  // 添加关闭按钮
+  const closeBtn = document.createElement('button')
+  closeBtn.className = 'toast-close'
+  closeBtn.innerHTML = '&times;'
+  closeBtn.setAttribute('aria-label', 'Close')
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    clearTimeout(autoRemoveTimer)
     el.style.opacity = '0'
     el.style.transform = 'translateX(20px)'
     el.style.transition = 'all 250ms ease'
     setTimeout(() => el.remove(), 250)
-  }, duration)
+  })
+  el.appendChild(closeBtn)
+
+  container.appendChild(el)
+
+  // 悬停暂停自动消失
+  let _remaining = duration
+  let _lastStart = Date.now()
+  let _paused = false
+
+  function startTimer() {
+    _lastStart = Date.now()
+    return setTimeout(() => {
+      el.style.opacity = '0'
+      el.style.transform = 'translateX(20px)'
+      el.style.transition = 'all 250ms ease'
+      setTimeout(() => el.remove(), 250)
+    }, _remaining)
+  }
+
+  el.addEventListener('mouseenter', () => {
+    if (!_paused) {
+      _remaining -= (Date.now() - _lastStart)
+      clearTimeout(autoRemoveTimer)
+      _paused = true
+    }
+  })
+  el.addEventListener('mouseleave', () => {
+    if (_paused) {
+      _paused = false
+      autoRemoveTimer = startTimer()
+    }
+  })
+
+  let autoRemoveTimer = startTimer()
 }

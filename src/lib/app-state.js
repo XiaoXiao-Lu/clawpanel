@@ -7,6 +7,7 @@ import { api } from './tauri-api.js'
 const isTauri = !!window.__TAURI_INTERNALS__
 
 let _openclawReady = false
+let _openclawConfigured = false
 let _gatewayRunning = false
 let _gatewayForeign = false
 let _platform = ''  // 'macos' | 'win32' | ...
@@ -26,6 +27,11 @@ export function isOpenclawReady() {
   // 升级期间视为就绪，避免跳转到 setup
   if (_isUpgrading) return true
   return _openclawReady
+}
+
+/** OpenClaw 配置文件是否存在（即使 Gateway 当前未运行，也应允许进入配置/服务页） */
+export function isOpenclawConfigured() {
+  return _openclawConfigured
 }
 
 /** 标记升级中（阻止 setup 跳转） */
@@ -113,6 +119,7 @@ export async function detectOpenclawStatus() {
       api.getServicesStatus(),
     ])
     const configExists = installation.status === 'fulfilled' && installation.value?.installed
+    _openclawConfigured = configExists
     if (installation.status === 'fulfilled' && installation.value?.platform) {
       _platform = installation.value.platform
     }
@@ -132,6 +139,7 @@ export async function detectOpenclawStatus() {
       _setGatewayRunning(gw?.running === true && !foreign, foreign)
     }
   } catch {
+    _openclawConfigured = false
     _openclawReady = false
   }
   _listeners.forEach(fn => { try { fn(_openclawReady) } catch {} })

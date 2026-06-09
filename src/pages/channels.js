@@ -17,6 +17,7 @@ import {
   getRuntimeStateMeta,
   normalizeChannelRuntimeStatus,
 } from '../lib/channel-runtime.js'
+import { escapeHtml } from '../lib/utils.js'
 
 // ── 渠道注册表：面板内置向导，覆盖 OpenClaw 官方渠道 + 国内扩展渠道 ──
 
@@ -940,7 +941,11 @@ function bindChannelTabs(page) {
   })
 }
 
-export function cleanup() {}
+export function cleanup() {
+  // 清除可能残留的超时和间隔定时器
+  // 模块内没有全局 timer，但清理页面引用以防内存泄漏
+  _page = null
+}
 
 // ── 数据加载 ──
 
@@ -1049,7 +1054,7 @@ function renderRuntimeNotice(state) {
     return `
       <div class="channel-runtime-notice warning">
         ${icon('alert-triangle', 14)}
-        <span>当前 OpenClaw 内核不支持通用渠道运行态，请升级到新版内核；配置编辑仍可继续使用。</span>
+        <span>${t('channels.runtimeUnsupported')}</span>
       </div>
     `
   }
@@ -1106,18 +1111,28 @@ function renderRuntimeAccountInfo(summary, accountId) {
   `
 }
 
-function renderRuntimeActions(summary, accountId = '') {
+function isPluginManagedRuntimeChannel(pid) {
+  return pid === 'weixin'
+}
+
+function renderRuntimeActions(summary, accountId = '', pid = '') {
+  if (isPluginManagedRuntimeChannel(pid)) {
+    return `
+      <button class="btn btn-sm btn-secondary" data-runtime-action="refresh" data-account-id="${escapeAttr(accountId || '')}" title="${t('channels.runtimeRefreshTitle')}" aria-label="${t('channels.runtimeRefreshTitle')}">${icon('refresh-cw', 14)} ${t('channels.runtimeRefreshShort')}</button>
+      <button class="btn btn-sm btn-secondary" data-action="edit" aria-label="${t('channels.weixinLogin')}">${icon('qr-code', 14)} ${t('channels.weixinLogin')}</button>
+    `
+  }
   if (!summary.supported) {
-    return `<button class="btn btn-sm btn-secondary" data-runtime-action="refresh">${icon('refresh-cw', 14)} 刷新状态</button>`
+    return `<button class="btn btn-sm btn-secondary" data-runtime-action="refresh" aria-label="${t('channels.runtimeRefresh')}">${icon('refresh-cw', 14)} ${t('channels.runtimeRefresh')}</button>`
   }
   const accountAttr = escapeAttr(accountId || '')
   const stopDisabled = summary.state === 'missing' || summary.state === 'configured'
   const logoutDisabled = summary.state === 'missing'
   return `
-    <button class="btn btn-sm btn-secondary" data-runtime-action="refresh" data-account-id="${accountAttr}" title="刷新 Gateway 渠道状态">${icon('refresh-cw', 14)} 刷新</button>
-    <button class="btn btn-sm btn-secondary" data-runtime-action="start" data-account-id="${accountAttr}" title="启动该渠道运行时">${icon('play', 14)} 启动</button>
-    <button class="btn btn-sm btn-secondary" data-runtime-action="stop" data-account-id="${accountAttr}" ${stopDisabled ? 'disabled' : ''} title="停止该渠道运行时">${icon('stop', 14)} 停止</button>
-    <button class="btn btn-sm btn-secondary" data-runtime-action="logout" data-account-id="${accountAttr}" ${logoutDisabled ? 'disabled' : ''} title="注销该渠道账号登录态">${icon('x-circle', 14)} 注销</button>
+    <button class="btn btn-sm btn-secondary" data-runtime-action="refresh" data-account-id="${accountAttr}" title="${t('channels.runtimeRefreshTitle')}">${icon('refresh-cw', 14)} ${t('channels.runtimeRefreshShort')}</button>
+    <button class="btn btn-sm btn-secondary" data-runtime-action="start" data-account-id="${accountAttr}" title="${t('channels.runtimeStartTitle')}">${icon('play', 14)} ${t('channels.runtimeStart')}</button>
+    <button class="btn btn-sm btn-secondary" data-runtime-action="stop" data-account-id="${accountAttr}" ${stopDisabled ? 'disabled' : ''} title="${t('channels.runtimeStopTitle')}">${icon('stop', 14)} ${t('channels.runtimeStop')}</button>
+    <button class="btn btn-sm btn-secondary" data-runtime-action="logout" data-account-id="${accountAttr}" ${logoutDisabled ? 'disabled' : ''} title="${t('channels.runtimeLogoutTitle')}">${icon('x-circle', 14)} ${t('channels.runtimeLogout')}</button>
   `
 }
 
@@ -1126,18 +1141,22 @@ async function handleRuntimeAction(pid, action, accountId, btn, page, state) {
   const prevHtml = btn?.innerHTML
   if (btn) {
     btn.disabled = true
-    btn.textContent = action === 'refresh' ? '刷新中' : '处理中'
+    btn.textContent = action === 'refresh' ? t('channels.runtimeRefreshing') : t('channels.runtimeProcessing')
   }
   try {
     if (action === 'refresh') {
       await loadChannelRuntimeStatus(state, { probe: true, timeoutMs: 7000 })
       renderConfigured(page, state)
-      toast('渠道运行态已刷新', 'success')
+      toast(t('channels.runtimeRefreshed'), 'success')
       return
     }
 
+    if (isPluginManagedRuntimeChannel(pid)) {
+      throw new Error('该渠道由插件接管，请使用“扫码登录”重新连接，或刷新查看 Gateway 运行态。')
+    }
+
     if (!wsClient.connected || !wsClient.gatewayReady) {
-      throw new Error('Gateway WebSocket 未连接，请先启动 OpenClaw Gateway')
+      throw new Error(t('channels.runtimeGatewayNotReady'))
     }
 
     const params = { channel }
@@ -1218,9 +1237,9 @@ function renderConfigured(page, state) {
                 ${renderRuntimeSummary(runtimeSummary)}
                 <div class="platform-accounts">${accountsHtml}</div>
                 <div class="platform-card-actions">
-                  ${renderRuntimeActions(runtimeSummary)}
+                  ${renderRuntimeActions(runtimeSummary, '', p.id)}
                   ${supportsMulti ? `<button class="btn btn-sm btn-secondary" data-action="add-account">${icon('plus', 14)} ${t('channels.addAccount')}</button>` : ''}
-                  ${reg ? `<button class="btn btn-sm btn-secondary" data-action="edit">${icon('edit', 14)} ${t('channels.editDefault')}</button>` : `<span class="form-hint" style="align-self:center">${t('channels.noGuide')}</span>`}
+                  ${reg && !isPluginManagedRuntimeChannel(p.id) ? `<button class="btn btn-sm btn-secondary" data-action="edit">${icon('edit', 14)} ${t('channels.editDefault')}</button>` : (!reg ? `<span class="form-hint" style="align-self:center">${t('channels.noGuide')}</span>` : '')}
                   <button class="btn btn-sm btn-secondary" data-action="toggle">${p.enabled ? icon('pause', 14) + ' ' + t('channels.disable') : icon('play', 14) + ' ' + t('channels.enable')}</button>
                   <button class="btn btn-sm btn-danger" data-action="remove" aria-label="${escapeAttr(t('channels.removePlatformBtn'))}" title="${escapeAttr(t('channels.removePlatformBtn'))}">${icon('trash', 14)}</button>
                 </div>
@@ -1245,9 +1264,9 @@ function renderConfigured(page, state) {
               </div>
               ${renderRuntimeSummary(runtimeSummary)}
               <div class="platform-card-actions">
-                ${renderRuntimeActions(runtimeSummary)}
+                ${renderRuntimeActions(runtimeSummary, '', p.id)}
                 ${supportsMulti ? `<button class="btn btn-sm btn-secondary" data-action="add-account">${icon('plus', 14)} ${t('channels.addAccount')}</button>` : ''}
-                ${reg ? `<button class="btn btn-sm btn-secondary" data-action="edit">${icon('edit', 14)} ${t('channels.editAccount')}</button>` : `<span class="form-hint" style="align-self:center">${t('channels.noGuide')}</span>`}
+                ${reg && !isPluginManagedRuntimeChannel(p.id) ? `<button class="btn btn-sm btn-secondary" data-action="edit">${icon('edit', 14)} ${t('channels.editAccount')}</button>` : (!reg ? `<span class="form-hint" style="align-self:center">${t('channels.noGuide')}</span>` : '')}
                 <button class="btn btn-sm btn-secondary" data-action="toggle">${p.enabled ? icon('pause', 14) + ' ' + t('channels.disable') : icon('play', 14) + ' ' + t('channels.enable')}</button>
                 <button class="btn btn-sm btn-danger" data-action="remove" aria-label="${escapeAttr(t('channels.removePlatformBtn'))}" title="${escapeAttr(t('channels.removePlatformBtn'))}">${icon('trash', 14)}</button>
               </div>
@@ -2227,6 +2246,10 @@ async function openConfigDialog(pid, page, state, accountId) {
   const reg = PLATFORM_REGISTRY[pid]
   if (!reg) { toast(t('channels.unknownPlatform'), 'error'); return }
 
+  // 插件状态缓存：同一次弹窗对话中只检查/安装一次，避免重复保存时反复触发
+  let _pluginChecked = false
+  let _pluginInstalled = false
+
   if (reg.panelSupport === 'docs-only') {
     const docsOnlyContent = `
       ${reg.guide?.length ? `
@@ -2237,7 +2260,7 @@ async function openConfigDialog(pid, page, state, accountId) {
           </ol>
           ${reg.guideFooter || ''}
         </details>` : ''}
-      <div style="background:rgba(245,158,11,0.12);color:#b45309;padding:12px 14px;border-radius:var(--radius-md);font-size:var(--font-size-sm);line-height:1.7">
+      <div style="background:rgba(var(--brand-amber-rgb, 245,158,11), 0.12);color:#b45309;padding:12px 14px;border-radius:var(--radius-md);font-size:var(--font-size-sm);line-height:1.7">
         <div style="font-weight:700;margin-bottom:6px">${t('channels.docsOnlyTitle')}</div>
         <div>${reg.supportNote || t('channels.docsOnlyDefault')}</div>
       </div>
@@ -2411,14 +2434,14 @@ async function openConfigDialog(pid, page, state, accountId) {
             const cvs = document.createElement('canvas')
             cvs.width = w * mod; cvs.height = h * mod
             const ctx = cvs.getContext('2d')
-            ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cvs.width, cvs.height)
-            ctx.fillStyle = '#000'
+            ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cvs.width, cvs.height) // Canvas 不支持 CSS 变量，保持硬编码
+            ctx.fillStyle = '#000' // Canvas 不支持 CSS 变量，保持硬编码
             for (let y = 0; y < h; y++) for (let x = 0; x < (matrix[y]?.length || 0); x++) {
               if (matrix[y][x]) ctx.fillRect(x * mod, y * mod, mod, mod)
             }
             const wrap = document.createElement('div')
-            wrap.style.cssText = 'text-align:center;margin:12px 0;padding:16px;background:#fff;border-radius:var(--radius-md);border:1px solid var(--border-primary)'
-            wrap.innerHTML = `<div style="font-size:var(--font-size-sm);font-weight:600;color:#000;margin-bottom:8px">${t('channels.weixinScanQr')}</div>`
+            wrap.style.cssText = 'text-align:center;margin:12px 0;padding:16px;background:var(--bg-primary, #fff);border-radius:var(--radius-md);border:1px solid var(--border-primary)'
+            wrap.innerHTML = `<div style="font-size:var(--font-size-sm);font-weight:600;color:var(--text-primary, #000);margin-bottom:8px">${t('channels.weixinScanQr')}</div>`
             const img = document.createElement('img')
             img.src = cvs.toDataURL()
             img.style.cssText = 'display:block;margin:0 auto;image-rendering:pixelated;max-width:280px'
@@ -2442,7 +2465,7 @@ async function openConfigDialog(pid, page, state, accountId) {
                 _qrDone = true
                 const qrUrl = weixinUrlMatch[1]
                 const wrap = document.createElement('div')
-                wrap.style.cssText = 'text-align:center;margin:12px 0;padding:16px;background:#fff;border-radius:var(--radius-md);border:1px solid var(--border-primary)'
+                wrap.style.cssText = 'text-align:center;margin:12px 0;padding:16px;background:var(--bg-primary, #fff);border-radius:var(--radius-md);border:1px solid var(--border-primary)'
                 wrap.innerHTML = `
                   <div style="font-size:var(--font-size-sm);font-weight:600;color:#000;margin-bottom:8px">${t('channels.weixinScanQr')}</div>
                   <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}" alt="WeChat QR" style="width:200px;height:200px;image-rendering:pixelated;border-radius:4px;margin:0 auto;display:block" loading="eager">
@@ -2599,8 +2622,8 @@ async function openConfigDialog(pid, page, state, accountId) {
     if (f.type === 'select' && f.options) {
       return `
         <div class="form-group">
-          <label class="form-label">${labelWithHelp(f.label)}<span class="required-marker" data-required-for="${escapeAttr(f.key)}">${fieldRequired ? ' *' : ''}</span></label>
-          <select class="form-input" name="${f.key}" data-name="${f.key}">
+          <label class="form-label" for="channel-field-${escapeAttr(f.key)}">${labelWithHelp(f.label)}<span class="required-marker" data-required-for="${escapeAttr(f.key)}">${fieldRequired ? ' *' : ''}</span></label>
+          <select class="form-input" id="channel-field-${escapeAttr(f.key)}" name="${f.key}" data-name="${f.key}">
             ${f.options.map(o => `<option value="${o.value}" ${val === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
           </select>
           ${f.hint ? `<div class="form-hint">${f.hint}</div>` : ''}
@@ -2610,17 +2633,17 @@ async function openConfigDialog(pid, page, state, accountId) {
     if (f.multiline) {
       return `
         <div class="form-group">
-          <label class="form-label">${labelWithHelp(f.label)}<span class="required-marker" data-required-for="${escapeAttr(f.key)}">${fieldRequired ? ' *' : ''}</span></label>
-          <textarea class="form-input" name="${f.key}" rows="5" placeholder="${escapeAttr(f.placeholder || '')}" ${i === 0 ? 'autofocus' : ''} style="width:100%;min-height:112px;resize:vertical;font-family:var(--font-mono);line-height:1.5">${escapeAttr(val)}</textarea>
+          <label class="form-label" for="channel-field-${escapeAttr(f.key)}">${labelWithHelp(f.label)}<span class="required-marker" data-required-for="${escapeAttr(f.key)}">${fieldRequired ? ' *' : ''}</span></label>
+          <textarea class="form-input" id="channel-field-${escapeAttr(f.key)}" name="${f.key}" rows="5" placeholder="${escapeAttr(f.placeholder || '')}" ${i === 0 ? 'autofocus' : ''} style="width:100%;min-height:112px;resize:vertical;font-family:var(--font-mono);line-height:1.5">${escapeAttr(val)}</textarea>
           ${fieldHint ? `<div class="form-hint">${fieldHint}</div>` : ''}
         </div>
       `
     }
     return `
       <div class="form-group">
-        <label class="form-label">${labelWithHelp(f.label)}<span class="required-marker" data-required-for="${escapeAttr(f.key)}">${fieldRequired ? ' *' : ''}</span></label>
+        <label class="form-label" for="channel-field-${escapeAttr(f.key)}">${labelWithHelp(f.label)}<span class="required-marker" data-required-for="${escapeAttr(f.key)}">${fieldRequired ? ' *' : ''}</span></label>
         <div style="display:flex;gap:8px">
-          <input class="form-input" name="${f.key}" type="${f.secret ? 'password' : 'text'}"
+          <input class="form-input" id="channel-field-${escapeAttr(f.key)}" name="${f.key}" type="${f.secret ? 'password' : 'text'}"
                  value="${escapeAttr(val)}" placeholder="${escapeAttr(f.placeholder || '')}"
                  ${i === 0 ? 'autofocus' : ''} style="flex:1">
           ${f.secret ? `<button type="button" class="btn btn-sm btn-secondary toggle-vis" data-field="${f.key}">${t('channels.show')}</button>` : ''}
@@ -2936,14 +2959,14 @@ async function openConfigDialog(pid, page, state, accountId) {
           </div>
           ${pid === 'qqbot' ? `<div class="form-hint" style="margin-top:8px;line-height:1.55">${t('channels.qqVerifyNote')}</div>` : ''}`
       } else {
-        const errs = (res.errors || [t('channels.verifyFailed')]).join('<br>')
+        const errs = (res.errors || [t('channels.verifyFailed')]).map(e => escapeHtml(e)).join('<br>')
         resultEl.innerHTML = `
           <div style="background:var(--error-muted, #fee2e2);color:var(--error);padding:10px 14px;border-radius:var(--radius-md);font-size:var(--font-size-sm)">
             ${icon('x', 14)} ${errs}
           </div>`
       }
     } catch (e) {
-      resultEl.innerHTML = `<div style="color:var(--error);font-size:var(--font-size-sm)">${t('channels.verifyRequestFailed')}: ${e}</div>`
+      resultEl.innerHTML = `<div style="color:var(--error);font-size:var(--font-size-sm)">${t('channels.verifyRequestFailed')}: ${escapeHtml(e)}</div>`
     } finally {
       btnVerify.disabled = false
       btnVerify.textContent = t('channels.verifyCredentials')
@@ -2974,13 +2997,15 @@ async function openConfigDialog(pid, page, state, accountId) {
     btnSave.textContent = t('channels.saving')
 
     try {
-      // 如果需要安装插件，先安装并显示日志
-      if (reg.pluginRequired) {
+      // 如果需要安装插件，先安装并显示日志（同一弹窗只检查一次）
+      if (reg.pluginRequired && !_pluginChecked) {
+        _pluginChecked = true
         const pluginPackage = reg.pluginRequired
         const pluginId = reg.pluginId || pid
         const pluginStatus = await api.getChannelPluginStatus(pluginId)
         // 跳过安装：插件已安装或已内置
-        if (!pluginStatus?.installed && !pluginStatus?.builtin) {
+        _pluginInstalled = pluginStatus?.installed || pluginStatus?.builtin || false
+        if (!_pluginInstalled) {
           btnSave.textContent = t('channels.installingPlugin')
           resultEl.innerHTML = `
             <div style="background:var(--bg-tertiary);border-radius:var(--radius-md);padding:12px;margin-top:var(--space-sm)">
@@ -3038,6 +3063,7 @@ async function openConfigDialog(pid, page, state, accountId) {
           }
           if (unlistenLog) unlistenLog()
           if (unlistenProgress) unlistenProgress()
+          _pluginInstalled = true
         } else {
           resultEl.innerHTML = `
             <div style="background:var(--accent-muted);color:var(--accent);padding:10px 14px;border-radius:var(--radius-md);font-size:var(--font-size-sm)">

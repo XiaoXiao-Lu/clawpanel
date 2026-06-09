@@ -50,6 +50,7 @@
     "sectionConfig": "Konfiguration",
     "sectionData": "Daten",
     "sectionExtension": "Erweiterungen",
+    "sectionSystem": "System",
     "dashboard": "Dashboard",
     "assistant": "Assistent",
     "chat": "Live-Chat",
@@ -1373,7 +1374,9 @@
     "hostedModelNotConfigured": "Hosted Agent model not configured (please configure in AI Assistant page)",
     "hostedApiError": "API Error {code}",
     "hostedPrefix": "[Hosted Agent] ",
-    "hostedContextSummary": "[Context Summary - compressed {n} history entries]"
+    "hostedContextSummary": "[Context Summary - compressed {n} history entries]",
+    "pasteWarning": "Großen Text einfügen",
+    "pasteLargeText": "Sie fügen {length} Zeichen Text ein. Dies kann zu Leistungsproblemen führen. Fortfahren?"
   },
   "chatDebug": {
     "title": "Systemdiagnose",

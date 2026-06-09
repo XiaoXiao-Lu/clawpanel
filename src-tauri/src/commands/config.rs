@@ -3713,7 +3713,7 @@ async fn try_r2_install(
         )
     } else if use_tarball {
         // 其次通用 tarball（需要 npm install，仍有网络依赖）
-        let t = tarball.unwrap();
+        let t = tarball.ok_or("tarball 数据缺失")?;
         (
             t.get("url")
                 .and_then(|v| v.as_str())
@@ -6673,6 +6673,90 @@ pub async fn test_model_verbose(
         "error": error,
         "elapsedMs": elapsed_ms,
         "usedApi": used_api,
+    }))
+}
+
+/// 代理 OpenAI-compatible Chat Completions 请求，供 WebView 前端绕过模型服务商 CORS 限制。
+#[tauri::command]
+pub async fn model_chat_completions_proxy(
+    base_url: String,
+    api_key: String,
+    api_type: Option<String>,
+    body: Value,
+) -> Result<Value, String> {
+    let api_type_norm =
+        normalize_model_api_type(api_type.as_deref().unwrap_or("openai-completions"));
+    if api_type_norm != "openai-completions" {
+        return Err("当前代理仅支持 OpenAI Chat Completions".to_string());
+    }
+    if !body.is_object() {
+        return Err("请求体无效".to_string());
+    }
+
+    let base = normalize_base_url_for_api(&base_url, api_type_norm);
+    let api_key = resolve_model_api_key(&api_key)?;
+    let url = format!("{}/chat/completions", base);
+    let client =
+        crate::commands::build_http_client_no_proxy(std::time::Duration::from_secs(120), None)
+            .map_err(|e| format!("创建 HTTP 客户端失败: {e}"))?;
+
+    let accept = if body.get("stream").and_then(|v| v.as_bool()) == Some(true) {
+        "text/event-stream"
+    } else {
+        "application/json"
+    };
+    let mut req = client
+        .post(&url)
+        .header("Accept-Encoding", "identity")
+        .header("Accept", accept)
+        .json(&body);
+    if !api_key.is_empty() {
+        req = req.header("Authorization", format!("Bearer {api_key}"));
+    }
+
+    let resp = req.send().await.map_err(|e| {
+        if e.is_timeout() {
+            "请求超时 (120s)".to_string()
+        } else if e.is_connect() {
+            format!("连接失败: {e}")
+        } else {
+            format!("请求失败: {e}")
+        }
+    })?;
+
+    let status = resp.status();
+    let status_code = status.as_u16();
+    let status_text = status
+        .canonical_reason()
+        .map(str::to_string)
+        .unwrap_or_default();
+    let resp_headers = {
+        let mut map = serde_json::Map::new();
+        for (k, v) in resp.headers().iter() {
+            map.insert(
+                k.to_string(),
+                Value::String(v.to_str().unwrap_or("<non-utf8>").to_string()),
+            );
+        }
+        Value::Object(map)
+    };
+    let content_type = resp_headers
+        .get("content-type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let text = resp
+        .text()
+        .await
+        .map_err(|e| format!("读取响应失败: {e}"))?;
+
+    Ok(json!({
+        "ok": status.is_success(),
+        "status": status_code,
+        "statusText": status_text,
+        "contentType": content_type,
+        "headers": resp_headers,
+        "body": text,
     }))
 }
 

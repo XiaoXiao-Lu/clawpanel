@@ -38,7 +38,7 @@ const _listeners = []
  * @returns {number[]|null}
  */
 export function parseVersion(ver) {
-  if (!ver) return null
+  if (ver == null || ver === '') return null
   const base = String(ver).replace(/-.*$/, '')
   const parts = base.split('.').map(Number)
   if (parts.some(isNaN)) return null

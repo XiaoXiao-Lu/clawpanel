@@ -5,6 +5,7 @@
 import { toast } from '../components/toast.js'
 import { statusIcon } from '../lib/icons.js'
 import { t } from '../lib/i18n.js'
+import { escapeHtml } from '../lib/utils.js'
 
 const isTauri = !!window.__TAURI_INTERNALS__
 let _tauriApi = null
@@ -92,7 +93,7 @@ export async function render() {
   page.className = 'page'
 
   page.innerHTML = `
-    <div class="page-header"><h1>${t('security.title')}</h1></div>
+    <div class="page-header"><h1 class="page-title">${t('security.title')}</h1></div>
     <div id="security-content">
       <div class="config-section loading-placeholder" style="height:120px"></div>
     </div>
@@ -108,7 +109,7 @@ async function loadStatus(page) {
     const status = await apiCall('auth_status')
     renderContent(container, status)
   } catch (e) {
-    container.innerHTML = `<div class="config-section"><p style="color:var(--error)">${t('security.loadFailed')}: ${e.message}</p></div>`
+    container.innerHTML = `<div class="config-section"><p style="color:var(--error)">${escapeHtml(t('security.loadFailed') + ': ' + e.message)}</p></div>`
   }
 }
 
@@ -293,3 +294,5 @@ async function handleIgnoreRisk(container, enable) {
     toast(t('security.operationFailed') + ': ' + e.message, 'error')
   }
 }
+
+export function cleanup() {}

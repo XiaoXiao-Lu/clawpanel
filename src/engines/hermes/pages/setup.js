@@ -7,6 +7,7 @@ import { t } from '../../../lib/i18n.js'
 import { api, invalidate, isTauriRuntime } from '../../../lib/tauri-api.js'
 import { toast } from '../../../components/toast.js'
 import { getActiveEngine } from '../../../lib/engine-manager.js'
+import { escapeHtml as esc } from '../../../lib/utils.js'
 import {
   loadHermesProviders,
   groupProviders,
@@ -46,6 +47,20 @@ export function render() {
   let customGatewayUrl = 'http://127.0.0.1:8642'
   let progress = 0
   let unlisten = null
+  let docClickBound = false
+
+  function onDocumentClick(e) {
+    const dd = el.querySelector('#hm-model-dropdown')
+    if (dd && !e.target.closest('.hermes-field')) dd.style.display = 'none'
+  }
+
+  function cleanup() {
+    if (unlisten) { unlisten(); unlisten = null }
+    if (docClickBound) {
+      document.removeEventListener('click', onDocumentClick)
+      docClickBound = false
+    }
+  }
 
   function draw() {
     el.innerHTML = `
@@ -304,9 +319,6 @@ export function render() {
     </div>`
   }
 
-  function esc(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  }
 
   // --- 事件绑定 ---
   function bind() {
@@ -370,11 +382,11 @@ export function render() {
       const dd = el.querySelector('#hm-model-dropdown')
       if (dd && dd.children.length > 0) dd.style.display = 'block'
     })
-    // 点击其他地方关闭下拉
-    document.addEventListener('click', (e) => {
-      const dd = el.querySelector('#hm-model-dropdown')
-      if (dd && !e.target.closest('.hermes-field')) dd.style.display = 'none'
-    })
+    // 点击其他地方关闭下拉。bind() 会在每次 draw() 后运行，只注册一次全局监听。
+    if (!docClickBound) {
+      document.addEventListener('click', onDocumentClick)
+      docClickBound = true
+    }
     // 配置保存
     el.querySelector('.hermes-config-save')?.addEventListener('click', doSaveConfig)
     el.querySelector('.hermes-config-skip')?.addEventListener('click', () => { phase = 'gateway'; refreshHermes() })
@@ -673,8 +685,18 @@ export function render() {
     } catch (err) {
       console.warn('[hermes/setup] failed to load providers:', err)
     }
-    detect()
+    if (el.isConnected) detect()
   })()
+
+  const detachObserver = new MutationObserver(() => {
+    if (!el.isConnected) {
+      cleanup()
+      detachObserver.disconnect()
+    }
+  })
+  requestAnimationFrame(() => {
+    if (el.parentNode) detachObserver.observe(el.parentNode, { childList: true })
+  })
 
   return el
 }

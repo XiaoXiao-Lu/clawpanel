@@ -26,7 +26,13 @@ pub struct SkillHubItem {
     #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
+    pub description_zh: Option<String>,
+    #[serde(default)]
     pub author: Option<String>,
+    #[serde(default)]
+    pub owner_name: Option<String>,
+    #[serde(default)]
+    pub category: Option<String>,
     #[serde(default)]
     pub tags: Option<Vec<String>>,
     #[serde(default)]
@@ -34,9 +40,25 @@ pub struct SkillHubItem {
     #[serde(default)]
     pub homepage: Option<String>,
     #[serde(default)]
+    pub icon: Option<String>,
+    #[serde(default)]
+    pub logo: Option<String>,
+    #[serde(default)]
+    pub avatar: Option<String>,
+    #[serde(default)]
+    pub avatar_url: Option<String>,
+    #[serde(default)]
+    pub image: Option<String>,
+    #[serde(default)]
     pub downloads: Option<u64>,
     #[serde(default)]
+    pub installs: Option<u64>,
+    #[serde(default)]
     pub stars: Option<u64>,
+    #[serde(default)]
+    pub labels: Option<serde_json::Value>,
+    #[serde(default)]
+    pub updated_at: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -162,6 +184,14 @@ pub async fn install(slug: &str, skills_dir: &Path) -> Result<PathBuf, String> {
     Ok(target_dir)
 }
 
+/// 安装用户上传的 Skill zip
+pub fn install_zip(zip_bytes: &[u8], name: &str, skills_dir: &Path) -> Result<PathBuf, String> {
+    let slug = normalize_install_name(name)?;
+    let target_dir = skills_dir.join(slug);
+    extract_zip(zip_bytes, &target_dir)?;
+    Ok(target_dir)
+}
+
 // ── 内部工具 ──────────────────────────────────────────────
 
 /// 校验 slug 安全性
@@ -175,6 +205,24 @@ fn validate_slug(slug: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn normalize_install_name(name: &str) -> Result<String, String> {
+    let without_zip = name.trim().trim_end_matches(".zip").trim_end_matches(".ZIP");
+    let slug = without_zip
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '_' || ch == '.' || ch == '-' {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string();
+    validate_slug(&slug)?;
+    Ok(slug)
+}
+
 /// 将 zip 字节解压到目标目录
 fn extract_zip(zip_bytes: &[u8], target_dir: &Path) -> Result<(), String> {
     use std::io::Cursor;
@@ -185,6 +233,9 @@ fn extract_zip(zip_bytes: &[u8], target_dir: &Path) -> Result<(), String> {
         std::fs::remove_dir_all(target_dir).map_err(|e| format!("清理旧目录失败: {e}"))?;
     }
     std::fs::create_dir_all(target_dir).map_err(|e| format!("创建目录失败: {e}"))?;
+    let target_root = target_dir
+        .canonicalize()
+        .map_err(|e| format!("解析目标目录失败: {e}"))?;
 
     let reader = Cursor::new(zip_bytes);
     let mut archive = ZipArchive::new(reader).map_err(|e| format!("打开 zip 失败: {e}"))?;
@@ -194,6 +245,7 @@ fn extract_zip(zip_bytes: &[u8], target_dir: &Path) -> Result<(), String> {
         .filter_map(|i| archive.by_index_raw(i).ok().map(|f| f.name().to_string()))
         .collect();
     let strip_prefix = detect_single_root_dir(&names);
+    let mut files_written = 0usize;
 
     for i in 0..archive.len() {
         let mut file = archive
@@ -201,10 +253,6 @@ fn extract_zip(zip_bytes: &[u8], target_dir: &Path) -> Result<(), String> {
             .map_err(|e| format!("读取 zip 条目失败: {e}"))?;
 
         let raw_name = file.name().to_string();
-        // 安全检查：防止路径穿越
-        if raw_name.contains("..") {
-            continue;
-        }
 
         // 如果 zip 内有单一根目录，剥掉它
         let relative = if let Some(ref prefix) = strip_prefix {
@@ -220,7 +268,9 @@ fn extract_zip(zip_bytes: &[u8], target_dir: &Path) -> Result<(), String> {
             continue;
         }
 
-        let out_path = target_dir.join(&relative);
+        let Some(out_path) = safe_zip_output_path(&target_root, &relative) else {
+            continue;
+        };
         if file.is_dir() {
             std::fs::create_dir_all(&out_path).ok();
         } else {
@@ -231,9 +281,44 @@ fn extract_zip(zip_bytes: &[u8], target_dir: &Path) -> Result<(), String> {
                 .map_err(|e| format!("创建文件失败 {relative}: {e}"))?;
             std::io::copy(&mut file, &mut outfile)
                 .map_err(|e| format!("写入文件失败 {relative}: {e}"))?;
+            files_written += 1;
         }
     }
+
+    if files_written == 0 || !target_root.join("SKILL.md").exists() {
+        let _ = std::fs::remove_dir_all(&target_root);
+        return Err("Skill zip 无效：缺少 SKILL.md".into());
+    }
     Ok(())
+}
+
+fn safe_zip_output_path(target_root: &Path, entry_name: &str) -> Option<PathBuf> {
+    let normalized = entry_name.replace('\\', "/");
+    if normalized.is_empty()
+        || normalized.starts_with('/')
+        || normalized
+            .as_bytes()
+            .get(1)
+            .copied()
+            == Some(b':')
+    {
+        return None;
+    }
+    let mut out = target_root.to_path_buf();
+    for part in normalized.split('/') {
+        if part.is_empty() || part == "." {
+            continue;
+        }
+        if part == ".." {
+            return None;
+        }
+        out.push(part);
+    }
+    if out != target_root && out.starts_with(target_root) {
+        Some(out)
+    } else {
+        None
+    }
 }
 
 /// 检测 zip 是否有单一顶层目录（如 `skill-name/...`），返回要剥掉的前缀

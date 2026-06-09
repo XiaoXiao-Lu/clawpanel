@@ -50,6 +50,7 @@
     "sectionConfig": "Cấu hình",
     "sectionData": "Dữ liệu",
     "sectionExtension": "Mở rộng",
+    "sectionSystem": "Hệ thống",
     "dashboard": "Bảng điều khiển",
     "assistant": "Trợ lý",
     "chat": "Trò chuyện",
@@ -1373,7 +1374,9 @@
     "hostedModelNotConfigured": "Hosted Agent model not configured (please configure in AI Assistant page)",
     "hostedApiError": "API Error {code}",
     "hostedPrefix": "[Hosted Agent] ",
-    "hostedContextSummary": "[Context Summary - compressed {n} history entries]"
+    "hostedContextSummary": "[Context Summary - compressed {n} history entries]",
+    "pasteWarning": "Dán văn bản lớn",
+    "pasteLargeText": "Bạn đang dán {length} ký tự văn bản. Điều này có thể gây ra vấn đề về hiệu suất. Tiếp tục?"
   },
   "chatDebug": {
     "title": "Chẩn đoán hệ thống",

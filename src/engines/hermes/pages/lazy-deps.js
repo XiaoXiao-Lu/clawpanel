@@ -12,6 +12,7 @@ import { api } from '../../../lib/tauri-api.js'
 import { toast } from '../../../components/toast.js'
 import { humanizeError } from '../../../lib/humanize-error.js'
 import { svgIcon } from '../lib/svg-icons.js'
+import { escapeHtml } from '../../../lib/utils.js'
 
 // feature 分类配置（决定分组顺序 + 图标 + 文案）
 const CATEGORIES = [
@@ -205,7 +206,4 @@ async function onEnsureClick(page, feature, btn) {
   }
 }
 
-function escapeHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 function escapeAttr(s) { return escapeHtml(s) }

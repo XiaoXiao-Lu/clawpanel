@@ -7,6 +7,7 @@ import {
   loadHermesProviders,
   inferProviderByBaseUrl,
 } from '../lib/providers.js'
+import { escapeHtml as esc } from '../../../lib/utils.js'
 
 const ICONS = {
   running: `<svg viewBox="0 0 24 24" fill="none" stroke="var(--success, #22c55e)" stroke-width="2.5" width="20" height="20"><circle cx="12" cy="12" r="10"/><polyline points="16 12 12 8 8 12"/><line x1="12" y1="16" x2="12" y2="8"/></svg>`,
@@ -80,7 +81,6 @@ export function render() {
     if (m) formModel = m.value
   }
 
-  function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') }
 
   // --- 终端命令 ---
   const isWin = navigator.platform?.startsWith('Win') || navigator.userAgent?.includes('Windows')
@@ -106,7 +106,7 @@ export function render() {
         </div>
         <div class="hm-cli-cmd-wrap">
           <code class="hm-cli-cmd">${esc(c.cmd)}</code>
-          <button class="hm-cli-copy" data-cmd-idx="${i}" title="${t('common.copy')}">
+          <button class="hm-cli-copy" data-cmd-idx="${i}" title="${t('common.copy')}" aria-label="${t('common.copy')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
           </button>
         </div>
@@ -399,7 +399,7 @@ export function render() {
                     <div class="hm-muted">${c.desc}</div>
                   </td>
                   <td style="text-align:center">
-                    <button class="hm-btn hm-btn--icon hm-cli-copy" data-cmd-idx="${i}" title="${t('common.copy')}">
+                    <button class="hm-btn hm-btn--icon hm-cli-copy" data-cmd-idx="${i}" title="${t('common.copy')}" aria-label="${t('common.copy')}">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
                     </button>
                   </td>

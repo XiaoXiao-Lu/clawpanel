@@ -6,6 +6,7 @@ import { wsClient } from '../lib/ws-client.js'
 import { toast } from '../components/toast.js'
 import { icon } from '../lib/icons.js'
 import { t } from '../lib/i18n.js'
+import { escapeHtml as esc } from '../lib/utils.js'
 
 let _page = null, _unsubReady = null
 
@@ -236,6 +237,3 @@ function renderUsage(el, data) {
   el.innerHTML = overviewHtml + topsHtml + tokenBreakdownHtml + dailyHtml + sessionsHtml
 }
 
-function esc(str) {
-  return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}

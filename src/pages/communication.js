@@ -8,6 +8,7 @@ import { humanizeError } from '../lib/humanize-error.js'
 import { icon } from '../lib/icons.js'
 import { t } from '../lib/i18n.js'
 import { wsClient } from '../lib/ws-client.js'
+import { escapeHtml as esc } from '../lib/utils.js'
 
 let _page = null, _config = null, _dirty = false
 
@@ -21,17 +22,17 @@ export async function render() {
       <h1 class="page-title">${t('communication.title')}</h1>
       <p class="page-desc">${t('communication.desc')}</p>
     </div>
-    <div class="comm-toolbar" style="display:flex;gap:8px;margin-bottom:var(--space-lg);flex-wrap:wrap">
+    <div class="comm-toolbar">
       <button class="btn btn-sm btn-primary comm-tab active" data-tab="messages">${t('communication.tabMessages')}</button>
       <button class="btn btn-sm btn-secondary comm-tab" data-tab="broadcast">${t('communication.tabBroadcast')}</button>
       <button class="btn btn-sm btn-secondary comm-tab" data-tab="commands">${t('communication.tabCommands')}</button>
       <button class="btn btn-sm btn-secondary comm-tab" data-tab="hooks">${t('communication.tabHooks')}</button>
       <button class="btn btn-sm btn-secondary comm-tab" data-tab="approvals">${t('communication.tabApprovals')}</button>
-      <div style="flex:1"></div>
+      <div class="comm-toolbar-spacer"></div>
       <button class="btn btn-sm btn-primary" id="btn-comm-save" disabled>${icon('save', 14)} ${t('communication.save')}</button>
     </div>
     <div id="comm-content">
-      <div class="stat-card loading-placeholder" style="height:200px"></div>
+      <div class="stat-card loading-placeholder comm-skeleton"></div>
     </div>
   `
 
@@ -59,7 +60,7 @@ async function loadConfig(page) {
     if (!_config) _config = {}
     renderTab(page, 'messages')
   } catch (e) {
-    page.querySelector('#comm-content').innerHTML = `<div style="color:var(--error)">${t('communication.loadFailed')}: ${esc(e?.message || e)}</div>`
+    page.querySelector('#comm-content').innerHTML = `<div class="comm-error">${t('communication.loadFailed')}: ${esc(e?.message || e)}</div>`
   }
 }
 
@@ -123,12 +124,12 @@ function renderMessages(el) {
       </div>
       <div class="form-group">
         <label class="form-label">${t('communication.ackReaction')}</label>
-        <input class="form-input" id="msg-ackReaction" value="${esc(m.ackReaction || '')}" placeholder="${t('communication.ackReactionPlaceholder')}" style="max-width:200px">
+        <input class="form-input form-input--short" id="msg-ackReaction" value="${esc(m.ackReaction || '')}" placeholder="${t('communication.ackReactionPlaceholder')}">
         <div class="form-hint">${t('communication.ackReactionHint')}</div>
       </div>
       <div class="form-group">
         <label class="form-label">${t('communication.ackScope')}</label>
-        <select class="form-input" id="msg-ackReactionScope" style="max-width:300px">
+        <select class="form-input form-input--medium" id="msg-ackReactionScope">
           <option value="group-mentions" ${(m.ackReactionScope || 'group-mentions') === 'group-mentions' ? 'selected' : ''}>${t('communication.ackScopeGroupMentions')}</option>
           <option value="group-all" ${m.ackReactionScope === 'group-all' ? 'selected' : ''}>${t('communication.ackScopeGroupAll')}</option>
           <option value="direct" ${m.ackReactionScope === 'direct' ? 'selected' : ''}>${t('communication.ackScopeDirect')}</option>
@@ -136,17 +137,17 @@ function renderMessages(el) {
           <option value="off" ${m.ackReactionScope === 'off' ? 'selected' : ''}>${t('communication.ackScopeOff')}</option>
         </select>
       </div>
-      <div class="form-group" style="display:flex;align-items:center;justify-content:space-between">
+      <div class="form-group form-group--row">
         <div>
-          <label class="form-label" style="margin:0">${t('communication.removeAckAfterReply')}</label>
-          <div class="form-hint" style="margin:0">${t('communication.removeAckAfterReplyHint')}</div>
+          <label class="form-label form-label--compact">${t('communication.removeAckAfterReply')}</label>
+          <div class="form-hint form-hint--compact">${t('communication.removeAckAfterReplyHint')}</div>
         </div>
         <label class="toggle-switch"><input type="checkbox" id="msg-removeAckAfterReply" ${m.removeAckAfterReply ? 'checked' : ''}><span class="toggle-slider"></span></label>
       </div>
-      <div class="form-group" style="display:flex;align-items:center;justify-content:space-between">
+      <div class="form-group form-group--row">
         <div>
-          <label class="form-label" style="margin:0">${t('communication.suppressToolErrors')}</label>
-          <div class="form-hint" style="margin:0">${t('communication.suppressToolErrorsHint')}</div>
+          <label class="form-label form-label--compact">${t('communication.suppressToolErrors')}</label>
+          <div class="form-hint form-hint--compact">${t('communication.suppressToolErrorsHint')}</div>
         </div>
         <label class="toggle-switch"><input type="checkbox" id="msg-suppressToolErrors" ${m.suppressToolErrors ? 'checked' : ''}><span class="toggle-slider"></span></label>
       </div>
@@ -154,10 +155,10 @@ function renderMessages(el) {
 
     <div class="config-section">
       <div class="config-section-title">${t('communication.statusReactions')}</div>
-      <div class="form-group" style="display:flex;align-items:center;justify-content:space-between">
+      <div class="form-group form-group--row">
         <div>
-          <label class="form-label" style="margin:0">${t('communication.enableStatusReactions')}</label>
-          <div class="form-hint" style="margin:0">${t('communication.enableStatusReactionsHint')}</div>
+          <label class="form-label form-label--compact">${t('communication.enableStatusReactions')}</label>
+          <div class="form-hint form-hint--compact">${t('communication.enableStatusReactionsHint')}</div>
         </div>
         <label class="toggle-switch"><input type="checkbox" id="msg-sr-enabled" ${sr.enabled ? 'checked' : ''}><span class="toggle-slider"></span></label>
       </div>
@@ -167,12 +168,12 @@ function renderMessages(el) {
       <div class="config-section-title">${t('communication.messageQueue')}</div>
       <div class="form-group">
         <label class="form-label">${t('communication.debounceMs')}</label>
-        <input class="form-input" id="msg-debounceMs" type="number" value="${m.inbound?.debounceMs || m.queue?.debounceMs || ''}" placeholder="" style="max-width:200px">
+        <input class="form-input form-input--short" id="msg-debounceMs" type="number" value="${m.inbound?.debounceMs || m.queue?.debounceMs || ''}" placeholder="">
         <div class="form-hint">${t('communication.debounceMsHint')}</div>
       </div>
       <div class="form-group">
         <label class="form-label">${t('communication.queueCap')}</label>
-        <input class="form-input" id="msg-queueCap" type="number" value="${m.queue?.cap || ''}" placeholder="" style="max-width:200px">
+        <input class="form-input form-input--short" id="msg-queueCap" type="number" value="${m.queue?.cap || ''}" placeholder="">
         <div class="form-hint">${t('communication.queueCapHint')}</div>
       </div>
     </div>
@@ -181,7 +182,7 @@ function renderMessages(el) {
       <div class="config-section-title">${t('communication.groupChat')}</div>
       <div class="form-group">
         <label class="form-label">${t('communication.groupHistoryLimit')}</label>
-        <input class="form-input" id="msg-groupHistoryLimit" type="number" value="${m.groupChat?.historyLimit || ''}" placeholder="" style="max-width:200px">
+        <input class="form-input form-input--short" id="msg-groupHistoryLimit" type="number" value="${m.groupChat?.historyLimit || ''}" placeholder="">
         <div class="form-hint">${t('communication.groupHistoryLimitHint')}</div>
       </div>
     </div>
@@ -236,7 +237,7 @@ function renderBroadcast(el) {
       <div class="config-section-title">${t('communication.broadcastStrategy')}</div>
       <div class="form-group">
         <label class="form-label">${t('communication.broadcastMode')}</label>
-        <select class="form-input" id="bc-strategy" style="max-width:300px">
+        <select class="form-input form-input--medium" id="bc-strategy">
           <option value="parallel" ${(b.strategy || 'parallel') === 'parallel' ? 'selected' : ''}>${t('communication.broadcastParallel')}</option>
           <option value="sequential" ${b.strategy === 'sequential' ? 'selected' : ''}>${t('communication.broadcastSequential')}</option>
         </select>
@@ -275,7 +276,7 @@ function renderCommands(el) {
       <div class="config-section-title">${t('communication.nativeCommands')}</div>
       <div class="form-group">
         <label class="form-label">${t('communication.nativeLabel')}</label>
-        <select class="form-input" id="cmd-native" style="max-width:200px">
+        <select class="form-input form-input--short" id="cmd-native">
           <option value="auto" ${(cmd.native === 'auto' || cmd.native === undefined) ? 'selected' : ''}>${t('communication.nativeAuto')}</option>
           <option value="true" ${cmd.native === true ? 'selected' : ''}>${t('communication.nativeEnabled')}</option>
           <option value="false" ${cmd.native === false ? 'selected' : ''}>${t('communication.nativeDisabled')}</option>
@@ -313,7 +314,7 @@ function renderHooks(el) {
       ${toggleRow('hooks-enabled', t('communication.webhookEnabled'), t('communication.webhookEnabledHint'), !!h.enabled)}
       <div class="form-group">
         <label class="form-label">${t('communication.webhookPath')}</label>
-        <input class="form-input" id="hooks-path" value="${esc(h.path || '')}" placeholder="/hooks" style="max-width:300px">
+        <input class="form-input form-input--medium" id="hooks-path" value="${esc(h.path || '')}" placeholder="/hooks">
         <div class="form-hint">${t('communication.webhookPathHint')}</div>
       </div>
       <div class="form-group">
@@ -328,7 +329,7 @@ function renderHooks(el) {
       </div>
       <div class="form-group">
         <label class="form-label">${t('communication.webhookMaxBody')}</label>
-        <input class="form-input" id="hooks-maxBodyBytes" type="number" value="${h.maxBodyBytes || ''}" placeholder="${t('communication.noLimit')}" style="max-width:200px">
+        <input class="form-input form-input--short" id="hooks-maxBodyBytes" type="number" value="${h.maxBodyBytes || ''}" placeholder="${t('communication.noLimit')}">
       </div>
     </div>
   `
@@ -359,11 +360,11 @@ function renderApprovals(el) {
   el.innerHTML = `
     <div class="config-section">
       <div class="config-section-title">${t('communication.approvalsTitle')}</div>
-      <div class="form-hint" style="margin-bottom:var(--space-md)">${t('communication.approvalsDesc')}</div>
+      <div class="form-hint comm-approvals-desc">${t('communication.approvalsDesc')}</div>
       ${toggleRow('approvals-enabled', t('communication.approvalsEnabled'), t('communication.approvalsEnabledHint'), !!a.enabled)}
       <div class="form-group">
         <label class="form-label">${t('communication.approvalsMode')}</label>
-        <select class="form-input" id="approvals-mode" style="max-width:300px">
+        <select class="form-input form-input--medium" id="approvals-mode">
           <option value="session" ${(a.mode || 'session') === 'session' ? 'selected' : ''}>${t('communication.approvalsModeSession')}</option>
           <option value="targets" ${a.mode === 'targets' ? 'selected' : ''}>${t('communication.approvalsModeTargets')}</option>
           <option value="both" ${a.mode === 'both' ? 'selected' : ''}>${t('communication.approvalsModeBoth')}</option>
@@ -371,12 +372,12 @@ function renderApprovals(el) {
       </div>
       ${toggleRow('approvals-forwardExec', t('communication.approvalsForwardExec'), t('communication.approvalsForwardExecHint'), !!a.enabled)}
     </div>
-    <div class="config-section" style="margin-top:var(--space-lg)">
-      <div class="config-section-title" style="display:flex;justify-content:space-between;align-items:center">
+    <div class="config-section comm-approvals-queue">
+      <div class="config-section-title comm-approvals-queue-title">
         <span>${t('communication.pendingApprovals')}</span>
         <button class="btn btn-sm btn-secondary" id="btn-refresh-approvals">${t('communication.refreshApprovals')}</button>
       </div>
-      <div id="approval-queue" style="margin-top:var(--space-sm)">
+      <div id="approval-queue" class="comm-approval-queue">
         <div class="form-hint">${t('communication.approvalsLoadingQueue')}</div>
       </div>
     </div>
@@ -411,7 +412,7 @@ async function loadApprovalQueue(el) {
   } catch {}
 
   if (unsupported) {
-    container.innerHTML = `<div class="form-hint" style="color:var(--text-tertiary)">${esc(t('communication.approvalsUnsupported'))}</div>`
+    container.innerHTML = `<div class="form-hint comm-approvals-unsupported">${esc(t('communication.approvalsUnsupported'))}</div>`
     return
   }
 
@@ -432,10 +433,10 @@ async function loadApprovalQueue(el) {
     const status = item.status || 'pending'
     const ts = item.createdAt || item.timestamp || 0
     const timeStr = ts ? new Date(typeof ts === 'number' && ts < 1e12 ? ts * 1000 : ts).toLocaleString() : ''
-    return `<div style="padding:10px 0;border-bottom:1px solid var(--border-primary);display:flex;justify-content:space-between;align-items:center;gap:8px">
-      <div style="min-width:0;flex:1">
-        <div style="font-size:13px"><span class="badge" style="font-size:11px;margin-right:4px">${esc(type)}</span>${esc(cmd)}</div>
-        <div style="font-size:12px;color:var(--text-tertiary);margin-top:2px">${esc(status)}${timeStr ? ' · ' + timeStr : ''}</div>
+    return `<div class="comm-approval-item">
+      <div class="comm-approval-item-main">
+        <div class="comm-approval-item-cmd"><span class="badge comm-approval-item-badge">${esc(type)}</span>${esc(cmd)}</div>
+        <div class="comm-approval-item-meta">${esc(status)}${timeStr ? ' · ' + timeStr : ''}</div>
       </div>
     </div>`
   }).join('')
@@ -456,16 +457,13 @@ function collectApprovals() {
 
 function toggleRow(id, label, hint, checked) {
   return `
-    <div class="form-group" style="display:flex;align-items:center;justify-content:space-between">
+    <div class="form-group form-group--row">
       <div>
-        <label class="form-label" style="margin:0">${label}</label>
-        <div class="form-hint" style="margin:0">${hint}</div>
+        <label class="form-label form-label--compact">${label}</label>
+        <div class="form-hint form-hint--compact">${hint}</div>
       </div>
       <label class="toggle-switch"><input type="checkbox" id="${id}" ${checked ? 'checked' : ''}><span class="toggle-slider"></span></label>
     </div>
   `
 }
 
-function esc(str) {
-  return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}

@@ -10,15 +10,9 @@ import { getActiveEngine } from '../lib/engine-manager.js'
 import { diagnoseInstallError } from '../lib/error-diagnosis.js'
 import { icon, statusIcon } from '../lib/icons.js'
 import { t } from '../lib/i18n.js'
+import { escapeHtml } from '../lib/utils.js'
 
-function escapeHtml(str) {
-  if (str == null) return ''
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+let _cleanupSetupListeners = null
 
 function openclawSourceLabel(src) {
   return ({
@@ -89,9 +83,9 @@ function renderDetectionHint(pathValue, sourceLabel = '') {
   const normalizedSource = String(sourceLabel || '').trim()
   if (!normalizedPath && !normalizedSource) return ''
   return `
-    <div class="setup-inline-note" style="margin-top:8px;line-height:1.6">
-      ${normalizedPath ? `<div><span style="color:var(--text-secondary)">${t('setup.detectedPathLabel')}:</span> <code class="setup-path-code" title="${escapeHtml(normalizedPath)}">${escapeHtml(normalizedPath)}</code></div>` : ''}
-      ${normalizedSource ? `<div${normalizedPath ? ' style="margin-top:4px"' : ''}><span style="color:var(--text-secondary)">${t('setup.detectedFromLabel')}:</span> ${escapeHtml(normalizedSource)}</div>` : ''}
+    <div class="setup-inline-note setup-detection-hint">
+      ${normalizedPath ? `<div><span class="setup-hint-label">${t('setup.detectedPathLabel')}:</span> <code class="setup-path-code" title="${escapeHtml(normalizedPath)}">${escapeHtml(normalizedPath)}</code></div>` : ''}
+      ${normalizedSource ? `<div${normalizedPath ? ' class="setup-hint-row"' : ''}><span class="setup-hint-label">${t('setup.detectedFromLabel')}:</span> ${escapeHtml(normalizedSource)}</div>` : ''}
     </div>
   `
 }
@@ -109,6 +103,7 @@ function renderStatusCard(title, ok, meta) {
 }
 
 export async function render() {
+  cleanup()
   const page = document.createElement('div')
   page.className = 'page'
 
@@ -130,8 +125,8 @@ export async function render() {
           </div>
         </div>
         <div class="setup-hero-actions">
-          <button class="btn btn-secondary btn-sm" id="btn-recheck" style="min-width:120px">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="margin-right:4px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+          <button class="btn btn-secondary btn-sm setup-btn-recheck" id="btn-recheck">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
             ${t('setup.recheck')}
           </button>
         </div>
@@ -163,9 +158,18 @@ export async function render() {
   }
   document.addEventListener('visibilitychange', onVisibilityChange)
   window.addEventListener('focus', onVisibilityChange)
+  _cleanupSetupListeners = () => {
+    document.removeEventListener('visibilitychange', onVisibilityChange)
+    window.removeEventListener('focus', onVisibilityChange)
+    _cleanupSetupListeners = null
+  }
 
   runDetect(page)
   return page
+}
+
+export function cleanup() {
+  if (_cleanupSetupListeners) _cleanupSetupListeners()
 }
 
 async function maybeRefreshGatewayServiceBinding() {
@@ -216,10 +220,10 @@ async function promptRestart(msg) {
 async function runDetect(page) {
   const stepsEl = page.querySelector('#setup-steps')
   stepsEl.innerHTML = `
-    <div class="stat-card loading-placeholder" style="height:48px"></div>
-    <div class="stat-card loading-placeholder" style="height:48px;margin-top:8px"></div>
-    <div class="stat-card loading-placeholder" style="height:48px;margin-top:8px"></div>
-    <div class="stat-card loading-placeholder" style="height:48px;margin-top:8px"></div>
+    <div class="stat-card loading-placeholder setup-skeleton-row"></div>
+    <div class="stat-card loading-placeholder setup-skeleton-row"></div>
+    <div class="stat-card loading-placeholder setup-skeleton-row"></div>
+    <div class="stat-card loading-placeholder setup-skeleton-row"></div>
   `
   // 清除前端 invoke 缓存
   invalidate('get_version_info', 'check_node', 'check_git', 'get_services_status', 'check_installation')
@@ -264,8 +268,7 @@ async function runDetect(page) {
 }
 
 function stepIcon(ok) {
-  const color = ok ? 'var(--success)' : 'var(--text-tertiary)'
-  return `<span style="color:${color};font-weight:700;width:18px;display:inline-block">${ok ? '✓' : '✗'}</span>`
+  return `<span class="setup-step-icon ${ok ? 'is-ok' : 'is-pending'}">${ok ? '✓' : '✗'}</span>`
 }
 
 function renderSteps(page, { node, git, cliOk, config, version }) {
@@ -308,35 +311,34 @@ function renderSteps(page, { node, git, cliOk, config, version }) {
   if (!nodeOk) {
     const nodeTooOld = node.installed && node.compatible === false
     html += `
-      <div class="config-section" style="text-align:left">
-        <div class="config-section-title" style="display:flex;align-items:center;gap:4px">
+      <div class="config-section setup-step-section">
+        <div class="config-section-title setup-step-title">
           ${stepIcon(nodeOk)} ${t('setup.stepNode')}
         </div>
-        <p style="color:var(--text-secondary);font-size:var(--font-size-sm);margin-bottom:var(--space-sm)">
+        <p class="setup-step-desc">
           ${nodeTooOld ? t('setup.nodeUpgradeHint', { version: node.version || t('common.unknown'), required: node.requiredVersion || t('common.unknown') }) : t('setup.stepNodeHint')}
         </p>
         ${nodeTooOld && canAutoUpgradeNode()
           ? `<button class="btn btn-primary btn-sm" id="btn-auto-install-node">${t('setup.autoUpgradeNodeBtn')}</button>`
           : ''}
         <a class="btn ${nodeTooOld && canAutoUpgradeNode() ? 'btn-secondary' : 'btn-primary'} btn-sm" href="https://nodejs.org/" target="_blank" rel="noopener">${nodeTooOld ? t('setup.downloadLatestNode') : t('setup.downloadNode')}</a>
-        <span class="form-hint" style="margin-left:8px">${t('setup.recheckAfterInstall')}</span>
-        <div style="margin-top:var(--space-sm);padding:10px 12px;background:var(--bg-tertiary);border-radius:var(--radius-sm);font-size:var(--font-size-xs);color:var(--text-secondary);line-height:1.6">
+        <span class="form-hint setup-step-hint">${t('setup.recheckAfterInstall')}</span>
+        <div class="setup-step-box">
           <strong>${nodeTooOld ? t('setup.nodeUnsupportedTitle') : t('setup.nodeInstalledButNotDetected')}</strong>
           ${isMacPlatform()
             ? `${nodeTooOld ? t('setup.macNodeUpgradeHint') : t('setup.macNodeHint')}<br>
-               <code style="background:var(--bg-secondary);padding:2px 6px;border-radius:3px;user-select:all">open /Applications/ClawPanel.app</code>`
+               <code class="setup-inline-code">open /Applications/ClawPanel.app</code>`
             : `${nodeRuntimeHint(nodeTooOld)}`
           }
-          <div style="margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <button class="btn btn-secondary btn-sm" id="btn-scan-node" style="font-size:11px;padding:3px 10px">${icon('search', 12)} ${t('setup.scanNodeBtn')}</button>
-            <span style="color:var(--text-tertiary)">${t('setup.orManualPath')}</span>
+          <div class="setup-step-actions">
+            <button class="btn btn-secondary btn-sm btn-compact" id="btn-scan-node">${icon('search', 12)} ${t('setup.scanNodeBtn')}</button>
+            <span class="setup-step-or">${t('setup.orManualPath')}</span>
           </div>
-          <div class="setup-input-row" style="margin-top:6px">
-            <input id="input-node-path" type="text" placeholder="${nodePathPlaceholder()}"
-              style="flex:1;padding:4px 8px;border:1px solid var(--border-primary);border-radius:var(--radius-sm);background:var(--bg-secondary);color:var(--text-primary);font-size:11px;font-family:monospace">
-            <button class="btn btn-primary btn-sm" id="btn-check-path" style="font-size:11px;padding:3px 10px">${t('setup.checkPathBtn')}</button>
+          <div class="setup-input-row setup-input-row--tight">
+            <input id="input-node-path" type="text" placeholder="${nodePathPlaceholder()}" class="setup-input-compact">
+            <button class="btn btn-primary btn-sm btn-compact" id="btn-check-path">${t('setup.checkPathBtn')}</button>
           </div>
-          <div id="scan-result" style="margin-top:6px;display:none"></div>
+          <div id="scan-result" class="setup-result" style="display:none"></div>
         </div>
       </div>
     `
@@ -345,36 +347,32 @@ function renderSteps(page, { node, git, cliOk, config, version }) {
   // 第二步：Git
   if (!gitOk) {
     html += `
-      <div class="config-section" style="text-align:left;${nodeOk ? '' : 'opacity:0.65;pointer-events:none'}">
-        <div class="config-section-title" style="display:flex;align-items:center;gap:4px">
+      <div class="config-section setup-step-section ${nodeOk ? '' : 'is-disabled'}">
+        <div class="config-section-title setup-step-title">
           ${stepIcon(gitOk)} ${t('setup.stepGit')}
         </div>
-        <p style="color:var(--text-secondary);font-size:var(--font-size-sm);margin-bottom:var(--space-sm);line-height:1.5">
-          ${t('setup.stepGitHint')}
-        </p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <p class="setup-step-desc">${t('setup.stepGitHint')}</p>
+        <div class="setup-step-actions">
           <button class="btn btn-primary btn-sm" id="btn-auto-install-git">${t('setup.autoInstallGitBtn')}</button>
           <a class="btn btn-secondary btn-sm" href="https://git-scm.com/downloads" target="_blank" rel="noopener">${t('setup.manualDownload')}</a>
         </div>
-        <div id="git-install-result" style="margin-top:var(--space-sm);display:none"></div>
-        <div style="margin-top:8px;font-size:var(--font-size-xs);color:var(--text-tertiary);line-height:1.5">
-          ${t('setup.gitOptionalHint')}
-        </div>
+        <div id="git-install-result" class="setup-result" style="display:none"></div>
+        <p class="setup-step-hint">${t('setup.gitOptionalHint')}</p>
       </div>
     `
   }
 
   // 第三步：OpenClaw CLI
   html += `
-    <div class="config-section" style="text-align:left;${nodeOk ? '' : 'opacity:0.65;pointer-events:none'}">
-      <div class="config-section-title" style="display:flex;align-items:center;gap:4px">
+    <div class="config-section setup-step-section ${nodeOk ? '' : 'is-disabled'}">
+      <div class="config-section-title setup-step-title">
         ${stepIcon(cliOk)} OpenClaw CLI
       </div>
       ${cliOk
-        ? `<p style="color:var(--success);font-size:var(--font-size-sm)">${t('setup.cliAvailable')}</p>
+        ? `<p class="setup-step-desc setup-step-desc--success">${t('setup.cliAvailable')}</p>
            ${renderDetectionHint(version?.cli_path, version?.cli_source ? openclawSourceLabel(version.cli_source) : '')}
            ${version?.ahead_of_recommended && version?.recommended
-             ? `<div style="margin-top:8px;padding:8px 12px;background:var(--bg-tertiary);border-radius:var(--radius-sm);font-size:var(--font-size-xs);color:var(--warning,#f59e0b);line-height:1.6">
+             ? `<div class="setup-inline-note setup-warning-note">
                   ${t('setup.cliAheadWarning', { current: version.current || '', recommended: version.recommended })}
                 </div>`
              : ''}`
@@ -391,34 +389,27 @@ function renderSteps(page, { node, git, cliOk, config, version }) {
   // 第四步：配置文件 + 自定义路径
   html += `
     <div class="config-section" style="text-align:left">
-      <div class="config-section-title" style="display:flex;align-items:center;gap:4px">
+      <div class="config-section-title setup-step-title">
         ${stepIcon(config.installed)} ${t('setup.stepConfig')}
       </div>
       ${config.installed
-        ? `<p class="setup-path-text" style="color:var(--success);font-size:var(--font-size-sm)" title="${escapeHtml(config.path || '')}">${t('setup.configAt', { path: config.path || '' })}</p>
+        ? `<p class="setup-path-text setup-step-desc--success" title="${escapeHtml(config.path || '')}">${t('setup.configAt', { path: config.path || '' })}</p>
            ${renderDetectionHint(config.path)}`
-        : `<p style="color:var(--text-secondary);font-size:var(--font-size-sm);margin-bottom:var(--space-sm)">
-            ${t('setup.configMissing')}
-          </p>
+        : `<p class="setup-step-desc">${t('setup.configMissing')}</p>
           ${renderDetectionHint(config.path)}
-          <button class="btn btn-primary btn-sm" id="btn-init-config" style="margin-top:10px">${t('setup.initConfigLabel')}</button>`
+          <button class="btn btn-primary btn-sm" id="btn-init-config">${t('setup.initConfigLabel')}</button>`
       }
-      <details style="margin-top:var(--space-sm);cursor:pointer" id="custom-dir-details">
-        <summary style="font-size:var(--font-size-xs);color:var(--text-secondary);font-weight:600;user-select:none">
-          ${t('setup.customDirTitle')}
-        </summary>
-        <div style="margin-top:var(--space-sm);padding:10px 12px;background:var(--bg-tertiary);border-radius:var(--radius-sm);font-size:var(--font-size-xs);line-height:1.6">
-          <p style="color:var(--text-secondary);margin-bottom:8px">
-            ${t('setup.customDirHint')}
-          </p>
-          <div class="setup-inline-note" style="margin-bottom:8px">${t('setup.customDirNotice')}</div>
+      <details class="setup-details" id="custom-dir-details">
+        <summary class="setup-details-summary">${t('setup.customDirTitle')}</summary>
+        <div class="setup-details-body">
+          <p class="setup-step-desc">${t('setup.customDirHint')}</p>
+          <div class="setup-inline-note">${t('setup.customDirNotice')}</div>
           <div class="setup-input-row">
-            <input id="input-openclaw-dir" type="text" placeholder="${t('setup.customDirPlaceholder')}"
-              style="flex:1;padding:4px 8px;border:1px solid var(--border-primary);border-radius:var(--radius-sm);background:var(--bg-secondary);color:var(--text-primary);font-size:11px;font-family:monospace">
-            <button class="btn btn-primary btn-sm" id="btn-save-openclaw-dir" style="font-size:11px;padding:3px 10px">${t('setup.saveBtn')}</button>
-            <button class="btn btn-secondary btn-sm" id="btn-reset-openclaw-dir" style="font-size:11px;padding:3px 10px">${t('setup.resetDefaultBtn')}</button>
+            <input id="input-openclaw-dir" type="text" placeholder="${t('setup.customDirPlaceholder')}" class="setup-input-compact">
+            <button class="btn btn-primary btn-sm btn-compact" id="btn-save-openclaw-dir">${t('setup.saveBtn')}</button>
+            <button class="btn btn-secondary btn-sm btn-compact" id="btn-reset-openclaw-dir">${t('setup.resetDefaultBtn')}</button>
           </div>
-          <div id="openclaw-dir-result" style="margin-top:6px;display:none"></div>
+          <div id="openclaw-dir-result" class="setup-result" style="display:none"></div>
         </div>
       </details>
     </div>
@@ -426,21 +417,19 @@ function renderSteps(page, { node, git, cliOk, config, version }) {
 
   // AI 助手入口
   html += `
-    <div class="config-section" style="text-align:left">
-      <div class="config-section-title" style="display:flex;align-items:center;gap:6px">
+    <div class="config-section setup-step-section">
+      <div class="config-section-title setup-step-title setup-step-title--icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
         ${t('setup.aiAssistant')}
       </div>
-      <p style="color:var(--text-secondary);font-size:var(--font-size-sm);margin-bottom:var(--space-sm);line-height:1.5">
-        ${t('setup.aiAssistantDesc')}${!allOk ? t('setup.aiAssistantDescProblem') : ''}。
-      </p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <p class="setup-step-desc">${t('setup.aiAssistantDesc')}${!allOk ? t('setup.aiAssistantDescProblem') : ''}。</p>
+      <div class="setup-step-actions">
         <button class="btn btn-secondary btn-sm" id="btn-goto-assistant">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="margin-right:4px"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
           ${t('setup.openAiAssistant')}
         </button>
         ${!allOk ? `<button class="btn btn-primary btn-sm" id="btn-ask-ai-help">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="margin-right:4px"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
           ${t('setup.askAiHelp')}
         </button>` : ''}
       </div>
@@ -459,24 +448,24 @@ function renderSteps(page, { node, git, cliOk, config, version }) {
   // 全部就绪 → 进入面板
   if (allOk) {
     html += `
-      <div class="config-section" style="text-align:left;margin-top:var(--space-md)">
+      <div class="config-section setup-step-section setup-next-steps">
         <div class="config-section-title">${t('setup.nextStepsTitle')}</div>
-        <div style="color:var(--text-secondary);font-size:var(--font-size-sm);line-height:1.7">
+        <div class="setup-step-desc">
           ${t('setup.nextStepsDesc')}
-          <ol style="margin:8px 0 0 18px;padding:0">
+          <ol class="setup-ol">
             <li>${t('setup.nextStep1')}</li>
             <li>${t('setup.nextStep2')}</li>
             <li>${t('setup.nextStep3')}</li>
           </ol>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <div class="setup-step-actions">
           <button class="btn btn-secondary btn-sm" id="btn-goto-models">${t('setup.configModels')}</button>
           <button class="btn btn-secondary btn-sm" id="btn-goto-gateway">${t('setup.gatewaySetup')}</button>
           <button class="btn btn-secondary btn-sm" id="btn-goto-channels">${t('setup.messageChannels')}</button>
         </div>
       </div>
-      <div style="margin-top:var(--space-lg)">
-        <button class="btn btn-primary" id="btn-enter" style="min-width:200px">${t('setup.enterPanel')}</button>
+      <div class="setup-enter-wrap">
+        <button class="btn btn-primary setup-btn-enter" id="btn-enter">${t('setup.enterPanel')}</button>
       </div>
     `
   }
@@ -488,78 +477,70 @@ function renderSteps(page, { node, git, cliOk, config, version }) {
 function renderInstallSection() {
   return `
     <div class="setup-search-panel">
-      <div style="font-weight:600;color:var(--text-primary);margin-bottom:4px">${t('setup.searchOpenclawTitle')}</div>
-      <div style="color:var(--text-secondary)">${t('setup.searchOpenclawDesc')}</div>
-      <div class="setup-input-row" style="margin-top:8px">
-        <button class="btn btn-secondary btn-sm" id="btn-scan-openclaw" style="font-size:11px;padding:3px 10px">${icon('search', 12)} ${t('setup.searchOpenclawBtn')}</button>
+      <div class="setup-panel-title">${t('setup.searchOpenclawTitle')}</div>
+      <div class="setup-panel-desc">${t('setup.searchOpenclawDesc')}</div>
+      <div class="setup-input-row setup-input-row--tight">
+        <button class="btn btn-secondary btn-sm btn-compact" id="btn-scan-openclaw">${icon('search', 12)} ${t('setup.searchOpenclawBtn')}</button>
       </div>
-      <div class="setup-inline-note" style="margin-top:12px">${t('setup.searchOpenclawHint')}</div>
-      <details style="margin-top:12px;cursor:pointer" id="advanced-openclaw-search-details">
-        <summary style="font-size:var(--font-size-xs);color:var(--text-secondary);font-weight:600;user-select:none">
-          ${t('setup.searchOpenclawAdvancedTitle')}
-        </summary>
-        <div style="margin-top:var(--space-sm);display:flex;flex-direction:column;gap:12px">
+      <div class="setup-inline-note">${t('setup.searchOpenclawHint')}</div>
+      <details class="setup-details" id="advanced-openclaw-search-details">
+        <summary class="setup-details-summary">${t('setup.searchOpenclawAdvancedTitle')}</summary>
+        <div class="setup-details-body setup-details-body--stack">
           <div class="setup-inline-note">${t('setup.searchOpenclawAdvancedHint')}</div>
           <div>
-            <label style="font-size:var(--font-size-xs);color:var(--text-secondary);display:block;margin-bottom:6px">${t('setup.searchOpenclawExtraPathsLabel')}</label>
-            <textarea id="input-openclaw-search-paths" rows="3" placeholder="${t('setup.searchOpenclawExtraPathsPlaceholder')}"
-              style="width:100%;padding:6px 8px;border:1px solid var(--border-primary);border-radius:var(--radius-sm);background:var(--bg-secondary);color:var(--text-primary);font-size:11px;font-family:monospace;resize:vertical;min-height:78px"></textarea>
-            <div class="setup-input-row" style="margin-top:6px">
-              <button class="btn btn-secondary btn-sm" id="btn-save-openclaw-search-paths" style="font-size:11px;padding:3px 10px">${t('setup.searchOpenclawExtraPathsSave')}</button>
+            <label class="setup-label">${t('setup.searchOpenclawExtraPathsLabel')}</label>
+            <textarea id="input-openclaw-search-paths" rows="3" placeholder="${t('setup.searchOpenclawExtraPathsPlaceholder')}" class="setup-textarea-compact"></textarea>
+            <div class="setup-input-row setup-input-row--tight">
+              <button class="btn btn-secondary btn-sm btn-compact" id="btn-save-openclaw-search-paths">${t('setup.searchOpenclawExtraPathsSave')}</button>
             </div>
             <div class="setup-inline-note">${t('setup.searchOpenclawExtraPathsHint')}</div>
-            <div id="openclaw-search-paths-result" style="margin-top:6px;display:none"></div>
+            <div id="openclaw-search-paths-result" class="setup-result" style="display:none"></div>
           </div>
           <div>
-            <label style="font-size:var(--font-size-xs);color:var(--text-secondary);display:block;margin-bottom:6px">${t('setup.searchOpenclawManualLabel')}</label>
+            <label class="setup-label">${t('setup.searchOpenclawManualLabel')}</label>
             <div class="setup-input-row">
-              <input id="input-openclaw-cli-path" type="text" placeholder="${t('setup.searchOpenclawManualPlaceholder')}"
-                style="flex:1;padding:4px 8px;border:1px solid var(--border-primary);border-radius:var(--radius-sm);background:var(--bg-secondary);color:var(--text-primary);font-size:11px;font-family:monospace">
-              <button class="btn btn-primary btn-sm" id="btn-check-openclaw-path" style="font-size:11px;padding:3px 10px">${t('setup.searchOpenclawManualBtn')}</button>
+              <input id="input-openclaw-cli-path" type="text" placeholder="${t('setup.searchOpenclawManualPlaceholder')}" class="setup-input-compact">
+              <button class="btn btn-primary btn-sm btn-compact" id="btn-check-openclaw-path">${t('setup.searchOpenclawManualBtn')}</button>
             </div>
             <div class="setup-inline-note">${t('setup.searchOpenclawManualHint')}</div>
           </div>
         </div>
       </details>
-      <div id="scan-openclaw-result" style="margin-top:8px;display:none"></div>
+      <div id="scan-openclaw-result" class="setup-result" style="display:none"></div>
     </div>
     <div class="setup-install-panel">
-      <div style="font-weight:600;color:var(--text-primary);margin-bottom:6px">${t('setup.installOpenclaw')}</div>
-      <p style="color:var(--text-secondary);font-size:var(--font-size-sm);margin-bottom:var(--space-sm)">
-        ${t('setup.installHint')}
-      </p>
-      <p style="color:var(--text-tertiary);font-size:var(--font-size-xs);line-height:1.6;margin:-4px 0 var(--space-sm)">
-        ${t('setup.installHint2')}
-      </p>
-      <div style="display:flex;gap:var(--space-sm);margin-bottom:var(--space-sm)">
-        <label class="setup-source-option" style="flex:1;cursor:pointer">
-          <input type="radio" name="install-source" value="chinese" checked style="margin-right:6px">
+      <div class="setup-panel-title">${t('setup.installOpenclaw')}</div>
+      <p class="setup-step-desc">${t('setup.installHint')}</p>
+      <p class="setup-step-hint">${t('setup.installHint2')}</p>
+      <div class="setup-source-options">
+        <label class="setup-source-option">
+          <input type="radio" name="install-source" value="chinese" checked>
           <div>
-            <div style="font-weight:600;font-size:var(--font-size-sm)">${t('setup.sourceChineseLabel')}</div>
-            <div style="font-size:var(--font-size-xs);color:var(--text-tertiary)">@qingchencloud/openclaw-zh</div>
+            <div class="setup-source-label">${t('setup.sourceChineseLabel')}</div>
+            <div class="setup-source-meta">@qingchencloud/openclaw-zh</div>
           </div>
         </label>
-        <label class="setup-source-option" style="flex:1;cursor:pointer">
-          <input type="radio" name="install-source" value="official" style="margin-right:6px">
+        <label class="setup-source-option">
+          <input type="radio" name="install-source" value="official">
           <div>
-            <div style="font-weight:600;font-size:var(--font-size-sm)">${t('setup.sourceOfficialLabel')}</div>
-            <div style="font-size:var(--font-size-xs);color:var(--text-tertiary)">openclaw</div>
+            <div class="setup-source-label">${t('setup.sourceOfficialLabel')}</div>
+            <div class="setup-source-meta">openclaw</div>
           </div>
         </label>
       </div>
-      <div style="margin-bottom:var(--space-sm)" id="install-method-section">
-        <label style="font-size:var(--font-size-xs);color:var(--text-tertiary);display:block;margin-bottom:4px">${t('setup.installMethodLabel')}</label>
-        <select id="install-method" style="width:100%;padding:6px 8px;border-radius:var(--radius-sm);border:1px solid var(--border-primary);background:var(--bg-secondary);color:var(--text-primary);font-size:var(--font-size-sm)">
+      <div class="setup-form-group" id="install-method-section">
+        <label class="setup-label setup-label--muted">${t('setup.installMethodLabel')}</label>
+        <select id="install-method" class="setup-select">
           <option value="auto">${t('setup.methodAuto')}</option>
           <option value="standalone-r2">${t('setup.methodStandaloneR2')}</option>
           <option value="standalone-github">${t('setup.methodStandaloneGithub')}</option>
           <option value="npm">${t('setup.methodNpm')}</option>
         </select>
-        <div id="method-hint" style="font-size:var(--font-size-xs);color:var(--text-tertiary);margin-top:4px;line-height:1.5"></div>
+        <div id="method-hint" class="setup-hint-text"></div>
       </div>
-      <div style="margin-bottom:var(--space-sm)" id="registry-section">
-        <label style="font-size:var(--font-size-xs);color:var(--text-tertiary);display:block;margin-bottom:4px">${t('setup.registryLabel')}</label>
-        <select id="registry-select" style="width:100%;padding:6px 8px;border-radius:var(--radius-sm);border:1px solid var(--border-primary);background:var(--bg-secondary);color:var(--text-primary);font-size:var(--font-size-sm)">
+      <div class="setup-form-group" id="registry-section">
+        <label class="setup-label setup-label--muted">${t('setup.registryLabel')}</label>
+        <select id="registry-select" class="setup-select">
           <option value="https://registry.npmmirror.com">${t('setup.registryTaobao')}</option>
           <option value="https://registry.npmjs.org">${t('setup.registryNpm')}</option>
           <option value="https://repo.huaweicloud.com/repository/npm/">${t('setup.registryHuawei')}</option>
@@ -577,15 +558,13 @@ function renderEnvironmentHint() {
   if (!isDesktop) return ''
 
   return `
-    <div class="config-section" style="text-align:left;margin-top:var(--space-md)">
+    <div class="config-section setup-step-section setup-env-hint">
       <div class="config-section-title">${t('setup.envHintTitle')}</div>
-      <p style="color:var(--text-secondary);font-size:var(--font-size-sm);line-height:1.6;margin-bottom:var(--space-sm)">
-        ${t('setup.envHintDesc')}
-      </p>
+      <p class="setup-step-desc">${t('setup.envHintDesc')}</p>
       <details class="setup-help-details">
         <summary>${t('setup.envHintInstallManage')}</summary>
         <div class="setup-help-content">
-          <ul style="margin:0 0 12px 18px;padding:0;line-height:1.8;color:var(--text-secondary)">
+          <ul class="setup-help-list">
             ${isWin ? `
               <li><strong>${t('setup.envHintWsl')}</strong> — ${t('setup.envHintWslDesc')}</li>
               <li><strong>${t('setup.envHintDocker')}</strong> — ${t('setup.envHintDockerDesc')}</li>

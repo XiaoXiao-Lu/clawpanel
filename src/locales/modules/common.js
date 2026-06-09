@@ -8,6 +8,7 @@ export default {
   edit: _('编辑', 'Edit', '編輯', '編集', '편집', 'Chỉnh sửa', 'Editar', 'Editar', 'Редактировать', 'Modifier', 'Bearbeiten'),
   add: _('添加', 'Add', '新增', '追加', '추가', 'Thêm', 'Agregar', 'Adicionar', 'Добавить', 'Ajouter', 'Hinzufügen'),
   close: _('关闭', 'Close', '關閉', '閉じる', '닫기', 'Đóng', 'Cerrar', 'Fechar', 'Закрыть', 'Fermer', 'Schließen'),
+  menu: _('菜单', 'Menu', '選單', 'メニュー', '메뉴', 'Menu', 'Menú', 'Menu', 'Меню', 'Menu', 'Menü'),
   loading: _('加载中...', 'Loading...', '載入中...', '読み込み中...', '로딩 중...', 'Đang tải...', 'Cargando...', 'Carregando...', 'Загрузка...', 'Chargement...', 'Laden...'),
   retry: _('重试', 'Retry', '重試', '再試行', '재시도', 'Thử lại', 'Reintentar', 'Tentar novamente', 'Повторить', 'Réessayer', 'Wiederholen'),
   copy: _('复制', 'Copy', '複製', 'コピー', '복사', 'Sao chép', 'Copiar', 'Copiar', 'Копировать', 'Copier', 'Kopieren'),

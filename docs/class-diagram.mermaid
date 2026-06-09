@@ -1,0 +1,102 @@
+classDiagram
+    class ConfigGroup {
+        +String id
+        +String titleKey
+        +String icon
+        +PanelEntry[] panels
+    }
+
+    class PanelEntry {
+        +String id
+        +String cssClass
+        +String renderFnName
+        +String saveBtnId
+    }
+
+    class CONFIG_GROUPS {
+        <<constant>>
+        +ConfigGroup[] groups
+    }
+
+    class PanelStateBus {
+        -Map~string, PanelState~ states
+        +register(id) void
+        +setLoading(id, value) void
+        +setSaving(id, value) void
+        +setError(id, error) void
+        +isAnySaving() Boolean
+        +isAnyLoading() Boolean
+        +isPanelBusy(id) Boolean
+        +getState(id) PanelState
+        +reset() void
+    }
+
+    class PanelState {
+        +String id
+        +Boolean loading
+        +Boolean saving
+        +String|null error
+    }
+
+    class MarkdownRenderer {
+        +render(md) String
+        -escHtml(s) String
+        -renderCodeBlocks(text) String
+        -renderTables(text) String
+        -renderTaskLists(text) String
+        -renderBlockquotes(text) String
+        -renderHeadings(text) String
+        -renderOrderedLists(text) String
+        -renderUnorderedLists(text) String
+        -renderHorizontalRules(text) String
+        -renderInlineCode(text) String
+        -renderBold(text) String
+        -renderItalic(text) String
+        -renderStrikethrough(text) String
+        -renderLinks(text) String
+        -renderLineBreaks(text) String
+    }
+
+    class MemoryDraft {
+        +String memory
+        +String user
+        +String soul
+        +String activeTab
+        +Number savedAt
+    }
+
+    class ModelCombobox {
+        +HTMLElement container
+        +Array models
+        +String currentValue
+        +Boolean isOpen
+        +create(container, options) ModelCombobox
+        +setModels(models) void
+        +getValue() String
+        +setValue(val) void
+        +filter(query) Array
+        +open() void
+        +close() void
+        +destroy() void
+    }
+
+    class ConfigSidebar {
+        +renderSidebar(groups) String
+        +initScrollSpy(groups, container) void
+        +initSearchFilter(container) void
+        +highlightActive(activeIndex) void
+        +filterPanels(query) void
+    }
+
+    ConfigGroup "1" --> "*" PanelEntry : contains
+    CONFIG_GROUPS "1" --> "9" ConfigGroup : defines
+    PanelStateBus "1" --> "*" PanelState : manages
+    ConfigSidebar --> CONFIG_GROUPS : reads
+
+    note for ConfigGroup "9 个分组：<br/>core-runtime, sessions, execution,<br/>models, tools-skills, memory-context,<br/>ui-display, integrations, advanced"
+
+    note for PanelEntry "44 个面板，每个映射到<br/>config.js 中的一个 renderXxxPanel() 函数"
+
+    note for PanelStateBus "替代 config.js 中<br/>88 个独立状态变量<br/>的集中管理方案"
+
+    note for MarkdownRenderer "增强版 mdToHtml()：<br/>支持表格、任务列表、删除线、<br/>引用块、有序列表、代码高亮"

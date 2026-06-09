@@ -18,7 +18,7 @@ export function normalizeChannelRuntimeStatus(raw) {
   }
 
   return {
-    supported: true,
+    supported: raw.supported !== false,
     ts: Number.isFinite(raw.ts) ? raw.ts : Date.now(),
     partial: raw.partial === true,
     warnings: Array.isArray(raw.warnings) ? raw.warnings.filter(Boolean).map(String) : [],

@@ -1,0 +1,43 @@
+sequenceDiagram
+    participant User
+    participant KBD as Keyboard
+    participant CP as CommandPalette
+    participant IDX as CommandIndex
+    participant Router as Router
+    participant EM as EngineManager
+    participant API as TauriAPI
+
+    User->>KBD: Press Ctrl+K / Cmd+K
+    KBD->>CP: keydown listener fires
+    CP->>CP: createOverlay() — render overlay DOM
+    CP->>CP: input.focus()
+    CP->>IDX: searchCommands('') — empty query returns all
+    IDX-->>CP: CommandItem[]
+    CP->>CP: renderResults(items)
+
+    User->>CP: Types "hermes"
+    CP->>IDX: searchCommands('hermes')
+    IDX-->>CP: [engine:switch:hermes, nav:chat (via keyword)]
+    CP->>CP: renderResults(filtered) — highlight matches
+
+    User->>CP: Press Enter or Click item
+    CP->>CP: overlay.remove() — close palette
+    CP->>IDX: command.execute()
+
+    alt Navigation command
+        IDX->>Router: navigate('/chat')
+        Router-->>Router: loadRoute() → render page
+    else Engine switch command
+        IDX->>EM: switchEngine('hermes')
+        EM-->>API: persist engine choice
+        API-->>EM: ok
+        EM-->>Router: navigate(defaultRoute)
+    else Action command (restart gateway)
+        IDX->>API: restartService('ai.openclaw.gateway')
+        API-->>IDX: ok
+        IDX->>CP: toast('Gateway restarting', 'success')
+    end
+
+    User->>KBD: Press Escape
+    KBD->>CP: keydown Escape
+    CP->>CP: overlay.remove()

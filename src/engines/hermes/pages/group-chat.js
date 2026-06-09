@@ -15,6 +15,7 @@ import { t } from '../../../lib/i18n.js'
 import { api, isTauriRuntime, safeTauriListen } from '../../../lib/tauri-api.js'
 import { matchesHermesRun } from '../lib/hermes-run-events.js'
 import { svgIcon } from '../lib/svg-icons.js'
+import { escapeHtml as escHtml } from '../../../lib/utils.js'
 
 /**
  * Hermes `hermes_agent_run` 是 streaming-with-events：它通过 SSE 消费 Hermes Gateway
@@ -99,9 +100,6 @@ async function runHermesAgentAndWaitFinal(input) {
   })
 }
 
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 function escAttr(s) { return escHtml(s) }
 
 function uid() { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}` }

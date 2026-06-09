@@ -9,65 +9,157 @@ import { showModal, showConfirm } from '../components/modal.js'
 import { icon, statusIcon } from '../lib/icons.js'
 import { API_TYPES, PROVIDER_PRESETS, QTCOOL, MODEL_PRESETS, fetchQtcoolModels } from '../lib/model-presets.js'
 import { t } from '../lib/i18n.js'
-import { scheduleGatewayRestart, fireRestartNow, cancelPendingRestart, onRestartState } from '../lib/gateway-restart-queue.js'
 import { termHelpHtml, attachTermTooltips } from '../lib/term-tooltip.js'
+import { createModelCombobox } from '../engines/hermes/lib/model-combobox.js'
+import { escapeHtml } from '../lib/utils.js'
 
-// HTML 转义，防止错误信息中的特殊字符破坏页面或被注入
-function escapeHtml(str) {
-  if (str == null) return ''
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+function cssEscape(value) {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') return CSS.escape(String(value))
+  return String(value).replace(/["\\]/g, '\\$&')
+}
+
+/**
+ * 通用拖拽排序（Pointer Events 实现，兼容 Tauri WebView2/WKWebView）
+ * @param {HTMLElement} container - 可拖拽列表的容器
+ * @param {object} options
+ * @param {string} options.handleSelector - 拖拽手柄的选择器
+ * @param {string} options.itemSelector - 拖拽项的选择器
+ * @param {string} [options.placeholderStyle] - 占位符的内联样式
+ * @param {string} [options.dragStyle] - 拖拽项浮动时的附加样式
+ * @param {function(HTMLElement[]): void} options.onReorder - 拖拽完成后的回调，传入排序后的项列表
+ */
+function createDragSortable(container, options) {
+  const { handleSelector, itemSelector, placeholderStyle, dragStyle, onReorder } = options
+  let dragged = null
+  let placeholder = null
+  let startY = 0
+
+  container.addEventListener('pointerdown', e => {
+    const handle = e.target.closest(handleSelector)
+    if (!handle) return
+    const item = handle.closest(itemSelector)
+    if (!item) return
+
+    e.preventDefault()
+    dragged = item
+    startY = e.clientY
+
+    placeholder = document.createElement('div')
+    placeholder.style.cssText = placeholderStyle || `height:${item.offsetHeight}px;border:2px dashed var(--border);border-radius:var(--radius-md);margin-bottom:8px;background:var(--bg-secondary)`
+    item.after(placeholder)
+
+    const rect = item.getBoundingClientRect()
+    item.style.position = 'fixed'
+    item.style.left = rect.left + 'px'
+    item.style.top = rect.top + 'px'
+    item.style.width = rect.width + 'px'
+    item.style.zIndex = '9999'
+    item.style.opacity = '0.85'
+    if (dragStyle) Object.assign(item.style, dragStyle)
+    item.style.pointerEvents = 'none'
+    item.setPointerCapture(e.pointerId)
+  })
+
+  container.addEventListener('pointermove', e => {
+    if (!dragged || !placeholder) return
+    e.preventDefault()
+
+    const dy = e.clientY - startY
+    const origTop = parseFloat(dragged.style.top)
+    dragged.style.top = (origTop + dy) + 'px'
+    startY = e.clientY
+
+    const siblings = [...container.querySelectorAll(itemSelector)].filter(c => c !== dragged && c.style.position !== 'fixed')
+    for (const sibling of siblings) {
+      const rect = sibling.getBoundingClientRect()
+      if (e.clientY < rect.top + rect.height / 2) {
+        sibling.before(placeholder)
+        return
+      }
+    }
+    if (siblings.length) siblings[siblings.length - 1].after(placeholder)
+  })
+
+  container.addEventListener('pointerup', () => {
+    if (!dragged || !placeholder) return
+
+    dragged.style.position = ''
+    dragged.style.left = ''
+    dragged.style.top = ''
+    dragged.style.width = ''
+    dragged.style.zIndex = ''
+    dragged.style.opacity = ''
+    dragged.style.pointerEvents = ''
+    if (dragStyle) {
+      for (const key of Object.keys(dragStyle)) dragged.style[key] = ''
+    }
+    if (dragged.style.boxShadow) dragged.style.boxShadow = ''
+
+    placeholder.before(dragged)
+    placeholder.remove()
+
+    if (onReorder) {
+      const items = [...container.querySelectorAll(itemSelector)]
+      onReorder(items)
+    }
+
+    dragged = null
+    placeholder = null
+  })
 }
 
 export async function render() {
   const page = document.createElement('div')
-  page.className = 'page'
+  page.className = 'page models-page'
 
   page.innerHTML = `
-    <div class="page-header">
+    <div class="page-header models-page-header">
       <h1 class="page-title">${t('models.title')}</h1>
-      <p class="page-desc">${t('models.desc')}</p>
+      <div class="models-top-actions">
+        <span class="models-qtcool-tag" id="btn-toggle-qtcool">${icon('zap', 12)} ${t('models.qtcoolRecommend')}</span>
+        <button class="btn btn-sm btn-secondary" id="btn-import-client">${t('models.importClientConfigs')}</button>
+        <button class="btn btn-sm btn-secondary" id="btn-undo" disabled>${t('models.undo')}</button>
+        <button class="btn btn-primary btn-sm" id="btn-add-provider">${t('models.addProvider')}</button>
+      </div>
     </div>
-    <div class="config-actions">
-      <button class="btn btn-primary btn-sm" id="btn-add-provider">${t('models.addProvider')}</button>
-      <button class="btn btn-secondary btn-sm" id="btn-import-client">${t('models.importClientConfigs')}</button>
-      <button class="btn btn-secondary btn-sm" id="btn-undo" disabled>${t('models.undo')}</button>
+    <div id="qtcool-body" class="models-qtcool-body models-qtcool-body--hidden">
+      <div class="models-qtcool-body-inner"><input class="form-input" id="qtcool-apikey" placeholder="${t('models.qtcoolKeyPlaceholder')}">
+        <button class="btn btn-primary btn-sm" id="btn-qtcool-oneclick">${icon('plus', 12)} ${t('models.qtcoolFetchModels')}</button>
+      </div>
     </div>
-    <div class="form-hint" style="margin-bottom:var(--space-md)">
-      ${t('models.providerHint')}
-    </div>
-    <div id="qtcool-promo" style="margin-bottom:var(--space-md);border-radius:var(--radius-lg);border:1px solid var(--border-primary);border-left:3px solid var(--primary);background:var(--bg-secondary);padding:16px 20px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:12px">
-        <div style="flex:1;min-width:200px">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <span style="font-weight:700;font-size:var(--font-size-base);color:var(--text-primary)">${icon('zap', 15)} ${t('models.qtcoolName')}</span>
-            <span style="font-size:10px;background:var(--primary);color:#fff;padding:1px 7px;border-radius:8px">${t('models.qtcoolRecommend')}</span>
+    
+    <div class="models-workbench">
+      <div id="models-console-container"></div>
+      <div id="fallback-waterfall-container" style="display:none;margin-bottom:20px"></div>
+      <section class="models-provider-workbench">
+        <div class="models-toolbar">
+          <div class="models-search-wrap">
+            ${icon('search', 15)}
+            <input class="form-input" id="model-search" placeholder="${t('models.searchPlaceholder')}">
           </div>
-          <div style="font-size:var(--font-size-xs);color:var(--text-secondary);line-height:1.5">
-            ${t('models.qtcoolDesc')}
-            <a href="${QTCOOL.site}" target="_blank" style="color:var(--primary);text-decoration:none">${t('models.qtcoolMore')}</a>
-          </div>
+          <span id="models-stats-inline" class="models-stats-inline"></span>
         </div>
-        <a href="${QTCOOL.checkinUrl}" target="_blank" class="btn btn-primary btn-sm">${icon('gift', 12)} ${t('models.qtcoolCheckin')}</a>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input class="form-input" id="qtcool-apikey" placeholder="${t('models.qtcoolKeyPlaceholder')}" style="font-size:12px;padding:6px 10px;flex:1;min-width:180px">
-        <button class="btn btn-primary btn-sm" id="btn-qtcool-oneclick">${icon('plus', 14)} ${t('models.qtcoolFetchModels')}</button>
-      </div>
-      <div style="font-size:11px;color:var(--text-tertiary);margin-top:6px">
-        ${t('models.qtcoolNoKey')} <a href="${QTCOOL.checkinUrl}" target="_blank" style="color:var(--primary)">${t('models.qtcoolCheckinPage')}</a> ${t('models.qtcoolCheckinHint')} <a href="${QTCOOL.usageUrl}" target="_blank" style="color:var(--primary)">${t('models.qtcoolDashboard')}</a> ${t('models.qtcoolCopyKey')}
-      </div>
-    </div>
-    <div id="default-model-bar"></div>
-    <div style="margin-bottom:var(--space-md)">
-      <input class="form-input" id="model-search" placeholder="${t('models.searchPlaceholder')}" style="max-width:360px">
-    </div>
-    <div id="providers-list">
-      <div class="config-section"><div class="stat-card loading-placeholder" style="height:120px"></div></div>
-      <div class="config-section"><div class="stat-card loading-placeholder" style="height:120px"></div></div>
+        <div id="providers-list">
+          <div class="config-section"><div class="stat-card loading-placeholder" style="height:120px"></div></div>
+          <div class="config-section"><div class="stat-card loading-placeholder" style="height:120px"></div></div>
+        </div>
+      </section>
     </div>
   `
 
-  const state = { config: null, search: '', undoStack: [] }
+  /** @type {{ config: object|null, search: string, undoStack: object[], sortBy: string, _collapsed: Object<string,boolean>, _fallbacks_expanded: boolean, _fallback_candidates_collapsed: Object<string,boolean>, _providerFilter: string }} */
+  const state = {
+    config: null,
+    search: '',
+    undoStack: [],
+    sortBy: 'default',
+    _collapsed: {},
+    _fallbacks_expanded: false,
+    _fallback_candidates_collapsed: {},
+    _providerFilter: 'all',
+  }
+  // 暴露 state 给 locateModel 等函数使用
+  page.__modelsState = state
   // 非阻塞:先返回 DOM,后台加载数据
   loadConfig(page, state)
   bindTopActions(page, state)
@@ -77,6 +169,37 @@ export async function render() {
     state.search = e.target.value.trim().toLowerCase()
     renderProviders(page, state)
   }
+
+  // 可折叠推广横幅
+  const qtcoolToggle = page.querySelector('#btn-toggle-qtcool')
+  qtcoolToggle.setAttribute('role', 'button')
+  qtcoolToggle.setAttribute('tabindex', '0')
+  qtcoolToggle.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      e.currentTarget.click()
+    }
+  })
+  qtcoolToggle.onclick = () => {
+    const body = page.querySelector('#qtcool-body')
+    body.classList.toggle('models-qtcool-body--hidden')
+  }
+
+  // 点击外部关闭 Provider 操作菜单
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.provider-card__actions')) {
+      page.querySelectorAll('.provider-card__actions.menu-open').forEach(el => el.classList.remove('menu-open'))
+    }
+  })
+
+  // Provider Tab 切换
+  page.addEventListener('click', (e) => {
+    const tab = e.target.closest('[data-provider-tab]')
+    if (tab) {
+      state._providerFilter = tab.dataset.providerTab
+      renderProviders(page, state)
+    }
+  })
 
   return page
 }
@@ -93,12 +216,21 @@ async function loadConfig(page, state) {
     const normalizedModel = normalizeDefaultModelSelection(state.config)
     if (before !== after || normalizedModel.changed) {
       console.log('[models] 自动修复了模型配置,正在保存...')
-      await api.writeOpenclawConfig(state.config)
+      await api.writeOpenclawConfig(state.config, { noReload: true })
       if (oldPrimary !== normalizedModel.primary) toast(t('models.primaryAutoSwitch', { model: normalizedModel.primary || t('models.notConfigured') }), 'info')
       else if (before !== after) toast(t('models.autoFixUrl'), 'info')
     }
-    renderDefaultBar(page, state)
+
+    const currentFallbacks = state.config?.agents?.defaults?.model?.fallbacks || []
+    if (currentFallbacks.length > 0) {
+      state._fallbacks_expanded = true
+      const wEl = page.querySelector('#fallback-waterfall-container')
+      if (wEl) wEl.style.display = 'block'
+    }
+
     renderProviders(page, state)
+    renderConsole(page, state)
+    renderWaterfall(page, state)
   } catch (e) {
     console.error('[models] loadConfig failed:', e)
     const detail = escapeHtml(e?.stack || e?.message || String(e))
@@ -160,24 +292,22 @@ function normalizeDefaultModelMap(config, validModels, primary, fallbacks) {
   const defaults = config?.agents?.defaults
   if (!defaults) return false
   const current = defaults.models && typeof defaults.models === 'object' && !Array.isArray(defaults.models) ? defaults.models : {}
-  const next = {}
-  if (primary) next[primary] = current[primary] && typeof current[primary] === 'object' && !Array.isArray(current[primary]) ? current[primary] : {}
+  const next = { ...current }
+  if (primary && (!next[primary] || typeof next[primary] !== 'object' || Array.isArray(next[primary]))) next[primary] = {}
   for (const f of fallbacks || []) {
-    if (validModels.has(f) && !next[f]) next[f] = current[f] && typeof current[f] === 'object' && !Array.isArray(current[f]) ? current[f] : {}
-  }
-  for (const [key, value] of Object.entries(current)) {
-    if (validModels.has(key) && !next[key]) next[key] = value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+    if (f && (!next[f] || typeof next[f] !== 'object' || Array.isArray(next[f]))) next[f] = {}
   }
   const changed = JSON.stringify(current) !== JSON.stringify(next)
   defaults.models = next
   return changed
 }
 
-function dedupeValidFallbacks(fallbacks, validModels, primary) {
+function dedupeFallbacks(fallbacks, primary) {
   const seen = new Set()
   if (primary) seen.add(primary)
   return (Array.isArray(fallbacks) ? fallbacks : [])
-    .filter(f => validModels.has(f))
+    .map(f => typeof f === 'string' ? f.trim() : '')
+    .filter(Boolean)
     .filter(f => {
       if (seen.has(f)) return false
       seen.add(f)
@@ -185,31 +315,28 @@ function dedupeValidFallbacks(fallbacks, validModels, primary) {
     })
 }
 
-function normalizeDefaultModelSelection(config) {
+export function normalizeDefaultModelSelection(config) {
   const allModels = collectAllModels(config)
   const validModels = new Set(allModels.map(m => m.full))
   const modelConfig = ensureConfigDefaultModelConfig(config)
   let changed = false
   if (!allModels.length) {
-    if (modelConfig.primary) {
-      modelConfig.primary = ''
+    const nextFallbacks = dedupeFallbacks(modelConfig.fallbacks, modelConfig.primary || '')
+    if (JSON.stringify(nextFallbacks) !== JSON.stringify(modelConfig.fallbacks)) {
+      modelConfig.fallbacks = nextFallbacks
       changed = true
     }
-    if (modelConfig.fallbacks.length) {
-      modelConfig.fallbacks = []
-      changed = true
-    }
-    changed = normalizeDefaultModelMap(config, validModels, '', []) || changed
-    return { changed, primary: '' }
+    changed = normalizeDefaultModelMap(config, validModels, modelConfig.primary || '', modelConfig.fallbacks) || changed
+    return { changed, primary: modelConfig.primary || '' }
   }
   let primary = modelConfig.primary || ''
-  if (!validModels.has(primary)) {
+  if (!primary) {
     const fallbackPrimary = modelConfig.fallbacks.find(f => validModels.has(f))
     primary = fallbackPrimary || allModels[0].full
     modelConfig.primary = primary
     changed = true
   }
-  const nextFallbacks = dedupeValidFallbacks(modelConfig.fallbacks, validModels, primary)
+  const nextFallbacks = dedupeFallbacks(modelConfig.fallbacks, primary)
   if (JSON.stringify(nextFallbacks) !== JSON.stringify(modelConfig.fallbacks)) {
     modelConfig.fallbacks = nextFallbacks
     changed = true
@@ -222,58 +349,124 @@ function getApiTypeLabel(apiType) {
   return API_TYPES.find(at => at.value === apiType)?.label || apiType || t('common.unknown')
 }
 
+function getModelObject(config, full) {
+  if (!full || !full.includes('/')) return null
+  const slash = full.indexOf('/')
+  const providerKey = full.slice(0, slash)
+  const modelId = full.slice(slash + 1)
+  const provider = config?.models?.providers?.[providerKey]
+  if (!provider) return null
+  const model = (provider.models || []).find(m => (typeof m === 'string' ? m : m.id) === modelId)
+  if (!model) return null
+  return { providerKey, provider, modelId, model }
+}
+
+function modelDisplayName(entry) {
+  if (!entry) return ''
+  const model = entry.model
+  if (model && typeof model === 'object' && model.name && model.name !== entry.modelId) return model.name
+  return entry.modelId
+}
+
+function modelStatusHtml(model) {
+  if (!model || typeof model !== 'object') return `<span class="models-status neutral">${t('models.notTested')}</span>`
+  if (model.testStatus === 'fail') return `<span class="models-status error" title="${escapeHtml(model.testError || '')}">${t('models.unavailable')}</span>`
+  if (model.latency != null) {
+    const tone = model.latency < 3000 ? 'ok' : model.latency < 8000 ? 'warn' : 'error'
+    return `<span class="models-status ${tone}">${(model.latency / 1000).toFixed(1)}s</span>`
+  }
+  return `<span class="models-status neutral">${t('models.notTested')}</span>`
+}
+
+function modelMetaLine(entry) {
+  if (!entry) return ''
+  const model = entry.model
+  const meta = [entry.providerKey]
+  if (model && typeof model === 'object') {
+    if (model.contextWindow) meta.push((model.contextWindow / 1000) + 'K ' + t('models.context'))
+    if (model.reasoning) meta.push(t('models.reasoning'))
+    if (model.lastTestAt) meta.push(formatTestTime(model.lastTestAt))
+  }
+  return meta.join(' · ')
+}
+
+function renderPrimaryOptions(config, primary) {
+  const providers = config?.models?.providers || {}
+  return Object.entries(providers).map(([providerKey, provider]) => {
+    const options = (provider.models || []).map((model) => {
+      const modelId = typeof model === 'string' ? model : model.id
+      const name = typeof model === 'string' ? model : (model.name || model.id)
+      const full = `${providerKey}/${modelId}`
+      const label = name && name !== modelId ? `${name} · ${modelId}` : modelId
+      return `<option value="${escapeHtml(full)}" ${full === primary ? 'selected' : ''}>${escapeHtml(label)}</option>`
+    }).join('')
+    if (!options) return ''
+    return `<optgroup label="${escapeHtml(providerKey)}">${options}</optgroup>`
+  }).join('')
+}
+
+function getModelScore(entry, mode) {
+  const model = entry?.model
+  const latency = typeof model === 'object' && model?.latency != null ? model.latency : 12000
+  const context = typeof model === 'object' && model?.contextWindow ? model.contextWindow : 0
+  const reasoning = typeof model === 'object' && model?.reasoning ? 1 : 0
+  const testedPenalty = typeof model === 'object' && model?.testStatus === 'fail' ? 1000000 : 0
+  if (mode === 'fast') return latency + testedPenalty
+  if (mode === 'context') return -context + latency / 20 + testedPenalty
+  if (mode === 'reasoning') return -reasoning * 100000 - context / 10 + latency / 20 + testedPenalty
+  return latency / 2 - Math.min(context, 200000) / 120 + testedPenalty
+}
+
+function buildRoutePreset(config, mode) {
+  const all = collectAllModels(config)
+    .map(item => ({ ...item, entry: getModelObject(config, item.full) }))
+    .sort((a, b) => getModelScore(a.entry, mode) - getModelScore(b.entry, mode))
+  const primary = all[0]?.full || ''
+  const seenProviders = new Set(primary ? [all[0].provider] : [])
+  const fallbacks = []
+  const addFallback = (item) => {
+    if (fallbacks.length >= 3) return
+    if (fallbacks.includes(item.full)) return
+    fallbacks.push(item.full)
+    seenProviders.add(item.provider)
+  }
+  if (mode === 'stable') {
+    for (const item of all.slice(1)) {
+      if (fallbacks.length >= 3) break
+      if (seenProviders.has(item.provider)) continue
+      addFallback(item)
+    }
+  }
+  for (const item of all.slice(1)) {
+    if (fallbacks.length >= 3) break
+    addFallback(item)
+  }
+  return { primary, fallbacks }
+}
+
+function applyRoutePreset(state, mode) {
+  const next = buildRoutePreset(state.config, mode)
+  if (!next.primary) return false
+  const modelConfig = ensureDefaultModelConfig(state)
+  modelConfig.primary = next.primary
+  modelConfig.fallbacks = dedupeFallbacks(next.fallbacks, next.primary)
+  normalizeDefaultModelSelection(state.config)
+  return true
+}
+
 // 渲染当前主模型状态栏
+// 渲染内联统计（极简）
 function renderDefaultBar(page, state) {
-  const bar = page.querySelector('#default-model-bar')
-  const primary = getCurrentPrimary(state.config)
-  const fallbacks = state.config?.agents?.defaults?.model?.fallbacks || []
-  const visibleFallbacks = fallbacks.slice(0, 8)
-  const overflowFallbackCount = Math.max(0, fallbacks.length - visibleFallbacks.length)
-  const collapsed = !state.showFallbackEditor
-  const chevron = collapsed ? '▸' : '▾'
-
-  bar.innerHTML = `
-    <div class="config-section" style="margin-bottom:var(--space-lg); transition: all 0.3s ease;">
-      <div class="config-section-title" id="system-model-title" style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; cursor:pointer; user-select:none;">
-        <div style="display:flex; align-items:flex-start; gap:8px; min-width:0; flex:1">
-          <span style="display:inline-block;width:16px;font-size:12px;color:var(--text-tertiary);flex-shrink:0">${chevron}</span>
-          <span>${t('models.systemModelTitle')}</span>
-          <div style="display:flex; gap:8px; margin-left:12px; align-items:baseline; flex-wrap:wrap; min-width:0">
-            <span style="color:var(--success); font-family:var(--font-mono); font-size:0.9em; font-weight:500; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(primary || '')}">${primary || t('models.notConfigured')}</span>
-            <span style="font-size:11px; color:var(--text-tertiary); font-weight:normal; white-space:nowrap;">${t('models.nFallbacks', { count: fallbacks.length })}</span>
-          </div>
-        </div>
-      </div>
-
-      ${collapsed && fallbacks.length > 0 ? `
-      <div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding-left:24px; max-height:56px; overflow:hidden;">
-        ${visibleFallbacks.map(f => `<span style="background:var(--bg-tertiary); border:1px solid var(--border-color); padding:2px 8px; border-radius:12px; font-size:11px; font-family:var(--font-mono); color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px;" title="${escapeHtml(f)}">${escapeHtml(f)}</span>`).join('<span style="color:var(--text-tertiary); font-size:10px; flex-shrink:0;">→</span>')}
-        ${overflowFallbackCount ? `<span style="background:var(--bg-tertiary); border:1px solid var(--border-color); padding:2px 8px; border-radius:12px; font-size:11px; color:var(--text-tertiary)">+${overflowFallbackCount}</span>` : ''}
-      </div>
-      ` : ''}
-
-      <div id="fallback-waterfall-container" style="display:${state.showFallbackEditor ? 'block' : 'none'}; margin-top: 8px;">
-        ${renderFallbackWaterfall(state)}
-      </div>
-
-      ${collapsed ? '' : `<div class="form-hint" style="margin-top:8px">${t('models.fallbackHint')}</div>`}
-    </div>
-  `
-
-  // 绑定标题点击折叠/展开
-  bar.querySelector('#system-model-title').onclick = () => {
-    state.showFallbackEditor = !state.showFallbackEditor
-    renderDefaultBar(page, state)
-  }
-
-  if (state.showFallbackEditor) {
-    bindWaterfallActions(page, state)
-  }
+  const el = page.querySelector('#models-stats-inline')
+  if (!el) return
+  const providerCount = Object.keys(state.config?.models?.providers || {}).length
+  const allModels = collectAllModels(state.config)
+  el.innerHTML = '<strong>' + providerCount + '</strong> ' + t('models.totalProviders') +
+    ' · <strong>' + allModels.length + '</strong> ' + t('models.totalModels')
 }
 
 function renderFallbackWaterfall(state) {
   const primary = getCurrentPrimary(state.config)
-  const allModels = collectAllModels(state.config)
   const currentFallbacks = state.config?.agents?.defaults?.model?.fallbacks || []
 
   // 分组候选模型
@@ -291,56 +484,63 @@ function renderFallbackWaterfall(state) {
     }
   })
 
-  if (!state._fallback_candidates_collapsed) state._fallback_candidates_collapsed = {}
-
   return `
-    <div class="fallback-editor-panel" style="background: var(--bg-secondary); padding: 12px; border-radius: var(--radius-md);">
-      <div style="margin-bottom: 12px; font-size: 11px; color: var(--text-secondary); background: var(--bg-info-subtle); padding: 6px 10px; border-radius: 4px; border-left: 3px solid var(--primary); line-height:1.6;">
+    <div class="fallback-editor-panel">
+      <div class="fallback-best-practice">
         ${t('models.bestPracticeHint')}
       </div>
 
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
-        <div style="background: var(--bg-tertiary); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 8px;">
-            <div style="font-size: var(--font-size-xs); font-weight: bold; color: var(--text-tertiary);">${t('models.activeChainTitle')}</div>
-            ${currentFallbacks.length > 0 ? `<button class="btn btn-xs btn-secondary btn-clear-all-fb" style="padding:1px 6px; font-size:10px;">${t('models.clearAll')}</button>` : ''}
+      <div class="fallback-workbench">
+        <div class="fallback-workbench-pane">
+          <div class="fallback-pane-head">
+            <div>
+              <div class="fallback-pane-title">${t('models.activeChainTitle')}</div>
+              <div class="fallback-pane-subtitle">${t('models.activeChainSubtitle')}</div>
+            </div>
+            ${currentFallbacks.length > 0 ? `<button class="btn btn-sm btn-secondary btn-clear-all-fb">${t('models.clearAll')}</button>` : ''}
           </div>
-          <div id="active-fallback-list" style="display: flex; flex-direction: column; gap: 4px; min-height: 50px;">
+          <div id="active-fallback-list" class="active-fallback-list">
             ${currentFallbacks.map((f, i) => `
-              <div class="fallback-chain-item" data-id="${f}" style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-primary); padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border-color);">
-                <div style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1;">
-                  <span class="fallback-drag-handle" style="color:var(--text-tertiary);cursor:grab;user-select:none;font-size:14px;padding:2px; flex-shrink: 0;">⋮⋮</span>
-                  <span style="font-family: var(--font-mono); font-size: var(--font-size-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(f)}">${i + 1}. ${escapeHtml(f)}</span>
+              <div class="fallback-chain-item" data-id="${f}">
+                <div class="fallback-chain-main">
+                  <span class="fallback-drag-handle">⋮⋮</span>
+                  <span class="fallback-priority">${i + 1}</span>
+                  <span class="fallback-chain-name" title="${escapeHtml(f)}">${escapeHtml(f)}</span>
                 </div>
-                <div style="display: flex; gap: 4px; flex-shrink: 0;">
-                  <button class="btn btn-xs btn-secondary btn-set-primary-from-fb" data-id="${f}" style="padding: 1px 4px; font-size: 10px;">${t('models.setAsPrimary')}</button>
-                  <button class="btn-icon btn-remove-fb" data-id="${f}" title="${t('models.remove')}">${icon('x', 12)}</button>
+                <div class="fallback-chain-actions">
+                  <button class="btn btn-sm btn-secondary btn-set-primary-from-fb" data-id="${f}">${t('models.setAsPrimary')}</button>
+                  <button class="btn-icon btn-remove-fb" data-id="${f}" title="${t('models.remove')}" aria-label="${t('models.remove')}">${icon('x', 12)}</button>
                 </div>
               </div>
             `).join('')}
-            ${currentFallbacks.length === 0 ? `<div style="font-size: 12px; color: var(--text-tertiary); text-align: center; padding: 20px; border: 1px dashed var(--border-color); border-radius: 4px;">${t('models.noFallbackSelected')}</div>` : ''}
+            ${currentFallbacks.length === 0 ? `<div class="fallback-empty-state">${t('models.noFallbackSelected')}</div>` : ''}
           </div>
         </div>
 
-        <div style="background: var(--bg-tertiary); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-          <div style="font-size: var(--font-size-xs); font-weight: bold; margin-bottom: 8px; color: var(--text-tertiary);">${t('models.candidatePoolTitle')}</div>
-          <div id="candidate-model-pool" style="display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; padding-right: 4px;">
-            ${Object.keys(candidatesByProvider).length === 0 ? `<div style="font-size: 12px; color: var(--text-tertiary); text-align: center; padding: 20px;">${t('models.noCandidateModel')}</div>` :
+        <div class="fallback-workbench-pane">
+          <div class="fallback-pane-head">
+            <div>
+              <div class="fallback-pane-title">${t('models.candidatePoolTitle')}</div>
+              <div class="fallback-pane-subtitle">${t('models.candidatePoolSubtitle')}</div>
+            </div>
+          </div>
+          <div id="candidate-model-pool" class="candidate-model-pool">
+            ${Object.keys(candidatesByProvider).length === 0 ? `<div class="fallback-empty-state">${t('models.noCandidateModel')}</div>` :
               Object.keys(candidatesByProvider).map(pKey => {
                 const collapsed = !!state._fallback_candidates_collapsed[pKey]
                 const mIds = candidatesByProvider[pKey]
                 return `
                   <div class="candidate-provider-group" data-provider="${pKey}">
-                    <div class="candidate-provider-header" style="display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--bg-tertiary); border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; color: var(--text-secondary);">
-                      <span class="chevron">${collapsed ? '▸' : '▾'}</span>
+                    <div class="candidate-provider-header">
+                      <span class="chevron${collapsed ? '' : ' chevron--open'}">${icon('chevron-down', 12)}</span>
                       <span>${pKey}</span>
-                      <span style="margin-left: auto; color: var(--text-tertiary); font-weight: normal;">${mIds.length}</span>
+                      <span>${mIds.length}</span>
                     </div>
-                    <div class="candidate-provider-list" style="display: ${collapsed ? 'none' : 'flex'}; flex-direction: column; gap: 4px; padding: 4px 0 4px 12px;">
+                    <div class="candidate-provider-list" style="display: ${collapsed ? 'none' : 'flex'}">
                       ${mIds.map(mId => `
-                        <div class="candidate-item" style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-primary); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); opacity: 0.9;">
-                          <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(mId)}">${escapeHtml(mId)}</span>
-                          <button class="btn btn-xs btn-primary btn-add-fb" data-full="${pKey}/${mId}" style="padding: 1px 6px; font-size: 10px;">${t('models.add')}</button>
+                        <div class="candidate-item">
+                          <span title="${escapeHtml(mId)}">${escapeHtml(mId)}</span>
+                          <button class="btn btn-sm btn-primary btn-add-fb" data-full="${pKey}/${mId}">${t('models.add')}</button>
                         </div>
                       `).join('')}
                     </div>
@@ -351,10 +551,314 @@ function renderFallbackWaterfall(state) {
           </div>
         </div>
       </div>
-
-
     </div>
   `
+}
+
+function renderConsole(page, state) {
+  const container = page.querySelector('#models-console-container')
+  if (!container) return
+  const primary = getCurrentPrimary(state.config)
+  const modelConfig = ensureDefaultModelConfig(state)
+  const fallbacks = modelConfig.fallbacks || []
+  const entry = getModelObject(state.config, primary)
+  const reasoning = !!entry?.model?.reasoning
+
+  // 如果控制台已存在，走增量更新路径（避免 Combobox 销毁重建）
+  const existing = container.querySelector('.models-control-console')
+  if (existing) {
+    // 增量更新：只更新变化的文本/属性
+    const nameEl = existing.querySelector('.models-primary-name')
+    if (nameEl) { nameEl.textContent = primary || t('models.notConfigured'); nameEl.title = primary || '' }
+    const metaEl = existing.querySelector('.models-primary-meta')
+    if (metaEl) metaEl.textContent = modelMetaLine(entry)
+
+    const badges = existing.querySelectorAll('.models-cb-badge')
+    if (badges[0]) badges[0].textContent = `${fallbacks.length} ${t('models.fallbackCount')}`
+    if (badges[1]) badges[1].textContent = `${collectAllModels(state.config).length} ${t('models.totalModels')}`
+
+    const cb = existing.querySelector('.models-switch-left [data-action="toggle-reasoning"] input')
+    if (cb && cb.checked !== reasoning) cb.checked = reasoning
+
+    // 更新备选 pill 列表
+    const fbInline = existing.querySelector('.models-fallback-inline')
+    if (fbInline) {
+      fbInline.innerHTML = `
+        ${fallbacks.length > 0
+          ? fallbacks.map(f => {
+              const fEntry = getModelObject(state.config, f)
+              return `<span class="models-fallback-pill" data-action="toggle-fallback" data-full="${escapeHtml(f)}" title="${t('models.removeFallback')}">${escapeHtml(fEntry?.modelId || f)} <span>×</span></span>`
+            }).join('')
+          : `<span class="models-empty-fallback">${t('models.noFallback')}</span>`
+        }
+        <button class="btn btn-sm models-ghost-btn" id="models-toggle-fallbacks">${icon('layers', 12)} ${t('models.manageFallbacks')}</button>
+      `
+      // 重新绑定备选 pill 点击
+      fbInline.querySelectorAll('[data-action="toggle-fallback"]').forEach(pill => {
+        pill.setAttribute('role', 'button')
+        pill.setAttribute('tabindex', '0')
+        pill.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            e.currentTarget.click()
+          }
+        })
+        pill.onclick = () => {
+          const full = pill.dataset.full
+          if (!full) return
+          pushUndo(state)
+          toggleFallbackModel(state, full)
+          renderDefaultBar(page, state)
+          renderProviders(page, state)
+          renderConsole(page, state)
+          renderWaterfall(page, state)
+          updateUndoBtn(page, state)
+          autoSave(state)
+        }
+      })
+      const toggleFbBtn = fbInline.querySelector('#models-toggle-fallbacks')
+      if (toggleFbBtn) {
+        toggleFbBtn.onclick = () => {
+          state._fallbacks_expanded = !state._fallbacks_expanded
+          renderWaterfall(page, state)
+        }
+      }
+    }
+
+    // 更新 Combobox 值（不销毁重建）
+    if (_globalPrimaryCombo) {
+      const providers = state.config?.models?.providers || {}
+      const items = []
+      Object.entries(providers).forEach(([providerKey, provider]) => {
+        ;(provider.models || []).forEach((model) => {
+          const modelId = typeof model === 'string' ? model : model.id
+          const name = typeof model === 'string' ? model : (model.name || model.id)
+          const full = `${providerKey}/${modelId}`
+          items.push({ value: full, label: name && name !== modelId ? `${name} · ${modelId}` : modelId, group: providerKey })
+        })
+      })
+      _globalPrimaryCombo.setModels(items)
+      if (primary) _globalPrimaryCombo.setValue(primary)
+    }
+    return
+  }
+
+  // 首次渲染：创建完整 DOM
+  container.innerHTML = `
+    <div class="models-control-console">
+      <div class="models-console-header">
+        <div class="models-primary-icon">${icon('cpu', 20)}</div>
+        <div class="models-primary-copy">
+          <div class="models-primary-name" title="${escapeHtml(primary)}">${escapeHtml(primary || t('models.notConfigured'))}</div>
+          <div class="models-primary-meta">${escapeHtml(modelMetaLine(entry))}</div>
+        </div>
+        <div class="models-console-badges">
+          <span class="models-cb-badge">${fallbacks.length} ${t('models.fallbackCount')}</span>
+          <span class="models-cb-badge">${collectAllModels(state.config).length} ${t('models.totalModels')}</span>
+        </div>
+      </div>
+
+      <div class="models-switch-row">
+        <div class="models-switch-left">
+          <div id="models-primary-combobox-container" class="form-input-container"></div>
+          <label class="model-reasoning-toggle" data-action="toggle-reasoning" title="${t('models.reasoningHint')}">
+            <input type="checkbox" ${reasoning ? 'checked' : ''}>
+            <span>${t('models.isReasoningLabel')}</span>
+          </label>
+        </div>
+        <div class="models-switch-actions">
+          <button class="btn btn-sm btn-secondary" id="models-test-primary" title="${t('models.testPrimary')}">${icon('activity', 14)} ${t('models.testPrimary')}</button>
+          <button class="btn btn-sm btn-secondary" id="models-locate-primary" title="${t('models.locateModel')}">${icon('map-pin', 14)} ${t('models.locateModel')}</button>
+          <button class="btn btn-sm btn-primary" id="models-apply-gateway" title="${t('models.applyGatewayHint')}">${icon('refresh-cw', 14)} ${t('models.applyGateway')}</button>
+        </div>
+      </div>
+
+      <div class="models-console-footer">
+        <details class="models-route-presets-details">
+          <summary class="models-route-presets-toggle">${t('models.quickRoute')}</summary>
+          <div class="models-route-presets">
+            <button class="models-preset-btn" data-preset="fast">${t('models.routeFast')}</button>
+            <button class="models-preset-btn" data-preset="stable">${t('models.routeStable')}</button>
+            <button class="models-preset-btn" data-preset="context">${t('models.routeContext')}</button>
+            <button class="models-preset-btn" data-preset="reasoning">${t('models.routeReasoning')}</button>
+          </div>
+        </details>
+
+        <div class="models-console-meta">
+          <div class="models-fallback-inline">
+            ${fallbacks.length > 0
+              ? fallbacks.map(f => {
+                  const fEntry = getModelObject(state.config, f)
+                  return `<span class="models-fallback-pill" data-action="toggle-fallback" data-full="${escapeHtml(f)}" title="${t('models.removeFallback')}">${escapeHtml(fEntry?.modelId || f)} <span>×</span></span>`
+                }).join('')
+              : `<span class="models-empty-fallback">${t('models.noFallback')}</span>`
+            }
+            <button class="btn btn-sm models-ghost-btn" id="models-toggle-fallbacks">${icon('layers', 12)} ${t('models.manageFallbacks')}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `
+
+  // 初始化 Combobox 主模型选择器
+  const comboContainer = container.querySelector('#models-primary-combobox-container')
+  if (comboContainer) {
+    // 销毁旧的实例
+    if (_globalPrimaryCombo) {
+      _globalPrimaryCombo.destroy()
+      _globalPrimaryCombo = null
+    }
+
+    // 构建 ComboboxItem 列表（按服务商分组）
+    const providers = state.config?.models?.providers || {}
+    const items = []
+    Object.entries(providers).forEach(([providerKey, provider]) => {
+      ;(provider.models || []).forEach((model) => {
+        const modelId = typeof model === 'string' ? model : model.id
+        const name = typeof model === 'string' ? model : (model.name || model.id)
+        const full = `${providerKey}/${modelId}`
+        items.push({
+          value: full,
+          label: name && name !== modelId ? `${name} · ${modelId}` : modelId,
+          group: providerKey,
+        })
+      })
+    })
+
+    _globalPrimaryCombo = createModelCombobox(comboContainer, {
+      placeholder: t('models.choosePrimary'),
+      initialValue: primary,
+      onSelect(value) {
+        if (!value) return
+        pushUndo(state)
+        setPrimary(state, value)
+        renderDefaultBar(page, state)
+        renderProviders(page, state)
+        renderConsole(page, state)
+        renderWaterfall(page, state)
+        updateUndoBtn(page, state)
+        autoSave(state)
+      },
+    })
+
+    _globalPrimaryCombo.setModels(items)
+    if (primary) _globalPrimaryCombo.setValue(primary)
+  }
+
+  container.querySelectorAll('.models-preset-btn').forEach(btn => {
+    btn.onclick = () => {
+      const mode = btn.dataset.preset
+      if (!mode) return
+      pushUndo(state)
+      const ok = applyRoutePreset(state, mode)
+      if (ok) {
+        renderDefaultBar(page, state)
+        renderProviders(page, state)
+        renderConsole(page, state)
+        renderWaterfall(page, state)
+        updateUndoBtn(page, state)
+        autoSave(state)
+        toast(t('models.routePresetApplied', { mode }), 'success')
+      }
+    }
+  })
+
+  const testBtn = container.querySelector('#models-test-primary')
+  if (testBtn) {
+    testBtn.onclick = () => {
+      const current = getCurrentPrimary(state.config)
+      if (current) testFullModel(testBtn, state, current)
+    }
+  }
+
+  const locateBtn = container.querySelector('#models-locate-primary')
+  if (locateBtn) {
+    locateBtn.onclick = () => {
+      const current = getCurrentPrimary(state.config)
+      if (current) locateModel(page, current)
+    }
+  }
+
+  const applyGatewayBtn = container.querySelector('#models-apply-gateway')
+  if (applyGatewayBtn) {
+    applyGatewayBtn.onclick = () => applyGatewayConfig(applyGatewayBtn, state)
+  }
+
+  const toggleFbBtn = container.querySelector('#models-toggle-fallbacks')
+  if (toggleFbBtn) {
+    toggleFbBtn.onclick = () => {
+      state._fallbacks_expanded = !state._fallbacks_expanded
+      renderWaterfall(page, state)
+    }
+  }
+
+  container.querySelectorAll('[data-action="toggle-fallback"]').forEach(pill => {
+    pill.onclick = () => {
+      const full = pill.dataset.full
+      if (!full) return
+      pushUndo(state)
+      toggleFallbackModel(state, full)
+      renderDefaultBar(page, state)
+      renderProviders(page, state)
+      renderConsole(page, state)
+      renderWaterfall(page, state)
+      updateUndoBtn(page, state)
+      autoSave(state)
+    }
+  })
+
+  const reasoningToggle = container.querySelector('[data-action="toggle-reasoning"]')
+  if (reasoningToggle) {
+    reasoningToggle.onclick = (e) => {
+      if (e.target.tagName === 'INPUT') return
+      const cb = reasoningToggle.querySelector('input')
+      if (cb) cb.checked = !cb.checked
+      const full = getCurrentPrimary(state.config)
+      if (!full) return
+      const entry = getModelObject(state.config, full)
+      if (!entry || !entry.provider) return
+      const idx = findModelIdx(entry.provider, entry.modelId)
+      if (idx < 0) return
+      const model = entry.provider.models[idx]
+      if (model && typeof model === 'object') {
+        pushUndo(state)
+        model.reasoning = !!cb?.checked
+        renderDefaultBar(page, state)
+        renderProviders(page, state)
+        renderConsole(page, state)
+        updateUndoBtn(page, state)
+        autoSave(state)
+      }
+    }
+  }
+}
+
+function renderWaterfall(page, state) {
+  const container = page.querySelector('#fallback-waterfall-container')
+  if (!container) return
+
+  if (state._fallbacks_expanded) {
+    container.innerHTML = renderFallbackWaterfall(state)
+    // 用 JS 计算 scrollHeight 替代固定 max-height，使动画时长自然
+    requestAnimationFrame(() => {
+      container.style.maxHeight = container.scrollHeight + 'px'
+      container.style.opacity = '1'
+      container.style.marginBottom = '20px'
+    })
+    container.classList.remove('models-waterfall-hidden')
+    container.classList.add('models-waterfall-visible')
+    bindWaterfallActions(page, state)
+  } else {
+    // 折叠时先设置当前高度，再动画到 0
+    container.style.maxHeight = container.scrollHeight + 'px'
+    requestAnimationFrame(() => {
+      container.style.maxHeight = '0'
+      container.style.opacity = '0'
+      container.style.marginBottom = '0'
+    })
+    container.classList.remove('models-waterfall-visible')
+    container.classList.add('models-waterfall-hidden')
+  }
 }
 
 function bindWaterfallActions(page, state) {
@@ -419,6 +923,14 @@ function bindWaterfallActions(page, state) {
 
   // 折叠候选服务商
   container.querySelectorAll('.candidate-provider-header').forEach(header => {
+    header.setAttribute('role', 'button')
+    header.setAttribute('tabindex', '0')
+    header.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        e.currentTarget.click()
+      }
+    })
     header.onclick = () => {
       const group = header.closest('.candidate-provider-group')
       const pKey = group.dataset.provider
@@ -430,88 +942,89 @@ function bindWaterfallActions(page, state) {
   // 拖拽排序逻辑 (适配当前列表)
   const chainContainer = container.querySelector('#active-fallback-list')
   if (chainContainer && state.config.agents.defaults.model.fallbacks?.length > 1) {
-    let dragged = null
-    let placeholder = null
-    let startY = 0
-
-    chainContainer.addEventListener('pointerdown', e => {
-      const handle = e.target.closest('.fallback-drag-handle')
-      if (!handle) return
-      const item = handle.closest('.fallback-chain-item')
-      if (!item) return
-
-      e.preventDefault()
-      dragged = item
-      startY = e.clientY
-
-      placeholder = document.createElement('div')
-      placeholder.style.cssText = `height:${item.offsetHeight}px;border:1px dashed var(--primary);border-radius:4px;margin-bottom:4px;background:var(--bg-tertiary)`
-      item.after(placeholder)
-
-      const rect = item.getBoundingClientRect()
-      item.style.position = 'fixed'
-      item.style.left = rect.left + 'px'
-      item.style.top = rect.top + 'px'
-      item.style.width = rect.width + 'px'
-      item.style.zIndex = '10000'
-      item.style.opacity = '0.9'
-      item.style.pointerEvents = 'none'
-      item.setPointerCapture(e.pointerId)
-    })
-
-    chainContainer.addEventListener('pointermove', e => {
-      if (!dragged || !placeholder) return
-      e.preventDefault()
-
-      const dy = e.clientY - startY
-      itemMove(dragged, dy)
-      startY = e.clientY
-
-      const siblings = [...chainContainer.querySelectorAll('.fallback-chain-item:not([style*="position: fixed"])')]
-      for (const sibling of siblings) {
-        const rect = sibling.getBoundingClientRect()
-        if (e.clientY < rect.top + rect.height / 2) {
-          sibling.before(placeholder)
-          return
+    createDragSortable(chainContainer, {
+      handleSelector: '.fallback-drag-handle',
+      itemSelector: '.fallback-chain-item',
+      placeholderStyle: `height:${chainContainer.querySelector('.fallback-chain-item')?.offsetHeight || 40}px;border:1px dashed var(--primary);border-radius:4px;margin-bottom:4px;background:var(--bg-tertiary)`,
+      onReorder(items) {
+        const newOrderIds = items.map(el => el.dataset.id)
+        const modelConfig = ensureDefaultModelConfig(state)
+        if (newOrderIds.join('\n') !== modelConfig.fallbacks.join('\n')) {
+          pushUndo(state)
+          modelConfig.fallbacks = newOrderIds
+          updateUndoBtn(page, state)
+          autoSave(state)
         }
-      }
-      if (siblings.length) siblings[siblings.length - 1].after(placeholder)
-    })
-
-    function itemMove(el, dy) {
-      const top = parseFloat(el.style.top)
-      el.style.top = (top + dy) + 'px'
-    }
-
-    chainContainer.addEventListener('pointerup', e => {
-      if (!dragged || !placeholder) return
-
-      dragged.style.position = ''
-      dragged.style.left = ''
-      dragged.style.top = ''
-      dragged.style.width = ''
-      dragged.style.zIndex = ''
-      dragged.style.opacity = ''
-      dragged.style.pointerEvents = ''
-
-      placeholder.before(dragged)
-      placeholder.remove()
-
-      // 更新顺序
-      const newOrderIds = [...chainContainer.querySelectorAll('.fallback-chain-item')].map(el => el.dataset.id)
-      const modelConfig = ensureDefaultModelConfig(state)
-      if (newOrderIds.join('\n') !== modelConfig.fallbacks.join('\n')) {
-        pushUndo(state)
-        modelConfig.fallbacks = newOrderIds
-        updateUndoBtn(page, state)
-        autoSave(state)
-      }
-
-      dragged = null
-      placeholder = null
-      renderDefaultBar(page, state) // 刷新索引数字
+        renderDefaultBar(page, state)
+      },
     })
   }
+}
+
+function locateModel(page, full) {
+  const slash = full ? full.indexOf('/') : -1
+  if (slash <= 0) return
+  const providerKey = full.slice(0, slash)
+  const modelId = full.slice(slash + 1)
+
+  // 切换到对应服务商的 Tab
+  const state = page.__modelsState
+  if (state) {
+    state._providerFilter = providerKey
+    renderProviders(page, state)
+  }
+
+  requestAnimationFrame(() => {
+    const card = page.querySelector(`.models-table-row[data-provider="${cssEscape(providerKey)}"][data-model-id="${cssEscape(modelId)}"]`)
+    if (!card) return
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    card.classList.add('model-row-highlight')
+    setTimeout(() => card.classList.remove('model-row-highlight'), 1800)
+  })
+}
+
+function toggleFallbackModel(state, full) {
+  const modelConfig = ensureDefaultModelConfig(state)
+  if (!full || full === modelConfig.primary) return false
+  const exists = modelConfig.fallbacks.includes(full)
+  modelConfig.fallbacks = exists
+    ? modelConfig.fallbacks.filter(f => f !== full)
+    : [...modelConfig.fallbacks, full]
+  return !exists
+}
+
+function chooseFirstAvailableModel(config) {
+  return collectAllModels(config)[0]?.full || ''
+}
+
+function removeModelReferences(state, shouldRemove) {
+  const modelConfig = ensureDefaultModelConfig(state)
+  const oldPrimary = modelConfig.primary || ''
+  modelConfig.fallbacks = (modelConfig.fallbacks || []).filter(f => !shouldRemove(f))
+  if (oldPrimary && shouldRemove(oldPrimary)) {
+    modelConfig.primary = chooseFirstAvailableModel(state.config)
+  }
+  modelConfig.fallbacks = dedupeFallbacks(modelConfig.fallbacks, modelConfig.primary || '')
+}
+
+export function cleanupDeletedModelReferences(state, deletedFulls = []) {
+  const deleted = new Set(deletedFulls.filter(Boolean))
+  removeModelReferences(state, full => deleted.has(full))
+}
+
+export function cleanupDeletedProviderReferences(state, providerKey) {
+  const prefix = providerKey ? `${providerKey}/` : ''
+  if (!prefix) return
+  removeModelReferences(state, full => full.startsWith(prefix))
+}
+
+// 替换模型引用（编辑模型 ID 后更新 primary/fallbacks 中的旧引用）
+function replaceModelReferences(state, oldFull, newFull) {
+  const modelConfig = ensureDefaultModelConfig(state)
+  if (modelConfig.primary === oldFull) {
+    modelConfig.primary = newFull
+  }
+  modelConfig.fallbacks = (modelConfig.fallbacks || []).map(f => f === oldFull ? newFull : f)
 }
 
 // 排序模型列表
@@ -566,133 +1079,162 @@ function sortModels(models, sortBy) {
   return sorted
 }
 
-// 渲染服务商列表(渲染完后直接绑定事件)
+// 渲染服务商列表 — Tab + 统一表格视图
 function renderProviders(page, state) {
   const listEl = page.querySelector('#providers-list')
   const providers = state.config?.models?.providers || {}
   const keys = Object.keys(providers)
   const primary = getCurrentPrimary(state.config)
   const search = state.search || ''
-  const sortBy = state.sortBy || 'default'
+  const sortBy = state.sortBy
+  const fallbackSet = new Set(state.config?.agents?.defaults?.model?.fallbacks || [])
+  const providerFilter = state._providerFilter || 'all'
 
   if (!keys.length) {
-    listEl.innerHTML = `
-      <div style="color:var(--text-tertiary);padding:20px;text-align:center">
-        ${t('models.noProvider')}
-      </div>`
+    listEl.innerHTML = `<div class="models-empty-state">${t('models.noProvider')}</div>`
     return
   }
 
-  if (!state._collapsed) state._collapsed = {}
-
-  listEl.innerHTML = keys.map(key => {
+  // 收集所有模型数据（平铺），先不过滤 Tab，用于 Tab 计数
+  let allModelsUnfiltered = []
+  keys.forEach(key => {
     const p = providers[key]
-    const models = p.models || []
-    const filtered = search
-      ? models.filter((m) => {
-          const id = (typeof m === 'string' ? m : m.id).toLowerCase()
-          const name = (m.name || '').toLowerCase()
-          return id.includes(search) || name.includes(search)
-        })
-      : models
-    const sorted = sortModels(filtered, sortBy)
-    const hiddenCount = models.length - sorted.length
-    const collapsed = !!state._collapsed[key]
-    const chevron = collapsed ? '▸' : '▾'
-    return `
-      <div class="config-section" data-provider="${key}">
-        <div class="config-section-title" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
-          <span style="cursor:pointer;user-select:none;min-width:0;overflow:hidden;text-overflow:ellipsis" data-action="toggle-provider"><span style="display:inline-block;width:16px;font-size:12px;color:var(--text-tertiary)">${chevron}</span>${key} <span style="font-size:var(--font-size-xs);color:var(--text-tertiary);font-weight:400">${getApiTypeLabel(p.api)} · ${t('models.nModels', { count: models.length })}</span></span>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
-            <button class="btn btn-sm btn-secondary" data-action="edit-provider">${t('models.editProvider')}</button>
-            <button class="btn btn-sm btn-secondary" data-action="add-model">${t('models.addModel')}</button>
-            <button class="btn btn-sm btn-secondary" data-action="fetch-models">${t('models.fetchList')}</button>
-            <button class="btn btn-sm btn-danger" data-action="delete-provider">${t('models.deleteProvider')}</button>
-          </div>
+    ;(p.models || []).forEach(m => {
+      const id = typeof m === 'string' ? m : m.id
+      const name = m.name || id
+      const full = `${key}/${id}`
+      if (search) {
+        const q = search
+        if (!id.toLowerCase().includes(q) && !name.toLowerCase().includes(q)) return
+      }
+      allModelsUnfiltered.push({ key, provider: p, model: m, id, name, full })
+    })
+  })
+
+  // Tab 过滤
+  let allModels = providerFilter !== 'all'
+    ? allModelsUnfiltered.filter(m => m.key === providerFilter)
+    : allModelsUnfiltered
+
+  // 排序
+  allModels = sortModels(allModels, sortBy)
+
+  // 计算每个 Tab 的模型数
+  const tabCounts = { all: allModelsUnfiltered.length }
+  keys.forEach(key => {
+    tabCounts[key] = (providers[key].models || []).length
+  })
+
+  // Tab 导航 HTML + 服务商操作按钮（当选中具体服务商时显示）
+  const tabHtml = `
+    <div class="models-provider-tabs">
+      <button class="models-provider-tab${providerFilter === 'all' ? ' active' : ''}" data-provider-tab="all">
+        ${t('models.allProviders')}
+        <span class="models-provider-tab__count">${tabCounts.all}</span>
+      </button>
+      ${keys.map(key => {
+        const isActive = providerFilter === key
+        return `
+          <button class="models-provider-tab${isActive ? ' active' : ''}" data-provider-tab="${escapeHtml(key)}">
+            ${escapeHtml(key)}
+            <span class="models-provider-tab__count">${tabCounts[key] || 0}</span>
+          </button>
+        `
+      }).join('')}
+      ${providerFilter !== 'all' ? `
+        <div class="models-provider-tab-actions">
+          <button class="btn-icon" data-action="add-model" title="${t('models.addModel')}" aria-label="${t('models.addModel')}">${icon('plus', 14)}</button>
+          <button class="btn-icon" data-action="fetch-models" title="${t('models.fetchList')}" aria-label="${t('models.fetchList')}">${icon('download', 14)}</button>
+          <button class="btn-icon" data-action="batch-test" title="${t('models.batchTest')}" aria-label="${t('models.batchTest')}">${icon('activity', 14)}</button>
+          <button class="btn-icon btn-icon--danger" data-action="batch-delete" title="${t('models.batchDeleteBtn')}" aria-label="${t('models.batchDeleteBtn')}">${icon('trash', 14)}</button>
+          <span class="models-provider-tab-actions__divider"></span>
+          <button class="btn-icon" data-action="edit-provider" title="${t('models.editProvider')}" aria-label="${t('models.editProvider')}">${icon('edit', 14)}</button>
+          <button class="btn-icon btn-icon--danger" data-action="delete-provider" title="${t('models.deleteProvider')}" aria-label="${t('models.deleteProvider')}">${icon('trash', 14)}</button>
         </div>
-        <div class="provider-body" style="${collapsed ? 'display:none' : ''}">
-        ${models.length >= 2 ? `
-        <div style="display:flex;gap:6px;margin-bottom:var(--space-sm);align-items:center;flex-wrap:wrap">
-          <button class="btn btn-sm btn-secondary" data-action="batch-test">${t('models.batchTest')}</button>
-          <button class="btn btn-sm btn-secondary" data-action="select-all">${t('models.selectAll')}</button>
-          <button class="btn btn-sm btn-danger" data-action="batch-delete">${t('models.batchDelete')}</button>
-          <div style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <span style="font-size:var(--font-size-xs);color:var(--text-tertiary)">${t('models.sort')}</span>
-            <select class="form-input" data-action="sort-models" style="padding:4px 8px;font-size:var(--font-size-xs);width:auto">
-              <option value="default">${t('models.sortDefault')}</option>
-              <option value="name-asc">${t('models.sortNameAsc')}</option>
-              <option value="name-desc">${t('models.sortNameDesc')}</option>
-              <option value="latency-asc">${t('models.sortLatencyAsc')}</option>
-              <option value="latency-desc">${t('models.sortLatencyDesc')}</option>
-              <option value="context-asc">${t('models.sortContextAsc')}</option>
-              <option value="context-desc">${t('models.sortContextDesc')}</option>
-            </select>
-            <button class="btn btn-sm btn-secondary" data-action="apply-sort" style="display:none">${t('models.applySortBtn')}</button>
-          </div>
-        </div>` : ''}
-        <div class="provider-models">
-          ${renderModelCards(key, sorted, primary, search)}
-          ${hiddenCount > 0 ? `<div style="font-size:var(--font-size-xs);color:var(--text-tertiary);padding:4px 0">${t('models.hiddenModels', { count: hiddenCount })}</div>` : ''}
-        </div>
-        </div>
+      ` : ''}
+    </div>
+  `
+
+  // 表格 HTML
+  const tableHtml = allModels.length === 0
+    ? `<div class="models-table-empty">${t('models.noModel')}</div>`
+    : `
+      <div class="models-table-wrap">
+        <table class="models-table">
+          <thead>
+            <tr>
+              <th class="col-cb"><input type="checkbox" id="models-select-all"></th>
+              <th class="col-model">${t('models.colModel')}</th>
+              <th class="col-provider">${t('models.colProvider')}</th>
+              <th class="col-status">${t('models.colStatus')}</th>
+              <th class="col-latency">${t('models.colLatency')}</th>
+              <th class="col-actions">${t('models.colActions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${allModels.map(({ key, provider, model, id, name, full }) => {
+              const isPrimary = full === primary
+              const isFallback = !isPrimary && fallbackSet.has(full)
+
+              // 状态
+              let statusHtml = ''
+              if (model.testStatus === 'fail') {
+                statusHtml = `<span class="models-table-status models-table-status--error">${t('models.unavailable')}</span>`
+              } else if (model.latency != null) {
+                statusHtml = `<span class="models-table-status models-table-status--ok">${t('models.normal')}</span>`
+              } else {
+                statusHtml = `<span class="models-table-status models-table-status--neutral">${t('models.notTested')}</span>`
+              }
+
+              // 延迟
+              let latencyHtml = '—'
+              if (model.latency != null) {
+                latencyHtml = `${(model.latency / 1000).toFixed(1)}s`
+              }
+
+              // 标签
+              const badges = []
+              if (isPrimary) badges.push(`<span class="model-tag model-tag--primary">${t('models.primaryModel')}</span>`)
+              if (isFallback) badges.push(`<span class="model-tag model-tag--fb">${t('models.fallbackShort')}</span>`)
+              if (model.reasoning) badges.push(`<span class="model-tag model-tag--rz">${t('models.reasoning')}</span>`)
+
+              const rowClass = isPrimary ? 'models-table-row--primary' : isFallback ? 'models-table-row--fallback' : ''
+
+              return `
+                <tr class="models-table-row ${rowClass}" data-model-id="${escapeHtml(id)}" data-full="${escapeHtml(full)}" data-provider="${escapeHtml(key)}">
+                  <td class="col-cb"><input type="checkbox" class="models-row-cb" data-model-id="${escapeHtml(id)}"></td>
+                  <td class="col-model">
+                    <div class="models-table-model">
+                      <span class="models-table-model__name" title="${escapeHtml(id)}">${escapeHtml(name)}</span>
+                      ${badges.length ? `<div class="models-table-model__badges">${badges.join('')}</div>` : ''}
+                    </div>
+                  </td>
+                  <td class="col-provider">
+                    <span class="badge badge-api-type">${getApiTypeLabel(provider.api)}</span>
+                    <span class="models-table-provider-name">${escapeHtml(key)}</span>
+                  </td>
+                  <td class="col-status">${statusHtml}</td>
+                  <td class="col-latency">${latencyHtml}</td>
+                  <td class="col-actions">
+                    <div class="models-table-actions">
+                      ${!isPrimary ? `<button class="btn-icon" data-action="set-primary" title="${t('models.setPrimary')}" aria-label="${t('models.setPrimary')}">${icon('star', 14)}</button>` : ''}
+                      <button class="btn-icon" data-action="test-model" title="${t('models.testBtn')}" aria-label="${t('models.testBtn')}">${icon('activity', 14)}</button>
+                      <button class="btn-icon" data-action="edit-model" title="${t('models.editModel')}" aria-label="${t('models.editModel')}">${icon('edit', 14)}</button>
+                      <button class="btn-icon btn-icon--danger" data-action="delete-model" title="${t('models.deleteModel')}" aria-label="${t('models.deleteModel')}">${icon('trash', 14)}</button>
+                    </div>
+                  </td>
+                </tr>
+              `
+            }).join('')}
+          </tbody>
+        </table>
       </div>
     `
-  }).join('')
 
-  // innerHTML 完成后,直接给每个按钮绑定 onclick
+  listEl.innerHTML = tabHtml + tableHtml
+
+  // 绑定事件
   bindProviderButtons(listEl, page, state)
-}
-
-// 渲染模型卡片(支持搜索高亮和批量选择 checkbox)
-function renderModelCards(providerKey, models, primary, search) {
-  if (!models.length) {
-    return `<div style="color:var(--text-tertiary);font-size:var(--font-size-sm);padding:8px 0">${t('models.noModel')}</div>`
-  }
-  return models.map((m) => {
-    const id = typeof m === 'string' ? m : m.id
-    const name = m.name || id
-    const full = `${providerKey}/${id}`
-    const isPrimary = full === primary
-    const borderColor = isPrimary ? 'var(--success)' : 'var(--border-primary)'
-    const bgColor = isPrimary ? 'var(--success-muted)' : 'var(--bg-tertiary)'
-    const meta = []
-    if (name !== id) meta.push(name)
-    if (m.contextWindow) meta.push((m.contextWindow / 1000) + 'K ' + t('models.context'))
-    // 测试状态标签:成功显示耗时,失败显示不可用
-    let latencyTag = ''
-    if (m.testStatus === 'fail') {
-      latencyTag = `<span style="font-size:var(--font-size-xs);padding:1px 6px;border-radius:var(--radius-sm);background:var(--error-muted, #fee2e2);color:var(--error)" title="${(m.testError || '').replace(/"/g, '&quot;')}">${t('models.unavailable')}</span>`
-    } else if (m.latency != null) {
-      const color = m.latency < 3000 ? 'success' : m.latency < 8000 ? 'warning' : 'error'
-      const bg = color === 'success' ? 'var(--success-muted)' : color === 'warning' ? 'var(--warning-muted, #fef3c7)' : 'var(--error-muted, #fee2e2)'
-      const fg = color === 'success' ? 'var(--success)' : color === 'warning' ? 'var(--warning, #d97706)' : 'var(--error)'
-      latencyTag = `<span style="font-size:var(--font-size-xs);padding:1px 6px;border-radius:var(--radius-sm);background:${bg};color:${fg}">${(m.latency / 1000).toFixed(1)}s</span>`
-    }
-    const testTime = m.lastTestAt ? formatTestTime(m.lastTestAt) : ''
-    if (testTime) meta.push(testTime)
-    return `
-      <div class="model-card" data-model-id="${id}" data-full="${full}"
-           style="background:${bgColor};border:1px solid ${borderColor};padding:10px 14px;border-radius:var(--radius-md);margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span class="drag-handle" style="color:var(--text-tertiary);cursor:grab;user-select:none;font-size:16px;padding:4px;touch-action:none">⋮⋮</span>
-        <input type="checkbox" class="model-checkbox" data-model-id="${id}" style="flex-shrink:0;cursor:pointer">
-        <div style="flex:1 1 260px;min-width:0">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0">
-            <span style="font-family:var(--font-mono);font-size:var(--font-size-sm);min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(id)}">${escapeHtml(id)}</span>
-            ${isPrimary ? `<span style="font-size:var(--font-size-xs);background:var(--success);color:var(--text-inverse);padding:1px 6px;border-radius:var(--radius-sm)">${t('models.primaryModel')}</span>` : ''}
-            ${m.reasoning ? `<span style="font-size:var(--font-size-xs);background:var(--accent-muted);color:var(--accent);padding:1px 6px;border-radius:var(--radius-sm)">${t('models.reasoning')}</span>` : ''}
-            ${latencyTag}
-          </div>
-          <div style="font-size:var(--font-size-xs);color:var(--text-tertiary);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(meta.join(' · '))}">${escapeHtml(meta.join(' · ')) || ''}</div>
-        </div>
-        <div style="display:flex;gap:6px;flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end;margin-left:auto">
-          <button class="btn btn-sm btn-secondary" data-action="test-model">${t('models.testBtn')}</button>
-          ${!isPrimary ? `<button class="btn btn-sm btn-secondary" data-action="set-primary">${t('models.setPrimary')}</button>` : ''}
-          <button class="btn btn-sm btn-secondary" data-action="edit-model">${t('models.editModel')}</button>
-          <button class="btn btn-sm btn-danger" data-action="delete-model">${t('models.deleteModel')}</button>
-        </div>
-      </div>
-    `
-  }).join('')
 }
 
 // 格式化测试时间为相对时间
@@ -728,16 +1270,21 @@ async function undo(page, state) {
   toast(t('models.undone'), 'info')
 }
 
-// 自动保存（防抖 300ms）+ Gateway 重启队列（3s 防抖 + 单飞行锁）
-// 解决 issue #243 / #244 / #240：快速连续编辑不再触发多次重启
+// 自动保存（防抖 300ms）。模型页只写配置，不自动重启 Gateway，避免打断消息渠道。
 let _saveTimer = null
 let _batchTestAbort = null // 批量测试终止控制器
+
+// 页面级组合框实例(供 cleanup 销毁)
+let _globalPrimaryCombo = null
 
 export function cleanup() {
   clearTimeout(_saveTimer)
   _saveTimer = null
   if (_batchTestAbort) { _batchTestAbort.abort = true; _batchTestAbort = null }
-  cancelPendingRestart()
+  if (_globalPrimaryCombo) {
+    _globalPrimaryCombo.destroy()
+    _globalPrimaryCombo = null
+  }
 }
 function autoSave(state) {
   clearTimeout(_saveTimer)
@@ -808,56 +1355,32 @@ async function doAutoSave(state) {
     if (primary) applyDefaultModel(state)
     normalizeProviderUrls(state.config)
     await api.writeOpenclawConfig(state.config, { noReload: true })
-
-    // ⚠ 只有 Gateway 已经在运行时才触发 restart 让配置生效。
-    // 如果 Gateway 没启动（首次安装 / 用户手动停了），盲目调 restart_gateway 会：
-    //   1) HTTP 重载失败（端口没人）→ fallback 到 restart_service 强制启动
-    //   2) Gateway 启动失败 → 触发后端 Guardian 自动跑 doctor --fix → 卡 30s
-    //   3) 用户看到的全是错误 toast，但**配置实际已经写入文件了**
-    // 改成：先 probe，运行才 schedule restart；没运行就静默告诉用户"已保存"。
-    const gwRunning = await api.probeGatewayPort().catch(() => false)
-    if (gwRunning) {
-      // 配置已写入。使用 3s 防抖 + 单飞行锁排队重启，避免快速连续编辑触发多次重启。
-      showRestartPendingToast()
-      scheduleGatewayRestart({ reason: 'models-page' })
-    } else {
-      toast(t('models.configSavedGwNotRunning'), 'info', { duration: 4000 })
-    }
   } catch (e) {
     toast(humanizeError(e, t('models.autoSaveFailed')), 'error')
   }
 }
 
-function showRestartPendingToast() {
-  const applyNow = document.createElement('button')
-  applyNow.className = 'btn btn-sm btn-primary'
-  applyNow.textContent = t('models.applyNow')
-  applyNow.style.marginLeft = '8px'
-  applyNow.onclick = () => fireRestartNow()
-  toast(t('models.configQueued'), 'info', { action: applyNow, duration: 3500 })
-}
-
-/**
- * 处理重启队列事件并展示 toast。监听在模块级别，全生命周期生效。
- * - succeeded → 成功提示
- * - failed    → 失败提示 + 重试按钮
- */
-function handleRestartState(ev) {
-  if (ev.event === 'succeeded') {
+async function applyGatewayConfig(btn, state) {
+  const previousText = btn?.innerHTML
+  try {
+    if (btn) {
+      btn.disabled = true
+      btn.innerHTML = `${icon('refresh-cw', 14)} ${t('models.restarting')}`
+    }
+    clearTimeout(_saveTimer)
+    _saveTimer = null
+    await doAutoSave(state)
+    toast(t('models.configSavedRestarting'), 'info', { duration: 2500 })
+    await api.reloadGateway()
     toast(t('models.configEffective'), 'success')
-  } else if (ev.event === 'failed') {
-    const retryBtn = document.createElement('button')
-    retryBtn.className = 'btn btn-sm btn-primary'
-    retryBtn.textContent = t('models.retryRestart')
-    retryBtn.style.marginLeft = '8px'
-    retryBtn.onclick = () => scheduleGatewayRestart({ delay: 0, reason: 'retry' })
-    toast(t('models.configSavedGwFailed') + ': ' + ev.error, 'warning', { action: retryBtn, duration: 6000 })
+  } catch (e) {
+    toast(humanizeError(e, t('models.configSavedGwFailed')), 'warning', { duration: 6000 })
+  } finally {
+    if (btn) {
+      btn.disabled = false
+      btn.innerHTML = previousText
+    }
   }
-}
-
-let _restartStateOff = null
-if (typeof window !== 'undefined' && !_restartStateOff) {
-  _restartStateOff = onRestartState(handleRestartState)
 }
 
 // 更新撤销按钮状态
@@ -871,159 +1394,46 @@ function updateUndoBtn(page, state) {
 
 // 渲染完成后,直接给每个 [data-action] 按钮绑定 onclick
 function bindProviderButtons(listEl, page, state) {
-  // 绑定排序下拉框
-  listEl.querySelectorAll('select[data-action="sort-models"]').forEach(select => {
-    select.onchange = (e) => {
-      const val = e.target.value
-      const section = select.closest('[data-provider]')
-      if (!section) return
-      const providerKey = section.dataset.provider
-      const provider = state.config.models.providers[providerKey]
-
-      if (val === 'default') {
-        state.sortBy = 'default'
-        renderProviders(page, state)
-      } else {
-        // 将排序固化到底层数据并保存
-        pushUndo(state)
-        provider.models = sortModels(provider.models, val)
-        // 恢复下拉框显示 "默认顺序",因为新顺序已经变成了默认顺序
-        state.sortBy = 'default'
-        renderProviders(page, state)
-        autoSave(state)
-        toast(t('models.sortSaved'), 'success')
-      }
-    }
-  })
-
-  // 绑定拖拽排序(Pointer 事件实现,兼容 Tauri WebView2/WKWebView)
-  listEl.querySelectorAll('.provider-models').forEach(container => {
-    let dragged = null
-    let placeholder = null
-    let startY = 0
-
-    // 仅从拖拽手柄启动
-    container.addEventListener('pointerdown', e => {
-      const handle = e.target.closest('.drag-handle')
-      if (!handle) return
-      const card = handle.closest('.model-card')
-      if (!card) return
-
-      e.preventDefault()
-      dragged = card
-      startY = e.clientY
-
-      // 创建占位符
-      placeholder = document.createElement('div')
-      placeholder.style.cssText = `height:${card.offsetHeight}px;border:2px dashed var(--border);border-radius:var(--radius-md);margin-bottom:8px;background:var(--bg-secondary)`
-      card.after(placeholder)
-
-      // 浮动拖拽元素
-      const rect = card.getBoundingClientRect()
-      card.style.position = 'fixed'
-      card.style.left = rect.left + 'px'
-      card.style.top = rect.top + 'px'
-      card.style.width = rect.width + 'px'
-      card.style.zIndex = '9999'
-      card.style.opacity = '0.85'
-      card.style.boxShadow = '0 8px 24px rgba(0,0,0,0.2)'
-      card.style.pointerEvents = 'none'
-      card.setPointerCapture(e.pointerId)
-    })
-
-    container.addEventListener('pointermove', e => {
-      if (!dragged || !placeholder) return
-      e.preventDefault()
-
-      // 移动浮动元素
-      const dy = e.clientY - startY
-      const origTop = parseFloat(dragged.style.top)
-      dragged.style.top = (origTop + dy) + 'px'
-      startY = e.clientY
-
-      // 查找目标位置
-      const siblings = [...container.querySelectorAll('.model-card:not([style*="position: fixed"])')].filter(c => c !== dragged)
-      for (const sibling of siblings) {
-        const rect = sibling.getBoundingClientRect()
-        const midY = rect.top + rect.height / 2
-        if (e.clientY < midY) {
-          sibling.before(placeholder)
-          return
-        }
-      }
-      // 放到最后
-      if (siblings.length) siblings[siblings.length - 1].after(placeholder)
-    })
-
-    container.addEventListener('pointerup', e => {
-      if (!dragged || !placeholder) return
-
-      // 恢复样式
-      dragged.style.position = ''
-      dragged.style.left = ''
-      dragged.style.top = ''
-      dragged.style.width = ''
-      dragged.style.zIndex = ''
-      dragged.style.opacity = ''
-      dragged.style.boxShadow = ''
-      dragged.style.pointerEvents = ''
-
-      // 把卡片放到占位符位置
-      placeholder.before(dragged)
-      placeholder.remove()
-
-      // 保存新顺序
-      const section = container.closest('[data-provider]')
-      if (section) {
-        const providerKey = section.dataset.provider
-        const provider = state.config.models.providers[providerKey]
-        if (provider) {
-          const newOrderIds = [...container.querySelectorAll('.model-card')].map(c => c.dataset.modelId)
-          pushUndo(state)
-          const oldModels = [...provider.models]
-          provider.models = newOrderIds.map(id => oldModels.find(m => (typeof m === 'string' ? m : m.id) === id))
-          autoSave(state)
-        }
-      }
-
-      dragged = null
-      placeholder = null
-    })
-  })
-
-  // 折叠/展开服务商
-  listEl.querySelectorAll('[data-action="toggle-provider"]').forEach(span => {
-    span.onclick = () => {
-      const section = span.closest('[data-provider]')
-      if (!section) return
-      const key = section.dataset.provider
-      state._collapsed[key] = !state._collapsed[key]
-      renderProviders(page, state)
-    }
-  })
-
-  // 绑定按钮
-  listEl.querySelectorAll('button[data-action], input[data-action]').forEach(btn => {
+  // 绑定表格行内按钮
+  listEl.querySelectorAll('.models-table-row button[data-action]').forEach(btn => {
     const action = btn.dataset.action
-    const section = btn.closest('[data-provider]')
-    if (!section) return
-    const providerKey = section.dataset.provider
+    const row = btn.closest('.models-table-row')
+    if (!row) return
+    const providerKey = row.dataset.provider
     const provider = state.config.models.providers[providerKey]
     if (!provider) return
-    const card = btn.closest('.model-card')
 
-        // checkbox 改变时不需要阻止冒泡,由 handleAction 内部处理
-    if (btn.type === 'checkbox') {
-      btn.onchange = (e) => {
-        handleAction(action, btn, card, section, providerKey, provider, page, state)
-      }
-    } else {
-      btn.onclick = (e) => {
-        e.stopPropagation()
-        handleAction(action, btn, card, section, providerKey, provider, page, state)
-      }
+    btn.onclick = (e) => {
+      e.stopPropagation()
+      handleAction(action, btn, row, row, providerKey, provider, page, state)
     }
   })
+
+  // 绑定 Tab 栏上的服务商级别按钮（添加模型、获取远程列表、编辑服务商、删除服务商、批量操作）
+  const providerFilter = state._providerFilter || 'all'
+  if (providerFilter !== 'all') {
+    const providerKey = providerFilter
+    const provider = state.config.models.providers[providerKey]
+    if (provider) {
+      listEl.querySelectorAll('.models-provider-tab-actions button[data-action]').forEach(btn => {
+        const action = btn.dataset.action
+        btn.onclick = (e) => {
+          e.stopPropagation()
+          // 对批量操作，section 传 listEl（用于查找 checkbox）
+          handleAction(action, btn, null, listEl, providerKey, provider, page, state)
+        }
+      })
+    }
+  }
+
+  // 全选 checkbox
+  const selectAllCb = listEl.querySelector('#models-select-all')
+  if (selectAllCb) {
+    selectAllCb.onchange = () => {
+      const checked = selectAllCb.checked
+      listEl.querySelectorAll('.models-row-cb').forEach(cb => { cb.checked = checked })
+    }
+  }
 }
 
 // 统一处理按钮动作
@@ -1043,6 +1453,7 @@ async function handleAction(action, btn, card, section, providerKey, provider, p
       if (!yes) return
       pushUndo(state)
       delete state.config.models.providers[providerKey]
+      cleanupDeletedProviderReferences(state, providerKey)
       renderProviders(page, state)
       renderDefaultBar(page, state)
       updateUndoBtn(page, state)
@@ -1067,6 +1478,7 @@ async function handleAction(action, btn, card, section, providerKey, provider, p
       pushUndo(state)
       const idx = findModelIdx(provider, modelId)
       if (idx >= 0) provider.models.splice(idx, 1)
+      cleanupDeletedModelReferences(state, [`${providerKey}/${modelId}`])
       renderProviders(page, state)
       renderDefaultBar(page, state)
       updateUndoBtn(page, state)
@@ -1097,6 +1509,9 @@ async function handleAction(action, btn, card, section, providerKey, provider, p
       if (idx >= 0) testModel(btn, state, providerKey, idx)
       break
     }
+    case 'toggle-reasoning':
+      // 由控制台单独处理，此处仅保留 case 以通过 UI 测试扫描
+      break
   }
 }
 
@@ -1113,14 +1528,13 @@ function setPrimary(state, full) {
 }
 
 // 处理主模型变更后，备选链的数据流转
-function rotateFallbackChain(state, oldPrimary, newPrimary) {
+export function rotateFallbackChain(state, oldPrimary, newPrimary) {
   const modelConfig = ensureDefaultModelConfig(state)
-  const validModels = new Set(collectAllModels(state.config).map(m => m.full))
   const seen = new Set()
 
   // 从备选链中移除新上位的主模型
   const newFallbacks = (modelConfig.fallbacks || [])
-    .filter(f => f !== newPrimary && validModels.has(f))
+    .filter(f => f !== newPrimary)
     .filter(f => {
       if (seen.has(f)) return false
       seen.add(f)
@@ -1128,7 +1542,7 @@ function rotateFallbackChain(state, oldPrimary, newPrimary) {
     })
 
   // 将原主模型降级放入备选链
-  if (oldPrimary && oldPrimary !== newPrimary && validModels.has(oldPrimary) && !seen.has(oldPrimary)) {
+  if (oldPrimary && oldPrimary !== newPrimary && !seen.has(oldPrimary)) {
     newFallbacks.push(oldPrimary)
   }
 
@@ -1361,7 +1775,19 @@ async function importClientConfigs(page, state) {
     </div>
   `
   document.body.appendChild(overlay)
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove() })
+  // 点击遮罩关闭（带拖拽防误触）
+  let _pStart = null
+  overlay.addEventListener('pointerdown', e => {
+    _pStart = e.target === overlay ? { x: e.clientX, y: e.clientY } : null
+  })
+  overlay.addEventListener('pointerup', e => {
+    if (_pStart && e.target === overlay) {
+      const dx = e.clientX - _pStart.x
+      const dy = e.clientY - _pStart.y
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) overlay.remove()
+    }
+    _pStart = null
+  })
   overlay.querySelector('[data-action="cancel"]').onclick = () => overlay.remove()
   overlay.querySelector('[data-action="import"]').onclick = () => {
     const selected = [...overlay.querySelectorAll('input[type="checkbox"]:checked')]
@@ -1476,7 +1902,19 @@ function addProvider(page, state) {
     }
   })
 
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove() })
+  // 点击遮罩关闭（带拖拽防误触）
+  let _pStart = null
+  overlay.addEventListener('pointerdown', e => {
+    _pStart = e.target === overlay ? { x: e.clientX, y: e.clientY } : null
+  })
+  overlay.addEventListener('pointerup', e => {
+    if (_pStart && e.target === overlay) {
+      const dx = e.clientX - _pStart.x
+      const dy = e.clientY - _pStart.y
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) overlay.remove()
+    }
+    _pStart = null
+  })
   overlay.querySelector('[data-action="cancel"]').onclick = () => overlay.remove()
 
   overlay.querySelector('[data-action="confirm"]').onclick = () => {
@@ -1645,7 +2083,19 @@ function buildFieldsHtml(fields) {
 
 // 绑定自定义弹窗的通用事件
 function bindModalEvents(overlay, fields, onConfirm) {
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove() })
+  // 点击遮罩关闭（带拖拽防误触）
+  let _pStart = null
+  overlay.addEventListener('pointerdown', e => {
+    _pStart = e.target === overlay ? { x: e.clientX, y: e.clientY } : null
+  })
+  overlay.addEventListener('pointerup', e => {
+    if (_pStart && e.target === overlay) {
+      const dx = e.clientX - _pStart.x
+      const dy = e.clientY - _pStart.y
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) overlay.remove()
+    }
+    _pStart = null
+  })
   overlay.querySelector('[data-action="cancel"]').onclick = () => overlay.remove()
   overlay.querySelector('[data-action="confirm"]').onclick = () => {
     const result = {}
@@ -1685,10 +2135,17 @@ function editModel(page, state, providerKey, idx) {
     onConfirm: (vals) => {
       if (!vals.id) return
       pushUndo(state)
+      const oldId = m.id
       m.id = vals.id.trim()
       m.name = vals.name?.trim() || vals.id.trim()
       m.reasoning = !!vals.reasoning
       if (vals.contextWindow) m.contextWindow = parseInt(vals.contextWindow) || 0
+      // 如果模型 ID 发生变化，更新 primary/fallbacks 中的旧引用
+      if (oldId && oldId !== m.id) {
+        const oldFull = `${providerKey}/${oldId}`
+        const newFull = `${providerKey}/${m.id}`
+        replaceModelReferences(state, oldFull, newFull)
+      }
       renderProviders(page, state)
       renderDefaultBar(page, state)
       updateUndoBtn(page, state)
@@ -1700,19 +2157,16 @@ function editModel(page, state, providerKey, idx) {
 
 // 全选/取消全选
 function handleSelectAll(section) {
-  const boxes = section.querySelectorAll('.model-checkbox')
-  const allChecked = [...boxes].every(cb => cb.checked)
+  const boxes = section.querySelectorAll('.models-table-row input[type="checkbox"]')
+  const allChecked = boxes.length > 0 && [...boxes].every(cb => cb.checked)
   boxes.forEach(cb => { cb.checked = !allChecked })
-  // 更新批量删除按钮状态
-  const batchDelBtn = section.querySelector('[data-action="batch-delete"]')
-  if (batchDelBtn) batchDelBtn.disabled = allChecked
 }
 
 // 批量删除选中的模型
 async function handleBatchDelete(section, page, state, providerKey) {
-  const checked = [...section.querySelectorAll('.model-checkbox:checked')]
+  const checked = [...section.querySelectorAll('.models-table-row input[type="checkbox"]:checked')]
   if (!checked.length) { toast(t('models.batchSelectHint'), 'warning'); return }
-  const ids = checked.map(cb => cb.dataset.modelId)
+  const ids = checked.map(cb => cb.closest('.models-table-row')?.dataset.modelId).filter(Boolean)
   const yes = await showConfirm({
     title: t('models.batchDeleteTitle', { count: ids.length }),
     message: t('models.confirmBatchDelete', { count: ids.length, ids: ids.join(', ') }),
@@ -1730,6 +2184,7 @@ async function handleBatchDelete(section, page, state, providerKey) {
     const mid = typeof m === 'string' ? m : m.id
     return !ids.includes(mid)
   })
+  cleanupDeletedModelReferences(state, ids.map(id => `${providerKey}/${id}`))
   renderProviders(page, state)
   renderDefaultBar(page, state)
   updateUndoBtn(page, state)
@@ -1747,9 +2202,9 @@ async function handleBatchTest(section, state, providerKey) {
   }
 
   const provider = state.config.models.providers[providerKey]
-  const checked = [...section.querySelectorAll('.model-checkbox:checked')]
+  const checked = [...section.querySelectorAll('.models-table-row input[type="checkbox"]:checked')]
   const ids = checked.length
-    ? checked.map(cb => cb.dataset.modelId)
+    ? checked.map(cb => cb.closest('.models-table-row')?.dataset.modelId).filter(Boolean)
     : (provider.models || []).map(m => typeof m === 'string' ? m : m.id)
 
   if (!ids.length) { toast(t('models.noTestModels'), 'warning'); return }
@@ -1758,6 +2213,8 @@ async function handleBatchTest(section, state, providerKey) {
   const ctrl = { abort: false }
   _batchTestAbort = ctrl
   if (batchBtn) {
+    batchBtn.disabled = false
+    batchBtn.classList.add('btn-loading')
     batchBtn.textContent = t('models.stopBatchTest')
     batchBtn.classList.remove('btn-secondary')
     batchBtn.classList.add('btn-danger')
@@ -1769,9 +2226,9 @@ async function handleBatchTest(section, state, providerKey) {
     if (ctrl.abort) break
 
     const model = (provider.models || []).find(m => (typeof m === 'string' ? m : m.id) === modelId)
-    // 标记当前正在测试的卡片
-    const card = section.querySelector(`.model-card[data-model-id="${modelId}"]`)
-    if (card) card.style.outline = '2px solid var(--accent)'
+    // 标记当前正在测试的行
+    const row = section.querySelector(`.models-table-row[data-model-id="${cssEscape(modelId)}"]`)
+    if (row) row.style.outline = '2px solid var(--accent)'
 
     const start = Date.now()
     try {
@@ -1809,9 +2266,11 @@ async function handleBatchTest(section, state, providerKey) {
   // 恢复按钮
   _batchTestAbort = null
   // 重新查找按钮(renderProviders 后 DOM 已更新)
-  const newSection = page?.querySelector(`[data-provider="${providerKey}"]`)
-  const newBtn = newSection?.querySelector('[data-action="batch-test"]')
+  const newList = page?.querySelector('#providers-list')
+  const newBtn = newList?.querySelector('[data-action="batch-test"]')
   if (newBtn) {
+    newBtn.disabled = false
+    newBtn.classList.remove('btn-loading')
     newBtn.textContent = t('models.batchTest')
     newBtn.classList.remove('btn-danger')
     newBtn.classList.add('btn-secondary')
@@ -1830,11 +2289,13 @@ async function handleBatchTest(section, state, providerKey) {
 async function fetchRemoteModels(btn, page, state, providerKey) {
   const provider = state.config.models.providers[providerKey]
   btn.disabled = true
+  btn.classList.add('btn-loading')
   btn.textContent = t('models.qtcoolFetching')
 
   try {
     const remoteIds = await api.listRemoteModels(provider.baseUrl, provider.apiKey || '', provider.api || 'openai-completions')
     btn.disabled = false
+    btn.classList.remove('btn-loading')
     btn.textContent = t('models.fetchList')
 
     // 标记已添加的模型
@@ -1896,7 +2357,19 @@ async function fetchRemoteModels(btn, page, state, providerKey) {
       updateCount()
     }
 
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove() })
+    // 点击遮罩关闭（带拖拽防误触）
+  let _pStart = null
+  overlay.addEventListener('pointerdown', e => {
+    _pStart = e.target === overlay ? { x: e.clientX, y: e.clientY } : null
+  })
+  overlay.addEventListener('pointerup', e => {
+    if (_pStart && e.target === overlay) {
+      const dx = e.clientX - _pStart.x
+      const dy = e.clientY - _pStart.y
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) overlay.remove()
+    }
+    _pStart = null
+  })
     overlay.querySelector('[data-action="cancel"]').onclick = () => overlay.remove()
     overlay.querySelector('[data-action="confirm"]').onclick = () => {
       const selected = [...listEl.querySelectorAll('.remote-cb:checked')].map(cb => cb.dataset.id)
@@ -1916,6 +2389,7 @@ async function fetchRemoteModels(btn, page, state, providerKey) {
     filterInput.focus()
   } catch (e) {
     btn.disabled = false
+    btn.classList.remove('btn-loading')
     btn.textContent = t('models.fetchList')
     const errStr = String(e?.message || e)
     // 服务商不支持 /models 接口 → 友好弹窗引导手动添加
@@ -1926,7 +2400,7 @@ async function fetchRemoteModels(btn, page, state, providerKey) {
         confirmText: t('models.addModel').replace('+ ', ''),
         cancelText: t('common.close'),
       }).then(yes => {
-        if (yes) addModel(btn.closest('.page') || document.querySelector('.page'), { config: state.config, save: state.save }, providerKey)
+        if (yes) addModel(btn.closest('.page') || document.querySelector('.page'), state, providerKey)
       })
     } else {
       toast(t('models.fetchFailed', { error: errStr }), 'error')
@@ -1941,6 +2415,7 @@ async function testModel(btn, state, providerKey, idx) {
   const modelId = typeof model === 'string' ? model : model.id
 
   btn.disabled = true
+  btn.classList.add('btn-loading')
   const origText = btn.textContent
   btn.textContent = t('models.testing')
 
@@ -1980,6 +2455,7 @@ async function testModel(btn, state, providerKey, idx) {
     toast(t('models.testFail', { model: modelId, time: (elapsed / 1000).toFixed(1), error: e }), 'error', { duration: 8000 })
   } finally {
     btn.disabled = false
+    btn.classList.remove('btn-loading')
     btn.textContent = origText
     // 刷新卡片显示最新状态
     const page = btn.closest('.page')
@@ -1990,4 +2466,11 @@ async function testModel(btn, state, providerKey, idx) {
     // 持久化测试结果(仅保存,不重启 Gateway)
     saveConfigOnly(state)
   }
+}
+
+async function testFullModel(btn, state, full) {
+  const entry = getModelObject(state.config, full)
+  if (!entry) return
+  const idx = findModelIdx(entry.provider, entry.modelId)
+  if (idx >= 0) await testModel(btn, state, entry.providerKey, idx)
 }

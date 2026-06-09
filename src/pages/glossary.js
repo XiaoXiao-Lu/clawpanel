@@ -8,6 +8,7 @@
  */
 import { t, getLang } from '../lib/i18n.js'
 import { navigate } from '../router.js'
+import { escapeHtml as esc } from '../lib/utils.js'
 
 // ── 25 个核心术语（zh-CN / en / zh-TW；其他语言后续补） ──
 
@@ -183,9 +184,6 @@ function pickLang(item) {
   return item.en
 }
 
-function esc(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 
 export async function render() {
   const page = document.createElement('div')

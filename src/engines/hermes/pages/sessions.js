@@ -5,17 +5,10 @@ import { showConfirm } from '../../../components/modal.js'
 import { icon } from '../../../lib/icons.js'
 import { getChatStore, getSourceLabel } from '../lib/chat-store.js'
 import { humanizeError } from '../../../lib/humanize-error.js'
-
-function escHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+import { escapeHtml as escHtml } from '../../../lib/utils.js'
 
 function escAttr(value) {
-  return escHtml(value).replace(/'/g, '&#39;')
+  return escHtml(value)
 }
 
 function parseEpochMs(value) {

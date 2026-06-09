@@ -6,6 +6,7 @@
  * 在 Tauri 桌面端走 @tauri-apps/plugin-shell，Web 端回退到 window.open。
  */
 import { t } from '../../../lib/i18n.js'
+import { escapeHtml as esc } from '../../../lib/utils.js'
 
 const WEBSITE_URL  = 'https://xtclaw.xtnet.cc/'
 const DOWNLOAD_URL = 'https://xtclaw.xtnet.cc/download'
@@ -37,7 +38,6 @@ const ICON = {
   arrowRight: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`,
 }
 
-function esc(s) { return String(s ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
 
 async function openExternal(url) {
   if (!url) return

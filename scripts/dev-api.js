@@ -1140,6 +1140,57 @@ function createTask(containerId, containerName, nodeId, message) {
   return task
 }
 
+function agentActivityStateFromTask(task) {
+  if (!task) return 'idle'
+  if (task.status === 'running') return 'working'
+  if (task.status === 'error') return 'error'
+  if (task.status === 'completed') return 'done'
+  return 'idle'
+}
+
+function summarizeTaskProgress(task) {
+  if (!task) return ''
+  const lastEvent = Array.isArray(task.events) ? task.events[task.events.length - 1] : null
+  if (task.error) return task.error
+  if (lastEvent?.data) return String(lastEvent.data).slice(0, 180)
+  if (lastEvent?.event) return String(lastEvent.event)
+  if (task.result) return '任务已完成'
+  return task.status === 'running' ? '任务执行中' : ''
+}
+
+function listAgentActivitySnapshot() {
+  const cfg = readOpenclawConfigOptional()
+  const agents = handlers.list_agents()
+  const bindings = Array.isArray(cfg.bindings) ? cfg.bindings : []
+  const tasks = [..._taskStore.values()].sort((a, b) => b.startedAt - a.startedAt)
+  const now = Date.now()
+
+  return agents.map(agent => {
+    const id = agent.id || 'main'
+    const agentBindings = bindings.filter(b => (b.agentId || 'main') === id)
+    const task = tasks.find(t =>
+      t.agentId === id ||
+      t.containerName === id ||
+      t.containerName === agent.identityName ||
+      String(t.message || '').includes(`agent:${id}`)
+    ) || null
+    const state = agentActivityStateFromTask(task)
+    return {
+      agentId: id,
+      state,
+      taskTitle: task?.message ? String(task.message).slice(0, 120) : '',
+      progressText: summarizeTaskProgress(task),
+      toolName: task?.events?.findLast?.(e => e?.tool)?.tool || null,
+      source: task?.containerName || agentBindings[0]?.match?.channel || null,
+      sessionId: task?.id || null,
+      startedAt: task?.startedAt || null,
+      updatedAt: task?.completedAt || task?.startedAt || now,
+      error: task?.error || null,
+      bindingCount: agentBindings.length,
+    }
+  })
+}
+
 // 语义化版本比较
 function parseVersion(value) {
   return String(value || '').split(/[^0-9]/).filter(Boolean).map(Number)
@@ -2765,6 +2816,86 @@ function writeOpenclawConfigFile(config) {
   validateModelProviderEnvRefs(cleaned)
   if (fs.existsSync(CONFIG_PATH)) fs.copyFileSync(CONFIG_PATH, CONFIG_PATH + '.bak')
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(cleaned, null, 2))
+}
+
+function panelStateDir() {
+  return path.join(OPENCLAW_DIR, 'clawpanel')
+}
+
+function expertProfilesPath() {
+  return path.join(panelStateDir(), 'experts.json')
+}
+
+function expertGroupsPath() {
+  return path.join(panelStateDir(), 'expert-groups.json')
+}
+
+function readJsonArrayFile(filePath) {
+  if (!fs.existsSync(filePath)) return []
+  const value = readJsonFileRelaxed(filePath)
+  if (!Array.isArray(value)) throw new Error(`${path.basename(filePath)} 顶层必须是数组`)
+  return value
+}
+
+function writeJsonArrayFile(filePath, items) {
+  const dir = path.dirname(filePath)
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  fs.writeFileSync(filePath, JSON.stringify(items, null, 2))
+}
+
+function validateExpertObjectId(id, label) {
+  const value = String(id || '').trim()
+  if (!value) throw new Error(`${label} ID 不能为空`)
+  if (value.length > 80) throw new Error(`${label} ID 不能超过 80 个字符`)
+  if (!/^[A-Za-z0-9_.-]+$/.test(value)) throw new Error(`${label} ID 只能包含字母、数字、点、下划线和短横线`)
+  return value
+}
+
+function normalizeExpertObject(value, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} 必须是对象`)
+  const now = new Date().toISOString()
+  const next = { ...value, id: validateExpertObjectId(value.id, label), updatedAt: now }
+  if (!next.createdAt) next.createdAt = now
+  return next
+}
+
+function upsertExpertObject(filePath, value, label) {
+  const next = normalizeExpertObject(value, label)
+  const items = readJsonArrayFile(filePath)
+  const idx = items.findIndex(item => item?.id === next.id)
+  if (idx >= 0) items[idx] = { ...next, createdAt: items[idx].createdAt || next.createdAt }
+  else items.push(next)
+  items.sort((a, b) => String(a?.name || a?.id || '').localeCompare(String(b?.name || b?.id || ''), 'zh-CN'))
+  writeJsonArrayFile(filePath, items)
+  return next
+}
+
+function deleteExpertObject(filePath, id, label) {
+  const normalizedId = validateExpertObjectId(id, label)
+  const items = readJsonArrayFile(filePath)
+  const next = items.filter(item => item?.id !== normalizedId)
+  if (next.length === items.length) throw new Error(`${label}「${normalizedId}」不存在`)
+  writeJsonArrayFile(filePath, next)
+  return { ok: true }
+}
+
+function pruneExpertFromGroups(expertId) {
+  const filePath = expertGroupsPath()
+  const groups = readJsonArrayFile(filePath)
+  let changed = false
+  for (const group of groups) {
+    if (!group || typeof group !== 'object') continue
+    if (group.moderatorExpertId === expertId) {
+      delete group.moderatorExpertId
+      changed = true
+    }
+    if (Array.isArray(group.members)) {
+      const before = group.members.length
+      group.members = group.members.filter(member => member?.expertId !== expertId)
+      changed = changed || before !== group.members.length
+    }
+  }
+  if (changed) writeJsonArrayFile(filePath, groups)
 }
 
 function ensureAgentsList(config) {
@@ -8627,6 +8758,65 @@ async function proxyStreamToInstance(instance, cmd, body, req, res) {
   }
 }
 
+async function streamModelChatCompletionsProxy({ baseUrl, apiKey, apiType = 'openai-completions', body } = {}, req, res) {
+  const type = ['anthropic', 'anthropic-messages'].includes(apiType) ? 'anthropic-messages'
+    : apiType === 'google-gemini' ? 'google-gemini'
+    : 'openai-completions'
+  if (type !== 'openai-completions') throw new Error('当前代理仅支持 OpenAI Chat Completions')
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('请求体无效')
+
+  apiKey = resolveModelApiKey(apiKey)
+  const base = _normalizeBaseUrl(baseUrl)
+  const url = `${base}/chat/completions`
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': body.stream ? 'text/event-stream' : 'application/json',
+    'Accept-Encoding': 'identity',
+  }
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`
+
+  const controller = new AbortController()
+  let closed = false
+  res.on('close', () => {
+    closed = true
+    controller.abort()
+  })
+
+  const upstream = await globalThis.fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    signal: controller.signal,
+  })
+
+  res.statusCode = upstream.status
+  res.statusMessage = upstream.statusText || res.statusMessage
+  const contentType = upstream.headers.get('content-type') || (body.stream ? 'text/event-stream; charset=utf-8' : 'application/json; charset=utf-8')
+  res.setHeader('Content-Type', contentType)
+  res.setHeader('Cache-Control', 'no-cache, no-transform')
+  res.setHeader('Connection', 'keep-alive')
+
+  if (!upstream.ok || !upstream.body) {
+    res.end(await upstream.text())
+    return
+  }
+
+  const reader = upstream.body.getReader()
+  try {
+    while (!closed) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value) {
+        const ready = res.write(Buffer.from(value))
+        if (!ready) await new Promise(resolve => res.once('drain', resolve))
+      }
+    }
+  } finally {
+    try { reader.releaseLock() } catch {}
+    if (!res.writableEnded && !res.destroyed) res.end()
+  }
+}
+
 async function instanceHealthCheck(instance) {
   const result = { id: instance.id, online: false, version: null, gatewayRunning: false, lastCheck: Date.now() }
   if (instance.type === 'local') {
@@ -8699,7 +8889,8 @@ const ALWAYS_LOCAL = new Set([
   'docker_cluster_overview',
   'auth_check', 'auth_login', 'auth_logout',
   'read_panel_config', 'write_panel_config',
-  'get_deploy_mode', 'scan_model_client_configs',
+  'get_deploy_mode', 'scan_model_client_configs', 'model_chat_completions_proxy', 'model_chat_completions_proxy_stream',
+  'list_agent_activity', 'agent_activity_stream',
   'assistant_exec', 'assistant_read_file', 'assistant_write_file',
   'assistant_list_dir', 'assistant_system_info', 'assistant_list_processes',
   'assistant_check_port', 'assistant_web_search', 'assistant_fetch_url',
@@ -10282,6 +10473,10 @@ const handlers = {
     }))
   },
 
+  list_agent_activity() {
+    return { items: listAgentActivitySnapshot(), ts: Date.now() }
+  },
+
   async docker_init_worker({ nodeId, containerId, role = 'general' } = {}) {
     if (!containerId) throw new Error('缺少 containerId')
     const nodes = readDockerNodes()
@@ -11126,6 +11321,42 @@ const handlers = {
       error = 'API 已响应但未解析出内容'
     }
     return { success, status, reqUrl, reqBody, respHeaders, respBody, respRawHex, respByteCount, reply, error, elapsedMs, usedApi }
+  },
+
+  async model_chat_completions_proxy({ baseUrl, apiKey, apiType = 'openai-completions', body } = {}) {
+    const type = ['anthropic', 'anthropic-messages'].includes(apiType) ? 'anthropic-messages'
+      : apiType === 'google-gemini' ? 'google-gemini'
+      : 'openai-completions'
+    if (type !== 'openai-completions') throw new Error('当前代理仅支持 OpenAI Chat Completions')
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('请求体无效')
+
+    apiKey = resolveModelApiKey(apiKey)
+    const base = _normalizeBaseUrl(baseUrl)
+    const url = `${base}/chat/completions`
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': body.stream ? 'text/event-stream' : 'application/json',
+      'Accept-Encoding': 'identity',
+    }
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`
+
+    const resp = await globalThis.fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120000),
+    })
+    const text = await resp.text()
+    const respHeaders = {}
+    for (const [k, v] of resp.headers.entries()) respHeaders[k] = v
+    return {
+      ok: resp.ok,
+      status: resp.status,
+      statusText: resp.statusText,
+      contentType: resp.headers.get('content-type') || '',
+      headers: respHeaders,
+      body: text,
+    }
   },
 
   async list_remote_models({ baseUrl, apiKey, apiType = 'openai-completions' }) {
@@ -11985,6 +12216,21 @@ const handlers = {
     const installedPath = await skillhubSdk.install(slug, skillsDir)
     return { success: true, slug, path: installedPath }
   },
+  async skills_install_zip({ name, zip_base64, agent_id } = {}) {
+    const rawName = String(name || '').trim()
+    if (!rawName) throw new Error('Skill zip 文件名不能为空')
+    if (!zip_base64) throw new Error('Skill zip 内容不能为空')
+    const agentDir = resolveAgentSkillsDir(agent_id)
+    const skillsDir = agentDir || path.join(OPENCLAW_DIR, 'skills')
+    if (!fs.existsSync(skillsDir)) fs.mkdirSync(skillsDir, { recursive: true })
+    const payload = String(zip_base64).includes(',')
+      ? String(zip_base64).split(',').pop()
+      : String(zip_base64)
+    const zipBuf = Buffer.from(payload, 'base64')
+    if (!zipBuf.length) throw new Error('Skill zip 内容为空')
+    const installedPath = await skillhubSdk.installZip(zipBuf, rawName, skillsDir)
+    return { success: true, name: rawName.replace(/\.zip$/i, ''), path: installedPath }
+  },
 
   // 设备配对 + Gateway 握手
   auto_pair_device() {
@@ -12451,6 +12697,39 @@ const handlers = {
     } catch (e) {
       throw new Error('备份失败: ' + (e.message || e))
     }
+  },
+
+  // === Expert Teams（Web 模式） ===
+
+  list_experts() {
+    return readJsonArrayFile(expertProfilesPath())
+  },
+
+  save_expert({ expert }) {
+    return upsertExpertObject(expertProfilesPath(), expert, '专家')
+  },
+
+  delete_expert({ id }) {
+    const result = deleteExpertObject(expertProfilesPath(), id, '专家')
+    pruneExpertFromGroups(String(id || '').trim())
+    return result
+  },
+
+  list_expert_groups() {
+    return readJsonArrayFile(expertGroupsPath())
+  },
+
+  save_expert_group({ group }) {
+    const next = group && typeof group === 'object' && !Array.isArray(group) ? { ...group } : group
+    if (!next || typeof next !== 'object' || Array.isArray(next)) throw new Error('专家团必须是对象')
+    if (!Array.isArray(next.members)) next.members = []
+    if (!next.mode) next.mode = 'panel'
+    if (!next.budget || typeof next.budget !== 'object' || Array.isArray(next.budget)) next.budget = {}
+    return upsertExpertObject(expertGroupsPath(), next, '专家团')
+  },
+
+  delete_expert_group({ id }) {
+    return deleteExpertObject(expertGroupsPath(), id, '专家团')
   },
 
   // === 初始设置工具（Web 模式） ===
@@ -16055,6 +16334,43 @@ async function _apiMiddleware(req, res, next) {
   }
 
   const activeInst = getActiveInstance()
+
+  if (cmd === 'model_chat_completions_proxy_stream') {
+    try {
+      const args = await readBody(req)
+      await streamModelChatCompletionsProxy(args, req, res)
+    } catch (e) {
+      if (!res.headersSent) {
+        res.statusCode = e.name === 'AbortError' ? 499 : 500
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ error: e.message || String(e) }))
+      } else if (!res.writableEnded && !res.destroyed) {
+        res.end()
+      }
+    }
+    return
+  }
+
+  if (cmd === 'agent_activity_stream') {
+    res.statusCode = 200
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
+    res.setHeader('Cache-Control', 'no-cache, no-transform')
+    res.setHeader('Connection', 'keep-alive')
+    let closed = false
+    let timer = null
+    const writeSnapshot = () => {
+      if (closed || res.destroyed || res.writableEnded) return
+      res.write(JSON.stringify({ event: 'agent_activity.snapshot', items: listAgentActivitySnapshot(), ts: Date.now() }) + '\n')
+    }
+    req.on('close', () => {
+      closed = true
+      clearInterval(timer)
+      if (!res.writableEnded && !res.destroyed) res.end()
+    })
+    writeSnapshot()
+    timer = setInterval(writeSnapshot, 2000)
+    return
+  }
 
   if (cmd === 'hermes_agent_run_stream') {
     const args = await readBody(req)

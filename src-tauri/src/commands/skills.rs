@@ -144,6 +144,70 @@ pub async fn skillhub_install(slug: String, agent_id: Option<String>) -> Result<
     }))
 }
 
+/// 安装用户上传的 Skill zip
+#[tauri::command]
+pub async fn skills_install_zip(
+    name: String,
+    zip_base64: String,
+    agent_id: Option<String>,
+) -> Result<Value, String> {
+    let raw_name = name.trim();
+    if raw_name.is_empty() {
+        return Err("Skill zip 文件名不能为空".into());
+    }
+    if zip_base64.trim().is_empty() {
+        return Err("Skill zip 内容不能为空".into());
+    }
+    let skills_dir = match resolve_agent_skills_dir(agent_id.as_deref()) {
+        Some(dir) => dir,
+        None => super::openclaw_dir().join("skills"),
+    };
+    if !skills_dir.exists() {
+        std::fs::create_dir_all(&skills_dir).map_err(|e| format!("创建 skills 目录失败: {e}"))?;
+    }
+    let payload = zip_base64
+        .rsplit(',')
+        .next()
+        .unwrap_or(zip_base64.as_str())
+        .trim();
+    let bytes = decode_base64_payload(payload)?;
+    if bytes.is_empty() {
+        return Err("Skill zip 内容为空".into());
+    }
+    let installed_path = super::skillhub::install_zip(&bytes, raw_name, &skills_dir)?;
+    Ok(serde_json::json!({
+        "success": true,
+        "name": raw_name.trim_end_matches(".zip").trim_end_matches(".ZIP"),
+        "path": installed_path.to_string_lossy(),
+    }))
+}
+
+fn decode_base64_payload(input: &str) -> Result<Vec<u8>, String> {
+    let mut out = Vec::new();
+    let mut buf: u32 = 0;
+    let mut bits = 0u8;
+    for ch in input.chars().filter(|c| !c.is_whitespace()) {
+        if ch == '=' {
+            break;
+        }
+        let val = match ch {
+            'A'..='Z' => ch as u32 - 'A' as u32,
+            'a'..='z' => ch as u32 - 'a' as u32 + 26,
+            '0'..='9' => ch as u32 - '0' as u32 + 52,
+            '+' | '-' => 62,
+            '/' | '_' => 63,
+            _ => return Err("Skill zip base64 内容无效".into()),
+        };
+        buf = (buf << 6) | val;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push(((buf >> bits) & 0xff) as u8);
+        }
+    }
+    Ok(out)
+}
+
 /// 卸载 Skill（删除 skills/<name>/ 目录）
 #[tauri::command]
 pub async fn skills_uninstall(name: String, agent_id: Option<String>) -> Result<Value, String> {
@@ -598,6 +662,7 @@ fn scan_custom_skill_detail(
         if let Some(full_path) = base.get("fullPath").cloned() {
             detail["fullPath"] = full_path;
         }
+        copy_skill_visual_fields(&mut detail, &base);
 
         return Some(detail);
     }
@@ -629,17 +694,30 @@ fn scan_local_skill_entries_for_agent(
                 continue;
             }
 
-            let name = entry.file_name().to_string_lossy().to_string();
-            let base = scan_single_skill(&entry.path(), &name);
+            let dir_name = entry.file_name().to_string_lossy().to_string();
+            let base = scan_single_skill(&entry.path(), &dir_name);
+            // 优先使用 SKILL.md frontmatter 中的 name，目录名作为 fallback
+            let display_name = base
+                .get("name")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .unwrap_or(dir_name);
+            let sk_source = base
+                .get("custom")
+                .and_then(|v| v.as_bool())
+                .filter(|&c| c)
+                .map(|_| "自定义")
+                .unwrap_or(source_label);
             let eligible = base.get("ready").and_then(|v| v.as_bool()).unwrap_or(false);
             let mut item = serde_json::json!({
-                "name": name,
+                "name": display_name,
                 "description": base.get("description").cloned().unwrap_or(Value::String(String::new())),
                 "emoji": base.get("emoji").cloned().unwrap_or(Value::String("🧩".to_string())),
                 "eligible": eligible,
                 "disabled": false,
                 "blockedByAllowlist": false,
-                "source": source_label,
+                "source": sk_source,
                 "bundled": false,
                 "filePath": entry.path().to_string_lossy().to_string(),
                 "homepage": base.get("homepage").cloned().unwrap_or(Value::Null),
@@ -657,6 +735,7 @@ fn scan_local_skill_entries_for_agent(
             if let Some(full_path) = base.get("fullPath").cloned() {
                 item["fullPath"] = full_path;
             }
+            copy_skill_visual_fields(&mut item, &base);
 
             skills.push(item);
         }
@@ -669,6 +748,14 @@ fn scan_local_skill_entries_for_agent(
     });
 
     Ok(skills)
+}
+
+fn copy_skill_visual_fields(target: &mut Value, source: &Value) {
+    for key in ["homepage", "icon", "logo", "avatar", "avatar_url", "image", "version", "author"] {
+        if let Some(value) = source.get(key).cloned() {
+            target[key] = value;
+        }
+    }
 }
 
 fn scan_local_skill_entries() -> Result<Vec<Value>, String> {
@@ -754,6 +841,12 @@ fn scan_single_skill(skill_path: &std::path::Path, name: &str) -> Value {
     let has_skill_md = skill_md.exists();
     let has_package_json = package_json.exists();
 
+    // 没有 package.json 的技能标注为自定义
+    if !has_package_json {
+        result["source"] = Value::String("自定义".to_string());
+        result["custom"] = Value::Bool(true);
+    }
+
     result["hasSkillMd"] = Value::Bool(has_skill_md);
     result["hasPackageJson"] = Value::Bool(has_package_json);
 
@@ -778,6 +871,11 @@ fn scan_single_skill(skill_path: &std::path::Path, name: &str) -> Value {
                 }
                 if let Some(homepage) = pkg.get("homepage").and_then(|v| v.as_str()) {
                     result["homepage"] = Value::String(homepage.to_string());
+                }
+                for key in ["icon", "logo", "avatar", "avatar_url", "image"] {
+                    if let Some(value) = pkg.get(key).and_then(|v| v.as_str()) {
+                        result[key] = Value::String(value.to_string());
+                    }
                 }
 
                 // 提取 dependencies
@@ -820,12 +918,21 @@ fn scan_single_skill(skill_path: &std::path::Path, name: &str) -> Value {
     // 3. 从 SKILL.md frontmatter 提取额外信息
     if has_skill_md {
         if let Some(frontmatter) = parse_skill_frontmatter(&skill_md) {
+            // 优先使用 SKILL.md frontmatter 中的 name，目录名只作为 fallback
+            if let Some(skill_name) = frontmatter.get("name").and_then(|v| v.as_str()) {
+                result["name"] = Value::String(skill_name.to_string());
+            }
             // 覆盖或补充 description（SKILL.md 的 description 更权威）
             if let Some(desc) = frontmatter.get("description").and_then(|v| v.as_str()) {
                 result["description"] = Value::String(desc.to_string());
             }
             if let Some(full_path) = frontmatter.get("fullPath").and_then(|v| v.as_str()) {
                 result["fullPath"] = Value::String(full_path.to_string());
+            }
+            for key in ["homepage", "icon", "logo", "avatar", "avatar_url", "image"] {
+                if let Some(value) = frontmatter.get(key).and_then(|v| v.as_str()) {
+                    result[key] = Value::String(value.to_string());
+                }
             }
         }
     }

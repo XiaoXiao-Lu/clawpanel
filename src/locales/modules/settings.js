@@ -105,4 +105,5 @@ export default {
   gitScanning: _('正在扫描…', 'Scanning…', '正在掃描…', 'スキャン中…', '스캔 중…'),
   gitScanEmpty: _('未找到 Git 安装', 'No Git installations found', '未找到 Git 安裝', 'Git インストールが見つかりません', 'Git 설치를 찾을 수 없습니다'),
   gitScanUse: _('使用', 'Use', '使用', '使用', '사용'),
+
 }

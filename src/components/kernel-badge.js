@@ -11,6 +11,7 @@
 import { onKernelChange, getKernelSnapshot } from '../lib/kernel.js'
 import { FEATURE_CATALOG } from '../lib/feature-catalog.js'
 import { t } from '../lib/i18n.js'
+import { escapeHtml } from '../lib/utils.js'
 
 /**
  * 在指定容器中挂载内核徽章。
@@ -77,14 +78,6 @@ export function mountKernelBadge(container, opts = {}) {
   return el
 }
 
-function escapeHtml(s) {
-  return String(s ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
 let _stylesInjected = false
 function injectStyles() {
   if (_stylesInjected) return
@@ -133,9 +126,9 @@ function injectStyles() {
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
-  .kernel-badge-state.ok   { color: var(--success, #16a34a); background: rgba(34,197,94,.12); }
+  .kernel-badge-state.ok   { color: var(--success, #16a34a); background: rgba(var(--brand-green-rgb, 34,197,94), .12); }
   .kernel-badge-state.info { color: var(--info, #2563eb);    background: rgba(59,130,246,.12); }
-  .kernel-badge-state.warn { color: var(--warning, #d97706); background: rgba(245,158,11,.16); }
+  .kernel-badge-state.warn { color: var(--warning, #d97706); background: rgba(var(--brand-amber-rgb, 245,158,11), .16); }
   `
   const style = document.createElement('style')
   style.setAttribute('data-origin', 'kernel-badge')

@@ -15,3 +15,22 @@ test('humanizeErrorText is safe for plain-string contexts', () => {
   assert.match(line, /Import scan failed/)
   assert.doesNotMatch(line, /\[object Object\]/)
 })
+
+test('humanizeError classifies gateway connection failures before generic network errors', () => {
+  const h = humanizeError('Gateway not running: ECONNREFUSED 127.0.0.1:18789', 'Gateway start failed')
+  assert.equal(h.kind, 'gatewayDown')
+  assert.equal(h.action?.route, '/services')
+  assert.ok(h.action?.label)
+})
+
+test('humanizeError treats refused loopback default Gateway port as gatewayDown', () => {
+  const h = humanizeError('ECONNREFUSED 127.0.0.1:18789', 'Request failed')
+  assert.equal(h.kind, 'gatewayDown')
+  assert.equal(h.action?.route, '/services')
+})
+
+test('humanizeError keeps non-Gateway refused ports as generic network errors', () => {
+  const h = humanizeError('ECONNREFUSED 127.0.0.1:443', 'Import scan failed')
+  assert.equal(h.kind, 'network')
+  assert.equal(h.action, undefined)
+})

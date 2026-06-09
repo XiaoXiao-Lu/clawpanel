@@ -16,12 +16,20 @@ import { getActiveEngineId } from '../lib/engine-manager.js'
 import { enhanceModelCallError } from '../lib/model-error-diagnosis.js'
 import { getFieldSchema } from '../lib/config-schema.js'
 import { wsClient } from '../lib/ws-client.js'
+import { resolveMaxRounds, resumeExpertTeamRun, resumeExpertTeamSynthesis, runExpertTeam, runExpertTeamSequential } from '../lib/expert-team-runner.js'
+import { escapeHtml as escHtml } from '../lib/utils.js'
 
 // ── 常量 ──
 const STORAGE_KEY = 'clawpanel-assistant'
 const SESSIONS_KEY = 'clawpanel-assistant-sessions'
+const EXPERT_TEAM_SELECTION_KEY = 'clawpanel-assistant-expert-team'
 const MAX_SESSIONS = 50
 const MAX_CONTEXT_TOKENS = 30 // 最近 N 条消息作为上下文
+const AUTO_MODEL_VALUE = '__auto__'
+const DEEPSEEK_CONTEXT_WINDOW_TOKENS = 64000
+const DEEPSEEK_COMPACT_RATIO = 0.72
+const DEEPSEEK_RECENT_CONTEXT_KEEP = 12
+const DEEPSEEK_SUMMARY_MAX_CHARS = 8000
 
 // ── 图片文件存储（通过 Tauri 后端持久化到 ~/.openclaw/clawpanel/images/）──
 async function saveImageToFile(id, dataUrl) {
@@ -93,6 +101,210 @@ function apiKeyPlaceholder(apiType) {
     'google-generative-ai': 'AIza...',
     'ollama': 'ollama-local',
   }[normalizeApiType(apiType)] || 'sk-...'
+}
+
+function isDeepSeekConfig(config = _config, baseOverride = '') {
+  const baseUrl = (baseOverride || config?.baseUrl || '').trim()
+  const model = (config?.model || '').trim().toLowerCase()
+  const apiType = normalizeApiType(config?.apiType)
+  if (apiType !== 'openai-completions') return false
+  if (model.includes('deepseek')) return true
+  try {
+    const host = new URL(baseUrl).hostname.toLowerCase()
+    return host === 'api.deepseek.com' || host.endsWith('.deepseek.com')
+  } catch {
+    return /(^|\/\/|\.)(api\.)?deepseek\.com(\/|$)/i.test(baseUrl)
+  }
+}
+
+function deepSeekCacheUsage(usage) {
+  if (!usage || typeof usage !== 'object') return null
+  const prompt = usage.prompt_tokens || usage.input_tokens || 0
+  const completion = usage.completion_tokens || usage.output_tokens || 0
+  const total = usage.total_tokens || (prompt + completion)
+  const hit = usage.prompt_cache_hit_tokens || usage.prompt_tokens_details?.cached_tokens || 0
+  const miss = usage.prompt_cache_miss_tokens || (hit > 0 && prompt > hit ? prompt - hit : 0)
+  const reasoning = usage.completion_tokens_details?.reasoning_tokens || 0
+  return { prompt, completion, total, cacheHit: hit, cacheMiss: miss, reasoning }
+}
+
+function summarizeRequestMessages(messages) {
+  return messages.map(m => ({
+    role: m.role,
+    content: typeof m.content === 'string'
+      ? m.content.slice(0, 200) + (m.content.length > 200 ? '...' : '')
+      : '[multimodal]',
+    tool_calls: m.tool_calls?.length,
+    tool_call_id: m.tool_call_id,
+    reasoning_content: m.reasoning_content ? '[kept-for-deepseek-tool-call]' : undefined,
+  }))
+}
+
+function sanitizeDeepSeekMessages(messages) {
+  return messages.map(m => {
+    const next = { ...m }
+    const hasToolCalls = Array.isArray(next.tool_calls) && next.tool_calls.length > 0
+    if (next.role === 'assistant' && next.reasoning_content && !hasToolCalls) {
+      delete next.reasoning_content
+    }
+    return next
+  })
+}
+
+function applyDeepSeekChatOptions(body, { deepseek = false } = {}) {
+  if (!deepseek) return body
+  body.messages = sanitizeDeepSeekMessages(body.messages || [])
+  body.stream_options = { include_usage: true }
+  return body
+}
+
+function captureDeepSeekUsage(json) {
+  const usage = deepSeekCacheUsage(json?.usage)
+  if (!usage || !_lastDebugInfo) return
+  _lastDebugInfo.usage = usage
+  _lastDebugInfo.deepseekCache = {
+    hitTokens: usage.cacheHit,
+    missTokens: usage.cacheMiss,
+    hitRate: usage.cacheHit + usage.cacheMiss > 0
+      ? Math.round((usage.cacheHit / (usage.cacheHit + usage.cacheMiss)) * 1000) / 10
+      : null,
+  }
+}
+
+function estimateTokens(text) {
+  const s = typeof text === 'string' ? text : JSON.stringify(text || '')
+  return Math.max(1, Math.ceil(s.length / 4))
+}
+
+function estimateMessagesTokens(messages) {
+  return messages.reduce((sum, m) => sum + estimateTokens(m.content) + 4, 0)
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`
+  }
+  return JSON.stringify(value)
+}
+
+function shortHash(value) {
+  const text = typeof value === 'string' ? value : stableStringify(value)
+  let h = 2166136261
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return (h >>> 0).toString(16).padStart(8, '0')
+}
+
+function normalizeToolSchemasForHash(tools = []) {
+  return tools.map(t => ({
+    name: t?.function?.name || '',
+    description: t?.function?.description || '',
+    parameters: t?.function?.parameters || {},
+  })).sort((a, b) => a.name.localeCompare(b.name))
+}
+
+function captureDeepSeekPrefixShape(messages, tools = [], contextRewriteVersion = 0) {
+  const systemPrompt = messages.find(m => m.role === 'system')?.content || ''
+  const normalizedTools = normalizeToolSchemasForHash(tools)
+  const toolsJson = stableStringify(normalizedTools)
+  return {
+    systemHash: shortHash(systemPrompt),
+    toolsHash: shortHash(toolsJson),
+    prefixHash: shortHash({ system: systemPrompt, tools: normalizedTools }),
+    contextRewriteVersion,
+    messageCount: messages.length,
+    estimatedPromptTokens: estimateMessagesTokens(messages) + estimateTokens(toolsJson),
+    toolSchemaTokens: estimateTokens(toolsJson),
+  }
+}
+
+function attachDeepSeekPrefixDiagnostics(messages, tools = []) {
+  if (!_lastDebugInfo) return
+  const session = getCurrentSession?.()
+  const contextState = session?._deepseekContext || null
+  const shape = captureDeepSeekPrefixShape(messages, tools, contextState?.version || 0)
+  const prev = session?._deepseekPrefixShape || null
+  const reasons = []
+  if (prev) {
+    if (prev.systemHash !== shape.systemHash) reasons.push('system')
+    if (prev.toolsHash !== shape.toolsHash) reasons.push('tools')
+    if ((prev.contextRewriteVersion || 0) !== shape.contextRewriteVersion) reasons.push('context_rewrite')
+  }
+  _lastDebugInfo.deepseekPrefix = {
+    ...shape,
+    changed: !!prev && reasons.length > 0,
+    changeReasons: reasons,
+  }
+  if (session) session._deepseekPrefixShape = shape
+}
+
+function modelFacingChatMessages(messages) {
+  return messages
+    .filter(m => {
+      if (m.role === 'user') return true
+      if (m.role === 'assistant') return m.content && m.content.length > 0
+      return false
+    })
+    .map(m => ({ role: m.role, content: m.content }))
+}
+
+function formatDeepSeekContextSummary(entries, previousSummary = '') {
+  const lines = ['[DeepSeek context summary]', 'Older conversation was compacted locally to keep the repeated prefix cache-friendly.']
+  if (previousSummary) {
+    lines.push('', 'Previous summary:', previousSummary.slice(0, 2400))
+  }
+  lines.push('', `Compacted messages: ${entries.length}`)
+  for (const m of entries) {
+    const text = messageText(m.content).replace(/\s+/g, ' ').trim()
+    if (!text) continue
+    lines.push(`- ${m.role}: ${text.slice(0, 320)}`)
+    if (lines.join('\n').length >= DEEPSEEK_SUMMARY_MAX_CHARS) break
+  }
+  return lines.join('\n').slice(0, DEEPSEEK_SUMMARY_MAX_CHARS)
+}
+
+function compactDeepSeekContext(session, messages, state = null) {
+  const keep = Math.min(DEEPSEEK_RECENT_CONTEXT_KEEP, Math.max(2, messages.length))
+  const sourceCount = Math.max(0, messages.length - keep)
+  const previousSourceCount = state?.sourceCount || 0
+  const entries = messages.slice(previousSourceCount, sourceCount)
+  const summary = formatDeepSeekContextSummary(entries, state?.summary || '')
+  const version = (state?.version || 0) + 1
+  session._deepseekContext = {
+    sourceCount,
+    summary,
+    version,
+    compactedAt: Date.now(),
+    compactedMessages: (state?.compactedMessages || 0) + entries.length,
+  }
+  return [{ role: 'user', content: summary }, ...messages.slice(sourceCount)]
+}
+
+function buildDeepSeekContextMessages(session) {
+  const messages = modelFacingChatMessages(session.messages)
+  if (!messages.length) return []
+  let state = session._deepseekContext || null
+  if (state && (!state.summary || state.sourceCount <= 0 || state.sourceCount >= messages.length)) {
+    state = null
+    delete session._deepseekContext
+  }
+  const threshold = DEEPSEEK_CONTEXT_WINDOW_TOKENS * DEEPSEEK_COMPACT_RATIO
+  if (state) {
+    const compacted = [{ role: 'user', content: state.summary }, ...messages.slice(state.sourceCount)]
+    if (estimateMessagesTokens(compacted) <= threshold) return compacted
+    return compactDeepSeekContext(session, messages, state)
+  }
+  if (estimateMessagesTokens(messages) <= threshold) return messages
+  return compactDeepSeekContext(session, messages)
+}
+
+function buildContextMessagesForSession(session) {
+  if (!session) return []
+  if (isDeepSeekConfig()) return buildDeepSeekContextMessages(session)
+  return modelFacingChatMessages(session.messages).slice(-MAX_CONTEXT_TOKENS)
 }
 
 // ── 系统提示词 ──
@@ -693,6 +905,7 @@ const TOOL_DEFS = {
 // 危险工具（需要用户确认）
 const INTERACTIVE_TOOLS = new Set(['ask_user']) // 交互式工具，不走 confirmToolCall
 const DANGEROUS_TOOLS = new Set(['run_command', 'write_file', 'skills_install_dep', 'skillhub_install'])
+const PLAN_MODE_WRITER_TOOLS = new Set(['write_file', 'skills_install_dep', 'skillhub_install'])
 
 // 安全围栏：极端危险命令模式（任何模式都必须确认，包括无限模式）
 const CRITICAL_PATTERNS = [
@@ -1054,6 +1267,7 @@ function getEnabledTools() {
   if (!mode.tools) return [] // 聊天模式：无工具
 
   const tc = _config.tools || {}
+  const keepSchemaStable = isDeepSeekConfig()
   const tools = [...TOOL_DEFS.system, ...TOOL_DEFS.process, ...TOOL_DEFS.interaction]
 
   if (getActiveEngineId() !== 'hermes') tools.push(...TOOL_DEFS.openclaw)
@@ -1068,7 +1282,7 @@ function getEnabledTools() {
 
   // 文件工具：受设置开关控制 + 规划模式排除写入
   if (tc.fileOps !== false) {
-    if (mode.readOnly) {
+    if (mode.readOnly && !keepSchemaStable) {
       tools.push(...TOOL_DEFS.fileOps.filter(td => td.function.name !== 'write_file'))
     } else {
       tools.push(...TOOL_DEFS.fileOps)
@@ -1076,7 +1290,7 @@ function getEnabledTools() {
   }
 
   // Skills 管理工具：始终启用（规划模式下排除安装操作）
-  if (mode.readOnly) {
+  if (mode.readOnly && !keepSchemaStable) {
     tools.push(...TOOL_DEFS.skills.filter(td => !['skills_install_dep', 'skillhub_install'].includes(td.function.name)))
   } else {
     tools.push(...TOOL_DEFS.skills)
@@ -1089,6 +1303,7 @@ function applyModeStyle(page, modeKey) {
   const main = page.querySelector('.ast-main') || page
   main.dataset.mode = modeKey
   positionModeSlider(page, modeKey)
+  updateModePicker(page, modeKey)
 }
 
 function positionModeSlider(page, modeKey) {
@@ -1104,76 +1319,44 @@ function positionModeSlider(page, modeKey) {
   slider.style.opacity = '1'
 }
 
-const MODE_COLORS = {
-  chat: { primary: '#6b7280', rgb: '107,114,128' },
-  plan: { primary: '#3b82f6', rgb: '59,130,246' },
-  execute: { primary: '#8b5cf6', rgb: '139,92,246' },
-  unlimited: { primary: '#f59e0b', rgb: '245,158,11' },
+function playModeTransition(page, modeKey) {
+  const selector = page?.querySelector('#ast-mode-selector')
+  if (!selector || !MODES[modeKey]) return
+  selector.classList.remove('mode-updated')
+  void selector.offsetWidth
+  selector.classList.add('mode-updated')
+  setTimeout(() => selector.classList.remove('mode-updated'), 220)
 }
 
-function playModeTransition(page, modeKey) {
-  const main = page?.querySelector('.ast-main')
-  const header = page?.querySelector('.ast-header')
-  const selector = page?.querySelector('#ast-mode-selector')
-  if (!main || !header) return
-
-  const mc = MODE_COLORS[modeKey] || MODE_COLORS.execute
-  const m = MODES[modeKey]
-
-  // ① 全屏涟漪扩散
-  const ripple = document.createElement('div')
-  ripple.className = 'ast-mode-ripple'
-  // 从模式选择器位置发射
-  if (selector) {
-    const sRect = selector.getBoundingClientRect()
-    const mRect = main.getBoundingClientRect()
-    ripple.style.setProperty('--ripple-x', (sRect.left + sRect.width / 2 - mRect.left) + 'px')
-    ripple.style.setProperty('--ripple-y', (sRect.top + sRect.height / 2 - mRect.top) + 'px')
+function updateModePicker(page = _page, modeKey = currentMode()) {
+  const mode = MODES[modeKey]
+  if (!page || !mode) return
+  const trigger = page.querySelector('#ast-mode-trigger')
+  const label = page.querySelector('#ast-mode-trigger-label')
+  const iconWrap = page.querySelector('#ast-mode-trigger-icon')
+  if (label) label.textContent = mode.label
+  if (iconWrap) iconWrap.innerHTML = MODE_ICONS[modeKey] || ''
+  if (trigger) {
+    trigger.title = mode.desc || mode.label
+    trigger.dataset.mode = modeKey
   }
-  ripple.style.setProperty('--ripple-color', mc.primary)
-  main.appendChild(ripple)
-  setTimeout(() => ripple.remove(), 800)
+  page.querySelectorAll('.ast-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === modeKey))
+}
 
-  // ② 粒子爆发
-  if (selector) {
-    const sRect = selector.getBoundingClientRect()
-    const mRect = main.getBoundingClientRect()
-    const cx = sRect.left + sRect.width / 2 - mRect.left
-    const cy = sRect.top + sRect.height / 2 - mRect.top
-    for (let i = 0; i < 24; i++) {
-      const p = document.createElement('div')
-      p.className = 'ast-mode-particle'
-      const angle = (Math.PI * 2 * i) / 24 + (Math.random() - 0.5) * 0.5
-      const dist = 60 + Math.random() * 120
-      const size = 3 + Math.random() * 4
-      p.style.setProperty('--px', cx + 'px')
-      p.style.setProperty('--py', cy + 'px')
-      p.style.setProperty('--dx', (Math.cos(angle) * dist) + 'px')
-      p.style.setProperty('--dy', (Math.sin(angle) * dist - 30) + 'px')
-      p.style.setProperty('--size', size + 'px')
-      p.style.setProperty('--color', mc.primary)
-      p.style.setProperty('--delay', (Math.random() * 0.1) + 's')
-      p.style.setProperty('--duration', (0.5 + Math.random() * 0.4) + 's')
-      main.appendChild(p)
-      setTimeout(() => p.remove(), 1000)
-    }
-  }
+function closeModePicker() {
+  const selector = _page?.querySelector('#ast-mode-selector')
+  const trigger = _page?.querySelector('#ast-mode-trigger')
+  selector?.classList.remove('open')
+  trigger?.setAttribute('aria-expanded', 'false')
+}
 
-  // ③ Header 脉冲
-  header.classList.remove('ast-mode-pulse')
-  void header.offsetWidth
-  header.classList.add('ast-mode-pulse')
-
-  // ④ 模式简介浮现
-  const existing = page.querySelector('.ast-mode-toast')
-  if (existing) existing.remove()
-  if (!m) return
-  const tip = document.createElement('div')
-  tip.className = `ast-mode-toast mode-${modeKey}`
-  tip.innerHTML = `<span class="ast-mode-toast-icon">${MODE_ICONS[modeKey]}</span><span class="ast-mode-toast-label">${m.label}</span><span class="ast-mode-toast-desc">${m.desc}</span>`
-  main.appendChild(tip)
-  setTimeout(() => tip.classList.add('show'), 10)
-  setTimeout(() => { tip.classList.remove('show'); setTimeout(() => tip.remove(), 300) }, 2000)
+function toggleModePicker() {
+  const selector = _page?.querySelector('#ast-mode-selector')
+  const trigger = _page?.querySelector('#ast-mode-trigger')
+  if (!selector || !trigger) return
+  const willOpen = !selector.classList.contains('open')
+  selector.classList.toggle('open', willOpen)
+  trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false')
 }
 
 function buildSystemPrompt() {
@@ -1327,6 +1510,12 @@ async function buildSystemPromptAsync() {
     }
   }
   return prompt
+}
+
+async function buildProviderMessages(messages, base = '') {
+  const deepseek = isDeepSeekConfig(_config, base)
+  if (!deepseek) return [{ role: 'system', content: await buildSystemPromptAsync() }, ...messages]
+  return [{ role: 'system', content: buildSystemPrompt() }, ...messages]
 }
 
 // ── 灵魂移植：扫描可用 Agent ──
@@ -2093,6 +2282,16 @@ let _streamRefreshTimer = null // 后台流式刷新定时器
 let _pendingImages = [] // [{ id, dataUrl, name, size }] 待发送图片
 let _errorContext = null // 待处理的错误上下文 { scene, title, hint, error, ts }
 let _soulCache = null // 灵魂移植缓存 { identity, soul, user, agents, tools, memory, recentMemories[] }
+let _modelPoolSlots = []
+let _modelSelectSlotMap = new Map()
+let _lastAutoModelLabel = ''
+let _lastAutoModelReason = ''
+let _activeExpertGroupId = null    // 选中的专家团 ID（null = 直接对话）
+let _expertGroups = []             // 已保存的专家团列表
+let _expertProfiles = []           // 已保存的专家档案列表
+let _expertTeamOutsideClickHandler = null
+const _expertTeamDomUpdateTimers = new Map()
+const _expertTeamDomUpdatePayloads = new Map()
 
 // ── 节流保存 ──
 function throttledSave() {
@@ -2165,9 +2364,9 @@ function renderQueue() {
         <span class="ast-queue-num">${i + 1}</span>
         <span class="ast-queue-text" data-queue-edit="${item.id}" title="${t('assistant.clickToEdit')}">${escHtml(item.text)}</span>
         <div class="ast-queue-actions">
-          <button class="ast-queue-btn edit" data-queue-edit-btn="${item.id}" title="${t('assistant.edit')}">${editSvg}</button>
-          <button class="ast-queue-btn send" data-queue-send="${item.id}" title="${t('assistant.sendNow')}">${sendSvg}</button>
-          <button class="ast-queue-btn delete" data-queue-del="${item.id}" title="${t('common.delete')}">${delSvg}</button>
+          <button class="ast-queue-btn edit" data-queue-edit-btn="${item.id}" title="${t('assistant.edit')}" aria-label="${t('assistant.edit')}">${editSvg}</button>
+          <button class="ast-queue-btn send" data-queue-send="${item.id}" title="${t('assistant.sendNow')}" aria-label="${t('assistant.sendNow')}">${sendSvg}</button>
+          <button class="ast-queue-btn delete" data-queue-del="${item.id}" title="${t('common.delete')}" aria-label="${t('common.delete')}">${delSvg}</button>
         </div>
       </div>
     `).join('')
@@ -2341,7 +2540,7 @@ function renderImagePreview() {
   container.innerHTML = _pendingImages.map(img => `
     <div class="ast-img-thumb" data-img-id="${img.id}">
       <img src="${img.dataUrl}" alt="${escHtml(img.name)}"/>
-      <button class="ast-img-thumb-del" data-img-del="${img.id}" title="${t('common.delete')}">${delSvg}</button>
+      <button class="ast-img-thumb-del" data-img-del="${img.id}" title="${t('common.delete')}" aria-label="${t('common.delete')}">${delSvg}</button>
     </div>
   `).join('')
 }
@@ -2398,6 +2597,52 @@ async function fetchWithRetry(url, options, retries = 3) {
   }
 }
 
+function isNetworkFetchError(err) {
+  if (!err || err.name === 'AbortError') return false
+  const msg = String(err.message || err)
+  return err instanceof TypeError
+    || /Failed to fetch|NetworkError|Load failed|CORS|fetch/i.test(msg)
+}
+
+function responseFromProxyResult(result) {
+  const headers = new Headers()
+  const rawHeaders = result?.headers && typeof result.headers === 'object' ? result.headers : {}
+  for (const [key, value] of Object.entries(rawHeaders)) {
+    if (typeof value === 'string') headers.set(key, value)
+  }
+  if (result?.contentType && !headers.has('content-type')) headers.set('content-type', result.contentType)
+  return new Response(result?.body || '', {
+    status: result?.status || 500,
+    statusText: result?.statusText || '',
+    headers,
+  })
+}
+
+async function fetchModelChatCompletions(baseUrl, body, options = {}, retries = 0) {
+  const url = baseUrl + '/chat/completions'
+  try {
+    return await fetchWithRetry(url, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(body),
+      ...options,
+    }, retries)
+  } catch (err) {
+    if (!isNetworkFetchError(err)) throw err
+    const streamResp = await api.modelChatCompletionsProxyStream?.(baseUrl, _config.apiKey || '', _config.apiType, body, {
+      signal: options.signal,
+    })
+    if (streamResp) {
+      streamResp._proxiedByBackend = true
+      return streamResp
+    }
+    const proxied = await api.modelChatCompletionsProxy(baseUrl, _config.apiKey || '', _config.apiType, body)
+    const resp = responseFromProxyResult(proxied)
+    resp._proxiedByBackend = true
+    return resp
+  }
+}
+
 // ── 配置读写 ──
 function loadConfig() {
   try {
@@ -2412,6 +2657,7 @@ function loadConfig() {
   if (!_config.tools) _config.tools = { terminal: false, fileOps: false, webSearch: false }
   if (!_config.mode) _config.mode = DEFAULT_MODE
   _config.apiType = normalizeApiType(_config.apiType)
+  if (!['manual', 'auto'].includes(_config.modelSelectionMode)) _config.modelSelectionMode = 'manual'
   if (_config.autoRounds === undefined) _config.autoRounds = 8
   if (!Array.isArray(_config.knowledgeFiles)) _config.knowledgeFiles = []
   // #Compat-3 备用模型组：主模型失败时自动切换
@@ -2515,7 +2761,7 @@ function cleanBaseUrl(raw, apiType) {
     if (!base.endsWith('/v1')) base += '/v1'
     return base
   }
-  if (type === 'google-gemini') {
+  if (type === 'google-generative-ai') {
     // Gemini: https://generativelanguage.googleapis.com/v1beta
     return base
   }
@@ -2580,6 +2826,329 @@ function buildActiveSlots() {
   return slots
 }
 
+function buildModelSlotsFromOpenClawConfig(config) {
+  const providers = config?.models?.providers || {}
+  const primary = config?.agents?.defaults?.model?.primary || ''
+  const slots = []
+  for (const [providerKey, provider] of Object.entries(providers)) {
+    const models = providerModels(provider)
+    for (const model of models) {
+      const fullName = `${providerKey}/${model}`
+      slots.push({
+        label: providerKey,
+        baseUrl: provider?.baseUrl || '',
+        apiKey: provider?.apiKey || '',
+        model,
+        apiType: normalizeApiType(provider?.api),
+        isPrimary: fullName === primary,
+        provider: providerKey,
+      })
+    }
+  }
+  return slots
+}
+
+async function refreshModelPoolOptions() {
+  try {
+    const config = await api.readOpenclawConfig()
+    _modelPoolSlots = buildModelSlotsFromOpenClawConfig(config)
+  } catch {
+    _modelPoolSlots = []
+  }
+  renderModelSelectOptions()
+}
+
+function modelSelectSlots() {
+  const merged = []
+  const seen = new Set()
+  for (const slot of [...buildActiveSlots(), ..._modelPoolSlots]) {
+    const key = modelSlotInternalKey(slot)
+    if (seen.has(key)) continue
+    seen.add(key)
+    merged.push(slot)
+  }
+  return merged
+}
+
+function modelSlotInternalKey(slot) {
+  return [
+    slot.baseUrl || '',
+    slot.model || '',
+    normalizeApiType(slot.apiType),
+    slot.apiKey || '',
+  ].join('||')
+}
+
+function modelSlotIdentity(slot) {
+  return [
+    slot.baseUrl || '',
+    slot.model || '',
+    normalizeApiType(slot.apiType),
+    slot.apiKey || '',
+  ].join('||')
+}
+
+function modelSlotLabel(slot) {
+  const prefix = slot.isPrimary ? t('assistant.slotPrimary') : (slot.provider || slot.label || 'Model')
+  return `${prefix} · ${slot.model}`
+}
+
+function modelPickerMeta(slot) {
+  if (slot.isPrimary) return t('assistant.slotPrimary')
+  if (slot.provider || slot.label) return slot.provider || slot.label
+  const apiType = normalizeApiType(slot.apiType)
+  const typeLabels = {
+    openai: 'OpenAI',
+    'openai-completion': 'OpenAI',
+    anthropic: 'Claude',
+    gemini: 'Gemini',
+    ollama: 'Ollama',
+  }
+  return typeLabels[apiType] || 'Model'
+}
+
+function isAutoModelMode() {
+  return _config?.modelSelectionMode === 'auto'
+}
+
+function messageText(content) {
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content
+    .filter(part => part?.type === 'text')
+    .map(part => part.text || '')
+    .join('\n')
+}
+
+function messageHasImage(content) {
+  if (!Array.isArray(content)) return false
+  return content.some(part => part?.type === 'image_url' || part?.type === 'input_image' || part?.image_url)
+}
+
+function classifyModelTask(messages) {
+  const userMessages = messages.filter(m => m.role === 'user')
+  const latestUser = userMessages[userMessages.length - 1] || {}
+  const text = messageText(latestUser.content)
+  const allText = userMessages.map(m => messageText(m.content)).join('\n')
+  const lower = `${text}\n${allText}`.toLowerCase()
+  const charCount = allText.length
+  const hasImages = messages.some(m => messageHasImage(m.content) || m._images?.length)
+  const coding = /代码|报错|错误|修复|重构|函数|组件|接口|日志|堆栈|终端|命令|测试|bug|stack|trace|error|exception|debug|fix|patch|refactor|terminal|shell|typescript|javascript|python|rust|react|vue|css|html/.test(lower)
+  const reasoning = /分析|规划|方案|架构|设计|权衡|复杂|推理|为什么|怎么实现|详细|清晰|review|architecture|design|reason|analy[sz]e|plan|tradeoff|complex/.test(lower)
+  const simple = charCount < 220 && !hasImages && !coding && !reasoning
+  return {
+    text,
+    charCount,
+    hasImages,
+    coding,
+    reasoning,
+    simple,
+    longContext: charCount > 4000,
+  }
+}
+
+function scoreModelSlot(slot, task) {
+  const haystack = `${slot.provider || ''} ${slot.label || ''} ${slot.model || ''}`.toLowerCase()
+  let score = slot.isPrimary ? 12 : 0
+
+  const isReasoningModel = /gpt-5|gpt-4|o[34]\b|claude|sonnet|opus|deepseek[-_/]?(r1|reasoner)|qwq|reason|thinking|gemini.*pro|qwen.*max|qwen.*coder|codex/.test(haystack)
+  const isVisionModel = /vision|qwen[-_/]?vl|vl\b|gpt-4o|4o\b|omni|multimodal|gemini|claude/.test(haystack)
+  const isFastModel = /mini|flash|haiku|mimo|turbo|lite|small|qwen|deepseek-chat|glm/.test(haystack)
+  const isCoderModel = /coder|code|codex|deepseek|qwen.*coder|claude|sonnet|gpt-4|gpt-5/.test(haystack)
+  const isLargeContext = /128k|200k|1m|long|context|gpt-4\.1|gemini|claude|sonnet/.test(haystack)
+
+  if (task.hasImages) score += isVisionModel ? 90 : -120
+  if (task.coding) score += isCoderModel ? 48 : 0
+  if (task.reasoning) score += isReasoningModel ? 44 : 0
+  if (task.longContext) score += isLargeContext ? 32 : 0
+  if (task.simple) {
+    score += isFastModel ? 38 : 0
+    score -= isReasoningModel ? 8 : 0
+  }
+  if (!task.simple && !task.hasImages && !task.coding && !task.reasoning) {
+    score += isFastModel ? 14 : 0
+  }
+
+  return score
+}
+
+function autoModelReason(slot, task) {
+  const model = slot?.model || '当前模型'
+  if (task.hasImages) return `检测到图片输入，优先选择支持视觉的模型：${model}`
+  if (task.coding && task.reasoning) return `检测到代码/排错和复杂分析，优先选择代码与推理能力更强的模型：${model}`
+  if (task.coding) return `检测到代码、日志或报错任务，优先选择代码能力更强的模型：${model}`
+  if (task.reasoning) return `检测到分析/规划类任务，优先选择推理能力更强的模型：${model}`
+  if (task.longContext) return `检测到较长上下文，优先选择长上下文表现更稳的模型：${model}`
+  if (task.simple) return `检测到短问题，优先选择响应更快的模型：${model}`
+  return `按当前任务特征和模型能力综合选择：${model}`
+}
+
+function compactAutoModelReason(reason) {
+  const text = String(reason || '')
+  if (!text) return '自动路由'
+  if (text.includes('图片')) return '图片任务'
+  if (text.includes('代码') || text.includes('排错') || text.includes('报错') || text.includes('日志')) return '代码/排错'
+  if (text.includes('分析') || text.includes('规划') || text.includes('推理')) return '分析任务'
+  if (text.includes('长上下文')) return '长上下文'
+  if (text.includes('短问题')) return '快速响应'
+  return '自动路由'
+}
+
+function usableModelSlots(slots) {
+  const merged = []
+  const seen = new Set()
+  for (const slot of slots) {
+    if (!slot?.baseUrl || !slot?.model) continue
+    const apiType = normalizeApiType(slot.apiType)
+    if (requiresApiKey(apiType) && !slot.apiKey) continue
+    const key = modelSlotIdentity(slot)
+    if (seen.has(key)) continue
+    seen.add(key)
+    merged.push({ ...slot, apiType })
+  }
+  return merged
+}
+
+function buildAutoSlots(messages) {
+  const slots = usableModelSlots(modelSelectSlots())
+  if (slots.length === 0) return buildActiveSlots()
+  const task = classifyModelTask(messages)
+  const scored = slots.map((slot, index) => ({
+    slot,
+    index,
+    score: scoreModelSlot(slot, task),
+  }))
+  scored.sort((a, b) => (b.score - a.score) || (a.index - b.index))
+  return scored.map(item => ({
+    ...item.slot,
+    label: `Auto · ${modelSlotLabel(item.slot)}`,
+    autoScore: item.score,
+    autoReason: autoModelReason(item.slot, task),
+  }))
+}
+
+function renderModelSelectOptions() {
+  const select = _page?.querySelector('#ast-model-select')
+  const trigger = _page?.querySelector('#ast-model-trigger')
+  const triggerValue = _page?.querySelector('#ast-model-trigger-value')
+  const triggerMeta = _page?.querySelector('#ast-model-trigger-meta')
+  const menu = _page?.querySelector('#ast-model-menu')
+  if (!select) return
+  const slots = modelSelectSlots()
+  _modelSelectSlotMap = new Map()
+  if (slots.length === 0) {
+    select.innerHTML = `<option value="">${t('assistant.notConfigured')}</option>`
+    select.disabled = true
+    if (trigger) trigger.disabled = true
+    if (triggerValue) triggerValue.textContent = t('assistant.notConfigured')
+    if (triggerMeta) triggerMeta.textContent = t('assistant.model')
+    if (menu) menu.innerHTML = ''
+    return
+  }
+
+  select.disabled = false
+  if (trigger) trigger.disabled = false
+  const primaryKey = modelSlotInternalKey({
+    baseUrl: _config.baseUrl,
+    apiKey: _config.apiKey || '',
+    model: _config.model,
+    apiType: _config.apiType,
+  })
+  const currentSlotIndex = slots.findIndex(slot => modelSlotInternalKey(slot) === primaryKey)
+  const currentValue = isAutoModelMode()
+    ? AUTO_MODEL_VALUE
+    : (currentSlotIndex >= 0 ? `slot-${currentSlotIndex}` : '')
+  const autoLabel = _lastAutoModelLabel
+    ? `Auto · 自动选择（上次 ${_lastAutoModelLabel}）`
+    : 'Auto · 自动选择'
+  const pickerItems = [{
+    value: AUTO_MODEL_VALUE,
+    label: autoLabel,
+    meta: 'Auto',
+    detail: _lastAutoModelReason || '发送时自动选择最合适的模型',
+  }]
+  const options = [`<option value="${AUTO_MODEL_VALUE}" ${currentValue === AUTO_MODEL_VALUE ? 'selected' : ''}>${escHtml(autoLabel)}</option>`]
+  options.push(...slots.map((slot, index) => {
+    const label = modelSlotLabel(slot)
+    const value = `slot-${index}`
+    _modelSelectSlotMap.set(value, slot)
+    pickerItems.push({
+      value,
+      label,
+      meta: modelPickerMeta(slot),
+      detail: slot.baseUrl || slot.provider || '',
+    })
+    return `<option value="${value}" ${value === currentValue ? 'selected' : ''}>${escHtml(label)}</option>`
+  }))
+  select.innerHTML = options.join('')
+  const selectedItem = pickerItems.find(item => item.value === currentValue) || pickerItems[0]
+  const splitLabel = selectedItem.label.split(' · ')
+  const displayLabel = splitLabel.slice(1).join(' · ') || selectedItem.label
+  if (triggerValue) {
+    triggerValue.textContent = displayLabel
+    triggerValue.title = selectedItem.label
+  }
+  if (triggerMeta) triggerMeta.textContent = selectedItem.meta || splitLabel[0] || t('assistant.model')
+  if (menu) {
+    menu.innerHTML = pickerItems.map(item => {
+      const active = item.value === currentValue
+      const itemLabel = item.label.split(' · ')
+      const title = itemLabel.slice(1).join(' · ') || item.label
+      const meta = item.meta || itemLabel[0] || ''
+      return `
+        <button class="ast-model-menu-item ${active ? 'active' : ''}" type="button" role="option" aria-selected="${active ? 'true' : 'false'}" data-model-value="${escHtml(item.value)}">
+          <span class="ast-model-menu-meta">${escHtml(meta)}</span>
+          <span class="ast-model-menu-copy">
+            <strong>${escHtml(title)}</strong>
+            <small>${escHtml(item.detail || item.label)}</small>
+          </span>
+        </button>
+      `
+    }).join('')
+  }
+}
+
+function closeModelPicker() {
+  const picker = _page?.querySelector('#ast-model-picker')
+  const trigger = _page?.querySelector('#ast-model-trigger')
+  picker?.classList.remove('open')
+  trigger?.setAttribute('aria-expanded', 'false')
+}
+
+function toggleModelPicker() {
+  const picker = _page?.querySelector('#ast-model-picker')
+  const trigger = _page?.querySelector('#ast-model-trigger')
+  if (!picker || !trigger || trigger.disabled) return
+  const willOpen = !picker.classList.contains('open')
+  picker.classList.toggle('open', willOpen)
+  trigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false')
+}
+
+function switchActiveModel(value) {
+  if (value === AUTO_MODEL_VALUE) {
+    _config.modelSelectionMode = 'auto'
+    _lastAutoModelReason = '发送时会根据图片、代码/排错、复杂度和上下文长度自动选择模型'
+    saveConfig()
+    updateModelBadge()
+    renderModelSelectOptions()
+    closeModelPicker()
+    resetCircuit()
+    return
+  }
+  const slot = _modelSelectSlotMap.get(value)
+  if (!slot) return
+  _config.modelSelectionMode = 'manual'
+  _config.baseUrl = slot.baseUrl
+  _config.apiKey = slot.apiKey || ''
+  _config.model = slot.model
+  _config.apiType = normalizeApiType(slot.apiType)
+  saveConfig()
+  updateModelBadge()
+  renderModelSelectOptions()
+  closeModelPicker()
+  resetCircuit()
+}
+
 // #Compat-3: 判断错误是否应该触发 failover 切换到下一个槽位
 // - AbortError（用户手动中止）→ 不切
 // - 鉴权错误 401/403 → 不切（key 错了，切了也白切）
@@ -2595,7 +3164,7 @@ function isFailoverableError(err) {
 }
 
 async function callAI(messages, onChunk) {
-  const slots = buildActiveSlots()
+  const slots = isAutoModelMode() ? buildAutoSlots(messages) : buildActiveSlots()
   if (slots.length === 0) {
     throw new Error(t('assistant.errConfigFirst'))
   }
@@ -2604,6 +3173,11 @@ async function callAI(messages, onChunk) {
   for (let i = 0; i < slots.length; i++) {
     const slot = slots[i]
     try {
+      if (isAutoModelMode() && i === 0) {
+        _lastAutoModelLabel = modelSlotLabel(slot).replace(/^Auto · /, '')
+        _lastAutoModelReason = slot.autoReason || ''
+        updateModelBadge()
+      }
       await callAIWithSlot(slot, messages, onChunk)
       if (i > 0) {
         console.log(`[assistant] Failover 成功：已切换到备用模型「${slot.label}」`)
@@ -2650,7 +3224,7 @@ async function _callAIOnce(messages, onChunk) {
 
   const base = cleanBaseUrl(_config.baseUrl, apiType)
   _abortController = new AbortController()
-  const allMessages = [{ role: 'system', content: await buildSystemPromptAsync() }, ...messages]
+  const allMessages = await buildProviderMessages(messages, base)
 
   // 总超时保护
   let _timedOut = false
@@ -2665,7 +3239,7 @@ async function _callAIOnce(messages, onChunk) {
       return
     }
 
-    if (apiType === 'google-gemini') {
+    if (apiType === 'google-generative-ai') {
       await callGeminiGenerate(base, allMessages, onChunk)
       return
     }
@@ -2700,30 +3274,32 @@ let _lastDebugInfo = null
 // ── Chat Completions API（/v1/chat/completions）──
 async function callChatCompletions(base, messages, onChunk) {
   const url = base + '/chat/completions'
+  const deepseek = isDeepSeekConfig(_config, base)
   const body = {
     model: _config.model,
     messages,
     stream: true,
     temperature: _config.temperature || 0.7,
   }
+  applyDeepSeekChatOptions(body, { deepseek })
 
   const reqTime = Date.now()
   _lastDebugInfo = {
     url,
     method: 'POST',
-    requestBody: { ...body, messages: body.messages.map(m => ({ role: m.role, content: typeof m.content === 'string' ? m.content.slice(0, 200) + (m.content.length > 200 ? '...' : '') : '[multimodal]' })) },
+    providerHints: deepseek ? { deepseek: true, cacheFriendly: true } : undefined,
+    requestBody: { ...body, messages: summarizeRequestMessages(body.messages) },
     requestTime: new Date(reqTime).toLocaleString('zh-CN'),
   }
+  if (deepseek) attachDeepSeekPrefixDiagnostics(body.messages, [])
 
-  const resp = await fetchWithRetry(url, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify(body),
+  const resp = await fetchModelChatCompletions(base, body, {
     signal: _abortController.signal,
   })
 
   _lastDebugInfo.status = resp.status
   _lastDebugInfo.contentType = resp.headers.get('content-type') || ''
+  if (resp._proxiedByBackend) _lastDebugInfo.proxiedByBackend = true
   _lastDebugInfo.responseTime = new Date().toLocaleString('zh-CN')
   _lastDebugInfo.latency = Date.now() - reqTime + 'ms'
 
@@ -2753,6 +3329,7 @@ async function callChatCompletions(base, messages, onChunk) {
 
     await readSSEStream(resp, (json) => {
       chunkCount++
+      if (deepseek && json.usage) captureDeepSeekUsage(json)
       // 捕获流内错误事件（如模型不可用）
       if (json.error) {
         streamError = streamError || json.error?.message || json.error || ''
@@ -2789,6 +3366,7 @@ async function callChatCompletions(base, messages, onChunk) {
     _lastDebugInfo.streaming = false
     const json = await resp.json()
     _lastDebugInfo.responseBody = { id: json.id, model: json.model, object: json.object, usage: json.usage }
+    if (deepseek) captureDeepSeekUsage(json)
     console.log('[assistant] 非流式响应:', json)
     const msg = json.choices?.[0]?.message
     const content = msg?.content || msg?.reasoning_content || ''
@@ -3235,7 +3813,10 @@ async function executeToolWithSafety(toolName, args, tcForConfirm) {
   const mode = MODES[currentMode()]
   const isCritical = toolName === 'run_command' && isCriticalCommand(args.command)
   const isBrowserWrite = toolName === 'browser_action' && BROWSER_WRITE_ACTIONS.has(String(args.action || ''))
-  if (isCritical) {
+  if (mode.readOnly && (PLAN_MODE_WRITER_TOOLS.has(toolName) || isBrowserWrite)) {
+    approved = false
+    result = `blocked: "${toolName}" is a writer tool and plan mode is read-only. Continue with read-only inspection, then write the plan as your reply.`
+  } else if (isCritical) {
     approved = await confirmToolCall(tcForConfirm || { function: { name: toolName, arguments: JSON.stringify(args) } }, true)
     if (!approved) result = t('assistant.toolRejectedDanger')
   } else if (isBrowserWrite) {
@@ -3252,6 +3833,10 @@ async function executeToolWithSafety(toolName, args, tcForConfirm) {
   return { result, approved }
 }
 
+async function executeExpertTeamTool({ name, args, toolCall } = {}) {
+  return await executeToolWithSafety(name, args || {}, toolCall || { function: { name, arguments: JSON.stringify(args || {}) } })
+}
+
 // 带工具调用的 AI 请求（流式，支持 tool_calls 循环 + 打字机效果）
 async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
   const apiType = normalizeApiType(_config.apiType)
@@ -3261,7 +3846,7 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
 
   const base = cleanBaseUrl(_config.baseUrl, apiType)
   const tools = getEnabledTools()
-  let currentMessages = [{ role: 'system', content: await buildSystemPromptAsync() }, ...messages]
+  let currentMessages = await buildProviderMessages(messages, base)
   const toolHistory = []
 
   const autoRounds = _config.autoRounds ?? 8  // 0 = 无限制
@@ -3350,7 +3935,7 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
     }
 
     // ── Gemini 工具调用 ──
-    if (apiType === 'google-gemini') {
+    if (apiType === 'google-generative-ai') {
       const systemMsg = currentMessages.find(m => m.role === 'system')?.content || ''
       const chatMsgs = currentMessages.filter(m => m.role !== 'system')
       const contents = chatMsgs.map(m => ({
@@ -3406,6 +3991,7 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
     }
 
     // ── OpenAI 工具调用（流式） ──
+    const deepseek = isDeepSeekConfig(_config, base)
     const body = {
       model: _config.model,
       messages: currentMessages,
@@ -3413,16 +3999,31 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
       stream: true,
     }
     if (tools.length > 0) body.tools = tools
+    applyDeepSeekChatOptions(body, { deepseek, tools: tools.length > 0 })
 
-    const resp = await fetchWithRetry(base + '/chat/completions', {
+    const reqTime = Date.now()
+    _lastDebugInfo = {
+      url: base + '/chat/completions',
       method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify(body),
+      providerHints: deepseek ? { deepseek: true, cacheFriendly: true, tools: tools.length > 0 } : undefined,
+      requestBody: { ...body, messages: summarizeRequestMessages(body.messages) },
+      requestTime: new Date(reqTime).toLocaleString('zh-CN'),
+    }
+    if (deepseek) attachDeepSeekPrefixDiagnostics(body.messages, tools)
+
+    const resp = await fetchModelChatCompletions(base, body, {
       signal: _abortController.signal,
     })
 
+    _lastDebugInfo.status = resp.status
+    _lastDebugInfo.contentType = resp.headers.get('content-type') || ''
+    if (resp._proxiedByBackend) _lastDebugInfo.proxiedByBackend = true
+    _lastDebugInfo.responseTime = new Date().toLocaleString('zh-CN')
+    _lastDebugInfo.latency = Date.now() - reqTime + 'ms'
+
     if (!resp.ok) {
       const errText = await resp.text().catch(() => '')
+      _lastDebugInfo.errorBody = errText.slice(0, 500)
       let errMsg = `API 错误 ${resp.status}`
       try { errMsg = JSON.parse(errText).error?.message || errMsg } catch {}
       // #Compat-5: callAIWithTools 场景下 tools 带进 body 最容易踩 vLLM tool choice 限制，
@@ -3441,6 +4042,7 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
     if (ct.includes('text/event-stream') || ct.includes('text/plain')) {
       // ── SSE 流式解析 ──
       await readSSEStream(resp, (json) => {
+        if (deepseek && json.usage) captureDeepSeekUsage(json)
         if (json.error) {
           streamError = streamError || json.error?.message || json.error || ''
         }
@@ -3488,6 +4090,7 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
     } else {
       // ── 非流式回退（API 忽略了 stream:true）──
       const data = await resp.json()
+      if (deepseek) captureDeepSeekUsage(data)
       const choice = data.choices?.[0]
       const msg = choice?.message
       if (!msg) {
@@ -3495,8 +4098,9 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
         throw new Error(errMsg || t('assistant.errInvalidResponse'))
       }
       finishReason = choice.finish_reason || ''
-      contentBuf = msg.content || msg.reasoning_content || ''
+      contentBuf = msg.content || ''
       if (contentBuf && onChunk) onChunk(contentBuf)
+      if (msg.reasoning_content) reasoningBuf = msg.reasoning_content
       if (msg.tool_calls) {
         for (const tc of msg.tool_calls) {
           pendingToolCalls.push(tc)
@@ -3518,7 +4122,8 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
     // ── 处理工具调用 ──
     if (pendingToolCalls.length > 0) {
       // 构造完整 assistant message 用于上下文
-      const assistantMsg = { role: 'assistant', content: contentBuf || null, tool_calls: pendingToolCalls }
+      const assistantMsg = { role: 'assistant', content: contentBuf || (deepseek ? '' : null), tool_calls: pendingToolCalls }
+      if (deepseek && reasoningBuf) assistantMsg.reasoning_content = reasoningBuf
       currentMessages.push(assistantMsg)
 
       for (const tc of pendingToolCalls) {
@@ -3562,7 +4167,7 @@ function renderSessionList() {
     const dot = dotClass ? `<span class="${dotClass}"></span>` : ''
     return `<div class="ast-session-item ${s.id === _currentSessionId ? 'active' : ''}" data-id="${s.id}">
       ${dot}<span class="ast-session-title">${escHtml(s.title)}</span>
-      <button class="ast-session-delete" data-delete="${s.id}" title="${t('assistant.deleteSession')}">×</button>
+      <button class="ast-session-delete" data-delete="${s.id}" title="${t('assistant.deleteSession')}" aria-label="${t('assistant.deleteSession')}">×</button>
     </div>`
   }).join('') || '<div class="ast-empty">' + t('assistant.noSessions') + '</div>'
 }
@@ -3684,7 +4289,7 @@ function renderErrorBanner() {
     if (currentMode() === 'chat') {
       _config.mode = 'execute'
       saveConfig()
-      _page?.querySelectorAll('.ast-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'execute'))
+      applyModeStyle(_page, 'execute')
     }
 
     clearErrorContext()
@@ -3698,6 +4303,1705 @@ function renderErrorBanner() {
 
   // 插入到消息区域顶部
   _messagesEl.insertBefore(banner, _messagesEl.firstChild)
+}
+
+function renderExpertTeamMessage(m, idx) {
+  const transcript = m._expertTeamTranscript || []
+  const isRunning = m._expertTeamRunning || false
+  const groupName = escHtml(m._expertTeamName || '专家团')
+  const plan = m._expertTeamPlan
+  const progress = getExpertTeamProgress(transcript, plan, isRunning)
+  const stages = getExpertTeamStages(transcript, plan, isRunning, progress)
+  const activeAgents = isRunning ? getExpertTeamActiveAgents(transcript) : []
+  const governanceHtml = renderExpertTeamGovernance(getExpertTeamGovernance(plan, transcript, progress))
+  const runMetaHtml = renderExpertTeamRunMeta(getExpertTeamRunMeta(m, progress), progress)
+  const closeoutHtml = renderExpertTeamCloseout(transcript, plan, progress)
+  const resumeActionsHtml = renderExpertTeamResumeActions(m, idx)
+  const activityHtml = renderExpertTeamActivityFeed(transcript, m._expertTeamRun, isRunning)
+  const traceHtml = renderExpertTeamOperationTrace(transcript)
+  const focusHtml = renderExpertTeamFocus(getExpertTeamFocus(transcript, plan, progress, isRunning))
+
+  const planMeta = plan
+    ? `${plan.members?.length || 0}位专家 · ${getModeLabel(plan.mode)}${plan.mode === 'sequential' ? ` · ${plan.maxRounds || 1}轮` : ` · 并行${plan.maxParallel || 1}`}`
+    : ''
+  const planHtml = plan ? `
+    <details class="ast-expert-plan">
+      <summary class="ast-expert-plan-head">
+        <strong>${escHtml(planMeta)}</strong>
+        <span>${icon('chevron-down', 13)}</span>
+      </summary>
+      <div class="ast-expert-plan-members">
+        ${(plan.members || []).map(member => `
+          <span class="ast-expert-plan-member" style="--expert-color:${escAttr(getExpertColor(member.id))}" title="${escAttr(`${member.name || member.id}${member.title ? ` · ${member.title}` : ''}`)}">
+            <span>${escHtml(member.name || member.id)}</span>
+            ${member.title ? `<small>${escHtml(member.title)}</small>` : ''}
+          </span>
+        `).join('')}
+      </div>
+    </details>
+  ` : ''
+  const detailsHtml = renderExpertTeamRunDetails({
+    activityHtml,
+    closeoutHtml: isRunning ? '' : closeoutHtml,
+    governanceHtml,
+    planHtml,
+    runMetaHtml,
+    traceHtml,
+  })
+
+  const hasFinal = transcript.some(item => item.type === 'final')
+  const legacyEmptyFallback = !hasFinal && isExpertTeamEmptyResponseFailure(transcript, isRunning)
+  const primaryItems = legacyEmptyFallback
+    ? [buildExpertTeamNoExpertResponseDisplayItem(transcript, plan)]
+    : transcript.filter(item => ['final', 'error'].includes(item.type) || (!isRunning && !hasFinal && item.type === 'stopped'))
+  const processItems = transcript.filter(item => !['final', 'error', 'stopped'].includes(item.type))
+  const primaryHtml = primaryItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('')
+  const topPrimaryHtml = !isRunning && primaryHtml ? primaryHtml : ''
+  const inlinePrimaryHtml = isRunning ? primaryHtml : ''
+  const workboardHtml = renderExpertTeamWorkboard(plan, transcript, progress, isRunning, activeAgents)
+  const showWorkboard = isRunning || !hasFinal
+  const stageHtml = `<div class="ast-expert-stage-board" aria-label="专家团流程进度">
+    ${stages.map((stage, stepIndex) => `<div class="ast-expert-stage-row ast-expert-stage-row--${escAttr(stage.status)}">
+      <span class="ast-expert-stage-index">${escHtml(String(stepIndex + 1))}</span>
+      <span class="ast-expert-stage-name">${stage.icon}<span>${escHtml(stage.name)}</span>${stage.detail ? `<small>${escHtml(stage.detail)}</small>` : ''}</span>
+      <span class="ast-expert-stage-status">${expertTeamStageStatusIcon(stage.status)}${escHtml(stage.label)}</span>
+    </div>`).join('')}
+  </div>`
+  const processHtml = processItems.length ? processItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('') : `
+    <div class="ast-expert-item ast-expert-item--pending">
+      <div class="ast-expert-item-head">
+        <span class="ast-expert-status-dot"></span>
+        <strong>正在准备专家团</strong>
+      </div>
+      <div class="ast-expert-skeleton"><span></span><span></span></div>
+    </div>
+  `
+  const processOpenAttr = ''
+  const processCount = processItems.filter(item => item.type !== 'round_start').length || (processItems.length ? processItems.length : 1)
+  const processBlock = `<details class="ast-expert-process"${processOpenAttr}>
+    <summary class="ast-expert-process-summary">
+      <span>${icon('list', 13)} 完整过程</span>
+      <small>${escHtml(processCount)} 条记录 · 默认收起</small>
+      <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
+    </summary>
+    ${stageHtml}
+    <div class="ast-expert-items">${processHtml}</div>
+  </details>`
+  const runningIndicator = isRunning ? '<div class="ast-expert-running"></div>' : ''
+
+  return `<div class="ast-msg ast-msg-ai ast-msg-expert-team" data-msg-idx="${idx}" data-expert-dom-id="${escAttr(expertTeamDomId(m))}">
+    <div class="ast-expert-team-run ast-expert-copy-source">
+      <div class="ast-expert-team-header">
+        <div class="ast-expert-team-title">
+          <span class="ast-expert-team-icon">${expertTeamRunIcon(progress.status)}</span>
+          <div>
+            <strong>${groupName}</strong>
+            <span>${escHtml(progress.currentLabel)}</span>
+          </div>
+        </div>
+        <span class="ast-expert-badge ast-expert-badge--${escAttr(progress.status)}">${escHtml(progress.statusLabel)}</span>
+      </div>
+      <div class="ast-expert-progress" aria-label="专家团进度">
+        <div class="ast-expert-progress-bar ast-expert-progress-bar--${escAttr(progress.status)}" style="width:${progress.percent}%"></div>
+      </div>
+      ${progress.status === 'running' ? `<div class="ast-expert-run-summary">
+        <span>${escHtml(progress.completed)} / ${escHtml(progress.total)} 步</span>
+        <span>${escHtml(progress.summary)}</span>
+        ${progress.errorCount ? `<span class="ast-expert-run-warning">${escHtml(progress.errorCount)} 个异常已处理</span>` : ''}
+      </div>` : ''}
+      ${focusHtml}
+      ${topPrimaryHtml}
+      ${showWorkboard ? workboardHtml : ''}
+      ${inlinePrimaryHtml}
+      ${resumeActionsHtml}
+      ${detailsHtml}
+      ${processBlock}
+      ${runningIndicator}
+    </div>
+    <div class="ast-msg-meta"><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${icon('copy', 12)}</button></div>
+  </div>`
+}
+
+function renderExpertTeamFocus(focus) {
+  if (!focus) return ''
+  return `<section class="ast-expert-focus ast-expert-focus--${escAttr(focus.status)}" aria-label="专家团当前焦点">
+    <div class="ast-expert-focus-main">
+      <span class="ast-expert-focus-icon">${icon(focus.iconName, 16)}</span>
+      <div class="ast-expert-focus-copy">
+        <small>${escHtml(focus.eyebrow)}</small>
+        <strong>${escHtml(focus.title)}</strong>
+        <span>${escHtml(focus.detail)}</span>
+      </div>
+    </div>
+    <div class="ast-expert-focus-next">
+      <small>${icon('arrow-right', 11)} 下一步</small>
+      <strong>${escHtml(focus.next)}</strong>
+    </div>
+    <div class="ast-expert-focus-metrics">
+      ${focus.metrics.map(item => `<span><small>${escHtml(item.label)}</small><strong>${escHtml(item.value)}</strong></span>`).join('')}
+    </div>
+  </section>`
+}
+
+function renderExpertTeamRunDetails({ activityHtml = '', closeoutHtml = '', governanceHtml = '', planHtml = '', runMetaHtml = '', traceHtml = '' } = {}) {
+  if (!activityHtml && !closeoutHtml && !governanceHtml && !planHtml && !runMetaHtml && !traceHtml) return ''
+  return `<details class="ast-expert-run-details">
+    <summary class="ast-expert-run-details-summary">
+      <span>${icon('settings', 13)} 运行细节</span>
+      <small>团队配置、操作痕迹、复盘</small>
+      <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
+    </summary>
+    ${activityHtml}
+    ${closeoutHtml}
+    ${governanceHtml}
+    ${planHtml}
+    ${traceHtml}
+    ${runMetaHtml}
+  </details>`
+}
+
+function renderExpertTeamWorkboard(plan, transcript, progress, isRunning, activeAgents = []) {
+  const board = getExpertTeamWorkboard(plan, transcript, progress, isRunning, activeAgents)
+  if (!board) return ''
+  const current = board.current
+  return `<section class="ast-expert-workboard ast-expert-workboard--${escAttr(board.status)}" aria-label="专家团执行看板">
+    <div class="ast-expert-workboard-main">
+      <div class="ast-expert-workboard-current">
+        <span class="ast-expert-workboard-icon">${icon(current.iconName, 14)}</span>
+        <span class="ast-expert-workboard-copy">
+          <small>${escHtml(current.eyebrow)}</small>
+          <strong>${escHtml(current.title)}</strong>
+          <span>${escHtml(current.detail)}</span>
+        </span>
+        ${current.model ? `<span class="ast-expert-workboard-model">${escHtml(current.model)}</span>` : ''}
+      </div>
+      ${current.liveId ? `<div class="ast-expert-live-slot ast-expert-workboard-live" data-expert-live-id="${escAttr(current.liveId)}">
+        ${current.content ? `<div class="ast-expert-live-text">${escHtml(current.content)}</div>` : '<div class="ast-expert-skeleton"><span></span><span></span></div>'}
+      </div>` : ''}
+    </div>
+    <div class="ast-expert-member-track" aria-label="专家执行队列">
+      ${board.members.map(member => `<span class="ast-expert-member-chip ast-expert-member-chip--${escAttr(member.status)}" style="--expert-color:${escAttr(getExpertColor(member.expertId))}" title="${escAttr(member.title)}">
+        <span class="ast-expert-member-avatar">${escHtml(member.initial)}</span>
+        <span class="ast-expert-member-copy">
+          <strong>${escHtml(member.name)}</strong>
+          <small>${escHtml(member.detail)}</small>
+        </span>
+      </span>`).join('')}
+    </div>
+  </section>`
+}
+
+function renderExpertTeamActivityFeed(transcript, run, isRunning) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const activities = buildExpertTeamActivities(events, run, isRunning)
+  if (!activities.length) return ''
+  return `<div class="ast-expert-activity" aria-label="专家团实时活动">
+    <div class="ast-expert-activity-head">
+      ${icon('activity', 13)}
+      <strong>实时活动</strong>
+      <span>${escHtml(isRunning ? '正在更新' : '已记录')}</span>
+    </div>
+    <div class="ast-expert-activity-list">
+      ${activities.map(item => `<div class="ast-expert-activity-row ast-expert-activity-row--${escAttr(item.status)}">
+        <span class="ast-expert-activity-icon">${icon(item.iconName, 12)}</span>
+        <span class="ast-expert-activity-main">
+          <strong>${escHtml(item.title)}</strong>
+          <small>${escHtml(item.detail)}</small>
+        </span>
+        <span class="ast-expert-activity-meta">${escHtml(item.meta)}</span>
+      </div>`).join('')}
+    </div>
+  </div>`
+}
+
+function renderExpertTeamOperationTrace(transcript) {
+  const operations = getExpertTeamOperations(transcript)
+  if (!operations.length) return ''
+  const visible = operations.slice(-5)
+  const hiddenCount = Math.max(0, operations.length - visible.length)
+  return `<div class="ast-expert-trace" aria-label="专家团操作痕迹">
+    <div class="ast-expert-trace-head">
+      ${icon('terminal', 13)}
+      <strong>操作痕迹</strong>
+      <span>${escHtml(hiddenCount ? `${operations.length} 项，显示最近 ${visible.length} 项` : `${operations.length} 项`)}</span>
+    </div>
+    <div class="ast-expert-trace-list">
+      ${visible.map(item => `<div class="ast-expert-trace-row ast-expert-trace-row--${escAttr(item.status)}">
+        <span class="ast-expert-trace-icon">${icon(item.iconName, 12)}</span>
+        <span class="ast-expert-trace-main">
+          <strong>${escHtml(item.title)}</strong>
+          <small title="${escAttr(item.fullTarget || item.target)}">${escHtml(item.target)}</small>
+        </span>
+        <span class="ast-expert-trace-meta">${escHtml(item.meta)}</span>
+      </div>`).join('')}
+    </div>
+  </div>`
+}
+
+function getExpertTeamOperations(transcript) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const latest = new Map()
+  for (const item of events) {
+    if (!['tool_start', 'tool_done', 'tool_error'].includes(item?.type)) continue
+    latest.set(item.toolCallId || `${item.toolName || 'tool'}-${latest.size}`, item)
+  }
+  return [...latest.values()].map(item => {
+    const status = item.type === 'tool_start' ? 'running' : item.type === 'tool_error' || item.approved === false ? 'error' : 'done'
+    const owner = expertTeamActorLabel({ expertName: item.ownerName, expertTitle: item.ownerTitle })
+    const fullTarget = expertTeamToolTarget(item.toolName, item.args)
+    return {
+      status,
+      iconName: expertTeamToolIcon(item.toolName),
+      title: `${owner} · ${expertTeamToolLabel(item.toolName)}`,
+      target: expertTeamToolTargetBrief(item.toolName, item.args),
+      fullTarget,
+      meta: status === 'running' ? '执行中' : status === 'error' ? '已阻止' : '已完成',
+    }
+  })
+}
+
+function getExpertTeamFocus(transcript, plan, progress, isRunning) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const active = isRunning
+    ? [...events].reverse().find(item => ['moderator_stream', 'moderator_start', 'moderator_retry', 'expert_stream', 'expert_start', 'expert_retry'].includes(item.type))
+    : null
+  const final = [...events].reverse().find(item => item.type === 'final')
+  const emptyFailure = isExpertTeamEmptyResponseFailure(events, isRunning)
+  const expertDone = events.filter(item => item.type === 'expert_done').length
+  const expertErrors = events.filter(item => item.type === 'expert_error').length
+  const toolOps = events.filter(item => ['tool_start', 'tool_done', 'tool_error'].includes(item.type)).length
+  const rounds = plan?.mode === 'sequential' ? Math.max(1, Number.parseInt(plan.maxRounds || 1, 10) || 1) : 1
+  const memberCount = Array.isArray(plan?.members) ? plan.members.length : 0
+  const expertTarget = Math.max(memberCount * rounds, expertDone + expertErrors, 1)
+  const modeLabel = plan ? `${getModeLabel(plan.mode)}${plan.mode === 'sequential' ? ` · ${rounds}轮` : ` · 并行${plan.maxParallel || 1}`}` : '加载团队配置'
+  const metrics = [
+    { label: '专家意见', value: `${expertDone}/${expertTarget}` },
+    { label: '操作', value: `${toolOps}项` },
+    { label: '异常', value: expertErrors ? `${expertErrors}个` : '无' },
+  ]
+
+  if (active) {
+    const isModerator = active.type?.startsWith('moderator')
+    const retry = active.type?.endsWith('_retry')
+    const actor = isModerator ? '主持专家' : expertTeamActorLabel(active)
+    const contentMeta = active.content ? expertTeamContentMeta(active.content) : ''
+    return {
+      status: retry ? 'warning' : 'running',
+      iconName: retry ? 'refresh-cw' : (isModerator ? 'crown' : 'radio'),
+      eyebrow: modeLabel,
+      title: `${actor}${expertTeamRoundLabel(active)}${retry ? '正在重试' : isModerator ? '正在综合结论' : '正在生成意见'}`,
+      detail: contentMeta ? `已输出 ${contentMeta}` : (isModerator ? '正在汇总专家黑板，等待综合结论' : '已发送角色上下文，等待模型返回首段内容'),
+      next: isModerator ? '生成可交付结论' : '写入黑板并交给下一位专家',
+      metrics,
+    }
+  }
+
+  if (emptyFailure) {
+    return {
+      status: 'degraded',
+      iconName: 'shield',
+      eyebrow: modeLabel,
+      title: '模型没有返回可用专家意见',
+      detail: '所有专家调用都未产生可用文本，当前无法形成正式综合结论',
+      next: '检查或更换模型后重新发起',
+      metrics,
+    }
+  }
+
+  if (final) {
+    const fallback = final.status === 'fallback'
+    return {
+      status: fallback ? 'degraded' : 'done',
+      iconName: fallback ? 'shield' : 'clipboard',
+      eyebrow: modeLabel,
+      title: fallback ? '已生成临时交付' : '专家团已完成交付',
+      detail: final.content ? `交付内容 ${expertTeamContentMeta(final.content)}` : '已完成本次专家团流程',
+      next: fallback ? '可重新综合或更换模型后重跑' : '继续追问、复制结论或查看细节',
+      metrics,
+    }
+  }
+
+  const stopped = events.some(item => item.type === 'stopped')
+  if (stopped) {
+    return {
+      status: 'stopped',
+      iconName: 'stop',
+      eyebrow: modeLabel,
+      title: '专家团已停止',
+      detail: expertDone ? `已保留 ${expertDone} 份专家意见` : '本次没有形成可用专家意见',
+      next: expertDone ? '继续综合或补跑剩余专家' : '重新发起任务',
+      metrics,
+    }
+  }
+
+  return {
+    status: progress?.status || 'idle',
+    iconName: progress?.status === 'error' ? 'alert-circle' : 'users',
+    eyebrow: modeLabel,
+    title: progress?.currentLabel || '专家团准备中',
+    detail: progress?.summary || '正在加载团队配置和运行状态',
+    next: isRunning ? '等待首位专家开始输出' : '查看完整过程或重新发起',
+    metrics,
+  }
+}
+
+function getExpertTeamWorkboard(plan, transcript, progress, isRunning, activeAgents = []) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const members = getExpertTeamMemberStatuses(plan, events, isRunning)
+  const active = isRunning
+    ? [...events].reverse().find(item => ['moderator_stream', 'moderator_start', 'moderator_retry', 'expert_stream', 'expert_start', 'expert_retry'].includes(item.type))
+    : null
+  const latestOperation = getExpertTeamOperations(events).slice(-1)[0]
+  const latestDone = [...events].reverse().find(item => item.type === 'expert_done' || item.type === 'expert_error' || item.type === 'moderator_error')
+  const modeLabel = plan ? getModeLabel(plan.mode) : '专家团'
+  const current = active
+    ? expertTeamActiveWorkboardCurrent(active, modeLabel)
+    : latestOperation && isRunning
+      ? {
+          eyebrow: '正在执行操作',
+          title: latestOperation.title,
+          detail: latestOperation.target || '等待工具返回',
+          iconName: latestOperation.iconName,
+          model: latestOperation.meta,
+          liveId: '',
+          content: '',
+        }
+      : latestDone && isRunning
+        ? {
+            eyebrow: '最近完成',
+            title: latestDone.type === 'expert_done' ? `${expertTeamActorLabel(latestDone)}已提交意见` : expertTeamMessageText(latestDone.message, '异常已处理'),
+            detail: latestDone.type === 'expert_done' ? `已写入黑板，${expertTeamContentMeta(latestDone.content)}` : '已记录异常并继续流程',
+            iconName: latestDone.type === 'expert_done' ? 'check-circle' : 'shield',
+            model: modelTextFromSummary(latestDone.model),
+            liveId: '',
+            content: '',
+          }
+        : {
+            eyebrow: isRunning ? '等待模型响应' : '执行队列',
+            title: isRunning ? '专家团正在调度' : progress?.currentLabel || '专家团结果',
+            detail: isRunning ? '任务已接收，正在分配给下一位专家' : '可展开完整过程查看每位专家发言',
+            iconName: isRunning ? 'radio' : 'users',
+            model: '',
+            liveId: '',
+            content: '',
+          }
+  const liveIds = new Set(activeAgents.map(agent => agent.liveId).filter(Boolean))
+  if (current.liveId) liveIds.add(current.liveId)
+  return {
+    status: progress?.status || (isRunning ? 'running' : 'idle'),
+    current,
+    members: members.length ? members : activeAgents.map(agent => ({
+      expertId: agent.expertId,
+      name: agent.name,
+      initial: agent.initial,
+      status: agent.status,
+      detail: agent.identity || agent.label,
+      title: agent.title,
+    })),
+    liveIds,
+  }
+}
+
+function expertTeamActiveWorkboardCurrent(item, modeLabel) {
+  const isModerator = item.type?.startsWith('moderator')
+  const retry = item.type?.endsWith('_retry')
+  const title = isModerator
+    ? (retry ? '主持专家正在重试综合' : '主持专家正在综合结论')
+    : `${expertTeamActorLabel(item)}${expertTeamRoundLabel(item)}${retry ? '正在重试' : '正在生成意见'}`
+  const content = expertTeamLiveText(item.content || '', isModerator ? 700 : 560)
+  const contentMeta = item.content ? expertTeamContentMeta(item.content) : ''
+  return {
+    eyebrow: `${modeLabel}${isModerator ? ' · 综合阶段' : ' · 专家发言'}`,
+    title,
+    detail: retry
+      ? `模型请求失败，正在第${item.attempt || 1}次重试`
+      : contentMeta
+        ? `流式输出中，已生成 ${contentMeta}`
+        : (isModerator ? '正在读取专家黑板并生成综合交付' : '已发送角色上下文，等待模型输出'),
+    iconName: retry ? 'refresh-cw' : (isModerator ? 'crown' : 'radio'),
+    model: modelTextFromSummary(item.model),
+    liveId: expertTeamLiveDomId(isModerator ? 'moderator' : 'expert', isModerator ? 'moderator' : item.expertId, item.round || 0),
+    content,
+  }
+}
+
+function getExpertTeamMemberStatuses(plan, transcript, isRunning) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const members = Array.isArray(plan?.members) ? plan.members : []
+  if (!members.length) return []
+  const rounds = plan?.mode === 'sequential' ? Math.max(1, Number.parseInt(plan.maxRounds || 1, 10) || 1) : 1
+  const activeKeys = new Set()
+  const doneKeys = new Set()
+  const errorKeys = new Set()
+  for (const item of events) {
+    if (!item?.expertId) continue
+    const round = plan?.mode === 'sequential' ? (item.round || 1) : 0
+    const key = `${item.expertId}::${round}`
+    if (['expert_start', 'expert_stream', 'expert_retry'].includes(item.type)) activeKeys.add(key)
+    if (item.type === 'expert_done') doneKeys.add(key)
+    if (item.type === 'expert_error') errorKeys.add(key)
+  }
+  const chips = []
+  for (let roundIndex = 0; roundIndex < rounds; roundIndex++) {
+    const round = plan?.mode === 'sequential' ? roundIndex + 1 : 0
+    for (const member of members) {
+      const expertId = member.id || member.expertId || member.name || ''
+      const key = `${expertId}::${round}`
+      const name = member.name || expertId || '专家'
+      const status = errorKeys.has(key)
+        ? 'error'
+        : doneKeys.has(key)
+          ? 'done'
+          : activeKeys.has(key)
+            ? 'running'
+            : isRunning ? 'waiting' : 'idle'
+      chips.push({
+        expertId,
+        name,
+        initial: name.trim().slice(0, 1) || '专',
+        status,
+        detail: status === 'done'
+          ? '已提交'
+          : status === 'error'
+            ? '异常已处理'
+            : status === 'running'
+              ? '进行中'
+              : plan?.mode === 'sequential' ? `第${round}轮待执行` : '待执行',
+        title: `${name}${member.title ? ` · ${member.title}` : ''}${plan?.mode === 'sequential' ? ` · 第${round}轮` : ''}`,
+      })
+    }
+  }
+  const moderator = plan?.moderator
+  if (moderator) {
+    const finalDone = events.some(item => item.type === 'final')
+    const moderatorLive = events.some(item => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(item.type))
+    const moderatorError = events.some(item => item.type === 'moderator_error')
+    const name = moderator.name || moderator.id || '主持专家'
+    chips.push({
+      expertId: moderator.id || 'moderator',
+      name,
+      initial: name.trim().slice(0, 1) || '主',
+      status: moderatorError ? 'warning' : finalDone ? 'done' : moderatorLive ? 'running' : isRunning ? 'waiting' : 'idle',
+      detail: moderatorError ? '降级处理' : finalDone ? '已综合' : moderatorLive ? '综合中' : '待综合',
+      title: `${name}${moderator.title ? ` · ${moderator.title}` : ' · 主持专家'}`,
+    })
+  }
+  return chips
+}
+
+function buildExpertTeamActivities(transcript, run, isRunning) {
+  const activities = []
+  const events = Array.isArray(transcript) ? transcript : []
+  const emptyFailure = isExpertTeamEmptyResponseFailure(events, isRunning)
+  const started = run?.startedAt || events[0]?.createdAt || Date.now()
+  if (run || events.length || isRunning) {
+    activities.push({
+      status: 'done',
+      iconName: 'zap',
+      title: '接收任务',
+      detail: '创建运行记录并加载专家团配置',
+      meta: formatExpertTeamActivityTime(started),
+    })
+  }
+  for (const item of events) {
+    if (item.type === 'round_start') {
+      activities.push({
+        status: 'running',
+        iconName: 'refresh-cw',
+        title: `进入第${item.round || 1}轮`,
+        detail: `共${item.total || 1}轮协作链路`,
+        meta: '轮次',
+      })
+      continue
+    }
+    if (['expert_start', 'expert_stream', 'expert_retry'].includes(item.type)) {
+      const retry = item.type === 'expert_retry'
+      const hasOutput = String(item.content || '').trim().length > 0
+      activities.push({
+        status: retry ? 'warning' : 'running',
+        iconName: retry ? 'refresh-cw' : 'radio',
+        title: `${expertTeamActorLabel(item)}${expertTeamRoundLabel(item)}`,
+        detail: retry
+          ? `模型请求失败，正在第${item.attempt || 1}次重试`
+          : hasOutput
+            ? `正在生成意见，已输出 ${expertTeamContentMeta(item.content)}`
+            : `向模型发送专家上下文，等待首段输出`,
+        meta: modelTextFromSummary(item.model) || '模型',
+      })
+      continue
+    }
+    if (item.type === 'expert_done') {
+      activities.push({
+        status: 'done',
+        iconName: 'check-circle',
+        title: `${expertTeamActorLabel(item)}完成`,
+        detail: `已写入专家黑板，输出 ${expertTeamContentMeta(item.content)}`,
+        meta: modelTextFromSummary(item.model) || '完成',
+      })
+      continue
+    }
+    if (item.type === 'expert_error') {
+      activities.push({
+        status: 'error',
+        iconName: 'alert-circle',
+        title: `${expertTeamActorLabel(item)}异常`,
+        detail: expertTeamMessageText(item.message || item.error, '该专家调用失败，已跳过并继续'),
+        meta: '异常',
+      })
+      continue
+    }
+    if (['tool_start', 'tool_done', 'tool_error'].includes(item.type)) {
+      const status = item.type === 'tool_start' ? 'running' : item.type === 'tool_error' || item.approved === false ? 'error' : 'done'
+      activities.push({
+        status,
+        iconName: expertTeamToolIcon(item.toolName),
+        title: `${expertTeamActorLabel({ expertName: item.ownerName, expertTitle: item.ownerTitle })} 调用 ${expertTeamToolLabel(item.toolName)}`,
+        detail: item.type === 'tool_start'
+          ? compactExpertTeamActivityDetail(expertTeamToolTarget(item.toolName, item.args))
+          : item.approved === false
+            ? '用户拒绝或策略阻止了该操作'
+            : compactExpertTeamActivityDetail(expertTeamToolResultSummary(item.result)),
+        meta: expertTeamToolTargetMeta(item.toolName, item.args),
+      })
+      continue
+    }
+    if (['moderator_start', 'moderator_stream', 'moderator_retry'].includes(item.type)) {
+      const retry = item.type === 'moderator_retry'
+      const hasOutput = String(item.content || '').trim().length > 0
+      activities.push({
+        status: retry ? 'warning' : 'running',
+        iconName: retry ? 'refresh-cw' : 'crown',
+        title: '主持综合',
+        detail: retry
+          ? `主持模型请求失败，正在第${item.attempt || 1}次重试`
+          : hasOutput
+            ? `正在综合专家意见，已输出 ${expertTeamContentMeta(item.content)}`
+            : '汇总专家黑板，等待综合结论',
+        meta: modelTextFromSummary(item.model) || '模型',
+      })
+      continue
+    }
+    if (item.type === 'moderator_error') {
+      activities.push({
+        status: 'warning',
+        iconName: 'shield',
+        title: '主持综合已降级',
+        detail: expertTeamMessageText(item.message || item.error, '主持模型未返回有效内容，已用专家意见整理临时交付'),
+        meta: '自动兜底',
+      })
+      continue
+    }
+    if (item.type === 'final') {
+      activities.push({
+        status: item.status === 'fallback' ? 'warning' : 'done',
+        iconName: 'clipboard',
+        title: item.status === 'fallback' ? '生成临时交付' : '生成最终交付',
+        detail: item.status === 'fallback'
+          ? `主持综合已降级，保留输出 ${expertTeamContentMeta(item.content)}`
+          : `综合结论已完成，输出 ${expertTeamContentMeta(item.content)}`,
+        meta: modelTextFromSummary(item.model) || '交付',
+      })
+      continue
+    }
+    if (item.type === 'stopped') {
+      activities.push({
+        status: 'stopped',
+        iconName: 'stop',
+        title: '用户停止',
+        detail: expertTeamMessageText(item.message, '运行已停止，保留已完成记录'),
+        meta: '停止',
+      })
+      continue
+    }
+    if (item.type === 'error') {
+      activities.push({
+        status: emptyFailure ? 'warning' : 'error',
+        iconName: emptyFailure ? 'shield' : 'alert-circle',
+        title: emptyFailure ? '模型无输出诊断' : '运行失败',
+        detail: emptyFailure ? '所有专家调用均未获得可用文本，建议检查或更换当前模型' : expertTeamMessageText(item.message, '专家团运行失败'),
+        meta: emptyFailure ? '已降级' : '失败',
+      })
+    }
+  }
+  return compactExpertTeamActivities(activities).slice(-3)
+}
+
+function compactExpertTeamActivities(activities) {
+  const compacted = []
+  for (const activity of activities) {
+    const prev = compacted[compacted.length - 1]
+    if (prev && prev.title === activity.title && prev.status === activity.status && prev.meta === activity.meta) {
+      compacted[compacted.length - 1] = activity
+    } else {
+      compacted.push(activity)
+    }
+  }
+  return compacted
+}
+
+function compactExpertTeamActivityDetail(value, limit = 72) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!text) return '无文本结果'
+  return text.length > limit ? `${text.slice(0, limit)}...` : text
+}
+
+function formatExpertTeamActivityTime(value) {
+  const time = typeof value === 'number' ? value : Date.parse(value || '')
+  if (!Number.isFinite(time)) return '刚刚'
+  try {
+    return new Date(time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  } catch {
+    return '刚刚'
+  }
+}
+
+function renderExpertTeamRunMeta(run, progress) {
+  if (!run) return ''
+  const checkpoints = Array.isArray(run.checkpoints) ? run.checkpoints : []
+  const lastCheckpoint = checkpoints[checkpoints.length - 1]
+  const phase = expertTeamPhaseLabel(run.phase || progress?.status)
+  const elapsed = expertTeamRunElapsed(run)
+  const runId = expertTeamShortRunId(run.id)
+  const checkpointLabel = lastCheckpoint?.label || '等待首个检查点'
+  return `<div class="ast-expert-run-meta" aria-label="专家团运行元数据">
+    <span title="运行编号">
+      ${icon('hash', 12)}
+      <small>运行</small>
+      <strong>${escHtml(runId)}</strong>
+    </span>
+    <span title="当前阶段">
+      ${icon('target', 12)}
+      <small>阶段</small>
+      <strong>${escHtml(phase)}</strong>
+    </span>
+    <span title="运行耗时">
+      ${icon('clock', 12)}
+      <small>耗时</small>
+      <strong>${escHtml(elapsed)}</strong>
+    </span>
+    <span title="${escAttr(checkpointLabel)}">
+      ${icon('list', 12)}
+      <small>检查点</small>
+      <strong>${escHtml(checkpoints.length ? `${checkpoints.length}个 · ${checkpointLabel}` : '等待记录')}</strong>
+    </span>
+  </div>
+  ${renderExpertTeamCheckpointTimeline(checkpoints)}`
+}
+
+function renderExpertTeamCheckpointTimeline(checkpoints) {
+  const items = Array.isArray(checkpoints) ? checkpoints.slice(-10) : []
+  if (!items.length) return ''
+  return `<div class="ast-expert-checkpoints" aria-label="专家团检查点">
+    ${items.map(item => `<span class="ast-expert-checkpoint ast-expert-checkpoint--${escAttr(expertTeamCheckpointStatus(item.type))}">
+      <small>${escHtml(formatExpertTeamActivityTime(item.ts))}</small>
+      <strong>${escHtml(item.label || '检查点')}</strong>
+    </span>`).join('')}
+  </div>`
+}
+
+function expertTeamCheckpointStatus(type) {
+  if (String(type || '').includes('error')) return 'error'
+  if (String(type || '').includes('retry')) return 'warning'
+  if (type === 'moderator_error') return 'warning'
+  if (String(type || '').includes('stopped')) return 'stopped'
+  if (['done', 'expert_done'].includes(type)) return 'done'
+  return 'neutral'
+}
+
+function renderExpertTeamLiveSynthesis(transcript, isRunning) {
+  if (!isRunning) return ''
+  const events = Array.isArray(transcript) ? transcript : []
+  const item = [...events].reverse().find(t => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(t.type))
+  if (!item) return ''
+  const isRetry = item.type === 'moderator_retry'
+  const content = expertTeamLiveText(item.content, 1200)
+  return `<div class="ast-expert-live-synthesis ast-expert-live-synthesis--${isRetry ? 'retry' : 'running'}">
+    <div class="ast-expert-live-synthesis-head">
+      ${icon(isRetry ? 'refresh-cw' : 'crown', 13)}
+      <strong>${escHtml(isRetry ? '主持综合重试中' : '综合结论生成中')}</strong>
+      ${expertTeamModelPill(item.model)}
+    </div>
+    <div class="ast-expert-live-slot" data-expert-live-id="${escAttr(expertTeamLiveDomId('moderator', 'moderator', 0))}">
+      ${content ? `<div class="ast-expert-live-text">${escHtml(content)}</div>` : '<div class="ast-expert-skeleton"><span></span><span></span></div>'}
+    </div>
+  </div>`
+}
+
+function getExpertTeamRunMeta(message, progress) {
+  if (message?._expertTeamRun) return message._expertTeamRun
+  if (!message?._expertTeamTranscript?.length && !message?._expertTeamPlan) return null
+  const ts = message.ts || Date.now()
+  const checkpoints = buildExpertTeamLegacyCheckpoints(message)
+  const status = progress?.status || (message._expertTeamRunning ? 'running' : 'idle')
+  return {
+    id: message._expertTeamPlan?.id || `history-${ts}`,
+    groupId: message._expertTeamId || message._expertTeamPlan?.groupId || '',
+    groupName: message._expertTeamName || message._expertTeamPlan?.groupName || '',
+    status,
+    phase: expertTeamLegacyPhase(message, progress),
+    startedAt: ts,
+    updatedAt: ts,
+    endedAt: message._expertTeamRunning ? null : ts,
+    legacy: true,
+    checkpoints,
+  }
+}
+
+function buildExpertTeamLegacyCheckpoints(message) {
+  const transcript = Array.isArray(message?._expertTeamTranscript) ? message._expertTeamTranscript : []
+  const checkpoints = []
+  if (message?._expertTeamPlan) checkpoints.push({ key: 'legacy-start', type: 'start', label: '历史计划', ts: message.ts || Date.now() })
+  transcript.forEach((item, index) => {
+    const ts = message.ts || Date.now()
+    if (item.type === 'round_start') checkpoints.push({ key: `legacy-round-${item.round || index}`, type: item.type, label: `第${item.round || 1}/${item.total || 1}轮`, ts })
+    if (item.type === 'expert_done') checkpoints.push({ key: `legacy-expert-done-${item.expertId || index}-${item.round || 0}`, type: item.type, label: `${item.expertName || item.expertId || '专家'}完成`, ts })
+    if (item.type === 'expert_error') checkpoints.push({ key: `legacy-expert-error-${item.expertId || index}-${item.round || 0}`, type: item.type, label: `${item.expertName || item.expertId || '专家'}异常已处理`, ts })
+    if (item.type === 'moderator_error') checkpoints.push({ key: `legacy-moderator-error-${index}`, type: item.type, label: '主持空响应，已降级', ts })
+    if (item.type === 'final') checkpoints.push({ key: 'legacy-done', type: 'done', label: '交付完成', ts })
+    if (item.type === 'stopped') checkpoints.push({ key: 'legacy-stopped', type: 'stopped', label: '用户停止运行', ts })
+    if (item.type === 'error') checkpoints.push({ key: 'legacy-error', type: 'error', label: '运行失败', ts })
+  })
+  return checkpoints.slice(-32)
+}
+
+function expertTeamLegacyPhase(message, progress) {
+  if (message?._expertTeamRunning) return progress?.status === 'running' ? 'running' : 'expert_work'
+  const events = Array.isArray(message?._expertTeamTranscript) ? message._expertTeamTranscript : []
+  if (hasExpertTeamModeratorFallback(events)) return 'degraded'
+  if (events.some(item => item.type === 'final')) return 'closed'
+  if (events.some(item => item.type === 'stopped')) return 'stopped'
+  if (events.some(item => item.type === 'error')) return 'failed'
+  if (events.some(item => item.type?.startsWith('moderator'))) return 'moderator'
+  if (events.some(item => item.type?.startsWith('expert'))) return 'expert_work'
+  return 'queued'
+}
+
+function getExpertTeamGovernance(plan, transcript, progress) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const memberCount = Array.isArray(plan?.members) ? plan.members.length : 0
+  const skillCount = Array.isArray(plan?.members)
+    ? plan.members.reduce((sum, member) => sum + (member.skills?.length || 0) + (member.tools?.length || 0), 0)
+    : 0
+  const topology = plan
+    ? plan.mode === 'sequential'
+      ? `${getModeLabel(plan.mode)} · ${plan.maxRounds || 1}轮`
+      : `${getModeLabel(plan.mode)} · 并行${plan.maxParallel || 1}`
+    : '等待团队拓扑'
+  return [
+    {
+      label: '协作拓扑',
+      value: topology,
+      iconName: 'target',
+    },
+    {
+      label: '角色配置',
+      value: memberCount ? `${memberCount}位专家${skillCount ? ` · ${skillCount}项能力` : ''}` : '加载成员',
+      iconName: 'users',
+    },
+    {
+      label: '自治级别',
+      value: expertTeamApprovalLabel(plan?.approvalPolicy),
+      iconName: 'shield',
+    },
+    {
+      label: '运行状态',
+      value: `${progress.statusLabel}${events.length ? ` · ${events.length}条记录` : ''}`,
+      iconName: 'bar-chart',
+    },
+  ]
+}
+
+function renderExpertTeamGovernance(items) {
+  return `<div class="ast-expert-governance" aria-label="专家团治理摘要">
+    ${items.map(item => `<span class="ast-expert-governance-chip">
+      ${icon(item.iconName, 13)}
+      <span>${escHtml(item.label)}</span>
+      <strong>${escHtml(item.value)}</strong>
+    </span>`).join('')}
+  </div>`
+}
+
+function renderExpertTeamCloseout(transcript, plan, progress) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const finalDone = events.some(item => item.type === 'final')
+  const stopped = events.some(item => item.type === 'stopped')
+  const emptyFailure = isExpertTeamEmptyResponseFailure(events, progress?.status === 'running')
+  const failed = events.some(item => item.type === 'error') && !emptyFailure
+  const fallback = hasExpertTeamModeratorFallback(events)
+  const expertDone = events.filter(item => item.type === 'expert_done').length
+  const errorCount = events.filter(item => item.type === 'expert_error' || item.type === 'moderator_error' || item.type === 'error').length
+  const moderatorName = plan?.moderator?.name || plan?.moderator?.id || '主持专家'
+  const status = emptyFailure ? 'degraded' : failed ? 'error' : fallback ? 'degraded' : finalDone ? 'done' : stopped && progress.status !== 'running' ? 'stopped' : progress.status
+  const nextStep = failed
+    ? '可查看错误并重新发起'
+    : fallback || emptyFailure
+      ? (emptyFailure ? '建议检查或更换模型后重新发起' : '建议重新综合生成正式交付')
+      : finalDone
+      ? '可继续追问或复制交付结果'
+      : stopped
+        ? '已保留专家意见，可继续主持综合'
+        : '等待质量门禁完成'
+  return `<div class="ast-expert-closeout ast-expert-closeout--${escAttr(status)}">
+    <div class="ast-expert-closeout-head">
+      ${icon('clipboard', 14)}
+      <strong>交付复盘</strong>
+      <span>${escHtml(expertTeamStageStatusLabel(status))}</span>
+    </div>
+    <div class="ast-expert-closeout-grid">
+      <span><small>专家意见</small><strong>${escHtml(String(expertDone))}份</strong></span>
+      <span><small>质量门禁</small><strong>${escHtml(emptyFailure ? '未获得可用专家输出' : fallback ? `${moderatorName}临时交付` : finalDone ? `${moderatorName}已综合` : `${moderatorName}待综合`)}</strong></span>
+      <span><small>异常处理</small><strong>${escHtml(errorCount ? `${errorCount}个` : '无')}</strong></span>
+      <span><small>下一步</small><strong>${escHtml(nextStep)}</strong></span>
+    </div>
+  </div>`
+}
+
+function canResumeExpertTeamSynthesis(message) {
+  const transcript = Array.isArray(message?._expertTeamTranscript) ? message._expertTeamTranscript : []
+  if (!message || message._expertTeamRunning) return false
+  if (message._expertTeamResumeInFlight) return false
+  if (!message._expertTeamPlan?.task) return false
+  const fallback = hasExpertTeamModeratorFallback(transcript)
+  if (!transcript.some(item => item.type === 'stopped') && !fallback) return false
+  if (transcript.some(item => item.type === 'final') && !fallback) return false
+  return getExpertTeamContributions(message).length > 0
+}
+
+function canResumeExpertTeamRun(message) {
+  const transcript = Array.isArray(message?._expertTeamTranscript) ? message._expertTeamTranscript : []
+  if (!message || message._expertTeamRunning) return false
+  if (message._expertTeamResumeInFlight) return false
+  if (!message._expertTeamPlan?.task) return false
+  if (!transcript.some(item => item.type === 'stopped')) return false
+  if (transcript.some(item => item.type === 'final')) return false
+  return getExpertTeamRemainingMembers(message).length > 0
+}
+
+function getExpertTeamContributions(message) {
+  const transcript = Array.isArray(message?._expertTeamTranscript) ? message._expertTeamTranscript : []
+  const baseTs = Number.isFinite(message?.ts) ? message.ts : Date.now()
+  return transcript
+    .filter(item => item.type === 'expert_done' && String(item.content || '').trim())
+    .map((item, index) => ({
+      role: 'expert',
+      id: item.id || `resume-${item.expertId || index}-${item.round || 0}`,
+      expertId: item.expertId || item.expertName || `expert-${index + 1}`,
+      expertName: item.expertName || item.expertId || `专家${index + 1}`,
+      expertTitle: item.expertTitle || '',
+      content: item.content || '',
+      model: item.model,
+      round: item.round || 0,
+      createdAt: item.createdAt || new Date(baseTs).toISOString(),
+    }))
+}
+
+function getExpertTeamRemainingMembers(message) {
+  const plan = message?._expertTeamPlan
+  const members = Array.isArray(plan?.members) ? plan.members : []
+  const contributions = getExpertTeamContributions(message)
+  const rounds = plan?.mode === 'sequential' ? Math.max(1, Number.parseInt(plan.maxRounds || 1, 10) || 1) : 1
+  const done = new Set(contributions.map(item => `${item.expertId || ''}::${plan?.mode === 'sequential' ? (item.round || 1) : (item.round || 0)}`))
+  const missing = []
+  for (let round = 0; round < rounds; round++) {
+    const publicRound = plan?.mode === 'sequential' ? round + 1 : 0
+    for (const member of members) {
+      const id = member.id || member.expertId || ''
+      if (!id) continue
+      const key = `${id}::${publicRound}`
+      if (!done.has(key)) missing.push({ ...member, round: publicRound })
+    }
+  }
+  return missing
+}
+
+function renderExpertTeamResumeActions(message, idx) {
+  const canRun = canResumeExpertTeamRun(message)
+  const canSynthesize = canResumeExpertTeamSynthesis(message)
+  if (!canRun && !canSynthesize) return ''
+  const count = getExpertTeamContributions(message).length
+  const missing = getExpertTeamRemainingMembers(message).length
+  const fallback = hasExpertTeamModeratorFallback(message?._expertTeamTranscript)
+  return `<div class="ast-expert-resume-actions" aria-label="专家团恢复操作">
+    <span>${escHtml(fallback ? `主持综合返回空内容，已保留 ${count} 份意见，可重新综合生成正式交付` : missing ? `${count ? `已保留 ${count} 份意见，` : ''}还有 ${missing} 位/轮专家可补跑` : `已保留 ${count} 份专家意见，可只继续主持综合`)}</span>
+    ${canRun ? `<button type="button" class="ast-expert-resume-btn" data-action="resume-expert-run" data-msg-idx="${escAttr(idx)}" title="补跑缺失专家，再进入主持综合" aria-label="补跑缺失专家，再进入主持综合">
+      ${icon('refresh-cw', 13)}
+      <span>继续剩余专家</span>
+    </button>` : ''}
+    ${canSynthesize ? `<button type="button" class="ast-expert-resume-btn ast-expert-resume-btn--ghost" data-action="resume-expert-synthesis" data-msg-idx="${escAttr(idx)}" title="不重跑专家，直接进入主持综合" aria-label="不重跑专家，直接进入主持综合">
+      ${icon('play', 13)}
+      <span>${escHtml(fallback ? '重新综合' : '继续综合')}</span>
+    </button>` : ''}
+  </div>`
+}
+
+function hasExpertTeamModeratorFallback(transcript) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const final = [...events].reverse().find(item => item.type === 'final')
+  return events.some(item => item.type === 'moderator_error') && (!final || final.status === 'fallback' || /临时交付|自动降级|主持模型返回空内容|主持专家合成失败/.test(String(final.content || '')))
+}
+
+function isExpertTeamEmptyResponseFailure(transcript, isRunning = false) {
+  if (isRunning) return false
+  const events = Array.isArray(transcript) ? transcript : []
+  if (events.some(item => item.type === 'final' || item.type === 'expert_done')) return false
+  const expertErrors = events.filter(item => item.type === 'expert_error')
+  if (!expertErrors.length) return false
+  const runFailed = events.some(item => item.type === 'error')
+  if (!runFailed) return false
+  return expertErrors.every(item => /empty expert response|空专家回复|空内容|没有收到可用/i.test(expertTeamMessageText(item.message || item.error, '')))
+}
+
+function buildExpertTeamNoExpertResponseDisplayItem(transcript, plan) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const expertErrors = events.filter(item => item.type === 'expert_error')
+  const experts = [...new Set(expertErrors
+    .map(item => item.expertName || item.expertId || '专家')
+    .filter(Boolean))]
+  const model = expertErrors.find(item => item.model)?.model || plan?.model
+  return {
+    type: 'final',
+    status: 'fallback',
+    model,
+    content: [
+      '专家团没有收到可用的专家回复，本次没有足够材料生成正式综合结论。',
+      '',
+      '## 当前状态',
+      `- 已调度专家：${experts.length ? experts.join('、') : '暂无'}`,
+      '- 可用专家意见：0 份',
+      '- 常见原因：当前模型返回空内容、模型接口格式不兼容、模型服务异常，或模型配置不可用',
+      '',
+      '## 建议下一步',
+      '- 优先切换到稳定的 OpenAI 兼容 Chat Completions 模型后重新发起。',
+      '- 检查模型配置页里的 baseUrl、模型名、API Key 和服务状态。',
+      '- 如果只在某个模型上复现，说明该模型返回格式需要单独适配。',
+    ].join('\n'),
+  }
+}
+
+function getExpertTeamStages(transcript, plan, isRunning, progress) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const hasPlan = !!plan || events.length > 0 || isRunning
+  const expertEvents = events.filter(item => item.type?.startsWith('expert_'))
+  const expertDone = expertEvents.filter(item => item.type === 'expert_done' || item.type === 'expert_error').length
+  const expertLive = expertEvents.some(item => ['expert_start', 'expert_stream', 'expert_retry'].includes(item.type))
+  const moderatorLive = events.some(item => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(item.type))
+  const moderatorError = events.some(item => item.type === 'moderator_error')
+  const finalDone = events.some(item => item.type === 'final')
+  const fallback = hasExpertTeamModeratorFallback(events)
+  const stopped = events.some(item => item.type === 'stopped')
+  const emptyFailure = isExpertTeamEmptyResponseFailure(events, isRunning)
+  const failed = events.some(item => item.type === 'error') && !emptyFailure
+  const effectiveStopped = stopped && !isRunning && !finalDone && !failed
+  const memberCount = Array.isArray(plan?.members) ? plan.members.length : 0
+  const rounds = plan?.mode === 'sequential' ? Math.max(1, Number.parseInt(plan.maxRounds || 1, 10) || 1) : 1
+  const expertTarget = Math.max((memberCount * rounds) || expertDone || (expertLive ? 1 : 0), 1)
+  const expertStatus = failed ? 'error'
+    : effectiveStopped ? 'stopped'
+      : finalDone || expertDone >= expertTarget ? 'done'
+        : expertLive ? 'running'
+          : hasPlan ? 'waiting' : 'waiting'
+  const moderatorStatus = failed ? 'error'
+    : fallback || moderatorError || emptyFailure ? 'warning'
+    : effectiveStopped ? 'stopped'
+      : finalDone ? 'done'
+        : moderatorLive ? 'running'
+          : expertDone > 0 || expertLive ? 'waiting' : 'waiting'
+  const closeoutStatus = failed ? 'error'
+    : fallback || emptyFailure ? 'degraded'
+    : effectiveStopped ? 'stopped'
+      : finalDone ? 'done'
+        : isRunning ? 'waiting' : 'waiting'
+  return [
+    {
+      name: '快速模式启动',
+      detail: progress?.status === 'idle' ? '等待查看' : '任务已接收',
+      status: hasPlan ? 'done' : 'running',
+      label: hasPlan ? '已完成' : '进行中',
+      icon: icon('zap', 13),
+    },
+    {
+      name: '创建团队',
+      detail: memberCount ? `${memberCount} 位专家` : '加载成员配置',
+      status: plan ? 'done' : 'running',
+      label: plan ? '已创建' : '创建中',
+      icon: icon('users', 13),
+    },
+    {
+      name: '专家协作',
+      detail: `${Math.min(expertDone, expertTarget)} / ${expertTarget} 已完成`,
+      status: expertStatus,
+      label: expertTeamStageStatusLabel(expertStatus),
+      icon: icon('hammer', 13),
+    },
+    {
+      name: '主持综合',
+      detail: emptyFailure ? '模型无可用输出' : fallback ? '模型空响应，已临时交付' : finalDone ? '结论已生成' : '等待专家意见',
+      status: moderatorStatus,
+      label: expertTeamStageStatusLabel(moderatorStatus),
+      icon: icon('crown', 13),
+    },
+    {
+      name: '交付复盘',
+      detail: emptyFailure ? '建议更换模型后重试' : fallback ? '可重新综合' : finalDone ? '闭环完成' : effectiveStopped ? '已退出专家团' : '等待质量门禁',
+      status: closeoutStatus,
+      label: expertTeamStageStatusLabel(closeoutStatus),
+      icon: icon('clipboard', 13),
+    },
+  ]
+}
+
+function getExpertTeamActiveAgents(transcript) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const liveTypes = ['expert_start', 'expert_stream', 'expert_retry', 'moderator_start', 'moderator_stream', 'moderator_retry']
+  return events
+    .filter(item => liveTypes.includes(item.type))
+    .map(item => {
+      const isModerator = item.type?.startsWith('moderator')
+      const name = isModerator ? (item.expertName || '主持综合') : (item.expertName || item.expertId || '专家')
+      const identity = item.expertTitle || (isModerator ? '主持专家' : '')
+      const retry = item.type?.endsWith('_retry')
+      return {
+        expertId: isModerator ? 'moderator' : item.expertId,
+        name,
+        initial: name.trim().slice(0, 1) || '专',
+        status: retry ? 'retry' : 'running',
+        label: retry ? '重试中' : '进行中',
+        identity: identity ? `${identity} · ${retry ? '重试中' : '进行中'}` : (retry ? '重试中' : '进行中'),
+        title: `${expertTeamActorLabel(item)}${expertTeamRoundLabel(item)} · ${retry ? '重试中' : '进行中'}`,
+        liveId: expertTeamLiveDomId(isModerator ? 'moderator' : 'expert', isModerator ? 'moderator' : item.expertId, item.round || 0),
+      }
+    })
+}
+
+function renderExpertTeamEventItem(item, eventIndex) {
+  if (!item) return ''
+  if (item.type === 'round_start') {
+      return `<div class="ast-expert-item ast-expert-item--round">
+        <div class="ast-expert-item-head">
+          <span class="ast-expert-status-icon">${icon('refresh-cw', 12)}</span>
+          <strong>第${escHtml(item.round)}轮 / 共${escHtml(item.total)}轮</strong>
+        </div>
+      </div>`
+  }
+  if (['expert_start', 'expert_stream', 'expert_retry'].includes(item.type)) {
+    return renderExpertTeamLiveItem(item)
+  }
+  if (item.type === 'expert_done') {
+    return renderExpertTeamDoneItem(item, eventIndex)
+  }
+  if (item.type === 'expert_error') {
+    return renderExpertTeamErrorItem(item, expertTeamMessageText(item.message, '该专家调用失败，已跳过并继续运行。'))
+  }
+  if (['moderator_start', 'moderator_stream', 'moderator_retry'].includes(item.type)) {
+    return renderExpertTeamModeratorLiveItem(item)
+  }
+  if (['tool_start', 'tool_done', 'tool_error'].includes(item.type)) {
+    return renderExpertTeamToolItem(item)
+  }
+  if (item.type === 'moderator_error') {
+    return `<div class="ast-expert-item ast-expert-item--warning">
+      <div class="ast-expert-item-head">
+        <span class="ast-expert-status-icon">${icon('shield', 13)}</span>
+        <strong>主持综合已自动降级</strong>
+        ${expertTeamModelPill(item.model)}
+      </div>
+      <div class="ast-expert-item-body">${escHtml(expertTeamMessageText(item.message, '主持模型未返回有效内容，系统已根据已收集的专家意见生成临时交付。'))}</div>
+    </div>`
+  }
+  if (item.type === 'final') {
+    const isFallback = item.status === 'fallback' || /临时交付|自动降级|主持模型返回空内容|主持专家合成失败/.test(String(item.content || ''))
+    const preview = expertTeamFinalPreview(item.content)
+    return `<div class="ast-expert-item ast-expert-item--final ast-expert-final-card">
+      <div class="ast-expert-item-head">
+        <span class="ast-expert-status-icon">${icon(isFallback ? 'shield' : 'crown', 14)}</span>
+        <strong>${escHtml(isFallback ? '临时交付' : '综合结论')}</strong>
+        ${isFallback ? '<span class="ast-expert-identity-pill ast-expert-identity-pill--warning">可重新综合</span>' : ''}
+        ${expertTeamModelPill(item.model)}
+      </div>
+      <div class="ast-expert-final-preview">${renderMarkdown(preview)}</div>
+      <details class="ast-expert-final-detail">
+        <summary>
+          <span>${icon('file-text', 13)} 查看完整交付</span>
+          <small>${escHtml(expertTeamContentMeta(item.content))}</small>
+          <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
+        </summary>
+        <div class="ast-expert-item-body ast-expert-final-body">${renderMarkdown(item.content)}</div>
+      </details>
+    </div>`
+  }
+  if (item.type === 'error') {
+    return `<div class="ast-expert-item ast-expert-item--error">
+      <div class="ast-expert-item-head">
+        <span class="ast-expert-status-icon">${icon('alert-circle', 13)}</span>
+        <strong>错误</strong>
+      </div>
+      <div class="ast-expert-item-body">${escHtml(expertTeamMessageText(item.message, '专家团运行失败'))}</div>
+    </div>`
+  }
+  if (item.type === 'stopped') {
+    return `<div class="ast-expert-item ast-expert-item--stopped">
+      <div class="ast-expert-item-head">
+        <span class="ast-expert-status-icon">${icon('stop', 13)}</span>
+        <strong>已停止</strong>
+      </div>
+      <div class="ast-expert-item-body">${escHtml(expertTeamMessageText(item.message, '专家团运行已停止。后续消息将按普通对话发送。'))}</div>
+    </div>`
+  }
+  return ''
+}
+
+function renderExpertTeamToolItem(item) {
+  const done = item.type === 'tool_done'
+  const denied = item.type === 'tool_error' || item.approved === false
+  const stateClass = done && !denied ? 'done' : denied ? 'error' : 'pending'
+  return `<details class="ast-expert-item ast-expert-item--tool ast-expert-item--tool-${escAttr(stateClass)}">
+    <summary class="ast-expert-tool-summary">
+      <span class="ast-expert-status-icon">${icon(expertTeamToolIcon(item.toolName), 13)}</span>
+      <span class="ast-expert-summary-main">
+        <span class="ast-expert-summary-title">
+          <strong>${escHtml(expertTeamActorLabel({ expertName: item.ownerName, expertTitle: item.ownerTitle }))} · ${escHtml(expertTeamToolLabel(item.toolName))}</strong>
+          ${expertTeamIdentityPill(item.ownerTitle)}
+        </span>
+        <span class="ast-expert-preview">${escHtml(expertTeamToolTarget(item.toolName, item.args))}</span>
+      </span>
+      <span class="ast-expert-summary-meta">${escHtml(done ? '已完成' : denied ? '已阻止' : '执行中')}</span>
+      <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
+    </summary>
+    <div class="ast-expert-tool-detail">
+      <div class="ast-expert-tool-kv"><small>参数</small><code>${escHtml(JSON.stringify(item.args || {}, null, 2))}</code></div>
+      ${item.result ? `<div class="ast-expert-tool-kv"><small>结果</small><pre>${escHtml(String(item.result))}</pre></div>` : ''}
+    </div>
+  </details>`
+}
+
+function normalizeExpertTeamToolEvent(event = {}) {
+  const ownerName = event.owner === 'moderator'
+    ? '主持专家'
+    : (event.expertName || event.expertId || '专家')
+  const ownerTitle = event.owner === 'moderator'
+    ? (event.expertTitle || '主持专家')
+    : (event.expertTitle || '')
+  return {
+    type: event.type,
+    owner: event.owner || 'expert',
+    ownerName,
+    ownerTitle,
+    expertName: event.expertName || '',
+    expertTitle: event.expertTitle || '',
+    expertId: event.expertId || '',
+    toolName: event.toolName || '',
+    toolCallId: event.toolCallId || `${event.toolName || 'tool'}-${Date.now()}`,
+    args: event.args || {},
+    result: event.result || '',
+    approved: event.approved !== false,
+    model: event.model,
+    round: event.round || 0,
+    createdAt: new Date().toISOString(),
+  }
+}
+
+function expertTeamToolLabel(name) {
+  return {
+    run_command: '执行命令',
+    read_file: '读取文件',
+    write_file: '写入文件',
+    list_directory: '列出目录',
+    get_system_info: '系统信息',
+    list_processes: '进程列表',
+    check_port: '检测端口',
+    get_openclaw_context: '读取 OpenClaw 实况',
+    diagnose_openclaw: '诊断 OpenClaw',
+    get_openclaw_schema_graph: 'OpenClaw Schema',
+    browser_action: '浏览器操作',
+    web_search: '网页搜索',
+    fetch_url: '抓取网页',
+    skills_list: 'Skills 列表',
+    skills_info: 'Skill 信息',
+    skills_check: '检查 Skills',
+    skills_install_dep: '安装依赖',
+    skillhub_search: '搜索 SkillHub',
+    skillhub_install: '安装 Skill',
+  }[name] || name || '工具'
+}
+
+function expertTeamToolIcon(name) {
+  return {
+    run_command: 'terminal',
+    read_file: 'file',
+    write_file: 'edit',
+    list_directory: 'folder',
+    get_system_info: 'monitor',
+    list_processes: 'list',
+    check_port: 'plug',
+    get_openclaw_context: 'info',
+    diagnose_openclaw: 'shield',
+    get_openclaw_schema_graph: 'hash',
+    browser_action: 'globe',
+    web_search: 'search',
+    fetch_url: 'globe',
+    skills_list: 'box',
+    skills_info: 'box',
+    skills_check: 'box',
+    skills_install_dep: 'download',
+    skillhub_search: 'search',
+    skillhub_install: 'download',
+  }[name] || 'wrench'
+}
+
+function expertTeamToolTarget(name, args = {}) {
+  if (name === 'run_command') return args.cwd ? `${args.command || ''} · ${args.cwd}` : (args.command || '执行命令')
+  if (name === 'read_file' || name === 'write_file') return args.path || '文件路径'
+  if (name === 'list_directory') return args.path || '目录路径'
+  if (name === 'check_port') return `端口 ${args.port || ''}`.trim()
+  if (name === 'list_processes') return args.filter ? `过滤 ${args.filter}` : '全部进程'
+  if (name === 'browser_action') return [args.action, args.url || args.ref].filter(Boolean).join(' · ') || '浏览器动作'
+  if (name === 'web_search') return args.query || '搜索'
+  if (name === 'fetch_url') return args.url || 'URL'
+  if (name === 'skills_info') return args.name || 'Skill'
+  if (name === 'skills_install_dep') return `${args.kind || ''} ${args.spec?.formula || args.spec?.package || args.spec?.module || ''}`.trim() || '依赖'
+  if (name === 'skillhub_search') return args.query || '搜索'
+  if (name === 'skillhub_install') return args.slug || 'Skill'
+  return Object.keys(args || {}).length ? JSON.stringify(args).slice(0, 120) : '无参数'
+}
+
+function expertTeamToolTargetBrief(name, args = {}) {
+  if (name === 'run_command') return compactExpertTeamCommand(args.command || '执行命令')
+  if (name === 'read_file' || name === 'write_file' || name === 'list_directory') return compactExpertTeamPath(args.path || '路径')
+  if (name === 'browser_action') return [args.action, args.url || args.ref].filter(Boolean).join(' · ') || '浏览器动作'
+  return compactExpertTeamActivityDetail(expertTeamToolTarget(name, args), 64)
+}
+
+function compactExpertTeamPath(value) {
+  const text = String(value || '').trim()
+  if (!text) return '路径'
+  const parts = text.split(/[\\/]+/).filter(Boolean)
+  if (parts.length <= 2) return text
+  return parts.slice(-2).join('/')
+}
+
+function compactExpertTeamCommand(value) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!text) return '执行命令'
+  const first = text.split(' ')[0] || text
+  return text.length > 56 ? `${first} · ${text.slice(0, 52)}...` : text
+}
+
+function expertTeamToolTargetMeta(name, args = {}) {
+  if (name === 'read_file' || name === 'write_file') return '文件'
+  if (name === 'run_command') return '命令'
+  if (name === 'list_directory') return '目录'
+  if (name === 'browser_action') return '浏览器'
+  if (name === 'web_search' || name === 'fetch_url') return '网络'
+  return expertTeamToolLabel(name)
+}
+
+function expertTeamToolResultSummary(result) {
+  const raw = String(result || '').trim()
+  if (!raw) return '执行完成，无文本结果'
+  const compact = raw.replace(/\s+/g, ' ')
+  return compact.length > 160 ? `${compact.slice(0, 160)}...` : compact
+}
+
+function renderExpertTeamLiveItem(item) {
+  const roundLabel = expertTeamRoundLabel(item)
+  const isRetry = item.type === 'expert_retry'
+  const content = expertTeamLiveText(item.content)
+  return `<div class="ast-expert-item ${isRetry ? 'ast-expert-item--retry' : 'ast-expert-item--pending'}" style="--expert-color:${escAttr(getExpertColor(item.expertId))}">
+    <div class="ast-expert-item-head">
+      <span class="ast-expert-status-dot"></span>
+      <strong>${escHtml(expertTeamActorLabel(item))}${roundLabel}</strong>
+      ${expertTeamIdentityPill(item.expertTitle)}
+      ${expertTeamModelPill(item.model)}
+    </div>
+    ${isRetry ? `<div class="ast-expert-item-loading">模型调用失败，正在重试第${escHtml(item.attempt || 1)}次...</div>` : ''}
+    <div class="ast-expert-live-slot" data-expert-live-id="${escAttr(expertTeamLiveDomId('expert', item.expertId, item.round || 0))}">
+      ${content ? `<div class="ast-expert-live-text">${escHtml(content)}</div>` : '<div class="ast-expert-skeleton"><span></span><span></span></div>'}
+    </div>
+  </div>`
+}
+
+function renderExpertTeamModeratorLiveItem(item) {
+  const isRetry = item.type === 'moderator_retry'
+  const content = expertTeamLiveText(item.content)
+  return `<div class="ast-expert-item ${isRetry ? 'ast-expert-item--retry' : 'ast-expert-item--moderating'}">
+    <div class="ast-expert-item-head">
+      <span class="ast-expert-status-dot"></span>
+      <strong>${escHtml(expertTeamActorLabel({ expertName: item.expertName || '主持综合', expertTitle: item.expertTitle || '主持专家' }))}</strong>
+      ${expertTeamIdentityPill(item.expertTitle || '主持专家')}
+      ${expertTeamModelPill(item.model)}
+    </div>
+    ${isRetry ? `<div class="ast-expert-item-loading">模型调用失败，正在重试第${escHtml(item.attempt || 1)}次...</div>` : ''}
+    <div class="ast-expert-live-slot" data-expert-live-id="${escAttr(expertTeamLiveDomId('moderator', 'moderator', 0))}">
+      ${content ? `<div class="ast-expert-live-text">${escHtml(content)}</div>` : '<div class="ast-expert-skeleton"><span></span><span></span></div>'}
+    </div>
+  </div>`
+}
+
+function renderExpertTeamDoneItem(item, eventIndex) {
+  const roundLabel = expertTeamRoundLabel(item)
+  return `<details class="ast-expert-item ast-expert-item--done ast-expert-disclosure" style="--expert-color:${escAttr(getExpertColor(item.expertId))}">
+    <summary class="ast-expert-summary">
+      <span class="ast-expert-status-icon">${icon('check-circle', 13)}</span>
+      <span class="ast-expert-summary-main">
+        <span class="ast-expert-summary-title">
+          <strong>${escHtml(expertTeamActorLabel(item))}${roundLabel}</strong>
+          ${expertTeamIdentityPill(item.expertTitle)}
+          ${expertTeamModelPill(item.model)}
+        </span>
+        <span class="ast-expert-preview">已完成，可展开查看完整发言</span>
+      </span>
+      <span class="ast-expert-summary-meta">${escHtml(expertTeamContentMeta(item.content))}</span>
+      <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
+    </summary>
+    <div class="ast-expert-item-body ast-expert-detail-body" id="ast-expert-detail-${eventIndex}">${renderMarkdown(item.content)}</div>
+  </details>`
+}
+
+function renderExpertTeamErrorItem(item, message) {
+  const roundLabel = expertTeamRoundLabel(item)
+  return `<div class="ast-expert-item ast-expert-item--error" style="--expert-color:${escAttr(getExpertColor(item.expertId))}">
+    <div class="ast-expert-item-head">
+      <span class="ast-expert-status-icon">${icon('alert-circle', 13)}</span>
+      <strong>${escHtml(expertTeamActorLabel(item))}${roundLabel}</strong>
+      ${expertTeamIdentityPill(item.expertTitle)}
+      ${expertTeamModelPill(item.model)}
+    </div>
+    <div class="ast-expert-item-body">${escHtml(message)}</div>
+  </div>`
+}
+
+function getExpertTeamProgress(transcript, plan, isRunning) {
+  const events = Array.isArray(transcript) ? transcript : []
+  const rounds = plan?.mode === 'sequential' ? Math.max(1, Number.parseInt(plan.maxRounds || 1, 10) || 1) : 1
+  const plannedExperts = Array.isArray(plan?.members) ? plan.members.length * rounds : 0
+  const completedExpertEvents = events.filter(item => item.type === 'expert_done' || item.type === 'expert_error').length
+  const liveExpertEvents = events.filter(item => ['expert_start', 'expert_stream', 'expert_retry'].includes(item.type)).length
+  const expertTotal = Math.max(plannedExperts, completedExpertEvents + liveExpertEvents, 1)
+  const moderatorTotal = plan?.moderator ? 1 : 0
+  const total = Math.max(1, expertTotal + moderatorTotal)
+  const finalDone = events.some(item => item.type === 'final')
+  const fallback = hasExpertTeamModeratorFallback(events)
+  const emptyFailure = isExpertTeamEmptyResponseFailure(events, isRunning)
+  const moderatorDone = moderatorTotal && (finalDone || events.some(item => item.type === 'moderator_error')) ? 1 : 0
+  const completed = finalDone || emptyFailure ? total : Math.min(total, completedExpertEvents + moderatorDone)
+  const percent = finalDone || emptyFailure ? 100 : Math.max(isRunning ? 8 : 0, Math.round((completed / total) * 100))
+  const errorCount = events.filter(item => item.type === 'expert_error' || item.type === 'error').length
+  const warningCount = events.filter(item => item.type === 'moderator_error').length
+  const stopped = events.some(item => item.type === 'stopped')
+  const failed = events.some(item => item.type === 'error') && !isRunning && !emptyFailure
+  let status = isRunning ? 'running' : 'idle'
+  if (emptyFailure && !isRunning) status = 'degraded'
+  else if (finalDone && !isRunning) status = fallback ? 'degraded' : 'done'
+  if (failed) status = 'error'
+  if (stopped && !isRunning && !finalDone && !failed) status = 'stopped'
+  const active = isRunning ? [...events].reverse().find(item => ['moderator_stream', 'moderator_start', 'moderator_retry', 'expert_stream', 'expert_start', 'expert_retry'].includes(item.type)) : null
+  const currentLabel = active
+    ? expertTeamCurrentLabel(active)
+    : failed
+      ? '专家团运行失败'
+      : emptyFailure
+        ? '模型未返回可用专家意见'
+      : fallback
+        ? '已生成临时交付，可重新综合'
+        : finalDone
+        ? '专家团已完成综合'
+        : stopped && !isRunning ? '运行已停止，后续按普通对话发送'
+          : isRunning ? '正在调度专家' : '专家团结果'
+  return {
+    completed,
+    total,
+    percent: Math.max(0, Math.min(100, percent)),
+    status,
+    statusLabel: expertTeamStatusLabel(status),
+    currentLabel,
+    errorCount,
+    warningCount,
+    summary: emptyFailure ? '没有收到可用专家回复，请检查或更换模型后重试' : fallback ? '主持综合已降级，可重新综合' : finalDone ? '最终结论已生成' : isRunning ? '中间意见默认折叠，当前输出实时更新' : '可展开查看专家明细',
+  }
+}
+
+function expertTeamStatusLabel(status) {
+  const map = { running: '运行中', done: '已完成', degraded: '已降级', error: '出错', stopped: '已停止', idle: '待查看' }
+  return map[status] || '运行中'
+}
+
+function expertTeamRunIcon(status) {
+  const map = { running: 'radio', done: 'check-circle', degraded: 'shield', error: 'alert-circle', stopped: 'stop', idle: 'users' }
+  return icon(map[status] || 'users', 16)
+}
+
+function expertTeamStageStatusLabel(status) {
+  const map = { done: '已完成', degraded: '已降级', running: '进行中', waiting: '等待中', warning: '需复核', error: '异常', stopped: '已停止' }
+  return map[status] || '等待中'
+}
+
+function expertTeamApprovalLabel(policy) {
+  const map = {
+    none: '自动闭环',
+    before_final: '交付前确认',
+    before_tools: '工具前确认',
+  }
+  return map[policy || 'none'] || '自定义确认'
+}
+
+function expertTeamPhaseLabel(phase) {
+  const map = {
+    queued: '排队准备',
+    planning: '规划团队',
+    expert_round: '专家协作',
+    expert_work: '专家生成',
+    moderator: '主持综合',
+    closed: '交付完成',
+    degraded: '临时交付',
+    stopped: '已停止',
+    failed: '运行失败',
+    running: '运行中',
+    done: '已完成',
+    error: '运行失败',
+    idle: '待查看',
+  }
+  return map[phase || 'queued'] || '运行中'
+}
+
+function expertTeamRunElapsed(run) {
+  if (!run?.startedAt) return '刚开始'
+  const end = run.endedAt || run.updatedAt || Date.now()
+  const seconds = Math.max(0, Math.round((end - run.startedAt) / 1000))
+  if (seconds < 1) return '刚开始'
+  if (seconds < 60) return `${seconds}秒`
+  const minutes = Math.floor(seconds / 60)
+  const rest = seconds % 60
+  if (minutes < 60) return rest ? `${minutes}分${rest}秒` : `${minutes}分钟`
+  const hours = Math.floor(minutes / 60)
+  const minuteRest = minutes % 60
+  return minuteRest ? `${hours}小时${minuteRest}分` : `${hours}小时`
+}
+
+function expertTeamShortRunId(id) {
+  const raw = String(id || '').trim()
+  if (!raw) return '未记录'
+  if (raw.length <= 12) return raw
+  return raw.slice(-10)
+}
+
+function expertTeamStageStatusIcon(status) {
+  const map = {
+    done: 'check-circle',
+    running: 'radio',
+    waiting: 'clock',
+    warning: 'shield',
+    degraded: 'shield',
+    error: 'alert-circle',
+    stopped: 'stop',
+  }
+  return icon(map[status] || 'clock', 13)
+}
+
+function expertTeamCurrentLabel(item) {
+  if (item.type?.startsWith('moderator')) return item.type === 'moderator_retry' ? '主持综合正在重试' : '主持正在综合结论'
+  const name = item.expertName || item.expertId || '专家'
+  const action = item.type === 'expert_retry' ? '正在重试' : '正在生成'
+  return `${name}${expertTeamRoundLabel(item)}${action}`
+}
+
+function expertTeamRoundLabel(item) {
+  return item?.round && item.round > 0 ? ` (第${item.round}轮)` : ''
+}
+
+function expertTeamModelPill(model) {
+  const label = modelBadgeHtml(model)
+  return label ? `<span class="ast-expert-model-pill">${label}</span>` : ''
+}
+
+function expertTeamActorLabel(item = {}) {
+  const name = item.expertName || item.ownerName || item.expertId || '专家'
+  const title = item.expertTitle || item.ownerTitle || ''
+  return title && !String(name).includes(title) ? `${name} · ${title}` : name
+}
+
+function expertTeamIdentityPill(title) {
+  const text = String(title || '').trim()
+  return text ? `<span class="ast-expert-identity-pill">${escHtml(text)}</span>` : ''
+}
+
+function expertTeamContentMeta(content) {
+  const plain = expertTeamPlainText(content)
+  if (!plain) return '0字'
+  const chars = [...plain].length
+  const lines = String(content || '').split(/\r?\n/).filter(line => line.trim()).length
+  return `${chars}字 · ${lines || 1}行`
+}
+
+function expertTeamPlainText(content) {
+  return String(content || '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/[#>*_~|\[\]-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function expertTeamFinalPreview(content, limit = 360) {
+  const raw = String(content || '').trim()
+  if (!raw) return '本次专家团没有生成可预览的交付内容。'
+  const cleanedLines = raw
+    .split(/\r?\n/)
+    .filter(line => {
+      const text = line.trim()
+      if (!text) return true
+      if (/^Now let me/i.test(text)) return false
+      if (/[A-Z]:\\[^\s#]+/.test(text)) return false
+      if (/^[A-Z]:\\/.test(text)) return false
+      if (/^Copy\b/.test(text)) return false
+      if (/^[↓→\s]+$/.test(text)) return false
+      if (/[\u2192\u2193].*[\u2192\u2193]/.test(text)) return false
+      return true
+    })
+  const normalizeLine = (line) => line
+    .trim()
+    .replace(/^#{1,6}\s+/, '')
+    .replace(/^>\s*/, '')
+    .replace(/^[-*]\s+/, '')
+    .replace(/\*\*/g, '')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const usefulLine = (line) => {
+    const text = normalizeLine(line)
+    if (!text || text.length < 6) return ''
+    if (/^[-|:\s]+$/.test(text)) return ''
+    if (/^\|.*\|$/.test(text)) return ''
+    if (/^(一|二|三|四|五|六|七|八|九|十)、/.test(text)) return ''
+    if (/^\d+(\.\d+)*\s+/.test(text)) return ''
+    if (/^第\d+轮\s*\/\s*共\d+轮/.test(text)) return ''
+    if (/轮次|产品|架构|QA|安全/.test(text) && /\t| {2,}/.test(line)) return ''
+    return text
+  }
+  const priority = []
+  const secondary = []
+  for (const line of cleanedLines) {
+    const text = usefulLine(line)
+    if (!text) continue
+    if (/最终决策|最终结论|核心结论|综合结论|推荐方案|交付结果|总体判断|下一步|关键风险|风险|建议/.test(text)) {
+      priority.push(text)
+    } else if (/^>\s*/.test(line.trim()) || /^[-*]\s+/.test(line.trim())) {
+      secondary.push(text)
+    }
+  }
+  const fallback = cleanedLines.map(usefulLine).filter(Boolean)
+  const deduped = []
+  for (const line of [...priority, ...secondary, ...fallback]) {
+    if (deduped.some(prev => prev === line || prev.includes(line) || line.includes(prev))) continue
+    deduped.push(line)
+    if (deduped.length >= 4) break
+  }
+  const previewLines = deduped.length
+    ? ['### 交付摘要', ...deduped.map(line => `- ${line}`)]
+    : ['### 交付摘要', '- 已生成交付内容，可展开查看完整正文。']
+  const cleaned = previewLines
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+  if (cleaned.length <= limit) return cleaned
+  const slice = cleaned.slice(0, limit)
+  const cut = Math.max(slice.lastIndexOf('\n'), slice.lastIndexOf('。'), slice.lastIndexOf('. '))
+  return `${slice.slice(0, cut > 180 ? cut + 1 : limit).trim()}\n\n...`
+}
+
+function expertTeamLiveText(content, limit = 900) {
+  const raw = String(content || '').trim()
+  if (!raw) return ''
+  return raw.length > limit ? `...${raw.slice(raw.length - limit)}` : raw
+}
+
+function expertTeamMessageText(value, fallback = '运行出错') {
+  if (value == null) return fallback
+  if (typeof value === 'string') return value.trim() || fallback
+  if (typeof value === 'object') {
+    const parts = [value.message, value.hint].map(part => String(part || '').trim()).filter(Boolean)
+    if (parts.length) return parts.join(' · ')
+    if (typeof value.raw === 'string' && value.raw.trim()) return value.raw.trim()
+    if (typeof value.error === 'string' && value.error.trim()) return value.error.trim()
+  }
+  const text = String(value || '').trim()
+  return text && text !== '[object Object]' ? text : fallback
+}
+
+function expertTeamErrorText(error, context) {
+  const text = expertTeamMessageText(humanizeError(error, context), context || '专家团运行失败')
+  if (/All expert responses failed/i.test(text)) return `${context || '专家团运行失败'} · 专家团没有收到可用的专家回复，请检查或更换当前模型后重试`
+  if (/Model returned an empty expert response/i.test(text)) return `${context || '专家团运行失败'} · 当前模型返回空专家回复，请检查或更换当前模型后重试`
+  return text
+}
+
+function expertTeamDomId(message) {
+  return `expert-msg-${message?._expertTeamRun?.id || message?._expertTeamPlan?.id || message?.ts || 'current'}`
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+}
+
+function expertTeamLiveDomId(kind, expertId, round = 0) {
+  return `${kind || 'expert'}-${expertId || 'unknown'}-${round || 0}`.replace(/[^a-zA-Z0-9_-]/g, '-')
+}
+
+function scheduleExpertTeamLiveDomUpdate(aiMsg, event, kind) {
+  if (!_messagesEl || !aiMsg || !event) return
+  const messageId = expertTeamDomId(aiMsg)
+  const liveId = expertTeamLiveDomId(kind, kind === 'moderator' ? 'moderator' : event.expertId, event.round || 0)
+  const key = `${messageId}:${liveId}`
+  const transcript = aiMsg._expertTeamTranscript || []
+  const item = kind === 'moderator'
+    ? transcript.find(t => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(t.type))
+    : transcript.find(t => ['expert_start', 'expert_stream', 'expert_retry'].includes(t.type) && sameExpertRun(t, event.expertId, event.round || 0))
+  _expertTeamDomUpdatePayloads.set(key, {
+    messageId,
+    liveId,
+    content: expertTeamLiveText(item?.content || ''),
+    meta: item?.content ? expertTeamContentMeta(item.content) : '生成中',
+  })
+  if (_expertTeamDomUpdateTimers.has(key)) return
+  _expertTeamDomUpdateTimers.set(key, setTimeout(() => {
+    _expertTeamDomUpdateTimers.delete(key)
+    const payload = _expertTeamDomUpdatePayloads.get(key)
+    _expertTeamDomUpdatePayloads.delete(key)
+    applyExpertTeamLiveDomUpdate(payload)
+  }, 120))
+}
+
+function applyExpertTeamLiveDomUpdate(payload) {
+  if (!_messagesEl || !payload?.messageId || !payload.liveId) return
+  const root = _messagesEl.querySelector(`[data-expert-dom-id="${cssEscape(payload.messageId)}"]`)
+  if (!root) return
+  const slots = root.querySelectorAll(`[data-expert-live-id="${cssEscape(payload.liveId)}"]`)
+  slots.forEach(slot => {
+    slot.innerHTML = payload.content
+      ? `<div class="ast-expert-live-text">${escHtml(payload.content)}</div>`
+      : '<div class="ast-expert-skeleton"><span></span><span></span></div>'
+  })
+  root.querySelectorAll(`[data-expert-active-id="${cssEscape(payload.liveId)}"] small`).forEach(chip => {
+    if (payload.meta) chip.textContent = payload.meta
+  })
+}
+
+function cssEscape(value) {
+  if (window.CSS?.escape) return window.CSS.escape(String(value))
+  return String(value).replace(/["\\]/g, '\\$&')
+}
+
+function getExpertColor(expertId) {
+  const expert = _expertProfiles.find(e => e.id === expertId)
+  return expert?.color || '#6b7280'
+}
+
+function modelBadgeHtml(model) {
+  if (!model?.provider && !model?.model) return ''
+  return `${escHtml(model.provider || '')}/${escHtml(model.model || '')}`
+}
+
+function modelTextFromSummary(model) {
+  if (!model?.provider && !model?.model) return ''
+  return [model.provider, model.model].filter(Boolean).join('/')
 }
 
 function renderMessages() {
@@ -3741,13 +6045,19 @@ function renderMessages() {
           ? `<img class="ast-msg-img" src="${img.dataUrl}" alt="${escHtml(img.name)}" style="max-width:${Math.min(img.width || 300, 300)}px" loading="lazy"/>`
           : `<div class="ast-msg-img-loading" data-db-id="${img.dbId || ''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span>${escHtml(img.name || t('assistant.image'))}</span></div>`
       ).join('')}</div>` : ''
-      return `<div class="ast-msg ast-msg-user" data-msg-idx="${idx}"><div class="ast-msg-bubble ast-msg-bubble-user">${imagesHtml}${textPart ? escHtml(textPart) : ''}</div><div class="ast-msg-meta"><button class="msg-copy-btn" title="${t('common.copy')}">${icon('copy', 12)}</button></div></div>`
+      return `<div class="ast-msg ast-msg-user" data-msg-idx="${idx}"><div class="ast-msg-bubble ast-msg-bubble-user">${imagesHtml}${textPart ? escHtml(textPart) : ''}</div><div class="ast-msg-meta"><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${icon('copy', 12)}</button></div></div>`
     } else if (m.role === 'assistant') {
       // 跳过空的 AI 消息（历史脏数据），除非正在流式中（最后一条是占位符）
       const isLastMsg = idx === session.messages.length - 1
-      if (!m.content && !m.toolHistory?.length && !(isLastMsg && _isStreaming)) return ''
+      if (!m.content && !m.toolHistory?.length && !m._expertTeamTranscript?.length && !m._expertTeamRunning && !(isLastMsg && _isStreaming)) return ''
+
+      // ── 专家团消息渲染 ──
+      if (m._expertTeamTranscript?.length || m._expertTeamRunning) {
+        return renderExpertTeamMessage(m, idx)
+      }
+
       const toolHtml = renderToolBlocks(m.toolHistory)
-      return `<div class="ast-msg ast-msg-ai" data-msg-idx="${idx}">${toolHtml}<div class="ast-msg-bubble ast-msg-bubble-ai">${renderMarkdown(m.content)}</div><div class="ast-msg-meta"><button class="msg-copy-btn" title="${t('common.copy')}">${icon('copy', 12)}</button></div></div>`
+      return `<div class="ast-msg ast-msg-ai" data-msg-idx="${idx}">${toolHtml}<div class="ast-msg-bubble ast-msg-bubble-ai">${renderMarkdown(m.content)}</div><div class="ast-msg-meta"><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${icon('copy', 12)}</button></div></div>`
     }
     return ''
   }).join('')
@@ -3786,7 +6096,7 @@ function renderMessages() {
   })
 }
 
-function _linkify(str) { return str.replace(/(https?:\/\/[^\s,，。；）)'"]+)/g, '<a href="$1" target="_blank" style="color:var(--primary)">$1</a>') }
+function _linkify(str) { return str.replace(/(https?:\/\/[^\s,，。；）)'"]+)/g, '<a href="$1" target="_blank" class="ast-link">$1</a>') }
 
 function buildTestResult({ success, elapsed, usedApi, reqUrl, reqBody, respStatus, respHeaders, respBody, respRawHex, respByteCount, reply, error }) {
   let html = ''
@@ -4071,7 +6381,7 @@ function showSettings() {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
                   ${t('assistant.personaLoadSoul')}
                 </button>
-                <button class="btn btn-sm btn-ghost" id="ast-btn-refresh-soul" style="gap:4px;white-space:nowrap" title="${t('assistant.personaRefreshTitle')}">
+                <button class="btn btn-sm btn-ghost" id="ast-btn-refresh-soul" style="gap:4px;white-space:nowrap" title="${t('assistant.personaRefreshTitle')}" aria-label="${t('assistant.personaRefreshTitle')}">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
                 </button>
               </div>
@@ -4165,7 +6475,7 @@ function showSettings() {
             ${hostText ? `<span style="color:var(--text-tertiary);font-size:11px;white-space:nowrap">·&nbsp;${escHtml(hostText)}</span>` : ''}
           </div>
           <button type="button" class="btn btn-xs btn-ghost ast-fb-toggle" style="padding:2px 8px;font-size:11px;color:var(--text-secondary)">${expanded ? t('assistant.fallbackHideAdvanced') : t('assistant.fallbackEditAdvanced')}</button>
-          <button type="button" class="btn btn-xs btn-ghost ast-fb-remove" title="${t('assistant.fallbackRemove')}" style="padding:2px 6px;color:var(--error);font-size:12px">✕</button>
+          <button type="button" class="btn btn-xs btn-ghost ast-fb-remove" title="${t('assistant.fallbackRemove')}" aria-label="${t('assistant.fallbackRemove')}" style="padding:2px 6px;color:var(--error);font-size:12px">✕</button>
         </div>
         <div class="ast-fb-edit" style="display:${expanded ? 'block' : 'none'};padding:6px 10px 10px;border-top:1px dashed var(--border-primary)">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
@@ -4489,7 +6799,7 @@ function showSettings() {
       const fSize = f.content?.length > 1024 ? (f.content.length / 1024).toFixed(1) + ' KB' : (f.content?.length || 0) + ' B'
       const enabled = f.enabled !== false
       html += `<div class="ast-soul-file ${enabled ? 'loaded' : 'missing'}" data-kb-idx="${i}" style="cursor:pointer" title="${t('assistant.clickToEdit')}">
-        <button style="padding:2px;background:none;border:none;cursor:pointer;flex-shrink:0" data-kb-toggle="${i}" title="${enabled ? t('assistant.kbClickDisable') : t('assistant.kbClickEnable')}">
+        <button style="padding:2px;background:none;border:none;cursor:pointer;flex-shrink:0" data-kb-toggle="${i}" title="${enabled ? t('assistant.kbClickDisable') : t('assistant.kbClickEnable')}" aria-label="${enabled ? t('assistant.kbClickDisable') : t('assistant.kbClickEnable')}">
           <div class="ast-soul-file-icon">${enabled ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>'}</div>
         </button>
         <div class="ast-soul-file-info">
@@ -4497,7 +6807,7 @@ function showSettings() {
           <span class="ast-soul-file-desc">${f.content?.split('\n').length || 0} ${t('assistant.kbLines')}</span>
         </div>
         <span class="ast-soul-file-size">${fSize}</span>
-        <button class="btn btn-sm" style="padding:2px 6px;font-size:11px;color:var(--error);background:none;border:none;cursor:pointer" data-kb-del="${i}" title="${t('common.delete')}">✕</button>
+        <button class="btn btn-sm" style="padding:2px 6px;font-size:11px;color:var(--error);background:none;border:none;cursor:pointer" data-kb-del="${i}" title="${t('common.delete')}" aria-label="${t('common.delete')}">✕</button>
       </div>`
     })
     html += '</div>'
@@ -4573,7 +6883,7 @@ function showSettings() {
   ;(async () => {
     const models = await fetchQtcoolModels()
     qtcoolModelSelect.innerHTML = models.map((m, i) =>
-      `<option value="${m.id}" style="color:#333"${i === 0 ? ' selected' : ''}>${m.name || m.id}${i === 0 ? ' ★' : ''}</option>`
+      `<option value="${m.id}" style="color:var(--text-primary)"${i === 0 ? ' selected' : ''}>${m.name || m.id}${i === 0 ? ' ★' : ''}</option>`
     ).join('')
   })()
 
@@ -4584,13 +6894,13 @@ function showSettings() {
   overlay.querySelector('#ast-qtcool-test').onclick = async (e) => {
     const btn = e.target
     const selectedModel = qtcoolModelSelect.value
-    if (!selectedModel) { qtcoolStatus.innerHTML = `<span style="color:#fbbf24">${statusIcon('warn', 14)} ${t('assistant.qtcoolSelectModel')}</span>`; return }
+    if (!selectedModel) { qtcoolStatus.innerHTML = `<span style="color:var(--warning)">${statusIcon('warn', 14)} ${t('assistant.qtcoolSelectModel')}</span>`; return }
     const key = qtcoolKeyInput.value.trim()
-    if (!key) { qtcoolStatus.innerHTML = `<span style="color:#fbbf24">${statusIcon('warn', 14)} ${t('assistant.qtcoolEnterKey')}</span>`; return }
+    if (!key) { qtcoolStatus.innerHTML = `<span style="color:var(--warning)">${statusIcon('warn', 14)} ${t('assistant.qtcoolEnterKey')}</span>`; return }
 
     btn.disabled = true
     btn.textContent = t('assistant.testing')
-    qtcoolStatus.innerHTML = `<span style="color:rgba(255,255,255,0.5)">${t('assistant.qtcoolConnecting')}</span>`
+    qtcoolStatus.innerHTML = `<span style="color:var(--text-tertiary)">${t('assistant.qtcoolConnecting')}</span>`
     const t0 = Date.now()
     try {
       const resp = await fetch(QTCOOL.baseUrl + '/chat/completions', {
@@ -4603,7 +6913,7 @@ function showSettings() {
       if (resp.ok) {
         const data = await resp.json()
         const reply = data.choices?.[0]?.message?.content || ''
-        qtcoolStatus.innerHTML = `<span style="color:#34d399">${statusIcon('ok', 14)} ${t('assistant.qtcoolTestPass', { time: (ms/1000).toFixed(1) })}</span><span style="color:rgba(255,255,255,0.4);margin-left:6px">${selectedModel} OK</span>`
+        qtcoolStatus.innerHTML = `<span style="color:var(--success)">${statusIcon('ok', 14)} ${t('assistant.qtcoolTestPass', { time: (ms/1000).toFixed(1) })}</span><span style="color:var(--text-tertiary);margin-left:6px">${selectedModel} OK</span>`
       } else {
         const errText = await resp.text().catch(() => '')
         let errMsg = `HTTP ${resp.status}`
@@ -4612,11 +6922,11 @@ function showSettings() {
           if (errJson.error?.message) errMsg = errJson.error.message
         } catch { if (errText) errMsg += ' — ' + errText.slice(0, 200) }
         // 将 URL 转为可点击链接
-        const errHtml = errMsg.replace(/(https?:\/\/[^\s,，。）)]+)/g, '<a href="$1" target="_blank" style="color:var(--primary)">$1</a>')
-        qtcoolStatus.innerHTML = `<div style="color:#f87171;line-height:1.5">${statusIcon('err', 14)} <strong>${t('assistant.qtcoolTestFail')}</strong></div><div style="color:var(--text-secondary);font-size:11px;line-height:1.5;margin-top:4px;word-break:break-all">${errHtml}</div>`
+        const errHtml = escHtml(errMsg).replace(/(https?:\/\/[^\s,，。）)]+)/g, '<a href="$1" target="_blank" style="color:var(--primary)">$1</a>')
+        qtcoolStatus.innerHTML = `<div style="color:var(--error);line-height:1.5">${statusIcon('err', 14)} <strong>${t('assistant.qtcoolTestFail')}</strong></div><div style="color:var(--text-secondary);font-size:11px;line-height:1.5;margin-top:4px;word-break:break-all">${errHtml}</div>`
       }
     } catch (err) {
-      qtcoolStatus.innerHTML = `<div style="color:#f87171">${statusIcon('err', 14)} ${t('assistant.qtcoolConnectFail')}: ${err.message}</div>`
+      qtcoolStatus.innerHTML = `<div style="color:var(--error)">${statusIcon('err', 14)} ${t('assistant.qtcoolConnectFail')}: ${escHtml(err.message)}</div>`
     }
     btn.disabled = false
     btn.innerHTML = `${icon('search', 12)} ${t('assistant.testBtn')}`
@@ -4625,16 +6935,16 @@ function showSettings() {
   // 一键接入：填充配置 + 提示设为 OpenClaw 主模型
   overlay.querySelector('#ast-qtcool-apply').onclick = async () => {
     const selectedModel = qtcoolModelSelect.value
-    if (!selectedModel) { qtcoolStatus.innerHTML = `<span style="color:#fbbf24">${statusIcon('warn', 14)} ${t('assistant.qtcoolSelectModel')}</span>`; return }
+    if (!selectedModel) { qtcoolStatus.innerHTML = `<span style="color:var(--warning)">${statusIcon('warn', 14)} ${t('assistant.qtcoolSelectModel')}</span>`; return }
     const key = qtcoolKeyInput.value.trim()
-    if (!key) { qtcoolStatus.innerHTML = `<span style="color:#fbbf24">${statusIcon('warn', 14)} ${t('assistant.qtcoolEnterKey')}</span>`; return }
+    if (!key) { qtcoolStatus.innerHTML = `<span style="color:var(--warning)">${statusIcon('warn', 14)} ${t('assistant.qtcoolEnterKey')}</span>`; return }
 
     // 1) 填充助手配置
     overlay.querySelector('#ast-baseurl').value = QTCOOL.baseUrl
     overlay.querySelector('#ast-apikey').value = key
     overlay.querySelector('#ast-model').value = selectedModel
     overlay.querySelector('#ast-apitype').value = 'openai-completions'
-    qtcoolStatus.innerHTML = `<span style="color:#34d399">${statusIcon('ok', 14)} ${t('assistant.qtcoolConfigured', { model: selectedModel })}</span>`
+    qtcoolStatus.innerHTML = `<span style="color:var(--success)">${statusIcon('ok', 14)} ${t('assistant.qtcoolConfigured', { model: selectedModel })}</span>`
     toast(t('assistant.qtcoolConfigured', { model: selectedModel }), 'success')
 
     // 2) 提示是否同步写入 OpenClaw 配置（设为主模型）
@@ -4669,11 +6979,11 @@ function showSettings() {
         config.agents.defaults.model.primary = 'qtcool/' + selectedModel
 
         await api.writeOpenclawConfig(config)
-        qtcoolStatus.innerHTML = `<span style="color:#34d399">${statusIcon('ok', 14)} ${t('assistant.qtcoolSetMainDone', { model: selectedModel })}</span>`
+        qtcoolStatus.innerHTML = `<span style="color:var(--success)">${statusIcon('ok', 14)} ${t('assistant.qtcoolSetMainDone', { model: selectedModel })}</span>`
         try {
           await api.restartGateway()
           toast(t('assistant.qtcoolMainSwitched', { model: selectedModel }), 'success')
-          qtcoolStatus.innerHTML = `<span style="color:#34d399">${statusIcon('ok', 14)} ${t('assistant.qtcoolAllDone', { model: selectedModel })}</span>`
+          qtcoolStatus.innerHTML = `<span style="color:var(--success)">${statusIcon('ok', 14)} ${t('assistant.qtcoolAllDone', { model: selectedModel })}</span>`
         } catch (e) {
           toast(humanizeError(e, t('assistant.qtcoolGatewayFail')), 'warning')
         }
@@ -5052,13 +7362,700 @@ function showSettings() {
 function updateModelBadge() {
   const badge = _page?.querySelector('#ast-model-badge')
   if (badge) {
-    if (_config.model) {
+    if (isAutoModelMode()) {
+      badge.textContent = _lastAutoModelLabel ? `Auto · ${_lastAutoModelLabel}` : 'Auto · 自动选择'
+      badge.title = _lastAutoModelReason || '发送时会根据任务自动选择模型'
+      badge.className = 'ast-model-badge configured auto'
+    } else if (_config.model) {
       badge.textContent = _config.model
+      badge.title = _config.model
       badge.className = 'ast-model-badge configured'
     } else {
       badge.textContent = t('assistant.notConfigured')
+      badge.title = t('assistant.notConfigured')
       badge.className = 'ast-model-badge unconfigured'
     }
+  }
+  const reasonEl = _page?.querySelector('#ast-auto-model-reason')
+  if (reasonEl) {
+    const showReason = isAutoModelMode()
+    const reason = _lastAutoModelReason || '发送时会根据图片、代码/排错、复杂度和上下文长度自动选择模型'
+    reasonEl.textContent = showReason ? compactAutoModelReason(reason) : ''
+    reasonEl.title = reason
+    reasonEl.hidden = !showReason
+  }
+  renderModelSelectOptions()
+}
+
+// ── 专家团集成 ──
+
+async function loadExpertGroups() {
+  try {
+    const [groupRes, expertRes] = await Promise.all([
+      api.listExpertGroups(),
+      api.listExperts(),
+    ])
+    _expertGroups = normalizeExpertListResponse(groupRes, 'groups')
+    _expertProfiles = normalizeExpertListResponse(expertRes, 'experts')
+    syncActiveExpertGroup()
+  } catch (e) {
+    console.warn('加载专家团列表失败:', e)
+    _expertGroups = []
+    _expertProfiles = []
+    syncActiveExpertGroup()
+  }
+  renderExpertTeamMenu()
+}
+
+function normalizeExpertListResponse(value, key) {
+  if (Array.isArray(value)) return value
+  if (Array.isArray(value?.[key])) return value[key]
+  return []
+}
+
+function loadActiveExpertGroupId() {
+  try {
+    const value = localStorage.getItem(EXPERT_TEAM_SELECTION_KEY)
+    _activeExpertGroupId = value || null
+  } catch {
+    _activeExpertGroupId = null
+  }
+}
+
+function persistActiveExpertGroupId() {
+  try {
+    if (_activeExpertGroupId) localStorage.setItem(EXPERT_TEAM_SELECTION_KEY, _activeExpertGroupId)
+    else localStorage.removeItem(EXPERT_TEAM_SELECTION_KEY)
+  } catch {
+    // localStorage may be unavailable; the in-memory selection still works.
+  }
+}
+
+function clearActiveExpertGroupSelection() {
+  if (!_activeExpertGroupId) return
+  _activeExpertGroupId = null
+  persistActiveExpertGroupId()
+  renderExpertTeamMenu()
+}
+
+function hasRunnableExpertGroup(group) {
+  if (!group) return false
+  const members = Array.isArray(group.members) ? group.members : []
+  return members.some(member => _expertProfiles.some(expert => expert.id === member.expertId && expert.enabled !== false))
+}
+
+function syncActiveExpertGroup() {
+  if (!_activeExpertGroupId) return
+  const group = _expertGroups.find(g => g.id === _activeExpertGroupId)
+  if (hasRunnableExpertGroup(group)) return
+  _activeExpertGroupId = null
+  persistActiveExpertGroupId()
+}
+
+function renderExpertTeamMenu() {
+  const menu = _page?.querySelector('#ast-expert-team-menu')
+  const label = _page?.querySelector('#ast-expert-team-trigger-label')
+  if (!menu || !label) return
+
+  const directHtml = `<button class="ast-expert-team-option ${!_activeExpertGroupId ? 'active' : ''}" type="button" role="option" data-group-id="">直接对话<span>不启用专家团，直接与模型对话</span></button>`
+
+  const groups = _expertGroups.map(g => {
+    const memberCount = countRunnableMembers(g)
+    const modeLabel = getModeLabel(g.mode)
+    const disabled = memberCount ? '' : 'disabled aria-disabled="true"'
+    return `<button class="ast-expert-team-option ${_activeExpertGroupId === g.id ? 'active' : ''}" type="button" role="option" data-group-id="${escAttr(g.id)}" ${disabled}>
+      <span>${escHtml(g.name || g.id)}</span>
+      <small>${memberCount ? `${memberCount}人 · ${modeLabel}` : '无可用成员'}</small>
+    </button>`
+  }).join('')
+
+  menu.innerHTML = directHtml + groups
+
+  // 更新触发按钮标签
+  if (_activeExpertGroupId) {
+    const g = _expertGroups.find(g => g.id === _activeExpertGroupId)
+    label.textContent = g ? (g.name || g.id) : '专家团'
+  } else {
+    label.textContent = '直接对话'
+  }
+}
+
+function countRunnableMembers(group) {
+  const members = Array.isArray(group?.members) ? group.members : []
+  return members.filter(member => _expertProfiles.some(expert => expert.id === member.expertId && expert.enabled !== false)).length
+}
+
+function getModeLabel(mode) {
+  const map = { panel: '专家会诊', creation: '团队创作', debate: '辩论评审', review: '交叉审稿', research: '并行调研', sequential: '串联接力' }
+  return map[mode] || mode || '专家会诊'
+}
+
+function initExpertTeamRunMeta(group = {}) {
+  const now = Date.now()
+  return {
+    id: `run-${now}`,
+    groupId: group.id || '',
+    groupName: group.name || group.id || '',
+    status: 'running',
+    phase: 'queued',
+    startedAt: now,
+    updatedAt: now,
+    endedAt: null,
+    checkpoints: [],
+  }
+}
+
+function updateExpertTeamRunMeta(aiMsg, event = {}) {
+  if (!aiMsg) return null
+  if (!aiMsg._expertTeamRun) {
+    aiMsg._expertTeamRun = initExpertTeamRunMeta({
+      id: aiMsg._expertTeamId,
+      name: aiMsg._expertTeamName,
+    })
+  }
+
+  const run = aiMsg._expertTeamRun
+  const now = Date.now()
+  if ((event.type === 'start' || event.type === 'resume_start') && event.plan) {
+    run.id = event.plan.id || run.id
+    run.groupId = event.plan.groupId || run.groupId
+    run.groupName = event.plan.groupName || run.groupName
+    run.endedAt = null
+  }
+
+  const phase = expertTeamRunPhase(event.type)
+  if (phase) run.phase = phase
+  if (event.type === 'done') run.status = event.final?.status === 'fallback' ? 'degraded' : 'done'
+  else if (event.type === 'stopped') run.status = 'stopped'
+  else if (event.type === 'error') run.status = 'error'
+  else if (event.type) run.status = 'running'
+
+  run.updatedAt = now
+  if (['done', 'stopped', 'error'].includes(event.type)) run.endedAt = run.endedAt || now
+
+  const checkpoint = expertTeamCheckpointFromEvent(event)
+  if (checkpoint) appendExpertTeamCheckpoint(run, { ...checkpoint, ts: now })
+  return run
+}
+
+function expertTeamRunPhase(type) {
+  const map = {
+    start: 'planning',
+    resume_start: 'moderator',
+    round_start: 'expert_round',
+    expert_start: 'expert_work',
+    expert_delta: 'expert_work',
+    expert_retry: 'expert_work',
+    expert_done: 'expert_work',
+    expert_error: 'expert_work',
+    moderator_start: 'moderator',
+    moderator_delta: 'moderator',
+    moderator_retry: 'moderator',
+    moderator_error: 'moderator',
+    done: 'closed',
+    stopped: 'stopped',
+    error: 'failed',
+  }
+  return map[type] || ''
+}
+
+function expertTeamCheckpointFromEvent(event = {}) {
+  if (event.type === 'start') {
+    return { type: event.type, key: 'start', label: '团队计划已创建' }
+  }
+  if (event.type === 'resume_start') {
+    return { type: event.type, key: `resume-${event.plan?.id || event.contributionCount || 'current'}`, label: `继续综合 ${event.contributionCount || 0} 份意见` }
+  }
+  if (event.type === 'round_start') {
+    return { type: event.type, key: `round-${event.round || 0}`, label: `第${event.round || 1}/${event.total || 1}轮开始` }
+  }
+  if (event.type === 'expert_done') {
+    const name = event.message?.expertName || event.message?.expertId || '专家'
+    return { type: event.type, key: `expert-done-${event.message?.expertId || name}-${event.message?.round || 0}`, label: `${name}完成` }
+  }
+  if (event.type === 'expert_error') {
+    const name = event.message?.expertName || event.message?.expertId || '专家'
+    return { type: event.type, key: `expert-error-${event.message?.expertId || name}-${event.message?.round || 0}`, label: `${name}异常已处理` }
+  }
+  if (event.type === 'moderator_start') {
+    return { type: event.type, key: 'moderator-start', label: '主持开始综合' }
+  }
+  if (event.type === 'moderator_error') {
+    return { type: event.type, key: 'moderator-error', label: '主持异常，启用降级综合' }
+  }
+  if (event.type === 'done') {
+    return { type: event.type, key: 'done', label: '交付完成' }
+  }
+  if (event.type === 'stopped') {
+    return { type: event.type, key: 'stopped', label: '用户停止运行' }
+  }
+  if (event.type === 'error') {
+    return { type: event.type, key: 'error', label: '运行失败' }
+  }
+  return null
+}
+
+function appendExpertTeamCheckpoint(run, checkpoint) {
+  if (!run || !checkpoint) return null
+  if (!Array.isArray(run.checkpoints)) run.checkpoints = []
+  if (checkpoint.key && run.checkpoints.some(item => item.key === checkpoint.key)) return run.checkpoints[run.checkpoints.length - 1] || null
+  const next = {
+    key: checkpoint.key || `${checkpoint.type || 'checkpoint'}-${run.checkpoints.length + 1}`,
+    type: checkpoint.type || 'checkpoint',
+    label: checkpoint.label || '检查点',
+    ts: checkpoint.ts || Date.now(),
+  }
+  run.checkpoints.push(next)
+  if (run.checkpoints.length > 32) run.checkpoints = run.checkpoints.slice(-32)
+  return next
+}
+
+function sameExpertRun(item, expertId, round) {
+  if (!item || item.expertId !== expertId) return false
+  const targetRound = round || 0
+  return (item.round || 0) === targetRound
+}
+
+function findExpertRunItem(transcript, expertId, round, types = ['expert_start', 'expert_stream', 'expert_retry']) {
+  return transcript.findIndex(item => types.includes(item.type) && sameExpertRun(item, expertId, round))
+}
+
+function findExpertRunResultItem(transcript, expertId, round) {
+  const exactIdx = findExpertRunItem(transcript, expertId, round || 0)
+  if (exactIdx >= 0) return exactIdx
+  return transcript.findIndex(item => ['expert_start', 'expert_stream', 'expert_retry'].includes(item.type) && item.expertId === expertId)
+}
+
+function upsertExpertRunItem(transcript, event, type, patch = {}) {
+  const round = event.round || 0
+  const expertId = event.expertId
+  const idx = findExpertRunItem(transcript, expertId, round)
+  const next = {
+    type,
+    expertName: event.expertName || expertId,
+    expertTitle: event.expertTitle || '',
+    expertId,
+    model: event.model,
+    round,
+    content: '',
+    ...patch,
+  }
+  if (idx >= 0) {
+    transcript[idx] = {
+      ...transcript[idx],
+      ...next,
+      content: patch.content !== undefined ? patch.content : transcript[idx].content,
+    }
+    return transcript[idx]
+  }
+  transcript.push(next)
+  return next
+}
+
+function appendExpertRunDelta(transcript, event) {
+  const round = event.round || 0
+  const delta = event.delta || ''
+  const item = upsertExpertRunItem(transcript, event, 'expert_stream')
+  item.content = `${item.content || ''}${delta}`
+  item.round = round
+}
+
+function upsertModeratorRunItem(transcript, event, type, patch = {}) {
+  const idx = transcript.findIndex(item => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(item.type))
+  const next = {
+    type,
+    expertName: event.expertName || '主持综合',
+    expertTitle: event.expertTitle || '主持专家',
+    expertId: event.expertId || '',
+    model: event.model,
+    content: '',
+    ...patch,
+  }
+  if (idx >= 0) {
+    transcript[idx] = {
+      ...transcript[idx],
+      ...next,
+      content: patch.content !== undefined ? patch.content : transcript[idx].content,
+    }
+    return transcript[idx]
+  }
+  transcript.push(next)
+  return next
+}
+
+function appendModeratorRunDelta(transcript, event) {
+  const item = upsertModeratorRunItem(transcript, event, 'moderator_stream')
+  item.content = `${item.content || ''}${event.delta || ''}`
+}
+
+function assistantExpertTeamSlot() {
+  const apiType = normalizeApiType(_config?.apiType)
+  return {
+    provider: apiType === 'anthropic-messages' ? 'anthropic' :
+              apiType === 'google-generative-ai' ? 'google' :
+              apiType === 'ollama' ? 'ollama' : 'openai',
+    model: _config?.model || '',
+    apiKey: _config?.apiKey || '',
+    baseUrl: _config?.baseUrl || '',
+    apiType: _config?.apiType || 'openai-completions',
+  }
+}
+
+function handleExpertTeamRunEvent(aiMsg, event = {}) {
+  let shouldRender = true
+  let shouldPersistNow = true
+  if (!aiMsg) return { shouldRender: false, shouldPersistNow: false }
+  if (!Array.isArray(aiMsg._expertTeamTranscript)) aiMsg._expertTeamTranscript = []
+
+  updateExpertTeamRunMeta(aiMsg, event)
+  if (event.type === 'start' || event.type === 'resume_start') {
+    if (event.plan) aiMsg._expertTeamPlan = event.plan
+    aiMsg._expertTeamRunning = true
+    if (event.type === 'resume_start') removeExpertTeamFallbackFinal(aiMsg._expertTeamTranscript)
+  }
+  if (event.type === 'round_start') {
+    aiMsg._expertTeamTranscript.push({
+      type: 'round_start',
+      round: event.round,
+      total: event.total,
+    })
+  }
+  if (event.type === 'expert_start') {
+    upsertExpertRunItem(aiMsg._expertTeamTranscript, event, 'expert_start')
+  }
+  if (event.type === 'expert_delta') {
+    appendExpertRunDelta(aiMsg._expertTeamTranscript, event)
+    scheduleExpertTeamLiveDomUpdate(aiMsg, event, 'expert')
+    shouldPersistNow = false
+    shouldRender = false
+  }
+  if (event.type === 'expert_retry') {
+    const existingIdx = findExpertRunItem(aiMsg._expertTeamTranscript, event.expertId, event.round || 0)
+    const content = existingIdx >= 0 ? aiMsg._expertTeamTranscript[existingIdx].content || '' : ''
+    upsertExpertRunItem(aiMsg._expertTeamTranscript, event, 'expert_retry', {
+      attempt: event.attempt || 1,
+      message: event.message || '',
+      content,
+    })
+  }
+  if (event.type === 'expert_done') {
+    const pendingIdx = findExpertRunResultItem(aiMsg._expertTeamTranscript, event.message?.expertId, event.message?.round || 0)
+    if (pendingIdx >= 0) aiMsg._expertTeamTranscript.splice(pendingIdx, 1)
+    aiMsg._expertTeamTranscript.push({
+      type: 'expert_done',
+      expertName: event.message?.expertName || event.message?.expertId,
+      expertTitle: event.message?.expertTitle || '',
+      expertId: event.message?.expertId,
+      content: event.message?.content || '',
+      model: event.message?.model,
+      round: event.message?.round || 0,
+      createdAt: event.message?.createdAt,
+    })
+  }
+  if (event.type === 'expert_error') {
+    const pendingIdx = findExpertRunResultItem(aiMsg._expertTeamTranscript, event.message?.expertId, event.message?.round || 0)
+    if (pendingIdx >= 0) aiMsg._expertTeamTranscript.splice(pendingIdx, 1)
+    aiMsg._expertTeamTranscript.push({
+      type: 'expert_error',
+      expertName: event.message?.expertName || event.message?.expertId,
+      expertTitle: event.message?.expertTitle || '',
+      expertId: event.message?.expertId,
+      message: expertTeamMessageText(event.message?.error, '该专家调用失败，已跳过并继续运行。'),
+      model: event.message?.model,
+      round: event.message?.round || 0,
+    })
+  }
+  if (['tool_start', 'tool_done', 'tool_error'].includes(event.type)) {
+    const toolEvent = normalizeExpertTeamToolEvent(event)
+    const existingIdx = aiMsg._expertTeamTranscript.findIndex(t => t.type === 'tool_start' && t.toolCallId === toolEvent.toolCallId)
+    if (event.type === 'tool_start' || existingIdx < 0) {
+      aiMsg._expertTeamTranscript.push(toolEvent)
+    } else {
+      aiMsg._expertTeamTranscript[existingIdx] = {
+        ...aiMsg._expertTeamTranscript[existingIdx],
+        ...toolEvent,
+      }
+    }
+  }
+  if (event.type === 'moderator_start') {
+    upsertModeratorRunItem(aiMsg._expertTeamTranscript, event, 'moderator_start', { content: '' })
+  }
+  if (event.type === 'moderator_delta') {
+    appendModeratorRunDelta(aiMsg._expertTeamTranscript, event)
+    scheduleExpertTeamLiveDomUpdate(aiMsg, event, 'moderator')
+    shouldPersistNow = false
+    shouldRender = false
+  }
+  if (event.type === 'moderator_retry') {
+    const existingIdx = aiMsg._expertTeamTranscript.findIndex(t => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(t.type))
+    const content = existingIdx >= 0 ? aiMsg._expertTeamTranscript[existingIdx].content || '' : ''
+    upsertModeratorRunItem(aiMsg._expertTeamTranscript, event, 'moderator_retry', {
+      attempt: event.attempt || 1,
+      message: event.message || '',
+      content,
+    })
+  }
+  if (event.type === 'moderator_error') {
+    const pendingIdx = aiMsg._expertTeamTranscript.findIndex(t => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(t.type))
+    if (pendingIdx >= 0) aiMsg._expertTeamTranscript.splice(pendingIdx, 1)
+    aiMsg._expertTeamTranscript.push({
+      type: 'moderator_error',
+      message: expertTeamMessageText(event.message?.error, '主持综合失败，将使用降级结果。'),
+      model: event.message?.model,
+    })
+  }
+  if (event.type === 'done') {
+    const pendingIdx = aiMsg._expertTeamTranscript.findIndex(t => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(t.type))
+    if (pendingIdx >= 0) aiMsg._expertTeamTranscript.splice(pendingIdx, 1)
+    for (let i = aiMsg._expertTeamTranscript.length - 1; i >= 0; i--) {
+      if (aiMsg._expertTeamTranscript[i]?.type === 'final') aiMsg._expertTeamTranscript.splice(i, 1)
+    }
+    aiMsg._expertTeamTranscript.push({
+      type: 'final',
+      content: event.final?.content || '',
+      status: event.final?.status || '',
+      expertName: event.final?.expertName || '主持专家',
+      expertTitle: event.final?.expertTitle || '主持专家',
+      model: event.final?.model,
+    })
+    aiMsg.content = event.final?.content || ''
+    aiMsg._expertTeamRunning = false
+    aiMsg._expertTeamResumeInFlight = false
+  }
+  if (event.type === 'error') {
+    aiMsg._expertTeamTranscript.push({
+      type: 'error',
+      message: expertTeamMessageText(event.message, '运行出错'),
+    })
+    aiMsg._expertTeamRunning = false
+    aiMsg._expertTeamResumeInFlight = false
+  }
+  if (event.type === 'stopped') {
+    aiMsg._expertTeamTranscript.push({
+      type: 'stopped',
+      message: expertTeamMessageText(event.message, '专家团运行已停止。后续消息将按普通对话发送。'),
+    })
+    aiMsg._expertTeamRunning = false
+    aiMsg._expertTeamResumeInFlight = false
+  }
+  return { shouldRender, shouldPersistNow }
+}
+
+function removeExpertTeamFallbackFinal(transcript) {
+  if (!Array.isArray(transcript)) return
+  if (!hasExpertTeamModeratorFallback(transcript)) return
+  for (let i = transcript.length - 1; i >= 0; i--) {
+    if (transcript[i]?.type === 'final') transcript.splice(i, 1)
+  }
+}
+
+function bindExpertTeamEvents(page) {
+  const trigger = page.querySelector('#ast-expert-team-trigger')
+  const menu = page.querySelector('#ast-expert-team-menu')
+
+  if (!trigger || !menu) return
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation()
+    const isOpen = !menu.hidden
+    menu.hidden = isOpen
+    if (!isOpen) renderExpertTeamMenu()
+  })
+
+  if (_expertTeamOutsideClickHandler) document.removeEventListener('click', _expertTeamOutsideClickHandler)
+  _expertTeamOutsideClickHandler = (e) => {
+    if (!menu.hidden && !trigger.contains(e.target) && !menu.contains(e.target)) {
+      menu.hidden = true
+    }
+  }
+  document.addEventListener('click', _expertTeamOutsideClickHandler)
+
+  menu.addEventListener('click', (e) => {
+    const option = e.target.closest('[data-group-id]')
+    if (!option || option.disabled) return
+    const groupId = option.dataset.groupId || null
+    _activeExpertGroupId = groupId || null
+    persistActiveExpertGroupId()
+    menu.hidden = true
+    renderExpertTeamMenu()
+  })
+}
+
+async function sendViaExpertTeam(text, images) {
+  const session = getCurrentSession()
+  if (!session) return
+
+  const textContent = String(text || '').trim()
+  if (!textContent) {
+    toast('请先写下要交给专家团处理的任务', 'warning')
+    return
+  }
+
+  let group = _expertGroups.find(g => g.id === _activeExpertGroupId)
+  if (!group && _activeExpertGroupId) {
+    await loadExpertGroups()
+    group = _expertGroups.find(g => g.id === _activeExpertGroupId)
+  }
+  if (!hasRunnableExpertGroup(group)) {
+    _activeExpertGroupId = null
+    persistActiveExpertGroupId()
+    renderExpertTeamMenu()
+    toast('未找到选中的专家团', 'error')
+    return
+  }
+
+  // 添加用户消息
+  const msgContent = buildMessageContent(textContent, images)
+  const userMsg = { role: 'user', content: msgContent, ts: Date.now() }
+  if (images.length > 0) {
+    userMsg._images = images.map(i => {
+      const dbId = 'img_' + i.id
+      saveImageToFile(dbId, i.dataUrl)
+      return { dbId, dataUrl: i.dataUrl, name: i.name, width: i.width, height: i.height }
+    })
+  }
+  if (textContent) userMsg._text = textContent
+  session.messages.push(userMsg)
+  autoTitle(session)
+  session.updatedAt = Date.now()
+  saveSessions()
+
+  // 添加 assistant 消息占位（带专家团标识）
+  const aiMsg = {
+    role: 'assistant',
+    content: '',
+    ts: Date.now(),
+    _expertTeamId: group.id,
+    _expertTeamName: group.name || group.id,
+    _expertTeamTranscript: [],
+    _expertTeamRunning: true,
+    _expertTeamRun: initExpertTeamRunMeta(group),
+  }
+  session.messages.push(aiMsg)
+  saveSessions()
+  renderMessages()
+
+  _isStreaming = true
+  clearActiveExpertGroupSelection()
+  _abortController = new AbortController()
+  if (_sendBtn) _sendBtn.innerHTML = stopIcon()
+  setSessionStatus(session.id, 'streaming')
+
+  // 构建 model slot 使用助手当前配置
+  const slot = assistantExpertTeamSlot()
+
+  const signal = _abortController?.signal
+  try {
+    const runner = group.mode === 'sequential' ? runExpertTeamSequential : runExpertTeam
+    await runner({
+      group,
+      experts: _expertProfiles,
+      task: textContent,
+      signal,
+      externalSlot: slot,
+      tools: getEnabledTools(),
+      executeTool: executeExpertTeamTool,
+      maxRounds: group.mode === 'sequential' ? resolveMaxRounds(group) : undefined,
+      onEvent: (event) => {
+        const { shouldRender, shouldPersistNow } = handleExpertTeamRunEvent(aiMsg, event)
+        if (shouldPersistNow) saveSessions()
+        else throttledSave()
+        if (shouldRender) {
+          renderMessages()
+          _lastRenderTime = Date.now()
+        }
+      },
+    })
+  } catch (e) {
+    if (e?.name === 'AbortError') {
+      handleExpertTeamRunEvent(aiMsg, { type: 'stopped', message: '专家团运行已停止。后续消息将按普通对话发送。' })
+    } else {
+      const message = expertTeamErrorText(e, '专家团运行失败')
+      handleExpertTeamRunEvent(aiMsg, { type: 'error', message })
+    }
+    aiMsg._expertTeamRunning = false
+    saveSessions()
+    renderMessages()
+  } finally {
+    _isStreaming = false
+    _abortController = null
+    if (_sendBtn) _sendBtn.innerHTML = sendIcon()
+    setSessionStatus(session.id, 'idle')
+    saveSessions()
+  }
+}
+
+async function resumeExpertTeamMessage(idx, mode = 'synthesis') {
+  if (_isStreaming) {
+    toast('请等待当前回复完成后再继续综合', 'info')
+    return
+  }
+
+  const session = getCurrentSession()
+  const aiMsg = session?.messages?.[idx]
+  const canResume = mode === 'run' ? canResumeExpertTeamRun(aiMsg) : canResumeExpertTeamSynthesis(aiMsg)
+  if (!session || !aiMsg || !canResume) {
+    toast(mode === 'run' ? '当前专家团记录无法继续剩余专家' : '当前专家团记录无法继续综合', 'warning')
+    return
+  }
+
+  const contributions = getExpertTeamContributions(aiMsg)
+  const signalController = new AbortController()
+  aiMsg._expertTeamRunning = true
+  aiMsg._expertTeamResumeInFlight = true
+  updateExpertTeamRunMeta(aiMsg, {
+    type: 'resume_start',
+    plan: aiMsg._expertTeamPlan,
+    contributionCount: contributions.length,
+  })
+  session.updatedAt = Date.now()
+  saveSessions()
+  renderMessages()
+
+  _isStreaming = true
+  _abortController = signalController
+  if (_sendBtn) _sendBtn.innerHTML = stopIcon()
+  setSessionStatus(session.id, 'streaming')
+
+  try {
+    const resumeRunner = mode === 'run' ? resumeExpertTeamRun : resumeExpertTeamSynthesis
+    await resumeRunner({
+      plan: aiMsg._expertTeamPlan,
+      contributions,
+      experts: _expertProfiles,
+      signal: signalController.signal,
+      externalSlot: assistantExpertTeamSlot(),
+      tools: getEnabledTools(),
+      executeTool: executeExpertTeamTool,
+      onEvent: (event) => {
+        const { shouldRender, shouldPersistNow } = handleExpertTeamRunEvent(aiMsg, event)
+        if (shouldPersistNow) saveSessions()
+        else throttledSave()
+        if (shouldRender) {
+          renderMessages()
+          _lastRenderTime = Date.now()
+        }
+      },
+    })
+  } catch (e) {
+    if (e?.name === 'AbortError') {
+      handleExpertTeamRunEvent(aiMsg, { type: 'stopped', message: mode === 'run' ? '专家团续跑已停止。后续消息将按普通对话发送。' : '专家团继续综合已停止。后续消息将按普通对话发送。' })
+    } else {
+      const message = expertTeamErrorText(e, mode === 'run' ? '专家团续跑失败' : '专家团继续综合失败')
+      handleExpertTeamRunEvent(aiMsg, { type: 'error', message })
+    }
+    saveSessions()
+    renderMessages()
+  } finally {
+    aiMsg._expertTeamRunning = false
+    aiMsg._expertTeamResumeInFlight = false
+    _isStreaming = false
+    if (_abortController === signalController) _abortController = null
+    if (_sendBtn) _sendBtn.innerHTML = sendIcon()
+    setSessionStatus(session.id, 'idle')
+    session.updatedAt = Date.now()
+    saveSessions()
+    renderMessages()
   }
 }
 
@@ -5098,6 +8095,12 @@ async function sendMessageDirect(text) {
   const images = [..._pendingImages]
   clearPendingImages()
 
+  // ── 专家团模式分支 ──
+  if (_activeExpertGroupId) {
+    sendViaExpertTeam(text, images)
+    return
+  }
+
   // 添加用户消息（多模态或纯文本）
   const textContent = text.trim()
   const msgContent = buildMessageContent(textContent, images)
@@ -5118,23 +8121,15 @@ async function sendMessageDirect(text) {
   renderMessages()
   renderSessionList()
 
-  // 准备 AI 上下文（只保留 role + content，剔除内部字段）
-  // 过滤掉空的 AI 回复，避免污染上下文导致模型也返回空
-  const contextMessages = session.messages
-    .filter(m => {
-      if (m.role === 'user') return true
-      if (m.role === 'assistant') return m.content && m.content.length > 0
-      return false
-    })
-    .slice(-MAX_CONTEXT_TOKENS)
-    .map(m => ({ role: m.role, content: m.content }))
+  // 准备 AI 上下文（DeepSeek 会在长上下文时做低频本地压缩，普通模型保持短窗口）
+  const contextMessages = buildContextMessagesForSession(session)
 
   // 添加空 AI 消息占位
   const aiMsg = { role: 'assistant', content: '', ts: Date.now() }
   session.messages.push(aiMsg)
 
   _isStreaming = true
-  _sendBtn.innerHTML = stopIcon()
+  if (_sendBtn) _sendBtn.innerHTML = stopIcon()
   setSessionStatus(session.id, 'streaming')
 
   // 渲染流式 typing 状态
@@ -5266,9 +8261,7 @@ async function sendMessageDirect(text) {
 async function retryAIResponse(session) {
   if (_isStreaming) return
 
-  const contextMessages = session.messages
-    .filter(m => m.role === 'user' || m.role === 'assistant')
-    .slice(-MAX_CONTEXT_TOKENS)
+  const contextMessages = buildContextMessagesForSession(session)
 
   const aiMsg = { role: 'assistant', content: '', ts: Date.now() }
   session.messages.push(aiMsg)
@@ -5450,7 +8443,7 @@ function showDebugModal(title, content) {
     <div class="ast-debug-modal">
       <div class="ast-debug-header">
         <span>${escHtml(title)}</span>
-        <button class="ast-debug-close">&times;</button>
+        <button class="ast-debug-close" aria-label="${t('common.close')}">&times;</button>
       </div>
       <pre class="ast-debug-content">${escHtml(content)}</pre>
       <div class="ast-debug-actions">
@@ -5477,17 +8470,12 @@ function getAssistantGuideHtml() {
         <b>${t('assistant.guideTitle')}</b>${t('assistant.guideDesc')}
         <span style="opacity:0.6">${t('assistant.guideHint')}</span>
       </div>
-      <button class="ast-guide-close" onclick="localStorage.setItem('${AST_GUIDE_KEY}','1');this.closest('.ast-page-guide').remove()">&times;</button>
+      <button class="ast-guide-close" onclick="localStorage.setItem('${AST_GUIDE_KEY}','1');this.closest('.ast-page-guide').remove()" aria-label="${t('common.close')}">&times;</button>
     </div>
   `
 }
 
 // ── 工具函数 ──
-function escHtml(str) {
-  const d = document.createElement('div')
-  d.textContent = str || ''
-  return d.innerHTML
-}
 
 function sendIcon() {
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'
@@ -5497,10 +8485,18 @@ function stopIcon() {
   return '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
 }
 
+function handleAssistantErrorInjected() {
+  checkErrorContext()
+  if (_errorContext) renderErrorBanner()
+}
+
 // ── 页面渲染 ──
 export async function render() {
   loadConfig()
-  loadSessions()
+  loadActiveExpertGroupId()
+  // During an in-flight reply, the stream writes into the live session objects.
+  // Replacing _sessions on remount would detach later chunks from the page state.
+  if (!_isStreaming) loadSessions()
 
   // 确保数据目录存在（~/.openclaw/clawpanel/images/ 等）
   api.ensureDataDir().catch(e => console.warn('数据目录初始化失败:', e))
@@ -5514,31 +8510,42 @@ export async function render() {
   page.className = 'page ast-page'
   _page = page
 
+  // 从 localStorage 获取侧边栏的持久化状态，如果不存在，窄屏（≤980px）默认关闭，宽屏默认开启
+  const isNarrowScreen = window.matchMedia?.('(max-width: 980px)')?.matches
+  const savedState = localStorage.getItem('clawpanel-assistant-sidebar')
+  const isSidebarOpen = isNarrowScreen ? false : (savedState !== null ? savedState === 'true' : true)
+  const sidebarOpenClass = isSidebarOpen ? ' open' : ''
+
   page.innerHTML = `
-    <div class="ast-sidebar" id="ast-sidebar">
+    <div class="ast-sidebar${sidebarOpenClass}" id="ast-sidebar">
       <div class="ast-sidebar-header">
         <span>${t('assistant.sessionList')}</span>
-        <button class="ast-sidebar-btn" id="ast-btn-new" title="${t('assistant.newSession')}">
+        <button class="ast-sidebar-btn" id="ast-btn-new" title="${t('assistant.newSession')}" aria-label="${t('assistant.newSession')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
       </div>
       <div class="ast-session-list" id="ast-session-list"></div>
     </div>
+    <button class="ast-sidebar-backdrop" id="ast-sidebar-backdrop" type="button" aria-label="${t('common.close') || 'Close'}"></button>
     <div class="ast-main">
       <div class="ast-header">
         <div class="ast-header-left">
-          <button class="ast-toggle-sidebar" id="ast-btn-toggle" title="${t('assistant.sessionList')}">
+          <button class="ast-toggle-sidebar" id="ast-btn-toggle" title="${t('assistant.sessionList')}" aria-label="${t('assistant.sessionList')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
           <span class="ast-title">${_config?.assistantName || DEFAULT_NAME}</span>
           <span class="ast-model-badge ${_config.model ? 'configured' : 'unconfigured'}" id="ast-model-badge">${_config.model || t('assistant.notConfigured')}</span>
+          <div class="ast-expert-team-selector" id="ast-expert-team-selector">
+            <button class="ast-expert-team-trigger" id="ast-expert-team-trigger" type="button" title="专家团" aria-label="专家团">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+              <span class="ast-expert-team-trigger-label" id="ast-expert-team-trigger-label">直接对话</span>
+              <svg class="ast-expert-team-trigger-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="ast-expert-team-menu" id="ast-expert-team-menu" role="listbox" hidden></div>
+          </div>
         </div>
         <div class="ast-header-actions">
-          <div class="ast-mode-selector" id="ast-mode-selector">
-            <div class="ast-mode-slider" id="ast-mode-slider"></div>
-            ${Object.entries(MODES).map(([key, m]) => `<button class="ast-mode-btn ${currentMode() === key ? 'active' : ''}" data-mode="${key}" title="${m.desc}">${MODE_ICONS[key]} ${m.label}</button>`).join('')}
-          </div>
-          <button class="btn btn-sm btn-ghost" id="ast-btn-settings" title="${t('assistant.settingsTitle')}">
+          <button class="btn btn-sm btn-ghost" id="ast-btn-settings" title="${t('assistant.settingsTitle')}" aria-label="${t('assistant.settingsTitle')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
             ${t('common.settings')}
           </button>
@@ -5549,14 +8556,41 @@ export async function render() {
       <div class="ast-input-area">
         <div class="ast-image-preview" id="ast-image-preview"></div>
         <div class="ast-input-wrap">
-          <button class="ast-attach-btn" id="ast-btn-attach" title="${t('assistant.uploadImage')}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          </button>
-          <input type="file" id="ast-file-input" accept="image/*" multiple style="display:none"/>
           <textarea class="ast-textarea" id="ast-textarea" placeholder="${t('assistant.inputPlaceholder')}" rows="1"></textarea>
-          <button class="ast-send-btn" id="ast-send-btn" title="${t('assistant.send')}">${sendIcon()}</button>
+          <div class="ast-input-toolbar">
+            <div class="ast-input-tools">
+              <button class="ast-attach-btn" id="ast-btn-attach" title="${t('assistant.uploadImage')}" aria-label="${t('assistant.uploadImage')}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </button>
+              <input type="file" id="ast-file-input" accept="image/*" multiple style="display:none"/>
+              <div class="ast-model-cluster">
+                <div class="ast-model-switcher" id="ast-model-picker" title="${t('assistant.model')}">
+                  <select class="ast-model-select" id="ast-model-select" tabindex="-1" aria-hidden="true"></select>
+                  <button class="ast-model-trigger" id="ast-model-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="ast-model-trigger-meta" id="ast-model-trigger-meta">${t('assistant.model')}</span>
+                    <span class="ast-model-trigger-value" id="ast-model-trigger-value">${t('assistant.notConfigured')}</span>
+                    <svg class="ast-model-trigger-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  <div class="ast-model-menu" id="ast-model-menu" role="listbox"></div>
+                </div>
+                <span class="ast-auto-model-reason" id="ast-auto-model-reason" hidden></span>
+              </div>
+              <div class="ast-mode-selector" id="ast-mode-selector">
+                <button class="ast-mode-trigger" id="ast-mode-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" title="${MODES[currentMode()]?.desc || ''}">
+                  <span class="ast-mode-trigger-icon" id="ast-mode-trigger-icon">${MODE_ICONS[currentMode()] || ''}</span>
+                  <span class="ast-mode-trigger-label" id="ast-mode-trigger-label">${MODES[currentMode()]?.label || ''}</span>
+                  <svg class="ast-mode-trigger-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="ast-mode-menu" id="ast-mode-menu" role="listbox">
+                  ${Object.entries(MODES).map(([key, m]) => `<button class="ast-mode-btn ${currentMode() === key ? 'active' : ''}" type="button" role="option" aria-selected="${currentMode() === key ? 'true' : 'false'}" data-mode="${key}" title="${m.desc}">${MODE_ICONS[key]}<span>${m.label}</span><small>${m.desc}</small></button>`).join('')}
+                </div>
+              </div>
+            </div>
+            <div class="ast-input-actions">
+              <button class="ast-send-btn" id="ast-send-btn" title="${t('assistant.send')}" aria-label="${t('assistant.send')}">${sendIcon()}</button>
+            </div>
+          </div>
         </div>
-        <div class="ast-input-hint">${t('assistant.inputHint')}</div>
       </div>
     </div>
   `
@@ -5573,6 +8607,10 @@ export async function render() {
   renderMessages()
   renderQueue()
   applyModeStyle(page, currentMode())
+  updateModelBadge()
+  renderModelSelectOptions()
+  refreshModelPoolOptions()
+  loadExpertGroups()           // 加载专家团列表
   // 滑块需要等 DOM 绘制完毕才能获取正确位置
   requestAnimationFrame(() => positionModeSlider(page, currentMode()))
 
@@ -5590,7 +8628,7 @@ export async function render() {
     if (currentMode() === 'chat') {
       _config.mode = 'execute'
       saveConfig()
-      page.querySelectorAll('.ast-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'execute'))
+      applyModeStyle(page, 'execute')
     }
     // 延迟发送，确保页面渲染完成
     setTimeout(() => sendMessage(autoPrompt), 300)
@@ -5602,22 +8640,35 @@ export async function render() {
     setTimeout(() => renderErrorBanner(), 100)
   }
   // 监听实时错误注入（用户已在助手页面时，其他页面发生错误）
-  window.addEventListener('assistant-error-injected', () => {
-    checkErrorContext()
-    if (_errorContext) renderErrorBanner()
-  })
+  window.addEventListener('assistant-error-injected', handleAssistantErrorInjected)
 
   // ── 事件绑定 ──
 
   // 复制按钮（事件委托）
   _messagesEl.addEventListener('click', (e) => {
+    const resumeRunBtn = e.target.closest('[data-action="resume-expert-run"]')
+    if (resumeRunBtn) {
+      e.preventDefault()
+      e.stopPropagation()
+      resumeExpertTeamMessage(Number.parseInt(resumeRunBtn.dataset.msgIdx, 10), 'run')
+      return
+    }
+
+    const resumeBtn = e.target.closest('[data-action="resume-expert-synthesis"]')
+    if (resumeBtn) {
+      e.preventDefault()
+      e.stopPropagation()
+      resumeExpertTeamMessage(Number.parseInt(resumeBtn.dataset.msgIdx, 10), 'synthesis')
+      return
+    }
+
     const copyBtn = e.target.closest('.msg-copy-btn')
     if (!copyBtn) return
     e.stopPropagation()
     const msgWrap = copyBtn.closest('.ast-msg')
-    const bubble = msgWrap?.querySelector('.ast-msg-bubble')
-    if (bubble) {
-      const text = bubble.innerText || bubble.textContent || ''
+    const contentEl = msgWrap?.querySelector('.ast-msg-bubble, .ast-expert-copy-source')
+    if (contentEl) {
+      const text = contentEl.innerText || contentEl.textContent || ''
       navigator.clipboard.writeText(text.trim()).then(() => {
         copyBtn.classList.add('copied')
         copyBtn.innerHTML = icon('check', 12)
@@ -5773,9 +8824,17 @@ export async function render() {
   })
 
   // 侧边栏切换
+  const closeSidebar = () => {
+    const sidebar = page.querySelector('#ast-sidebar')
+    sidebar?.classList.remove('open')
+    localStorage.setItem('clawpanel-assistant-sidebar', 'false')
+  }
   page.querySelector('#ast-btn-toggle').addEventListener('click', () => {
-    page.querySelector('#ast-sidebar').classList.toggle('open')
+    const sidebar = page.querySelector('#ast-sidebar')
+    const isOpen = sidebar.classList.toggle('open')
+    localStorage.setItem('clawpanel-assistant-sidebar', isOpen ? 'true' : 'false')
   })
+  page.querySelector('#ast-sidebar-backdrop')?.addEventListener('click', closeSidebar)
 
   // 新建会话
   page.querySelector('#ast-btn-new').addEventListener('click', () => {
@@ -5785,18 +8844,53 @@ export async function render() {
   })
 
   // 模式切换
-  page.querySelector('#ast-mode-selector').addEventListener('click', (e) => {
+  page.querySelector('#ast-mode-trigger')?.addEventListener('click', (e) => {
+    e.stopPropagation()
+    toggleModePicker()
+  })
+  page.querySelector('#ast-mode-menu')?.addEventListener('click', (e) => {
     const btn = e.target.closest('.ast-mode-btn')
     if (!btn) return
+    e.stopPropagation()
     const modeKey = btn.dataset.mode
-    if (!MODES[modeKey] || modeKey === currentMode()) return
+    if (!MODES[modeKey]) return
+    if (modeKey === currentMode()) {
+      closeModePicker()
+      return
+    }
     _config.mode = modeKey
     saveConfig()
-    page.querySelectorAll('.ast-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === modeKey))
     applyModeStyle(page, modeKey)
     playModeTransition(page, modeKey)
+    closeModePicker()
   })
 
+  page.querySelector('#ast-model-select')?.addEventListener('change', (e) => {
+    switchActiveModel(e.target.value)
+  })
+  page.querySelector('#ast-model-trigger')?.addEventListener('click', (e) => {
+    e.stopPropagation()
+    toggleModelPicker()
+  })
+  page.querySelector('#ast-model-menu')?.addEventListener('click', (e) => {
+    const item = e.target.closest('[data-model-value]')
+    if (!item) return
+    e.stopPropagation()
+    const value = item.dataset.modelValue
+    const select = page.querySelector('#ast-model-select')
+    if (select) select.value = value
+    switchActiveModel(value)
+  })
+  page.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeModelPicker()
+      closeModePicker()
+    }
+  })
+  page.addEventListener('click', (e) => {
+    if (!e.target.closest('#ast-model-picker')) closeModelPicker()
+    if (!e.target.closest('#ast-mode-selector')) closeModePicker()
+  })
   // 设置
   page.querySelector('#ast-btn-settings').addEventListener('click', showSettings)
 
@@ -5819,6 +8913,7 @@ export async function render() {
       _currentSessionId = item.dataset.id
       renderSessionList()
       renderMessages()
+      if (window.matchMedia?.('(max-width: 768px)')?.matches) closeSidebar()
       // 切换到正在流式的会话时，启动刷新
       if (_isStreaming && getSessionStatus(_currentSessionId) === 'streaming') {
         startStreamRefresh()
@@ -5839,7 +8934,7 @@ export async function render() {
       if (skill.tools.length > 0 && currentMode() === 'chat') {
         _config.mode = 'execute'
         saveConfig()
-        page.querySelectorAll('.ast-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'execute'))
+        applyModeStyle(page, 'execute')
         toast(t('assistant.autoSwitchExecute'), 'info')
       }
 
@@ -5854,6 +8949,9 @@ export async function render() {
     }
   })
 
+  // ── 专家团选择器事件 ──
+  bindExpertTeamEvents(page)
+
   return page
 }
 
@@ -5864,7 +8962,8 @@ function autoResize(textarea) {
 
 export function cleanup() {
   flushSave()
-  stopStreaming()
+  // Keep in-flight replies alive when the user navigates away; the stop button
+  // remains the explicit cancellation path.
   stopStreamRefresh()
   _pendingImages = []
   _page = null
@@ -5873,4 +8972,14 @@ export function cleanup() {
   _textarea = null
   _sendBtn = null
   _sessionListEl = null
+  if (_expertTeamOutsideClickHandler) {
+    document.removeEventListener('click', _expertTeamOutsideClickHandler)
+    _expertTeamOutsideClickHandler = null
+  }
+  // 清理专家团定时器
+  if (_expertTeamDomUpdateTimers) {
+    _expertTeamDomUpdateTimers.forEach(t => clearTimeout(t))
+    _expertTeamDomUpdateTimers.clear()
+  }
+  window.removeEventListener('assistant-error-injected', handleAssistantErrorInjected)
 }

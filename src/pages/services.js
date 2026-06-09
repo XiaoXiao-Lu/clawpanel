@@ -12,65 +12,79 @@ import { diagnoseInstallError } from '../lib/error-diagnosis.js'
 import { icon, statusIcon } from '../lib/icons.js'
 import { t } from '../lib/i18n.js'
 import { wsClient } from '../lib/ws-client.js'
-
-// HTML 转义，防止 XSS
-function escapeHtml(str) {
-  if (!str) return ''
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+import { escapeHtml } from '../lib/utils.js'
 
 export async function render() {
   const page = document.createElement('div')
-  page.className = 'page'
+  page.className = 'page services-page'
 
   page.innerHTML = `
     <div class="page-header">
-      <h1 class="page-title">${t('services.title')}</h1>
-      <p class="page-desc">${t('services.desc')}</p>
+      <div class="page-title-group">
+        <h1 class="page-title">${t('services.title')}</h1>
+        <p class="page-desc">${t('services.desc')}</p>
+      </div>
+      <div class="services-tabs-nav">
+        <button class="tab-nav-btn active" data-tab="running">${t('services.tabRunning')}</button>
+        <button class="tab-nav-btn" data-tab="config">${t('services.tabConfig')}</button>
+        <button class="tab-nav-btn" data-tab="backup">${t('services.tabBackup')}</button>
+      </div>
     </div>
-    <div id="version-bar"><div class="stat-card loading-placeholder" style="height:80px;margin-bottom:var(--space-lg)"></div></div>
-    <div id="services-list"><div class="stat-card loading-placeholder" style="height:64px"></div></div>
-    ${isTauriRuntime() ? '' : `
-    <div class="config-section" id="docker-manager-section">
-      <div class="config-section-title">${t('services.dockerManager')}</div>
-      <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.dockerManagerHint')}</div>
-      <div id="docker-manager-bar"><div class="stat-card loading-placeholder" style="height:96px"></div></div>
-    </div>`}
-    <div class="config-section" id="config-editor-section" style="display:none">
-      <div class="config-section-title">${t('services.configEditor')}</div>
-      <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.configEditorHint')}</div>
-      <div style="display:flex;gap:8px;margin-bottom:var(--space-sm)">
-        <button class="btn btn-primary btn-sm" data-action="save-config" disabled>${t('services.saveAndRestart')}</button>
-        <button class="btn btn-secondary btn-sm" data-action="save-config-only" disabled>${t('services.saveOnly')}</button>
-        <button class="btn btn-secondary btn-sm" data-action="reload-config">${t('services.reloadConfig')}</button>
+    <div class="services-tab-content active" data-tab-content="running">
+      <div class="services-ops-column">
+        <div id="version-bar"><div class="stat-card loading-placeholder" style="height:80px;margin-bottom:var(--space-lg)"></div></div>
+        <div id="services-list"><div class="stat-card loading-placeholder" style="height:64px"></div></div>
+        ${isTauriRuntime() ? `
+        <div class="config-section" style="opacity:0.6">
+          <div class="config-section-title">${t('services.dockerManager')}</div>
+          <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.dockerManagerTauriHint') || 'Docker 管理在桌面端暂不可用，请使用 Web 模式访问'}</div>
+        </div>` : `
+        <div class="config-section" id="docker-manager-section">
+          <div class="config-section-title">${t('services.dockerManager')}</div>
+          <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.dockerManagerHint')}</div>
+          <div id="docker-manager-bar"><div class="stat-card loading-placeholder" style="height:96px"></div></div>
+        </div>`}
       </div>
-      <div id="config-editor-status" style="font-size:var(--font-size-xs);margin-bottom:6px;min-height:18px"></div>
-      <textarea id="config-editor-area" class="form-input" style="font-family:var(--font-mono);font-size:12px;min-height:320px;resize:vertical;tab-size:2;white-space:pre;overflow-x:auto" spellcheck="false" disabled></textarea>
     </div>
-    <div class="config-section" id="config-calibration-section">
-      <div class="config-section-title">${t('services.configCalibration')}</div>
-      <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.configCalibrationHint')}</div>
-      <div style="display:flex;gap:var(--space-sm);flex-wrap:wrap;margin-bottom:var(--space-sm)">
-        <button class="btn btn-primary btn-sm" data-action="calibrate-config-inherit">${t('services.calibrateInherit')}</button>
-        <button class="btn btn-secondary btn-sm" data-action="calibrate-config-reset">${t('services.calibrateReset')}</button>
+    <div class="services-tab-content" data-tab-content="config">
+      <div class="services-maintenance-column">
+        <div class="config-section" id="config-editor-section" style="display:none">
+          <div class="config-section-title">${t('services.configEditor')}</div>
+          <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.configEditorHint')}</div>
+          <div style="display:flex;gap:8px;margin-bottom:var(--space-sm)">
+            <button class="btn btn-primary btn-sm" data-action="save-config" disabled>${t('services.saveAndRestart')}</button>
+            <button class="btn btn-secondary btn-sm" data-action="save-config-only" disabled>${t('services.saveOnly')}</button>
+            <button class="btn btn-secondary btn-sm" data-action="reload-config">${t('services.reloadConfig')}</button>
+          </div>
+          <div id="config-editor-status" style="font-size:var(--font-size-xs);margin-bottom:6px;min-height:18px"></div>
+          <textarea id="config-editor-area" class="form-input" style="font-family:var(--font-mono);font-size:12px;min-height:380px;resize:vertical;tab-size:2;white-space:pre;overflow-x:auto" spellcheck="false" disabled></textarea>
+        </div>
+        <div class="config-section" id="config-calibration-section">
+          <div class="config-section-title">${t('services.configCalibration')}</div>
+          <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.configCalibrationHint')}</div>
+          <div style="display:flex;gap:var(--space-sm);flex-wrap:wrap;margin-bottom:var(--space-sm)">
+            <button class="btn btn-primary btn-sm" data-action="calibrate-config-inherit">${t('services.calibrateInherit')}</button>
+            <button class="btn btn-secondary btn-sm" data-action="calibrate-config-reset">${t('services.calibrateReset')}</button>
+          </div>
+          <div style="display:grid;gap:8px;margin-bottom:var(--space-sm)">
+            <div class="setup-inline-note">${t('services.calibrateInheritHint')}</div>
+            <div class="setup-inline-note">${t('services.calibrateResetHint')}</div>
+          </div>
+          <div id="config-calibration-status" style="font-size:var(--font-size-xs);min-height:18px;color:var(--text-tertiary)"></div>
+        </div>
       </div>
-      <div style="display:grid;gap:8px;margin-bottom:var(--space-sm)">
-        <div class="setup-inline-note">${t('services.calibrateInheritHint')}</div>
-        <div class="setup-inline-note">${t('services.calibrateResetHint')}</div>
-      </div>
-      <div id="config-calibration-status" style="font-size:var(--font-size-xs);min-height:18px;color:var(--text-tertiary)"></div>
     </div>
-    <div class="config-section" id="backup-section">
-      <div class="config-section-title">${t('services.configBackup')}</div>
-      <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.configBackupHint')}</div>
-      <div id="backup-actions" style="margin-bottom:var(--space-md)">
-        <button class="btn btn-primary btn-sm" data-action="create-backup">${t('services.createBackup')}</button>
+    <div class="services-tab-content" data-tab-content="backup">
+      <div class="services-maintenance-column">
+        <div class="config-section" id="backup-section">
+          <div class="config-section-title">${t('services.configBackup')}</div>
+          <div class="form-hint" style="margin-bottom:var(--space-sm)">${t('services.configBackupHint')}</div>
+          <div id="backup-actions" style="margin-bottom:var(--space-md)">
+            <button class="btn btn-primary btn-sm" data-action="create-backup">${t('services.createBackup')}</button>
+          </div>
+          <div id="backup-list"><div class="stat-card loading-placeholder" style="height:48px"></div></div>
+        </div>
       </div>
-      <div id="backup-list"><div class="stat-card loading-placeholder" style="height:48px"></div></div>
     </div>
   `
 
@@ -257,7 +271,7 @@ async function loadDockerManager(page) {
                 <div class="service-info">
                   <span class="status-dot ${node.online ? 'running' : 'stopped'}"></span>
                   <div>
-                    <div class="service-name">${escapeHtml(node.name)}${node.id === 'local' ? ` <span class="clawhub-badge" style="margin-left:6px;background:rgba(99,102,241,0.14);color:#6366f1">${t('services.dockerLocalNode')}</span>` : ''}</div>
+                    <div class="service-name">${escapeHtml(node.name)}${node.id === 'local' ? ` <span class="clawhub-badge" style="margin-left:6px;background:var(--accent-muted);color:var(--accent)">${t('services.dockerLocalNode')}</span>` : ''}</div>
                     <div class="service-desc">${nodeMeta}</div>
                     <div class="service-desc">${node.online ? `${t('services.dockerContainersLabel')}: ${node.runningContainers || 0}/${node.totalContainers || containers.length}` : t('services.dockerOffline')}</div>
                   </div>
@@ -551,7 +565,7 @@ async function loadBackups(page) {
     const backups = await api.listBackups()
     renderBackups(list, backups)
   } catch (e) {
-    list.innerHTML = `<div style="color:var(--error)">${t('services.backupLoadFailed')}: ${e}</div>`
+    list.innerHTML = `<div style="color:var(--error)">${t('services.backupLoadFailed')}: ${escapeHtml(e)}</div>`
   }
 }
 
@@ -582,6 +596,21 @@ function renderBackups(container, backups) {
 // ===== 事件绑定（事件委托） =====
 
 function bindEvents(page) {
+  // Tab 切换事件
+  page.querySelector('.services-tabs-nav')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab-nav-btn')
+    if (!btn) return
+    const tabName = btn.dataset.tab
+    
+    // 激活 Nav 按钮
+    page.querySelectorAll('.tab-nav-btn').forEach(b => b.classList.toggle('active', b === btn))
+    
+    // 激活 Content 区域
+    page.querySelectorAll('.services-tab-content').forEach(c => {
+      c.classList.toggle('active', c.dataset.tabContent === tabName)
+    })
+  })
+
   page.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-action]')
     if (!btn) return
@@ -874,7 +903,7 @@ async function loadConfigEditor(page) {
         btnSave.disabled = !changed
         btnSaveOnly.disabled = !changed
       } catch (e) {
-        status.innerHTML = `<span style="color:var(--error)">${t('services.configJsonError')}: ${e.message.split(' at ')[0]}</span>`
+        status.innerHTML = `<span style="color:var(--error)">${escapeHtml(t('services.configJsonError') + ': ' + (e.message || String(e)).split(' at ')[0])}</span>`
         btnSave.disabled = true
         btnSaveOnly.disabled = true
       }
@@ -931,7 +960,7 @@ async function handleSaveConfig(page, restart) {
     await loadBackups(page)
   } catch (e) {
     toast(humanizeError(e, t('common.saveFailed')), 'error')
-    status.innerHTML = `<span style="color:var(--error)">${t('common.saveFailed')}: ${e}</span>`
+    status.innerHTML = `<span style="color:var(--error)">${t('common.saveFailed')}: ${escapeHtml(e)}</span>`
   }
 }
 
@@ -1151,3 +1180,5 @@ async function _promptDoctorFix(page, actionLabel, originalErr) {
     toast(t('services.doctorFixFailed') + ': ' + (e2?.message || e2), 'error')
   }
 }
+
+export function cleanup() {}

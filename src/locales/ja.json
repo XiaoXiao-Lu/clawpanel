@@ -50,6 +50,7 @@
     "sectionConfig": "設定",
     "sectionData": "データ",
     "sectionExtension": "拡張",
+    "sectionSystem": "システム",
     "dashboard": "ダッシュボード",
     "assistant": "アシスタント",
     "chat": "ライブチャット",
@@ -1373,7 +1374,9 @@
     "hostedModelNotConfigured": "Hosted Agent model not configured (please configure in AI Assistant page)",
     "hostedApiError": "API Error {code}",
     "hostedPrefix": "[Hosted Agent] ",
-    "hostedContextSummary": "[Context Summary - compressed {n} history entries]"
+    "hostedContextSummary": "[Context Summary - compressed {n} history entries]",
+    "pasteWarning": "大きなテキストを貼り付け",
+    "pasteLargeText": "{length}文字のテキストを貼り付けようとしています。パフォーマンスの問題が発生する可能性があります。続行しますか？"
   },
   "chatDebug": {
     "title": "システム診断",

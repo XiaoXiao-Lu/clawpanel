@@ -5,6 +5,7 @@ import { api } from '../lib/tauri-api.js'
 import { toast } from '../components/toast.js'
 import { humanizeError } from '../lib/humanize-error.js'
 import { t } from '../lib/i18n.js'
+import { escapeHtml } from '../lib/utils.js'
 
 const LOG_TABS = [
   { key: 'gateway', label: () => t('logs.tabGateway') },
@@ -42,6 +43,14 @@ export async function render() {
 
   // Tab 切换
   page.querySelectorAll('.tab').forEach(tab => {
+    tab.setAttribute('role', 'tab')
+    tab.setAttribute('tabindex', '0')
+    tab.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        e.currentTarget.click()
+      }
+    })
     tab.onclick = () => {
       page.querySelectorAll('.tab').forEach(el => el.classList.remove('active'))
       tab.classList.add('active')
@@ -113,10 +122,6 @@ async function searchLog(page, logName, query) {
     el.innerHTML = '<div style="color:var(--error);padding:12px">' + t('logs.searchFailed') + ': ' + e + '</div>'
     toast(humanizeError(e, t('logs.searchFailed')), 'error')
   }
-}
-
-function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
 function highlightMatch(html, query) {

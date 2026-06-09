@@ -12,6 +12,7 @@
 import { api } from './tauri-api.js'
 import { toast } from '../components/toast.js'
 import { t } from './i18n.js'
+import { escapeHtml } from './utils.js'
 
 const DISMISS_KEY_PREFIX = 'clawpanel_ciao_bug_dismissed_v'
 
@@ -65,6 +66,9 @@ export async function checkAndWarnCiaoBug() {
 function openCiaoBugModal(result) {
   const overlay = document.createElement('div')
   overlay.className = 'modal-overlay'
+  overlay.setAttribute('role', 'dialog')
+  overlay.setAttribute('aria-modal', 'true')
+  overlay.setAttribute('aria-labelledby', 'ciao-bug-modal-title')
 
   const versionLine = result.version
     ? `<div class="ciao-bug-row"><span class="muted">@homebridge/ciao</span> <code>${escapeHtml(result.version)}</code></div>`
@@ -75,7 +79,7 @@ function openCiaoBugModal(result) {
 
   overlay.innerHTML = `
     <div class="modal" style="max-width:640px;">
-      <div class="modal-title">${escapeHtml(t('ciaoBug.modalTitle'))}</div>
+      <div class="modal-title" id="ciao-bug-modal-title">${escapeHtml(t('ciaoBug.modalTitle'))}</div>
       <div class="modal-body" style="font-size:var(--font-size-sm);line-height:1.6;">
         <p style="margin:0 0 12px;">${escapeHtml(t('ciaoBug.summary'))}</p>
 
@@ -106,7 +110,40 @@ function openCiaoBugModal(result) {
     </div>
   `
 
-  const close = () => overlay.remove()
+  const close = () => {
+    document.removeEventListener('keydown', onEsc)
+    overlay.remove()
+  }
+
+  // 焦点陷阱
+  const modalEl = overlay.querySelector('.modal')
+  const focusableEls = modalEl.querySelectorAll(
+    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )
+  const firstEl = focusableEls[0]
+  const lastEl = focusableEls[focusableEls.length - 1]
+
+  function onEsc(e) {
+    if (e.key === 'Escape') {
+      close()
+    }
+  }
+
+  function onTab(e) {
+    if (e.key !== 'Tab') return
+    if (e.shiftKey) {
+      if (document.activeElement === firstEl) {
+        e.preventDefault()
+        lastEl.focus()
+      }
+    } else {
+      if (document.activeElement === lastEl) {
+        e.preventDefault()
+        firstEl.focus()
+      }
+    }
+  }
+
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) close()
   })
@@ -116,21 +153,11 @@ function openCiaoBugModal(result) {
     close()
     toast(t('ciaoBug.dismissed'), 'info')
   }
-  document.addEventListener('keydown', function onEsc(e) {
-    if (e.key === 'Escape') {
-      close()
-      document.removeEventListener('keydown', onEsc)
-    }
-  })
+  overlay.addEventListener('keydown', onEsc)
+  overlay.addEventListener('keydown', onTab)
 
   document.body.appendChild(overlay)
-}
 
-function escapeHtml(raw) {
-  return String(raw || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
+  // 设置初始焦点
+  if (firstEl) firstEl.focus()
 }

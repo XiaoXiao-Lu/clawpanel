@@ -3,6 +3,7 @@ import { t } from '../lib/i18n.js'
 import { applyEngineSelection } from '../lib/engine-manager.js'
 import { toast } from '../components/toast.js'
 import { humanizeError } from '../lib/humanize-error.js'
+import { escapeHtml as esc } from '../lib/utils.js'
 
 const PRIMARY_OPTIONS = [
   {
@@ -266,10 +267,3 @@ export function cleanup() {
   _busy = false
 }
 
-function esc(value) {
-  return String(value || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}

@@ -16,12 +16,10 @@ import { toast } from '../../../components/toast.js'
 import { showModal, showContentModal } from '../../../components/modal.js'
 import { humanizeError } from '../../../lib/humanize-error.js'
 import { svgIcon } from '../lib/svg-icons.js'
+import { escapeHtml as escHtml } from '../../../lib/utils.js'
 
 const OAUTH_BASE = '/api/providers/oauth'
 
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 function escAttr(s) { return escHtml(s) }
 
 function renderInlineError(err) {

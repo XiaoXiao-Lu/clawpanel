@@ -9,17 +9,18 @@ import { setUpgrading } from '../lib/app-state.js'
 import { icon, statusIcon } from '../lib/icons.js'
 import { t, getLang } from '../lib/i18n.js'
 import { getActiveEngineId } from '../lib/engine-manager.js'
+import { escapeHtml } from '../lib/utils.js'
 
 export async function render() {
   const page = document.createElement('div')
   page.className = 'page'
 
   page.innerHTML = `
-    <div class="page-header" style="display:flex;align-items:center;gap:16px">
-      <img src="/images/logo-brand.png" alt="ClawPanel" style="height:48px;width:auto">
+    <div class="page-header about-header">
+      <img src="/images/logo-brand.png" alt="ClawPanel" class="about-logo">
       <div>
-        <h1 class="page-title" style="margin:0">ClawPanel</h1>
-        <p class="page-desc" style="margin:0">${t('about.subtitle')} · <a href="https://claw.qt.cool" target="_blank" rel="noopener" style="color:var(--primary)">claw.qt.cool</a></p>
+        <h1 class="page-title">ClawPanel</h1>
+        <p class="page-desc">${t('about.subtitle')} · <a href="https://claw.qt.cool" target="_blank" rel="noopener" style="color:var(--primary)">claw.qt.cool</a></p>
       </div>
     </div>
     <div class="stat-cards" id="version-cards">
@@ -47,9 +48,9 @@ export async function render() {
       <div class="config-section-title">${t('about.sectionAboutUs')}</div>
       <div id="company-section"></div>
     </div>
-    <div class="config-section" style="color:var(--text-tertiary);font-size:var(--font-size-xs)">
+    <div class="config-section about-footer">
       <p>${t('about.techStack')}</p>
-      <p style="margin-top:8px">${t('about.copyright')}</p>
+      <p>${t('about.copyright')}</p>
     </div>
   `
 
@@ -92,19 +93,19 @@ async function loadXintianData(page) {
     <div class="stat-card">
       <div class="stat-card-header"><span class="stat-card-label">ClawPanel</span></div>
       <div class="stat-card-value">${panelVersion}</div>
-      <div class="stat-card-meta" id="panel-update-meta" style="display:flex;align-items:center;gap:8px">${panelUpdateHtml}</div>
+      <div class="stat-card-meta stat-card-meta-row" id="panel-update-meta">${panelUpdateHtml}</div>
     </div>
     <div class="stat-card">
       <div class="stat-card-header"><span class="stat-card-label">心甜Claw</span></div>
-      <div class="stat-card-value" style="font-size:var(--font-size-md)">Windows / macOS / Linux</div>
-      <div class="stat-card-meta" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <a class="btn btn-primary btn-sm" href="https://xtclaw.xtnet.cc/download" target="_blank" rel="noopener" style="padding:2px 8px;font-size:var(--font-size-xs)">${t('engine.xtCtaDownloadWin')}</a>
-        <a class="btn btn-secondary btn-sm" href="https://xtclaw.xtnet.cc/" target="_blank" rel="noopener" style="padding:2px 8px;font-size:var(--font-size-xs)">${t('engine.xtCtaVisitSite')}</a>
+      <div class="stat-card-value stat-card-value--md">Windows / macOS / Linux</div>
+      <div class="stat-card-meta stat-card-meta-row">
+        <a class="btn btn-primary btn-sm" href="https://xtclaw.xtnet.cc/download" target="_blank" rel="noopener">${t('engine.xtCtaDownloadWin')}</a>
+        <a class="btn btn-secondary btn-sm" href="https://xtclaw.xtnet.cc/" target="_blank" rel="noopener">${t('engine.xtCtaVisitSite')}</a>
       </div>
     </div>
     <div class="stat-card">
       <div class="stat-card-header"><span class="stat-card-label">${t('about.sectionLinks')}</span></div>
-      <div class="stat-card-value" style="font-size:var(--font-size-md)">xtclaw.xtnet.cc</div>
+      <div class="stat-card-value stat-card-value--md">xtclaw.xtnet.cc</div>
       <div class="stat-card-meta">
         <a href="https://xtclaw.xtnet.cc/articles" target="_blank" rel="noopener" style="color:var(--accent)">${t('engine.xtFootSupport')}</a>
       </div>
@@ -141,26 +142,26 @@ async function loadHermesData(page) {
       <div class="stat-card">
         <div class="stat-card-header"><span class="stat-card-label">ClawPanel</span></div>
         <div class="stat-card-value">${panelVersion}</div>
-        <div class="stat-card-meta" id="panel-update-meta" style="display:flex;align-items:center;gap:8px">${panelUpdateHtml}</div>
+        <div class="stat-card-meta stat-card-meta-row" id="panel-update-meta">${panelUpdateHtml}</div>
       </div>
       <div class="stat-card">
         <div class="stat-card-header"><span class="stat-card-label">Hermes Agent</span></div>
         <div class="stat-card-value">${installed ? (version || t('about.installed')) : t('about.notInstalled')}</div>
-        <div class="stat-card-meta" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div class="stat-card-meta stat-card-meta-row">
           ${gwRunning
             ? `<span style="color:var(--success)">● Gateway ${t('engine.dashRunning')} · :${port}</span>`
-            : `<span style="color:var(--text-tertiary)">○ Gateway ${t('engine.dashStopped')}</span>`}
-          ${model ? `<span style="color:var(--text-secondary)">${t('engine.dashModel')}: ${esc(model)}</span>` : ''}
-          ${!installed ? `<a class="btn btn-primary btn-sm" href="#/h/setup" style="${btnSm}">${t('about.hermesSetup')}</a>` : ''}
+            : `<span style="color:var(--text-3)">○ Gateway ${t('engine.dashStopped')}</span>`}
+          ${model ? `<span style="color:var(--text-2)">${t('engine.dashModel')}: ${esc(model)}</span>` : ''}
+          ${!installed ? `<a class="btn btn-primary btn-sm" href="#/h/setup">${t('about.hermesSetup')}</a>` : ''}
           ${installed ? `
-            <button class="btn btn-secondary btn-sm" id="btn-hermes-config" style="${btnSm}">${t('about.hermesConfig')}</button>
-            <button class="btn btn-primary btn-sm" id="btn-hermes-services" style="${btnSm}">${t('engine.hermesServicesTitle')}</button>
+            <button class="btn btn-secondary btn-sm" id="btn-hermes-config">${t('about.hermesConfig')}</button>
+            <button class="btn btn-primary btn-sm" id="btn-hermes-services">${t('engine.hermesServicesTitle')}</button>
           ` : ''}
         </div>
       </div>
       <div class="stat-card">
         <div class="stat-card-header"><span class="stat-card-label">Python</span></div>
-        <div class="stat-card-value" style="font-size:var(--font-size-sm)">${pyVer || t('about.notInstalled')}</div>
+        <div class="stat-card-value stat-card-value--compact">${pyVer || t('about.notInstalled')}</div>
         <div class="stat-card-meta" style="word-break:break-all">${esc(pyPath)}</div>
       </div>
     `
@@ -176,12 +177,12 @@ async function loadHermesData(page) {
             title: `Hermes Agent ${t('about.hermesConfig')}`,
             width: 480,
             content: `
-              <div style="display:grid;gap:12px;font-size:13px;line-height:1.6">
-                <div style="display:flex;gap:8px"><span style="color:var(--text-tertiary);min-width:90px">${t('engine.configProvider')}:</span><span style="word-break:break-all">${esc(cfg.provider || '-')}</span></div>
-                <div style="display:flex;gap:8px"><span style="color:var(--text-tertiary);min-width:90px">Base URL:</span><span style="word-break:break-all">${esc(cfg.base_url || '-')}</span></div>
-                <div style="display:flex;gap:8px"><span style="color:var(--text-tertiary);min-width:90px">API Key:</span><span style="font-family:monospace">${esc(maskedKey)}</span></div>
-                <div style="display:flex;gap:8px"><span style="color:var(--text-tertiary);min-width:90px">${t('engine.configModel')}:</span><span style="word-break:break-all">${esc(cfg.model_raw || cfg.model || '-')}</span></div>
-                <div style="display:flex;gap:8px"><span style="color:var(--text-tertiary);min-width:90px">${t('about.hermesConfigFile')}:</span><span style="color:${cfg.config_exists ? 'var(--success)' : 'var(--warning)'}">${cfg.config_exists ? '✓' : '✗'}</span></div>
+              <div class="hermes-config-grid">
+                <div class="hermes-config-row"><span class="hermes-config-label">${t('engine.configProvider')}:</span><span style="word-break:break-all">${esc(cfg.provider || '-')}</span></div>
+                <div class="hermes-config-row"><span class="hermes-config-label">Base URL:</span><span style="word-break:break-all">${esc(cfg.base_url || '-')}</span></div>
+                <div class="hermes-config-row"><span class="hermes-config-label">API Key:</span><span style="font-family:monospace">${esc(maskedKey)}</span></div>
+                <div class="hermes-config-row"><span class="hermes-config-label">${t('engine.configModel')}:</span><span style="word-break:break-all">${esc(cfg.model_raw || cfg.model || '-')}</span></div>
+                <div class="hermes-config-row"><span class="hermes-config-label">${t('about.hermesConfigFile')}:</span><span style="color:${cfg.config_exists ? 'var(--success)' : 'var(--warning)'}">${cfg.config_exists ? '✓' : '✗'}</span></div>
               </div>
             `,
             buttons: [
@@ -300,12 +301,12 @@ async function loadData(page) {
       <div class="stat-card">
         <div class="stat-card-header"><span class="stat-card-label">ClawPanel</span></div>
         <div class="stat-card-value">${panelVersion}</div>
-        <div class="stat-card-meta" id="panel-update-meta" style="display:flex;align-items:center;gap:8px">${panelUpdateHtml}</div>
+        <div class="stat-card-meta stat-card-meta-row" id="panel-update-meta">${panelUpdateHtml}</div>
       </div>
       <div class="stat-card">
         <div class="stat-card-header"><span class="stat-card-label">OpenClaw · ${sourceLabel}</span></div>
         <div class="stat-card-value">${version.current || t('about.notInstalled')}</div>
-        <div class="stat-card-meta" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div class="stat-card-meta stat-card-meta-row">
           ${isInstalled && hasRecommended
             ? (aheadOfRecommended
               ? `<span style="color:var(--warning,#f59e0b)">${t('about.aheadOfRecommended', { ver: version.recommended })}</span>
@@ -328,7 +329,7 @@ async function loadData(page) {
       </div>
       <div class="stat-card">
         <div class="stat-card-header"><span class="stat-card-label">${t('about.installPath')}</span></div>
-        <div class="stat-card-value" style="font-size:var(--font-size-sm);word-break:break-all">${install.path || t('common.unknown')}</div>
+        <div class="stat-card-value stat-card-value--compact">${install.path || t('common.unknown')}</div>
         <div class="stat-card-meta">${install.installed ? t('about.configExists') : t('about.configNotFound')}</div>
       </div>
     `
@@ -443,10 +444,46 @@ async function showVersionPicker(page, currentVersion) {
   const lblChinese = overlay.querySelector('#lbl-chinese')
   const lblOfficial = overlay.querySelector('#lbl-official')
 
-  const close = () => overlay.remove()
+  // 焦点陷阱
+  const modalEl = overlay.querySelector('.modal')
+  const focusableEls = modalEl.querySelectorAll(
+    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )
+  const firstEl = focusableEls[0]
+  const lastEl = focusableEls[focusableEls.length - 1]
+
+  const close = () => {
+    overlay.removeEventListener('keydown', onEsc)
+    overlay.removeEventListener('keydown', onTab)
+    overlay.remove()
+  }
+
+  function onEsc(e) {
+    if (e.key === 'Escape') close()
+  }
+
+  function onTab(e) {
+    if (e.key !== 'Tab') return
+    if (e.shiftKey) {
+      if (document.activeElement === firstEl) {
+        e.preventDefault()
+        lastEl.focus()
+      }
+    } else {
+      if (document.activeElement === lastEl) {
+        e.preventDefault()
+        firstEl.focus()
+      }
+    }
+  }
+
   overlay.querySelector('[data-action="cancel"]').onclick = close
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
-  overlay.addEventListener('keydown', (e) => { if (e.key === 'Escape') close() })
+  overlay.addEventListener('keydown', onEsc)
+  overlay.addEventListener('keydown', onTab)
+
+  // 设置初始焦点
+  if (firstEl) firstEl.focus()
 
   let versionsCache = {}
   let currentSelect = currentVersion.source === 'chinese' ? 'chinese' : 'official'
@@ -543,7 +580,7 @@ async function showVersionPicker(page, currentVersion) {
       }
       updateHint()
     } catch (e) {
-      select.innerHTML = `<option value="">${t('common.loadFailed')}: ${e.message || e}</option>`
+      select.innerHTML = `<option value="">${t('common.loadFailed')}: ${escapeHtml(e.message || e)}</option>`
     }
   }
 
@@ -783,36 +820,36 @@ function compareVersions(a, b) {
 function renderCommunity(page) {
   const el = page.querySelector('#community-section')
   el.innerHTML = `
-    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
-      <div style="text-align:center">
-        <img src="/images/OpenClaw-QQ.png" alt="${t('about.qqGroup')}" style="width:140px;height:140px;border-radius:var(--radius-md);border:1px solid var(--border-primary)">
-        <div style="font-size:var(--font-size-sm);margin-top:8px;color:var(--text-secondary)">${t('about.qqGroup')}</div>
+    <div class="community-grid">
+      <div class="community-qr">
+        <img src="/images/OpenClaw-QQ.png" alt="${t('about.qqGroup')}">
+        <div class="community-qr-name">${t('about.qqGroup')}</div>
       </div>
-      <div style="text-align:center">
-        <img src="/images/OpenClawWx.png" alt="${t('about.wechatGroup')}" style="width:140px;height:140px;border-radius:var(--radius-md);border:1px solid var(--border-primary)">
-        <div style="font-size:var(--font-size-sm);margin-top:8px;color:var(--text-secondary)">${t('about.wechatGroup')}</div>
+      <div class="community-qr">
+        <img src="/images/OpenClawWx.png" alt="${t('about.wechatGroup')}">
+        <div class="community-qr-name">${t('about.wechatGroup')}</div>
       </div>
-      <div style="text-align:center">
-        <img src="https://qt.cool/c/OpenClawDY/qr.png" alt="${t('about.douyinGroup')}" style="width:140px;height:140px;border-radius:var(--radius-md);border:1px solid var(--border-primary);object-fit:contain;background:#fff">
-        <div style="font-size:var(--font-size-sm);margin-top:8px;color:var(--text-secondary)">${t('about.douyinGroup')}</div>
+      <div class="community-qr community-qr--white-bg">
+        <img src="https://qt.cool/c/OpenClawDY/qr.png" alt="${t('about.douyinGroup')}">
+        <div class="community-qr-name">${t('about.douyinGroup')}</div>
       </div>
-      <div style="text-align:center">
-        <img src="https://qt.cool/c/feishu/qr.png" alt="${t('about.feishuGroup')}" style="width:140px;height:140px;border-radius:var(--radius-md);border:1px solid var(--border-primary);object-fit:contain;background:#fff">
-        <div style="font-size:var(--font-size-sm);margin-top:8px;color:var(--text-secondary)">${t('about.feishuGroup')}</div>
+      <div class="community-qr community-qr--white-bg">
+        <img src="https://qt.cool/c/feishu/qr.png" alt="${t('about.feishuGroup')}">
+        <div class="community-qr-name">${t('about.feishuGroup')}</div>
       </div>
-      <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:8px;padding-top:4px">
-        <div style="font-size:var(--font-size-sm);color:var(--text-secondary)">${t('about.communityWelcome')}</div>
-        <div style="font-size:var(--font-size-sm);color:var(--text-secondary);font-style:italic">${t('about.communityWelcomeIntl')}</div>
-        <div style="font-size:var(--font-size-sm);color:var(--text-secondary);margin-top:4px">${t('about.communityDesc')}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
-          <a class="btn btn-sm" href="https://discord.gg/U9AttmsNHh" target="_blank" rel="noopener" style="background:#5865F2;color:#fff;display:inline-flex;align-items:center;gap:4px;border:none">${icon('message-circle', 14)} ${t('about.joinDiscord')}</a>
+      <div class="community-side">
+        <p>${t('about.communityWelcome')}</p>
+        <p class="community-desc-intl">${t('about.communityWelcomeIntl')}</p>
+        <p>${t('about.communityDesc')}</p>
+        <div class="community-btn-row">
+          <a class="btn btn-sm btn-discord" href="https://discord.gg/U9AttmsNHh" target="_blank" rel="noopener">${icon('message-circle', 14)} ${t('about.joinDiscord')}</a>
           <a class="btn btn-primary btn-sm" href="https://qt.cool/c/OpenClaw" target="_blank" rel="noopener">${t('about.joinQQ')}</a>
           <a class="btn btn-primary btn-sm" href="https://qt.cool/c/OpenClawWx" target="_blank" rel="noopener">${t('about.joinWechat')}</a>
           <a class="btn btn-primary btn-sm" href="https://qt.cool/c/OpenClawDY" target="_blank" rel="noopener">${t('about.joinDouyin')}</a>
           <a class="btn btn-primary btn-sm" href="https://qt.cool/c/feishu" target="_blank" rel="noopener">${t('about.joinFeishu')}</a>
           <a class="btn btn-secondary btn-sm" href="https://yb.tencent.com/gp/i/IIGXzcMcdh84" target="_blank" rel="noopener">${t('about.joinYuanbao')}</a>
         </div>
-        <div style="font-size:var(--font-size-xs);color:var(--text-tertiary);margin-top:8px">
+        <div class="community-note">
           ${t('about.communityNote')}
         </div>
       </div>
@@ -877,24 +914,20 @@ const LINKS = [
 function renderContribute(page) {
   const el = page.querySelector('#contribute-section')
   el.innerHTML = `
-    <div style="font-size:var(--font-size-sm);color:var(--text-secondary);margin-bottom:12px">
-      ${t('about.contributeDesc')}
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px">
+    <div class="contribute-desc">${t('about.contributeDesc')}</div>
+    <div class="contribute-actions">
       <a class="btn btn-primary btn-sm" href="https://github.com/qingchencloud/clawpanel/issues/new" target="_blank" rel="noopener">${t('about.submitIssue')}</a>
       <a class="btn btn-secondary btn-sm" href="https://github.com/qingchencloud/clawpanel/pulls" target="_blank" rel="noopener">${t('about.submitPR')}</a>
       <a class="btn btn-secondary btn-sm" href="https://github.com/qingchencloud/clawpanel/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">${t('about.contributeGuide')}</a>
       <a class="btn btn-secondary btn-sm" href="https://github.com/qingchencloud/clawpanel/issues" target="_blank" rel="noopener">${t('about.viewIssues')}</a>
     </div>
-    <div style="margin-top:8px;font-size:var(--font-size-xs);color:var(--text-tertiary)">
-      ${t('about.domesticMirrorHint')}
-    </div>
+    <div class="contribute-domestic-hint">${t('about.domesticMirrorHint')}</div>
   `
 }
 
 function renderLinks(page) {
   const el = page.querySelector('#links-list')
-  el.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:var(--space-sm)">
+  el.innerHTML = `<div class="links-row">
     ${LINKS.map(l => `<a class="btn ${l.primary ? 'btn-primary' : 'btn-secondary'} btn-sm" href="${l.url}" target="_blank" rel="noopener">${l.label}</a>`).join('')}
   </div>`
 }
@@ -902,42 +935,39 @@ function renderLinks(page) {
 function renderCompany(page) {
   const el = page.querySelector('#company-section')
   el.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <div style="display:flex;align-items:center;gap:12px">
-        <img src="/images/logo-brand.png" alt="QingchenCloud" style="width:40px;height:40px;border-radius:10px;flex-shrink:0">
-        <div>
-          <div style="font-weight:700;font-size:var(--font-size-md)">${t('about.companyName')}</div>
-          <div style="font-size:var(--font-size-sm);color:var(--text-secondary)">QingchenCloud</div>
-        </div>
+    <div class="company-header">
+      <img src="/images/logo-brand.png" alt="QingchenCloud" class="company-logo">
+      <div>
+        <div class="company-name">${t('about.companyName')}</div>
+        <div class="company-subtitle">QingchenCloud</div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;font-size:var(--font-size-sm)">
-        <div style="padding:12px;border-radius:var(--radius-md);border:1px solid var(--border-primary);background:var(--bg-secondary)">
-          <div style="color:var(--text-tertiary);font-size:var(--font-size-xs);margin-bottom:4px">${t('about.officialWebsite')}</div>
-          <a href="https://qingchencloud.com" target="_blank" rel="noopener" style="color:var(--accent)">qingchencloud.com</a>
-        </div>
-        <div style="padding:12px;border-radius:var(--radius-md);border:1px solid var(--border-primary);background:var(--bg-secondary)">
-          <div style="color:var(--text-tertiary);font-size:var(--font-size-xs);margin-bottom:4px">${t('about.productWebsite')}</div>
-          <a href="https://claw.qt.cool" target="_blank" rel="noopener" style="color:var(--accent)">claw.qt.cool</a>
-        </div>
-        <div style="padding:12px;border-radius:var(--radius-md);border:1px solid var(--border-primary);background:var(--bg-secondary)">
-          <div style="color:var(--text-tertiary);font-size:var(--font-size-xs);margin-bottom:4px">${t('about.openSourceRepo')}</div>
-          <a href="https://github.com/qingchencloud" target="_blank" rel="noopener" style="color:var(--accent)">github.com/qingchencloud</a>
-        </div>
-        <div style="padding:12px;border-radius:var(--radius-md);border:1px solid var(--border-primary);background:var(--bg-secondary)">
-          <div style="color:var(--text-tertiary);font-size:var(--font-size-xs);margin-bottom:4px">${t('about.businessCoop')}</div>
-          <a href="mailto:support@qctx.net" style="color:var(--accent)">support@qctx.net</a>
-        </div>
+    </div>
+    <div class="company-grid">
+      <div class="company-card">
+        <div class="company-card-label">${t('about.officialWebsite')}</div>
+        <a href="https://qingchencloud.com" target="_blank" rel="noopener">qingchencloud.com</a>
       </div>
-      <div style="font-size:var(--font-size-xs);color:var(--text-tertiary);line-height:1.6">
-        ${t('about.companyDesc')}
+      <div class="company-card">
+        <div class="company-card-label">${t('about.productWebsite')}</div>
+        <a href="https://claw.qt.cool" target="_blank" rel="noopener">claw.qt.cool</a>
       </div>
-      ${!getLang().startsWith('zh') ? `<div style="margin-top:12px;padding:12px 14px;border-radius:var(--radius-md);border:1px dashed var(--border-primary);background:var(--bg-secondary);font-size:var(--font-size-xs);color:var(--text-tertiary)">
-        <div style="display:flex;align-items:center;gap:12px">
-          <img src="/images/bnbqr.jpg" alt="Sponsor QR" width="64" height="64" style="border-radius:6px;flex-shrink:0;background:#fff;padding:2px;cursor:pointer" loading="lazy" id="sponsor-qr-thumb" title="Click to enlarge">
-          <div style="min-width:0">
-            <div style="font-weight:600;color:var(--text-secondary);margin-bottom:4px">${t('about.sponsorProject') || 'Sponsor This Project'} <span style="opacity:0.5">· USDT (BNB Smart Chain)</span></div>
-            <code style="font-size:10px;background:var(--bg-tertiary);padding:2px 6px;border-radius:4px;user-select:all;word-break:break-all;display:block;line-height:1.6">0xbdd7ebdf2b30d873e556799711021c6671ffe88f</code>
-            <div style="margin-top:4px;opacity:0.6">${t('about.sponsorDesc') || 'Your support helps us maintain and improve this open-source project.'}</div>
+      <div class="company-card">
+        <div class="company-card-label">${t('about.openSourceRepo')}</div>
+        <a href="https://github.com/qingchencloud" target="_blank" rel="noopener">github.com/qingchencloud</a>
+      </div>
+      <div class="company-card">
+        <div class="company-card-label">${t('about.businessCoop')}</div>
+        <a href="mailto:support@qctx.net">support@qctx.net</a>
+      </div>
+    </div>
+    <div class="company-desc">${t('about.companyDesc')}</div>
+      ${!getLang().startsWith('zh') ? `<div class="sponsor-box">
+        <div class="sponsor-inner">
+          <img src="/images/bnbqr.jpg" alt="Sponsor QR" class="sponsor-qr" loading="lazy" id="sponsor-qr-thumb" title="Click to enlarge">
+          <div class="sponsor-body">
+            <div class="sponsor-title">${t('about.sponsorProject') || 'Sponsor This Project'} <span class="sponsor-chain">· USDT (BNB Smart Chain)</span></div>
+            <code class="sponsor-address">0xbdd7ebdf2b30d873e556799711021c6671ffe88f</code>
+            <div class="sponsor-desc">${t('about.sponsorDesc') || 'Your support helps us maintain and improve this open-source project.'}</div>
           </div>
         </div>
       </div>` : ''}
@@ -964,3 +994,5 @@ function renderCompany(page) {
     overlay.querySelector('[data-action="close"]').onclick = () => overlay.remove()
   })
 }
+
+export function cleanup() {}

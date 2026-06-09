@@ -1,133 +1,497 @@
-/* 亮色主题（默认） */
-:root, [data-theme="light"] {
-  --bg-primary: #f8f9fb;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #f0f1f3;
-  --bg-card: rgba(0, 0, 0, 0.02);
-  --bg-card-hover: rgba(0, 0, 0, 0.04);
-  --bg-glass: rgba(0, 0, 0, 0.03);
-  --bg-glass-hover: rgba(0, 0, 0, 0.06);
+/* ============================================================
+   ChatCraw Design System — "Precision Noir"
+   Warm dark · Editorial typography · Intentional whitespace
+   ============================================================ */
 
-  --border-primary: rgba(0, 0, 0, 0.08);
-  --border-secondary: rgba(0, 0, 0, 0.04);
-  --border-focus: rgba(99, 102, 241, 0.5);
-
-  --text-primary: #18181b;
-  --text-secondary: #52525b;
-  --text-tertiary: #a1a1aa;
-  --text-inverse: #ffffff;
-
-  --accent: #6366f1;
-  --accent-hover: #4f46e5;
-  --accent-muted: rgba(99, 102, 241, 0.1);
-
-  --success: #16a34a;
-  --success-muted: rgba(22, 163, 74, 0.1);
-  --warning: #d97706;
-  --warning-muted: rgba(217, 119, 6, 0.1);
-  --error: #dc2626;
-  --error-muted: rgba(220, 38, 38, 0.1);
-  --info: #2563eb;
-  --info-muted: rgba(37, 99, 235, 0.1);
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
-  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.1);
-}
-
-/* 暗色主题 */
-[data-theme="dark"] {
-  --bg-primary: #0a0a0f;
-  --bg-secondary: #12121a;
-  --bg-tertiary: #1a1a26;
-  --bg-card: rgba(255, 255, 255, 0.03);
-  --bg-card-hover: rgba(255, 255, 255, 0.06);
-  --bg-glass: rgba(255, 255, 255, 0.05);
-  --bg-glass-hover: rgba(255, 255, 255, 0.08);
-
-  --border-primary: rgba(255, 255, 255, 0.08);
-  --border-secondary: rgba(255, 255, 255, 0.04);
-  --border-focus: rgba(129, 140, 248, 0.5);
-
-  --text-primary: #e4e4e7;
-  --text-secondary: #a1a1aa;
-  --text-tertiary: #71717a;
-  --text-inverse: #0a0a0f;
-
-  --accent: #818cf8;
-  --accent-hover: #a5b4fc;
-  --accent-muted: rgba(99, 102, 241, 0.15);
-
-  --success: #22c55e;
-  --success-muted: rgba(34, 197, 94, 0.15);
-  --warning: #f59e0b;
-  --warning-muted: rgba(245, 158, 11, 0.15);
-  --error: #ef4444;
-  --error-muted: rgba(239, 68, 68, 0.15);
-  --info: #3b82f6;
-  --info-muted: rgba(59, 130, 246, 0.15);
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
-}
-
-/* 共享变量（不随主题变化） */
 :root {
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 12px;
-  --space-lg: 16px;
-  --space-xl: 24px;
-  --space-2xl: 32px;
-  --space-3xl: 48px;
+  /* ═══ Brand — Electric Indigo + Warm Amber ═══ */
+  --brand:              #818cf8;
+  --brand-400:          #a5b4fc;
+  --brand-light:        var(--brand-400);
+  --brand-muted:        rgba(129, 140, 248, 0.10);
+  --brand-faint:        rgba(129, 140, 248, 0.05);
 
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  /* ═══ Backgrounds — Warm Ink ═══ */
+  --bg-root:            #0A0A14;
+  --bg-base:            #0E0E1C;
+  --bg-primary:         var(--bg-base);
+  --bg-elevated:        #151528;
+  --bg-secondary:       var(--bg-elevated);
+  --bg-sunken:          #1A1A30;
+  --bg-tertiary:        var(--bg-sunken);
+  --bg-card:            #121224;
+  --bg-card-hover:      #181830;
+  --bg-hover:           rgba(255, 255, 255, 0.04);
+  --bg-glass:           rgba(255, 255, 255, 0.025);
+  --bg-glass-hover:     rgba(255, 255, 255, 0.05);
+  --surface-raised:     var(--bg-elevated);
+  --surface-sunken:     var(--bg-sunken);
 
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Noto Sans SC', sans-serif;
-  --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
-  --font-size-xs: 11px;
-  --font-size-sm: 13px;
-  --font-size-md: 14px;
-  --font-size-lg: 16px;
-  --font-size-xl: 20px;
-  --font-size-2xl: 24px;
+  /* ═══ Text — Warm Silver Hierarchy ═══ */
+  --text-1:             #EBEBF5;
+  --text-primary:       var(--text-1);
+  --text-2:             #9494B8;
+  --text-secondary:     var(--text-2);
+  --text-3:             #9090B0;
+  --text-tertiary:      var(--text-3);
+  --text-inverse:       #0F0F18;
+  --text-muted:         var(--text-3);
 
-  --transition-fast: 150ms ease;
-  --transition-normal: 250ms ease;
-  --transition-slow: 350ms ease;
+  /* ═══ Borders — Crisp Rings ═══ */
+  --border-1:           rgba(255, 255, 255, 0.08);
+  --border-primary:     var(--border-1);
+  --border-2:           rgba(255, 255, 255, 0.05);
+  --border-secondary:   var(--border-2);
+  --border-color:       var(--border-1);
+  --border-focus:       rgba(99, 102, 241, 0.40);
+  --border-subtle:      rgba(255, 255, 255, 0.03);
 
-  --sidebar-width: 220px;
-  --sidebar-collapsed: 60px;
-  --header-height: 52px;
+  /* ═══ Semantic Colors ═══ */
+  --success:            #10b981;
+  --success-rgb:        16, 185, 129;
+  --success-muted:      rgba(16, 185, 129, 0.10);
+  --warning:            #f59e0b;
+  --warning-rgb:        245, 158, 11;
+  --warning-muted:      rgba(245, 158, 11, 0.10);
+  --error:              #ef4444;
+  --error-rgb:          239, 68, 68;
+  --error-muted:        rgba(239, 68, 68, 0.10);
+  --info:               #06b6d4;
+  --info-rgb:           6, 182, 212;
+  --info-muted:         rgba(6, 182, 212, 0.10);
+
+  /* ═══ Code Highlighting ═══ */
+  --hl-keyword:         #c084fc;
+  --hl-string:          #86efac;
+  --hl-comment:         #52526e;
+  --hl-number:          #fbbf24;
+  --hl-func:            #60a5fa;
+  --hl-type:            #fbbf24;
+  --hl-variable:        #f9a8d4;
+  --bg-code:            #10101E;
+
+  /* ═══ Navigation Icon Colors ═══ */
+  --nav-assistant:      #a78bfa;
+  --nav-chat:           #f472b6;
+  --nav-route-map:      #34d399;
+  --nav-services:       #fbbf24;
+  --nav-logs:           #9ca3af;
+  --nav-models:         #f87171;
+  --nav-agents:         #818cf8;
+  --nav-gateway:        #22d3ee;
+  --nav-channels:       #4ade80;
+  --nav-memory:         #fbbf24;
+  --nav-dreaming:       #c084fc;
+  --nav-clock:          #2dd4bf;
+  --nav-bar-chart:      #fb923c;
+  --nav-skills:         #fb7185;
+  --nav-connectors:     #38bdf8;
+  --nav-extensions:     #e879f9;
+
+  /* ═══ Shadows — Subtle Depth ═══ */
+  --shadow-1:           0 1px 2px rgba(0, 0, 0, 0.45), 0 0 0 0.5px rgba(0, 0, 0, 0.15);
+  --shadow-sm:          var(--shadow-1);
+  --shadow-2:           0 4px 12px rgba(0, 0, 0, 0.40), 0 1px 3px rgba(0, 0, 0, 0.25);
+  --shadow-md:          var(--shadow-2);
+  --shadow-3:           0 8px 28px rgba(0, 0, 0, 0.48), 0 2px 6px rgba(0, 0, 0, 0.30);
+  --shadow-lg:          var(--shadow-3);
+  --shadow-xl:          0 16px 48px rgba(0, 0, 0, 0.55);
+  --shadow-glow:        0 0 0 2px var(--brand-muted);
+  --shadow-glow-strong: 0 0 20px -6px rgba(99, 102, 241, 0.35);
+
+  /* ═══ Sidebar ═══ */
+  --sidebar-bg:         #080812;
+  --sidebar-text:       var(--text-1);
+  --sidebar-text-2:     var(--text-2);
+  --sidebar-border:     rgba(255, 255, 255, 0.06);
+  --sidebar-hover:      rgba(129, 140, 248, 0.08);
+  --sidebar-active:     rgba(129, 140, 248, 0.12);
+
+  /* ═══ Spacing ═══ */
+  --space-0:    2px;
+  --space-1:    4px;
+  --space-xs:   var(--space-1);
+  --space-2:    8px;
+  --space-sm:   var(--space-2);
+  --space-3:    12px;
+  --space-md:   var(--space-3);
+  --space-4:    16px;
+  --space-lg:   var(--space-4);
+  --space-5:    20px;
+  --space-6:    24px;
+  --space-xl:   var(--space-6);
+  --space-8:    32px;
+  --space-2xl:  var(--space-8);
+  --space-10:   40px;
+  --space-3xl:  var(--space-10);
+  --space-12:   48px;
+  --space-4xl:  var(--space-12);
+  --space-16:   64px;
+
+  /* ═══ Radii — Softer ═══ */
+  --radius-xs:     4px;
+  --radius-sm:     6px;
+  --radius-md:     8px;
+  --radius-lg:     12px;
+  --radius-xl:     10px;
+  --radius-2xl:    20px;
+  --radius-pill:   999px;
+  --radius-full:   var(--radius-pill);
+  --radius-card:   var(--radius-lg);
+  --radius-button: var(--radius-md);
+  --radius-input:  var(--radius-sm);
+
+  /* ═══ Typography — Distinctive ═══ */
+  --font-display:  'PingFang SC', 'Microsoft YaHei', -apple-system, 'Helvetica Neue', sans-serif;
+  --font-sans:     'PingFang SC', 'Microsoft YaHei', -apple-system, sans-serif;
+  --font-mono:     'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+
+  --text-xs:   11px;
+  --font-size-xs: var(--text-xs);
+  --text-sm:   13px;
+  --font-size-sm: var(--text-sm);
+  --text-base: 14px;
+  --font-size-md: var(--text-base);
+  --text-lg:   16px;
+  --font-size-lg: var(--text-lg);
+  --text-xl:   20px;
+  --font-size-xl: var(--text-xl);
+  --text-2xl:  24px;
+  --font-size-2xl: var(--text-2xl);
+  --text-3xl:  30px;
+  --font-size-3xl: var(--text-3xl);
+
+  /* ═══ Transitions ═══ */
+  --ease-fast:           150ms cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-fast:     var(--ease-fast);
+  --ease-normal:         250ms cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-normal:   var(--ease-normal);
+  --ease-slow:           400ms cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-slow:     var(--ease-slow);
+  --ease-spring:         500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out:            300ms cubic-bezier(0, 0, 0.16, 1);
+  --transition-theme:    500ms cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ═══ Layout ═══ */
+  --sidebar-width:      240px;
+  --sidebar-collapsed:  56px;
+  --header-height:      52px;
+  --topbar-height:      var(--header-height);
+
+  /* ═══ Z-Index ═══ */
+  --z-base:        0;
+  --z-dropdown:    100;
+  --z-sticky:      200;
+  --z-drawer:      300;
+  --z-modal:       400;
+  --z-popover:     500;
+  --z-tooltip:     600;
+  --z-toast:       700;
+  --z-command:     800;
+  --z-overlay:     900;
+  --z-max:         1000;
+  --z-fullscreen:  5000;
+  --z-splash:      99999;
+  --z-titlebar:    100000;
+
+  /* ─── Legacy Compatibility (deprecated, migrate to --brand-* / --error-* etc.) ─── */
+  --accent:           var(--brand);
+  --accent-hover:     var(--brand-400);
+  --accent-muted:     var(--brand-muted);
+  --accent-bg:        var(--brand-faint);
+  --accent-border:    rgba(129, 140, 248, 0.24);
+  --accent-subtle:    var(--brand-faint);
+  --primary:          var(--brand);
+  --primary-hover:    var(--brand-400);
+  --border:           var(--border-1);
+  --danger:           var(--error);
+
+  /* ─── Missing Aliases (referenced by legacy components) ─── */
+  /* Keep old accent aliases while legacy page styles still reference them. */
+
+  /* ─── Semantic Border Colors ─── */
+  --success-border:  rgba(16, 185, 129, 0.24);
+  --warning-border:  rgba(245, 158, 11, 0.24);
+  --error-border:    rgba(239, 68, 68, 0.24);
+  --info-border:     rgba(6, 182, 212, 0.24);
+
+  /* ─── Extra Font Sizes ─── */
+  --text-xxs:        10px;
+  --font-size-xxs:   var(--text-xxs);
+  --text-stat:       22px;
+
+  /* ─── Extra Navigation Icon Colors ─── */
+  --nav-settings:    #6b7280;
+  --nav-debug:       #f43f5e;
+  --nav-diagnose:    #84cc16;
+  --nav-about:       #a16207;
+
+  /* ─── Agent State Colors ─── */
+  --agent-idle:      #2dd4bf;
+  --agent-working:   var(--success);
+  --agent-blocked:   var(--warning);
+  --agent-error:     var(--error);
+  --agent-idle-text:     #0f766e;
+  --agent-working-text:  #15803d;
+  --agent-blocked-text:  #92400e;
+  --agent-error-text:    #b91c1c;
+  --agent-offline:       #94a3b8;
+
+  /* ─── Agent Surface Colors (semi-transparent) ─── */
+  --surface-white-092:    rgba(255, 255, 255, 0.92);
+  --surface-white-086:    rgba(255, 255, 255, 0.86);
+  --surface-white-078:    rgba(255, 255, 255, 0.78);
+  --surface-white-094:    rgba(255, 255, 255, 0.94);
+  --surface-white-096:    rgba(255, 255, 255, 0.96);
+  --surface-white-074:    rgba(255, 255, 255, 0.74);
+  --surface-slate-092:    rgba(248, 250, 252, 0.92);
+  --surface-slate-086:    rgba(248, 250, 252, 0.86);
+  --surface-slate-078:    rgba(248, 250, 252, 0.78);
+  --surface-slate-076:    rgba(248, 250, 252, 0.76);
+  --surface-slate-062:    rgba(248, 250, 252, 0.62);
+  --surface-slate-058:    rgba(248, 250, 252, 0.58);
+  --surface-slate-015:    rgba(148, 163, 184, 0.25);
+  --surface-slate-012:    rgba(148, 163, 184, 0.20);
+  --surface-slate-010:    rgba(100, 116, 139, 0.18);
+  --surface-slate-008:    rgba(100, 116, 139, 0.12);
+  --surface-slate-004:    rgba(100, 116, 139, 0.08);
+
+  /* ─── Agent Border Colors (semi-transparent) ─── */
+  --border-gray-016:      rgba(148, 163, 184, 0.16);
+  --border-gray-018:      rgba(148, 163, 184, 0.18);
+  --border-gray-024:      rgba(148, 163, 184, 0.24);
+  --border-gray-028:      rgba(148, 163, 184, 0.28);
+  --border-gray-012:      rgba(148, 163, 184, 0.12);
+  --border-gray-022:      rgba(148, 163, 184, 0.22);
+
+  /* ─── Agent Shadow Colors (semi-transparent) ─── */
+  --shadow-slate-008:     rgba(15, 23, 42, 0.08);
+  --shadow-slate-006:     rgba(15, 23, 42, 0.06);
+  --shadow-slate-090:     rgba(15, 23, 42, 0.9);
+
+  /* ─── Agent State Surface/Border Colors ─── */
+  --agent-idle-border:       rgba(45, 212, 191, 0.22);
+  --agent-idle-surface:      rgba(240, 253, 250, 0.92);
+  --agent-idle-badge:        rgba(45, 212, 191, 0.16);
+  --agent-idle-dot-shadow:   rgba(45, 212, 191, 0.12);
+
+  --agent-working-border:    rgba(34, 197, 94, 0.24);
+  --agent-working-surface:   rgba(240, 253, 244, 0.92);
+  --agent-working-badge:     rgba(34, 197, 94, 0.15);
+  --agent-working-dot-shadow: rgba(34, 197, 94, 0.12);
+
+  --agent-blocked-border:    rgba(245, 158, 11, 0.26);
+  --agent-blocked-surface:   rgba(255, 251, 235, 0.92);
+  --agent-blocked-badge:     rgba(245, 158, 11, 0.17);
+  --agent-blocked-dot-shadow: rgba(245, 158, 11, 0.14);
+
+  --agent-error-border:      rgba(239, 68, 68, 0.24);
+  --agent-error-surface:     rgba(254, 242, 242, 0.92);
+  --agent-error-badge:       rgba(239, 68, 68, 0.14);
+  --agent-error-dot-shadow:  rgba(239, 68, 68, 0.12);
+
+  /* ─── Agent Diagnostic Colors ─── */
+  --agent-diag-working-border:  rgba(34, 197, 94, 0.22);
+  --agent-diag-working-bg:      rgba(240, 253, 244, 0.8);
+  --agent-diag-brand-border:    rgba(99, 102, 241, 0.24);
+  --agent-diag-brand-bg:        rgba(238, 242, 255, 0.82);
+  --agent-diag-warning-border:  rgba(245, 158, 11, 0.28);
+  --agent-diag-warning-bg:      rgba(255, 251, 235, 0.84);
+
+  /* ─── Agent Perf/Flow Surfaces ─── */
+  --agent-perf-border:       rgba(99, 102, 241, 0.22);
+  --agent-perf-surface:      rgba(238, 242, 255, 0.92);
+  --agent-flow-border:       rgba(14, 165, 233, 0.22);
+  --agent-flow-surface:      rgba(240, 249, 255, 0.92);
+
+  /* ─── Agent Misc ─── */
+  --agent-tooltip-text:      rgba(255, 255, 255, 0.72);
+  --agent-purple-badge:      rgba(139, 92, 246, 0.14);
+  --agent-shadow-subtle:     rgba(0, 0, 0, 0.02);
+  --border-gray-020:         rgba(148, 163, 184, 0.20);
+  --border-gray-030:         rgba(148, 163, 184, 0.30);
+
+  /* ─── Ambient ─── */
+  --noise-opacity: 0.018;
+
+  /* ─── Legacy RGB alias (used in rgba(var(--accent-rgb), a) patterns) ─── */
+  --accent-rgb:         129, 140, 248;
+
+  /* ─── Component Tokens ─── */
+  --toast-duration:     4s;
+  --success-bg:         rgba(16, 185, 129, 0.12);
+  --warning-bg:         rgba(245, 158, 11, 0.12);
+  --error-bg:           rgba(239, 68, 68, 0.12);
+  --brand-overlay:      rgba(129, 140, 248, 0.18);
+  --overlay-light:      rgba(0, 0, 0, 0.12);
+  --overlay-dark:       rgba(0, 0, 0, 0.55);
+  --overlay-heavy:      rgba(0, 0, 0, 0.85);
 }
 
-/* 主题切换圆形扩散动画 (View Transitions API) */
+/* ══════════════════════════════════════
+   Light Theme (auto via prefers-color-scheme)
+   ══════════════════════════════════════ */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg-root:           #F8F8FC;
+    --bg-base:           #F3F4F8;
+    --bg-primary:        var(--bg-base);
+    --bg-elevated:       #FFFFFF;
+    --bg-secondary:      var(--bg-elevated);
+    --bg-sunken:         #EBECF0;
+    --bg-tertiary:       var(--bg-sunken);
+    --bg-card:           #FFFFFF;
+    --bg-card-hover:     #F6F7FA;
+    --bg-hover:          rgba(0, 0, 0, 0.03);
+    --bg-glass:          rgba(0, 0, 0, 0.02);
+    --bg-glass-hover:    rgba(0, 0, 0, 0.05);
+
+    --text-1:            #111827;
+    --text-primary:      var(--text-1);
+    --text-2:            #4b5563;
+    --text-secondary:    var(--text-2);
+    --text-3:            #6b6b80;
+    --text-tertiary:     var(--text-3);
+    --text-inverse:      #ffffff;
+    --text-muted:        var(--text-3);
+
+    --border-1:          rgba(0, 0, 0, 0.08);
+    --border-2:          rgba(0, 0, 0, 0.04);
+    --border-subtle:     rgba(0, 0, 0, 0.03);
+
+    --shadow-1:          0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-2:          0 4px 12px rgba(0, 0, 0, 0.06);
+    --shadow-3:          0 8px 24px rgba(0, 0, 0, 0.08);
+    --shadow-xl:         0 16px 48px rgba(0, 0, 0, 0.10);
+    --shadow-glow:       0 0 0 2px rgba(99, 102, 241, 0.10);
+    --shadow-glow-strong:0 0 20px -4px rgba(79, 70, 229, 0.18);
+
+    --sidebar-bg:        #F8F8FC;
+    --bg-code:           #1e1e2e;
+
+    --brand:             #4f46e5;
+    --brand-400:         #6366f1;
+    --brand-light:       var(--brand-400);
+    --brand-muted:       rgba(79, 70, 229, 0.08);
+    --brand-faint:       rgba(79, 70, 229, 0.04);
+    --brand-glow:        0 0 16px -4px rgba(79, 70, 229, 0.12);
+
+    --sidebar-hover:    rgba(0, 0, 0, 0.03);
+    --sidebar-active:   rgba(79, 70, 229, 0.08);
+
+    --noise-opacity:     0.012;
+
+    --success-bg:        rgba(16, 185, 129, 0.08);
+    --warning-bg:        rgba(245, 158, 11, 0.08);
+    --error-bg:          rgba(239, 68, 68, 0.08);
+    --brand-overlay:     rgba(79, 70, 229, 0.12);
+    --overlay-light:     rgba(0, 0, 0, 0.08);
+    --overlay-dark:      rgba(0, 0, 0, 0.40);
+    --overlay-heavy:     rgba(0, 0, 0, 0.70);
+
+    --accent-rgb:        79, 70, 229;
+
+    --success-border:    rgba(16, 185, 129, 0.18);
+    --warning-border:    rgba(245, 158, 11, 0.18);
+    --error-border:      rgba(239, 68, 68, 0.18);
+    --info-border:       rgba(6, 182, 212, 0.18);
+
+    --nav-settings:      #6b7280;
+    --nav-debug:         #f43f5e;
+    --nav-diagnose:      #65a30d;
+    --nav-about:         #a16207;
+
+    --agent-idle:        #14b8a6;
+    --agent-working:     #059669;
+    --agent-blocked:     #d97706;
+    --agent-error:       #dc2626;
+    --agent-idle-text:     #0d9488;
+    --agent-working-text:  #16a34a;
+    --agent-blocked-text:  #b45309;
+    --agent-error-text:    #dc2626;
+    --agent-offline:       #94a3b8;
+  }
+}
+
+/* ══════════════════════════════════════
+   Dark Theme (explicit)
+   ══════════════════════════════════════ */
+[data-theme="dark"] {
+  --bg-root:            #0A0A14;
+  --bg-base:            #0E0E1C;
+  --bg-elevated:        #151528;
+  --bg-sunken:          #1A1A30;
+  --bg-card:            #121224;
+  --bg-card-hover:      #181830;
+
+  --text-1:             #EBEBF5;
+  --text-2:             #9494B8;
+  --text-3:             #9090B0;
+
+  --border-1:           rgba(255, 255, 255, 0.08);
+  --border-2:           rgba(255, 255, 255, 0.05);
+
+  --shadow-1:           0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-2:           0 4px 12px rgba(0, 0, 0, 0.40);
+  --shadow-3:           0 8px 28px rgba(0, 0, 0, 0.48);
+  --shadow-xl:          0 16px 48px rgba(0, 0, 0, 0.55);
+
+  --sidebar-bg:         #080812;
+  --bg-code:            #10101E;
+
+  --brand:              #818cf8;
+  --brand-400:          #a5b4fc;
+  --brand-muted:        rgba(129, 140, 248, 0.10);
+  --brand-glow:         0 0 28px -6px rgba(129, 140, 248, 0.35);
+
+  --noise-opacity:      0.02;
+
+  --success-bg:         rgba(16, 185, 129, 0.12);
+  --warning-bg:         rgba(245, 158, 11, 0.12);
+  --error-bg:           rgba(239, 68, 68, 0.12);
+  --brand-overlay:      rgba(129, 140, 248, 0.18);
+  --overlay-light:      rgba(0, 0, 0, 0.12);
+  --overlay-dark:       rgba(0, 0, 0, 0.55);
+  --overlay-heavy:      rgba(0, 0, 0, 0.85);
+
+  --accent-rgb:         129, 140, 248;
+
+  --success-border:     rgba(16, 185, 129, 0.24);
+  --warning-border:     rgba(245, 158, 11, 0.24);
+  --error-border:       rgba(239, 68, 68, 0.24);
+  --info-border:        rgba(6, 182, 212, 0.24);
+
+  --nav-settings:       #6b7280;
+  --nav-debug:          #f43f5e;
+  --nav-diagnose:       #84cc16;
+  --nav-about:          #a16207;
+
+  --agent-idle:         #2dd4bf;
+  --agent-working:      #22c55e;
+  --agent-blocked:      #f59e0b;
+  --agent-error:        #ef4444;
+  --agent-idle-text:     #0f766e;
+  --agent-working-text:  #15803d;
+  --agent-blocked-text:  #92400e;
+  --agent-error-text:    #b91c1c;
+  --agent-offline:       #94a3b8;
+}
+
+/* ══════════════════════════════════════
+   Theme Transition — circle reveal
+   ══════════════════════════════════════ */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
 }
-
 ::view-transition-new(root) {
   z-index: 1;
-  animation: themeCircleReveal 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: themeCircleReveal 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
-
-::view-transition-old(root) {
-  z-index: 0;
-}
+::view-transition-old(root) { z-index: 0; }
 
 @keyframes themeCircleReveal {
-  from {
-    clip-path: circle(0% at var(--theme-reveal-x, 0%) var(--theme-reveal-y, 100%));
-  }
-  to {
-    clip-path: circle(150% at var(--theme-reveal-x, 0%) var(--theme-reveal-y, 100%));
-  }
+  from { clip-path: circle(0% at var(--theme-reveal-x, 0%) var(--theme-reveal-y, 100%)); }
+  to   { clip-path: circle(150% at var(--theme-reveal-x, 0%) var(--theme-reveal-y, 100%)); }
 }

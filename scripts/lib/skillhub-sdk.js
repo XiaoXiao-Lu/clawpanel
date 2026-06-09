@@ -86,6 +86,20 @@ export async function install(slug, skillsDir) {
   return targetDir
 }
 
+/**
+ * 安装用户上传的 Skill zip。
+ * @param {Buffer} zipBuf
+ * @param {string} name
+ * @param {string} skillsDir
+ * @returns {Promise<string>}
+ */
+export async function installZip(zipBuf, name, skillsDir) {
+  const slug = normalizeInstallName(name)
+  const targetDir = path.join(skillsDir, slug)
+  await extractZip(zipBuf, targetDir)
+  return targetDir
+}
+
 // ── 内部工具 ──────────────────────────────────────────────
 
 function validateSlug(slug) {
@@ -93,6 +107,15 @@ function validateSlug(slug) {
   if (slug.includes('..') || slug.includes('/') || slug.includes('\\')) {
     throw new Error(`无效的 Skill slug: ${slug}`)
   }
+}
+
+function normalizeInstallName(name) {
+  const slug = String(name || '').trim()
+    .replace(/\.zip$/i, '')
+    .replace(/[^a-zA-Z0-9_.-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  validateSlug(slug)
+  return slug
 }
 
 /**
@@ -105,17 +128,17 @@ async function extractZip(zipBuf, targetDir) {
   // 清理旧目录
   if (fs.existsSync(targetDir)) fs.rmSync(targetDir, { recursive: true, force: true })
   fs.mkdirSync(targetDir, { recursive: true })
+  const targetRoot = path.resolve(targetDir)
 
   const entries = parseZipEntries(zipBuf)
   if (!entries.length) throw new Error('zip 文件为空或无法解析')
 
   // 检测单一根目录（常见打包方式），需要剥掉
   const stripPrefix = detectSingleRootDir(entries)
+  let filesWritten = 0
 
   for (const entry of entries) {
     let name = entry.name
-    // 安全检查
-    if (name.includes('..')) continue
 
     // 剥掉单一根目录
     if (stripPrefix) {
@@ -124,7 +147,8 @@ async function extractZip(zipBuf, targetDir) {
       if (!name) continue
     }
 
-    const outPath = path.join(targetDir, name)
+    const outPath = safeZipOutputPath(targetRoot, name)
+    if (!outPath) continue
 
     if (entry.isDir) {
       fs.mkdirSync(outPath, { recursive: true })
@@ -145,8 +169,23 @@ async function extractZip(zipBuf, targetDir) {
         continue
       }
       fs.writeFileSync(outPath, data)
+      filesWritten++
     }
   }
+
+  if (filesWritten === 0 || !fs.existsSync(path.join(targetRoot, 'SKILL.md'))) {
+    fs.rmSync(targetRoot, { recursive: true, force: true })
+    throw new Error('Skill zip 无效：缺少 SKILL.md')
+  }
+}
+
+function safeZipOutputPath(targetRoot, entryName) {
+  const normalizedName = String(entryName || '').replace(/\\/g, '/')
+  if (!normalizedName || normalizedName.startsWith('/') || /^[a-zA-Z]:\//.test(normalizedName)) return null
+  const outPath = path.resolve(targetRoot, normalizedName)
+  const rootWithSep = targetRoot.endsWith(path.sep) ? targetRoot : targetRoot + path.sep
+  if (outPath !== targetRoot && !outPath.startsWith(rootWithSep)) return null
+  return outPath
 }
 
 /**

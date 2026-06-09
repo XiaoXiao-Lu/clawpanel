@@ -21,16 +21,10 @@ import { showConfirm } from '../../../components/modal.js'
 import { getChatStore, getSourceLabel } from '../lib/chat-store.js'
 import { svgIcon } from '../lib/svg-icons.js'
 import { t } from '../../../lib/i18n.js'
+import { escapeHtml as escHtml, escapeAttr as escAttr } from '../../../lib/utils.js'
 
 // ----------------------------------------------------------- helpers
 
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-function escAttr(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
 
 function sanitizeMarkdownUrl(url) {
   const raw = String(url || '').trim()
@@ -72,6 +66,35 @@ function mdToHtml(text) {
     return `<pre class="hm-chat-code-block"><button type="button" class="hm-chat-code-copy" title="${escAttr(t('engine.chatCopyCode'))}">${escHtml(t('engine.chatCopyMessageShort'))}</button><code class="lang-${escHtml(lang)}">${escHtml(code)}</code></pre>`
   })
   return `<p>${out}</p>`
+}
+
+// --- mdToHtml cache: avoids re-parsing unchanged messages on every redraw ---
+const _mdCache = new Map()
+const MD_CACHE_MAX = 300
+
+function _cacheMd(text, mid) {
+  if (!text) return { html: '', key: 'empty' }
+  // Hash: content length + fast running hash for collision resistance
+  let h = text.length
+  for (let i = 0; i < Math.min(text.length, 200); i++) {
+    h = ((h << 5) - h + text.charCodeAt(i)) | 0
+  }
+  const key = `${mid || ''}:${h}:${text.length}`
+  let cached = _mdCache.get(key)
+  if (!cached) {
+    cached = mdToHtml(text)
+    if (_mdCache.size >= MD_CACHE_MAX) {
+      const first = _mdCache.keys().next().value
+      _mdCache.delete(first)
+    }
+    _mdCache.set(key, cached)
+  }
+  return { html: cached, key }
+}
+
+/** Cached version — use message id for stable cache key across redraws. */
+function cachedMdToHtml(text, mid) {
+  return _cacheMd(text, mid).html
 }
 
 /** Pretty-print JSON-ish tool payload; fallback to raw string. */
@@ -339,9 +362,104 @@ export function render() {
 
   // ----------------------------------------------------------- subscription
 
+  // Track streaming state for incremental DOM updates.
+  // During streaming, we update only the content of the streaming message
+  // and the live tools display — avoiding a full page redraw on every delta.
+  let _streamingMid = null
+  let _streamingLastLen = -1
+  let _streamingLastTools = ''
+
   // Store subscription → `draw()` on mutation. rAF-batched inside the store
   // so a burst of events (streaming deltas) collapses into a single redraw.
-  const unsubscribe = store.subscribe(() => draw())
+  // When streaming, most notify() calls come from deltas — we do incremental
+  // DOM updates instead of full innerHTML replacement (Phase 5 optimization).
+  const unsubscribe = store.subscribe(() => {
+    const streaming = store.state.streaming
+    const s = store.activeSession()
+
+    if (streaming && s?.messages?.length) {
+      const lastMsg = s.messages[s.messages.length - 1]
+
+      if (lastMsg?.isStreaming) {
+        const contentLen = lastMsg.content?.length || 0
+        const toolsJson = JSON.stringify(store.state.liveTools || [])
+        // Try to find the existing DOM element for this streaming message.
+        // If it exists (from a previous full draw), update it incrementally.
+        const msgEl = el.querySelector(`.hm-chat-msg[data-mid="${lastMsg.id}"]`)
+
+        if (msgEl && (contentLen !== _streamingLastLen || toolsJson !== _streamingLastTools)) {
+          _streamingMid = lastMsg.id
+          _streamingLastLen = contentLen
+          _streamingLastTools = toolsJson
+          incrementalStreamingUpdate(lastMsg)
+          return
+        }
+      }
+    }
+
+    // Full redraw for everything else (session switch, streaming started/stopped,
+    // new messages, sidebar changes, input changes, etc.)
+    _streamingMid = null
+    _streamingLastLen = -1
+    _streamingLastTools = ''
+    draw()
+  })
+
+  /** Incremental DOM update for streaming messages — only touches the
+   *  streaming message's content and the live tools indicator, leaving
+   *  the rest of the page (sidebar, header, input, historical messages)
+   *  untouched. Falls back to full draw() if the element is missing. */
+  function incrementalStreamingUpdate(lastMsg) {
+    const msgsEl = el.querySelector('#hm-chat-messages')
+    if (!msgsEl) { draw(); return }
+
+    // Update streaming message content in-place
+    const msgEl = msgsEl.querySelector(`.hm-chat-msg[data-mid="${lastMsg.id}"]`)
+    if (!msgEl) { draw(); return }
+
+    const contentEl = msgEl.querySelector('.hm-chat-msg-content')
+    if (contentEl) {
+      if (lastMsg.content) {
+        // Phase 5: use cached mdToHtml for streaming content updates too.
+        // The cache key uses message ID + content length, which changes
+        // on every delta, so we always get the latest render.
+        contentEl.innerHTML = cachedMdToHtml(lastMsg.content, lastMsg.id)
+      } else {
+        contentEl.innerHTML = '<span class="hm-chat-streaming-dots"><span></span><span></span><span></span></span>'
+      }
+    }
+
+    // Update live tools display
+    const existingTools = msgsEl.querySelector('.hm-chat-streaming')
+    const toolsHtml = renderLiveTools()
+    if (toolsHtml) {
+      if (existingTools) {
+        existingTools.outerHTML = toolsHtml
+      } else {
+        msgsEl.insertAdjacentHTML('beforeend', toolsHtml)
+      }
+    } else if (existingTools) {
+      existingTools.remove()
+    }
+
+    // Auto-scroll if near bottom
+    const wasNearBottom = isMessagesNearBottom()
+    if (forceScrollBottom || wasNearBottom) {
+      msgsEl.scrollTop = msgsEl.scrollHeight
+    }
+    updateJumpButton()
+
+    // Restore input focus + caret
+    const input = el.querySelector('#hm-chat-input')
+    if (input && inputFocused) {
+      input.focus()
+      try {
+        const pos = Math.min(inputCaret, inputValue.length)
+        input.setSelectionRange(pos, pos)
+      } catch { /* ignore */ }
+      autoResize(input)
+    }
+  }
 
   // Teardown + mount-observer are set up near the end of render() (after
   // `onGlobalKey` is defined). We avoid attaching a MutationObserver here
@@ -388,7 +506,8 @@ export function render() {
           <div class="hm-chat-session-actions" aria-label="${escAttr(t('engine.chatSessionActions'))}">
             <button class="hm-chat-session-menu hm-chat-session-action"
                     data-sid-menu="${escAttr(s.id)}"
-                    title="${escHtml(t('engine.chatMoreActions'))}">
+                    title="${escHtml(t('engine.chatMoreActions'))}"
+                    aria-label="${escHtml(t('engine.chatMoreActions'))}">
               ${ICONS.more}
             </button>
             <button class="hm-chat-session-del hm-chat-session-action"
@@ -463,10 +582,11 @@ export function render() {
           <div class="hm-chat-sidebar-head-actions">
             <button class="hm-chat-select-toggle ${selectionMode ? 'is-active' : ''}" id="hm-chat-select-toggle"
                     title="${escHtml(t(selectionMode ? 'engine.chatExitSelect' : 'engine.chatBulkSelect'))}"
+                    aria-label="${escHtml(t(selectionMode ? 'engine.chatExitSelect' : 'engine.chatBulkSelect'))}"
                     aria-pressed="${selectionMode ? 'true' : 'false'}">
               ${selectionMode ? ICONS.close : ICONS.check}
             </button>
-            <button class="hm-chat-new-btn" title="${escHtml(t('engine.chatNewChat'))}" ${selectionMode ? 'disabled' : ''}>
+            <button class="hm-chat-new-btn" title="${escHtml(t('engine.chatNewChat'))}" aria-label="${escHtml(t('engine.chatNewChat'))}" ${selectionMode ? 'disabled' : ''}>
               ${ICONS.plus}
             </button>
           </div>
@@ -554,7 +674,7 @@ export function render() {
       return `
         <div class="hm-chat-msg hm-chat-msg--system" data-mid="${escAttr(m.id)}">
           <div class="hm-chat-msg-bubble">
-            <div class="hm-chat-msg-content">${mdToHtml(m.content)}</div>
+            <div class="hm-chat-msg-content">${cachedMdToHtml(m.content, m.id)}</div>
           </div>
         </div>
       `
@@ -567,7 +687,7 @@ export function render() {
           ${!isUser ? `<div class="hm-chat-msg-avatar" aria-hidden="true">H</div>` : ''}
           <div class="hm-chat-msg-content-wrap">
             <div class="hm-chat-msg-bubble">
-              <div class="hm-chat-msg-content">${mdToHtml(m.content)}${m.isStreaming && !m.content ? '<span class="hm-chat-streaming-dots"><span></span><span></span><span></span></span>' : ''}</div>
+              <div class="hm-chat-msg-content">${cachedMdToHtml(m.content, m.id)}${m.isStreaming && !m.content ? '<span class="hm-chat-streaming-dots"><span></span><span></span><span></span></span>' : ''}</div>
             </div>
             <div class="hm-chat-msg-footer">
               <span class="hm-chat-msg-time">${escHtml(formatTime(m.timestamp))}</span>
@@ -699,13 +819,13 @@ export function render() {
               <div class="hm-chat-attach-chip">
                 <img src="data:${escAttr(a.mime)};base64,${escAttr(a.data_base64)}" alt="${escAttr(a.name)}">
                 <span class="hm-chat-attach-chip-name" title="${escAttr(a.name)}">${escHtml(a.name)}</span>
-                <button class="hm-chat-attach-chip-remove" data-attach-remove="${i}" title="${escHtml(t('engine.chatAttachRemove'))}">×</button>
+                <button class="hm-chat-attach-chip-remove" data-attach-remove="${i}" title="${escHtml(t('engine.chatAttachRemove'))}" aria-label="${escHtml(t('engine.chatAttachRemove'))}">×</button>
               </div>
             `).join('')}
           </div>
         ` : ''}
         <div class="hm-chat-input-wrap ${streaming ? 'is-streaming' : ''}">
-          <button class="hm-chat-attach-btn" id="hm-chat-attach" title="${escHtml(t('engine.chatAttach'))}" ${streaming ? 'disabled' : ''}>
+          <button class="hm-chat-attach-btn" id="hm-chat-attach" title="${escHtml(t('engine.chatAttach'))}" aria-label="${escHtml(t('engine.chatAttach'))}" ${streaming ? 'disabled' : ''}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
           </button>
           <input type="file" id="hm-chat-attach-input" accept="image/*" multiple hidden>
@@ -714,7 +834,7 @@ export function render() {
                     rows="1">${escHtml(inputValue)}</textarea>
           <div class="hm-chat-input-actions">
             ${streaming
-              ? `<button class="hm-chat-stop-btn" id="hm-chat-stop" title="${escHtml(t('engine.chatStop'))}">
+              ? `<button class="hm-chat-stop-btn" id="hm-chat-stop" title="${escHtml(t('engine.chatStop'))}" aria-label="${escHtml(t('engine.chatStop'))}">
                    ${ICONS.stop}
                  </button>`
               : `<button class="hm-chat-send-btn" id="hm-chat-send"
@@ -755,7 +875,7 @@ export function render() {
             ${currentModel ? `<span class="hm-chat-gw-model">${escHtml(currentModel)}</span>` : ''}
           </div>
           <button class="hm-btn hm-btn--ghost hm-btn--sm" id="hm-chat-search-open"
-                  title="${escHtml(t('engine.chatSearchShortcut'))}">
+                  title="${escHtml(t('engine.chatSearchShortcut'))}" aria-label="${t('common.search')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
               <circle cx="11" cy="11" r="8"/>
               <line x1="21" y1="21" x2="16.65" y2="16.65"/>

@@ -11,13 +11,16 @@ import { toast } from '../components/toast.js'
 import { showModal, showConfirm } from '../components/modal.js'
 import { icon as svgIcon } from '../lib/icons.js'
 import { t } from '../lib/i18n.js'
+import { escapeHtml } from '../lib/utils.js'
 
 const RENDER_THROTTLE = 30
+const MAX_VISIBLE_MESSAGES = 150  // 最大可见消息 DOM 节点数
 const STORAGE_SESSION_KEY = 'clawpanel-last-session'
 const STORAGE_MODEL_KEY = 'clawpanel-chat-selected-model'
 const STORAGE_SIDEBAR_KEY = 'clawpanel-chat-sidebar-open'
 const STORAGE_SESSION_NAMES_KEY = 'clawpanel-chat-session-names'
 const STORAGE_WORKSPACE_PANEL_KEY = 'clawpanel-chat-workspace-open'
+const STORAGE_SESSION_PINS_KEY = 'clawpanel-chat-session-pins'
 
 const COMMANDS = [
   { title: 'chat.cmdSession', commands: [
@@ -61,6 +64,7 @@ let _sessionKey = null, _page = null, _messagesEl = null, _textarea = null
 let _sendBtn = null, _statusDot = null, _typingEl = null, _scrollBtn = null
 let _sessionListEl = null, _cmdPanelEl = null, _attachPreviewEl = null, _fileInputEl = null
 let _modelSelectEl = null
+let _sessionSearchEl = null, _sessionAgentFilterEl = null, _sessionBulkBarEl = null, _messageSearchEl = null, _messageSearchCountEl = null
 let _currentAiBubble = null, _currentAiText = '', _currentAiImages = [], _currentAiVideos = [], _currentAiAudios = [], _currentAiFiles = [], _currentAiTools = [], _currentRunId = null
 let _isStreaming = false, _isSending = false, _messageQueue = [], _streamStartTime = 0
 let _lastRenderTime = 0, _renderPending = false, _lastHistoryHash = ''
@@ -79,6 +83,7 @@ let _ultimateTimer = null, _sendTimestamp = 0
 let _attachments = []
 let _hasEverConnected = false
 let _availableModels = []
+let _modelOptionMap = new Map()
 let _primaryModel = ''
 let _selectedModel = ''
 let _isApplyingModel = false
@@ -117,6 +122,9 @@ let _workspaceInfo = null, _workspaceCoreFiles = [], _workspaceTreeCache = new M
 let _workspaceCurrentAgentId = 'main', _workspaceCurrentFile = null, _workspacePreviewMode = false, _workspaceDirty = false
 let _workspaceLoadedContent = '', _workspaceLoading = false
 let _workspaceLoadSeq = 0, _workspaceOpenSeq = 0
+let _lastSessions = [], _sessionSearch = '', _sessionAgentFilter = '__all__'
+let _selectedSessions = new Set(), _pinnedSessions = new Set(loadSessionPins())
+let _messageSearch = '', _messageMatches = [], _messageMatchIndex = -1
 
 export async function render() {
   const page = document.createElement('div')
@@ -129,31 +137,50 @@ export async function render() {
       <div class="chat-sidebar-header">
         <span>${t('chat.sessionList')}</span>
         <div class="chat-sidebar-header-actions">
-          <button class="chat-sidebar-btn" id="btn-toggle-sidebar" title="${t('chat.sessionList')}">
+          <button class="chat-sidebar-btn" id="btn-toggle-sidebar" title="${t('chat.sessionList')}" aria-label="${t('chat.sessionList')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
-          <button class="chat-sidebar-btn" id="btn-new-session" title="${t('chat.newSession')}">
+          <button class="chat-sidebar-btn" id="btn-new-session" title="${t('chat.newSession')}" aria-label="${t('chat.newSession')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
         </div>
       </div>
+      <div class="chat-session-tools">
+        <label class="chat-session-search">
+          ${svgIcon('search', 14)}
+          <input id="chat-session-search" type="search" placeholder="${t('chat.sessionSearchPlaceholder')}">
+        </label>
+        <select class="chat-session-filter" id="chat-session-agent-filter" title="${t('chat.sessionAllAgents')}">
+          <option value="__all__">${t('chat.sessionAllAgents')}</option>
+        </select>
+      </div>
+      <div class="chat-session-bulk-bar" id="chat-session-bulk-bar" style="display:none"></div>
       <div class="chat-session-list" id="chat-session-list"></div>
     </div>
     <div class="chat-main">
       <div class="chat-header">
         <div class="chat-status">
-          <button class="chat-toggle-sidebar" id="btn-toggle-sidebar-main" title="${t('chat.sessionList')}">
+          <button class="chat-toggle-sidebar" id="btn-toggle-sidebar-main" title="${t('chat.sessionList')}" aria-label="${t('chat.sessionList')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
           <span class="status-dot" id="chat-status-dot"></span>
           <span class="chat-title" id="chat-title">${t('chat.chatTitle')}</span>
         </div>
         <div class="chat-header-actions">
+          <div class="chat-message-search">
+            ${svgIcon('search', 14)}
+            <input id="chat-message-search" type="search" placeholder="${t('chat.messageSearchPlaceholder')}">
+            <span id="chat-message-search-count" class="chat-message-search-count"></span>
+            <button class="chat-message-search-btn" id="chat-message-search-prev" title="${t('chat.messageSearchPrev')}" aria-label="${t('chat.messageSearchPrev')}">${svgIcon('chevron-up', 13)}</button>
+            <button class="chat-message-search-btn" id="chat-message-search-next" title="${t('chat.messageSearchNext')}" aria-label="${t('chat.messageSearchNext')}">${svgIcon('chevron-down', 13)}</button>
+            <button class="chat-message-search-btn" id="chat-message-search-clear" title="${t('chat.messageSearchClear')}" aria-label="${t('chat.messageSearchClear')}">${svgIcon('x', 13)}</button>
+          </div>
           <div class="chat-model-group">
-            <select class="form-input" id="chat-model-select" style="width:200px;max-width:28vw;padding:6px 10px;font-size:var(--font-size-xs)">
+            <select class="chat-model-select" id="chat-model-select">
               <option value="">${t('chat.loadingModels')}</option>
             </select>
-            <button class="btn btn-sm btn-ghost" id="btn-refresh-models" title="${t('chat.refreshModels')}">
+            <span class="chat-model-status" id="chat-model-status"></span>
+            <button class="btn btn-sm btn-ghost" id="btn-refresh-models" title="${t('chat.refreshModels')}" aria-label="${t('chat.refreshModels')}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
             </button>
           </div>
@@ -162,10 +189,10 @@ export async function render() {
             <span class="chat-workspace-trigger-label">${t('chat.workspace')}</span>
             <span class="chat-workspace-trigger-agent" id="chat-workspace-trigger-agent">main</span>
           </button>
-          <button class="btn btn-sm btn-ghost" id="btn-cmd" title="${t('chat.shortcuts')}">
+          <button class="btn btn-sm btn-ghost" id="btn-cmd" title="${t('chat.shortcuts')}" aria-label="${t('chat.shortcuts')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 3a3 3 0 00-3 3v12a3 3 0 003 3 3 3 0 003-3 3 3 0 00-3-3H6a3 3 0 00-3 3 3 3 0 003 3 3 3 0 003-3V6a3 3 0 00-3-3 3 3 0 00-3 3 3 3 0 003 3h12a3 3 0 003-3 3 3 0 00-3-3z"/></svg>
           </button>
-          <button class="btn btn-sm btn-ghost" id="btn-reset-session" title="${t('chat.resetSession')}">
+          <button class="btn btn-sm btn-ghost" id="btn-reset-session" title="${t('chat.resetSession')}" aria-label="${t('chat.resetSession')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
           </button>
         </div>
@@ -181,8 +208,8 @@ export async function render() {
             <div class="chat-workspace-path" id="chat-workspace-path"></div>
           </div>
           <div class="chat-workspace-header-actions">
-            <button class="chat-workspace-icon-btn" id="chat-workspace-refresh" title="${t('common.refresh')}">${svgIcon('refresh-cw', 14)}</button>
-            <button class="chat-workspace-icon-btn" id="chat-workspace-close" title="${t('common.close')}">${svgIcon('x', 14)}</button>
+            <button class="chat-workspace-icon-btn" id="chat-workspace-refresh" title="${t('common.refresh')}" aria-label="${t('common.refresh')}">${svgIcon('refresh-cw', 14)}</button>
+            <button class="chat-workspace-icon-btn" id="chat-workspace-close" title="${t('common.close')}" aria-label="${t('common.close')}">${svgIcon('x', 14)}</button>
           </div>
         </div>
         <div class="chat-workspace-body">
@@ -223,16 +250,16 @@ export async function render() {
       <div class="chat-attachments-preview" id="chat-attachments-preview" style="display:none"></div>
       <div class="chat-input-area">
         <input type="file" id="chat-file-input" accept="image/*" multiple style="display:none">
-        <button class="chat-attach-btn" id="chat-attach-btn" title="${t('chat.uploadImage')}">
+        <button class="chat-attach-btn" id="chat-attach-btn" title="${t('chat.uploadImage')}" aria-label="${t('chat.uploadImage')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
         </button>
         <div class="chat-input-wrapper">
           <textarea id="chat-input" rows="1" placeholder="${t('chat.inputPlaceholder')}"></textarea>
         </div>
-        <button class="chat-send-btn" id="chat-send-btn" type="button" disabled>
+        <button class="chat-send-btn" id="chat-send-btn" type="button" disabled aria-label="${t('chat.send')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
-        <button class="chat-hosted-btn btn btn-sm btn-ghost" id="chat-hosted-btn" title="${t('chat.hostedAgent')}">
+        <button class="chat-hosted-btn btn btn-sm btn-ghost" id="chat-hosted-btn" title="${t('chat.hostedAgent')}" aria-label="${t('chat.hostedAgent')}">
           <span class="chat-hosted-label">⊕</span>
           <span class="chat-hosted-badge idle" id="chat-hosted-badge">${t('chat.hostedBadge')}</span>
         </button>
@@ -240,7 +267,7 @@ export async function render() {
       <div class="hosted-agent-panel" id="hosted-agent-panel" style="display:none">
         <div class="hosted-agent-header">
           <strong>${t('chat.hostedAgent')}</strong>
-          <button class="hosted-agent-close" id="hosted-agent-close" title="${t('common.close')}">&times;</button>
+          <button class="hosted-agent-close" id="hosted-agent-close" title="${t('common.close')}" aria-label="${t('common.close')}">&times;</button>
         </div>
         <div class="hosted-agent-body">
           <div class="form-group">
@@ -300,6 +327,11 @@ export async function render() {
   _typingEl = page.querySelector('#typing-indicator')
   _scrollBtn = page.querySelector('#chat-scroll-btn')
   _sessionListEl = page.querySelector('#chat-session-list')
+  _sessionSearchEl = page.querySelector('#chat-session-search')
+  _sessionAgentFilterEl = page.querySelector('#chat-session-agent-filter')
+  _sessionBulkBarEl = page.querySelector('#chat-session-bulk-bar')
+  _messageSearchEl = page.querySelector('#chat-message-search')
+  _messageSearchCountEl = page.querySelector('#chat-message-search-count')
   _cmdPanelEl = page.querySelector('#chat-cmd-panel')
   _attachPreviewEl = page.querySelector('#chat-attachments-preview')
   _fileInputEl = page.querySelector('#chat-file-input')
@@ -364,7 +396,7 @@ function showPageGuide(container) {
         <p>${t('chat.guideDesc')}</p>
         <p style="opacity:0.7;font-size:11px">${t('chat.guideHint')}</p>
       </div>
-      <button class="chat-guide-close" title="${t('chat.guideClose')}">&times;</button>
+      <button class="chat-guide-close" title="${t('chat.guideClose')}" aria-label="${t('chat.guideClose')}">&times;</button>
     </div>
   `
   guide.querySelector('.chat-guide-close').onclick = () => {
@@ -379,7 +411,7 @@ function showPageGuide(container) {
 function bindEvents(page) {
   if (_modelSelectEl) {
     _modelSelectEl.addEventListener('change', () => {
-      _selectedModel = _modelSelectEl.value
+      _selectedModel = _modelOptionMap.get(_modelSelectEl.value) || ''
       if (_selectedModel) localStorage.setItem(STORAGE_MODEL_KEY, _selectedModel)
       else localStorage.removeItem(STORAGE_MODEL_KEY)
       applySelectedModel()
@@ -433,10 +465,50 @@ function bindEvents(page) {
   }
   page.querySelector('#btn-toggle-sidebar')?.addEventListener('click', toggleSidebar)
   page.querySelector('#btn-toggle-sidebar-main')?.addEventListener('click', toggleSidebar)
+  // 浮层模式：点击聊天区域关闭侧边栏
+  page.querySelector('.chat-main')?.addEventListener('click', (e) => {
+    const sidebar = page.querySelector('#chat-sidebar')
+    if (!sidebar || !sidebar.classList.contains('open')) return
+    // 只在浮层模式下（≤1200px）才响应
+    if (window.innerWidth > 1200) return
+    // 如果点击的是 toggle 按钮本身，交给 toggleSidebar 处理
+    if (e.target.closest('#btn-toggle-sidebar') || e.target.closest('#btn-toggle-sidebar-main')) return
+    sidebar.classList.remove('open')
+    setSidebarOpen(false)
+  })
+  // ESC 键关闭浮层侧边栏
+  page.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const sidebar = page.querySelector('#chat-sidebar')
+      if (sidebar && sidebar.classList.contains('open') && window.innerWidth <= 1200) {
+        sidebar.classList.remove('open')
+        setSidebarOpen(false)
+      }
+    }
+  })
   page.querySelector('#btn-new-session').addEventListener('click', () => showNewSessionDialog())
   page.querySelector('#btn-cmd').addEventListener('click', () => toggleCmdPanel())
   page.querySelector('#btn-reset-session').addEventListener('click', () => resetCurrentSession())
   page.querySelector('#btn-refresh-models')?.addEventListener('click', () => loadModelOptions(true))
+  _sessionSearchEl?.addEventListener('input', () => {
+    _sessionSearch = _sessionSearchEl.value || ''
+    renderSessionList(_lastSessions)
+  })
+  _sessionAgentFilterEl?.addEventListener('change', () => {
+    _sessionAgentFilter = _sessionAgentFilterEl.value || '__all__'
+    renderSessionList(_lastSessions)
+  })
+  _messageSearchEl?.addEventListener('input', () => {
+    _messageSearch = _messageSearchEl.value || ''
+    updateMessageSearch()
+  })
+  page.querySelector('#chat-message-search-prev')?.addEventListener('click', () => jumpMessageSearch(-1))
+  page.querySelector('#chat-message-search-next')?.addEventListener('click', () => jumpMessageSearch(1))
+  page.querySelector('#chat-message-search-clear')?.addEventListener('click', () => {
+    if (_messageSearchEl) _messageSearchEl.value = ''
+    _messageSearch = ''
+    updateMessageSearch()
+  })
   _workspaceBtn?.addEventListener('click', async (e) => {
     e.stopPropagation()
     if (getWorkspacePanelOpen() && _workspaceDirty) {
@@ -592,7 +664,12 @@ async function loadModelOptions(showToast = false) {
     }
     _availableModels = models
     const saved = localStorage.getItem(STORAGE_MODEL_KEY) || ''
-    _selectedModel = models.includes(saved) ? saved : (_primaryModel || models[0] || '')
+    const sessionModel = getSessionModelRef(_sessionKey)
+    if (sessionModel && !seen.has(sessionModel)) {
+      _availableModels.unshift(sessionModel)
+      seen.add(sessionModel)
+    }
+    _selectedModel = _availableModels.includes(sessionModel) ? sessionModel : (_availableModels.includes(saved) ? saved : (_primaryModel || _availableModels[0] || ''))
     renderModelSelect()
     if (showToast) toast(`${t('chat.refreshModels')} (${models.length})`, 'success')
   } catch (e) {
@@ -606,22 +683,79 @@ async function loadModelOptions(showToast = false) {
 
 function renderModelSelect(errorText = '') {
   if (!_modelSelectEl) return
+  const statusEl = _page?.querySelector('#chat-model-status')
+  _modelOptionMap = new Map()
   if (!_availableModels.length) {
     _modelSelectEl.innerHTML = `<option value="">${escapeAttr(errorText || t('chat.loadingModels'))}</option>`
     _modelSelectEl.disabled = true
     _modelSelectEl.title = errorText || ''
+    if (statusEl) {
+      statusEl.textContent = errorText || ''
+      statusEl.title = errorText || ''
+    }
     return
   }
   _modelSelectEl.disabled = _isApplyingModel
-  _modelSelectEl.innerHTML = _availableModels.map(full => {
+  _modelSelectEl.innerHTML = _availableModels.map((full, index) => {
+    const value = `model-${index}`
+    _modelOptionMap.set(value, full)
+    const label = formatChatModelLabel(full)
     const suffix = full === _primaryModel ? ` ${t('chat.defaultSuffix')}` : ''
-    return `<option value="${escapeAttr(full)}" ${full === _selectedModel ? 'selected' : ''}>${full}${suffix}</option>`
+    return `<option value="${value}" ${full === _selectedModel ? 'selected' : ''}>${escapeAttr(label)}${escapeAttr(suffix)}</option>`
   }).join('')
+  const selectedLabel = formatChatModelLabel(_selectedModel)
+  const status = _isApplyingModel
+    ? `正在切换：${selectedLabel}`
+    : (_selectedModel ? `当前会话模型：${selectedLabel}` : '')
   _modelSelectEl.title = _selectedModel || ''
+  if (statusEl) {
+    statusEl.textContent = status
+    statusEl.title = status
+  }
 }
 
 function escapeAttr(str) {
   return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function formatChatModelLabel(full) {
+  const text = String(full || '')
+  const slash = text.indexOf('/')
+  if (slash <= 0) return text
+  return `${text.slice(0, slash)} · ${text.slice(slash + 1)}`
+}
+
+function parseSelectedModelRef(full = _selectedModel) {
+  const text = String(full || '').trim()
+  const slash = text.indexOf('/')
+  if (slash <= 0 || slash === text.length - 1) return null
+  return {
+    provider: text.slice(0, slash),
+    model: text.slice(slash + 1),
+    full: text
+  }
+}
+
+function getSessionModelRef(sessionKey = _sessionKey) {
+  if (!sessionKey) return ''
+  const row = _lastSessions.find(s => (s.sessionKey || s.key || '') === sessionKey)
+  if (!row) return ''
+  const provider = String(row.providerOverride || row.modelProvider || '').trim()
+  const model = String(row.modelOverride || row.model || '').trim()
+  if (!model) return ''
+  if (model.includes('/')) return model
+  return provider ? `${provider}/${model}` : ''
+}
+
+function syncSelectedModelForSession(sessionKey = _sessionKey) {
+  const sessionModel = getSessionModelRef(sessionKey)
+  if (sessionModel) {
+    if (!_availableModels.includes(sessionModel)) _availableModels.unshift(sessionModel)
+    _selectedModel = sessionModel
+    return
+  }
+  const saved = localStorage.getItem(STORAGE_MODEL_KEY) || ''
+  _selectedModel = _availableModels.includes(saved) ? saved : (_primaryModel || _availableModels[0] || '')
 }
 
 /** 本地会话别名缓存 */
@@ -640,7 +774,7 @@ function getDisplayLabel(key) {
 }
 
 function getSidebarOpen() {
-  return localStorage.getItem(STORAGE_SIDEBAR_KEY) === '1'
+  return localStorage.getItem(STORAGE_SIDEBAR_KEY) !== '0'
 }
 
 function setSidebarOpen(open) {
@@ -1025,7 +1159,8 @@ async function saveWorkspaceCurrentFile() {
 }
 
 async function applySelectedModel() {
-  if (!_selectedModel) {
+  const modelRef = parseSelectedModelRef()
+  if (!modelRef) {
     toast(t('chat.loadingModels'), 'warning')
     return
   }
@@ -1036,10 +1171,10 @@ async function applySelectedModel() {
   _isApplyingModel = true
   renderModelSelect()
   try {
-    await wsClient.chatSend(_sessionKey, `/model ${_selectedModel}`)
-    toast(`${_selectedModel}`, 'success')
+    localStorage.setItem(STORAGE_MODEL_KEY, modelRef.full)
+    toast(`${formatChatModelLabel(modelRef.full)}`, 'success')
   } catch (e) {
-    toast(`${t('chat.sendFailed')}${e.message || e}`, 'error')
+    toast(`${t('common.saveFailed')}: ${e.message || e}`, 'error')
   } finally {
     _isApplyingModel = false
     renderModelSelect()
@@ -1116,6 +1251,36 @@ async function handleFileSelect(e) {
 async function handlePaste(e) {
   const items = Array.from(e.clipboardData?.items || [])
   const imageItems = items.filter(item => item.type.startsWith('image/'))
+
+  // 文本粘贴长度保护
+  const textItems = items.filter(item => item.kind === 'string' && item.type === 'text/plain')
+  if (!imageItems.length && textItems.length) {
+    // 获取粘贴文本检查长度
+    const text = e.clipboardData.getData('text/plain')
+    if (text && text.length > 50000) {
+      e.preventDefault()
+      import('../components/modal.js').then(({ showConfirm }) => {
+        showConfirm({
+          message: t('chat.pasteLargeText', { length: text.length }),
+          title: t('chat.pasteWarning'),
+          confirmText: t('common.confirm'),
+          cancelText: t('common.cancel'),
+        }).then(confirmed => {
+          if (confirmed) {
+            // 允许粘贴：直接插入到 textarea
+            const ta = e.target
+            const start = ta.selectionStart
+            const end = ta.selectionEnd
+            ta.value = ta.value.slice(0, start) + text + ta.value.slice(end)
+            ta.selectionStart = ta.selectionEnd = start + text.length
+            ta.dispatchEvent(new Event('input', { bubbles: true }))
+          }
+        })
+      })
+      return
+    }
+  }
+
   if (!imageItems.length) return
   e.preventDefault()
   for (const item of imageItems) {
@@ -1233,6 +1398,8 @@ async function connectGateway() {
       }
       // 始终刷新会话列表（无论是否有 sessionKey）
       refreshSessionList()
+      // Gateway 就绪后刷新模型列表；当前选择会在桌面端下一次 chat.send 中作为 provider/model 覆盖参数发送。
+      loadModelOptions().catch(() => {})
     })
 
     _unsubEvent = wsClient.onEvent((msg) => {
@@ -1289,40 +1456,130 @@ async function refreshSessionList() {
   }
 }
 
+function loadSessionPins() {
+  try {
+    const raw = localStorage.getItem(STORAGE_SESSION_PINS_KEY)
+    const list = raw ? JSON.parse(raw) : []
+    return Array.isArray(list) ? list.filter(Boolean) : []
+  } catch {
+    return []
+  }
+}
+
+function saveSessionPins() {
+  try { localStorage.setItem(STORAGE_SESSION_PINS_KEY, JSON.stringify([..._pinnedSessions])) } catch {}
+}
+
+function normalizeSessionRow(s) {
+  const key = s.sessionKey || s.key || ''
+  const label = parseSessionLabel(key)
+  const ts = s.updatedAt || s.lastActivity || s.createdAt || 0
+  const agentId = parseSessionAgent(key) || 'main'
+  return {
+    raw: s,
+    key,
+    label,
+    displayLabel: getDisplayLabel(key) || label,
+    ts,
+    timeStr: ts ? formatSessionTime(ts) : '',
+    msgCount: s.messageCount || s.messages || 0,
+    agentId,
+    cpCount: s.compactionCheckpointCount || 0,
+    pinned: _pinnedSessions.has(key),
+  }
+}
+
+function getVisibleSessionRows() {
+  const q = (_sessionSearch || '').trim().toLowerCase()
+  return _lastSessions
+    .map(normalizeSessionRow)
+    .filter(row => row.key)
+    .filter(row => _sessionAgentFilter === '__all__' || row.agentId === _sessionAgentFilter)
+    .filter(row => {
+      if (!q) return true
+      const hay = [row.key, row.displayLabel, row.label, row.agentId].join('\n').toLowerCase()
+      return hay.includes(q)
+    })
+    .sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
+      return (b.ts || 0) - (a.ts || 0)
+    })
+}
+
+function renderSessionFilters(rows) {
+  if (!_sessionAgentFilterEl) return
+  const agents = Array.from(new Set(rows.map(r => r.agentId).filter(Boolean))).sort((a, b) => a.localeCompare(b))
+  if (_sessionAgentFilter !== '__all__' && !agents.includes(_sessionAgentFilter)) _sessionAgentFilter = '__all__'
+  _sessionAgentFilterEl.innerHTML = `<option value="__all__">${t('chat.sessionAllAgents')}</option>` +
+    agents.map(agent => `<option value="${escapeAttr(agent)}" ${agent === _sessionAgentFilter ? 'selected' : ''}>${escapeAttr(agent)}</option>`).join('')
+}
+
+function renderSessionBulkBar(rows) {
+  if (!_sessionBulkBarEl) return
+  const selected = [..._selectedSessions].filter(key => rows.some(r => r.key === key))
+  _selectedSessions = new Set(selected)
+  if (!selected.length) {
+    _sessionBulkBarEl.style.display = 'none'
+    _sessionBulkBarEl.innerHTML = ''
+    return
+  }
+  _sessionBulkBarEl.style.display = 'flex'
+  _sessionBulkBarEl.innerHTML = `
+    <span>${t('chat.sessionSelectedCount', { count: selected.length })}</span>
+    <button type="button" data-session-bulk="clear">${t('common.cancel')}</button>
+    <button type="button" data-session-bulk="delete" class="danger">${svgIcon('trash', 12)} ${t('chat.sessionDeleteSelected')}</button>
+  `
+  _sessionBulkBarEl.onclick = (e) => {
+    const action = e.target.closest('[data-session-bulk]')?.dataset.sessionBulk
+    if (!action) return
+    if (action === 'clear') {
+      _selectedSessions.clear()
+      renderSessionList(_lastSessions)
+    } else if (action === 'delete') {
+      void deleteSelectedSessions()
+    }
+  }
+}
+
 function renderSessionList(sessions) {
   if (!_sessionListEl) return
-  if (!sessions.length) {
+  _lastSessions = Array.isArray(sessions) ? sessions.slice() : []
+  syncSelectedModelForSession()
+  const rows = _lastSessions.map(normalizeSessionRow).filter(r => r.key)
+  renderSessionFilters(rows)
+  const visibleRows = getVisibleSessionRows()
+  renderSessionBulkBar(visibleRows)
+  if (!visibleRows.length) {
     _sessionListEl.innerHTML = `<div class="chat-session-empty">${t('chat.noSessions')}</div>`
     return
   }
-  sessions.sort((a, b) => (b.updatedAt || b.lastActivity || 0) - (a.updatedAt || a.lastActivity || 0))
-  _sessionListEl.innerHTML = sessions.map(s => {
-    const key = s.sessionKey || s.key || ''
-    const active = key === _sessionKey ? ' active' : ''
-    const label = parseSessionLabel(key)
-    const ts = s.updatedAt || s.lastActivity || s.createdAt || 0
-    const timeStr = ts ? formatSessionTime(ts) : ''
-    const msgCount = s.messageCount || s.messages || 0
-    const agentId = parseSessionAgent(key)
-    const displayLabel = getDisplayLabel(key) || label
-    const cpCount = s.compactionCheckpointCount || 0
-    return `<div class="chat-session-card${active}" data-key="${escapeAttr(key)}">
+  _sessionListEl.innerHTML = visibleRows.map(row => {
+    const active = row.key === _sessionKey ? ' active' : ''
+    const selected = _selectedSessions.has(row.key) ? ' selected' : ''
+    const pinned = row.pinned ? ' pinned' : ''
+    return `<div class="chat-session-card${active}${selected}${pinned}" data-key="${escapeAttr(row.key)}">
       <div class="chat-session-card-header">
-        <span class="chat-session-label" title="${t('chat.doubleClickRename')}">${escapeAttr(displayLabel)}</span>
-        <div style="display:flex;gap:2px;align-items:center">
-          ${cpCount > 0 ? `<button class="chat-session-del" data-compaction="${escapeAttr(key)}" title="${t('chat.compactionHistory')}" style="color:var(--text-tertiary);font-size:11px">⟳${cpCount}</button>` : ''}
-          <button class="chat-session-del" data-del="${escapeAttr(key)}" title="${t('common.delete')}">×</button>
+        <button class="chat-session-select" data-select="${escapeAttr(row.key)}" title="${t('chat.sessionSelect')}" aria-label="${t('chat.sessionSelect')}">${svgIcon(_selectedSessions.has(row.key) ? 'check-circle' : 'circle', 14)}</button>
+        <span class="chat-session-label" title="${t('chat.doubleClickRename')}">${escapeAttr(row.displayLabel)}</span>
+        <div class="chat-session-actions">
+          <button class="chat-session-del chat-session-pin" data-pin="${escapeAttr(row.key)}" title="${row.pinned ? t('chat.sessionUnpin') : t('chat.sessionPin')}" aria-label="${row.pinned ? t('chat.sessionUnpin') : t('chat.sessionPin')}">${svgIcon(row.pinned ? 'crown' : 'target', 12)}</button>
+          ${row.cpCount > 0 ? `<button class="chat-session-del" data-compaction="${escapeAttr(row.key)}" title="${t('chat.compactionHistory')}">⟳${row.cpCount}</button>` : ''}
+          <button class="chat-session-del" data-del="${escapeAttr(row.key)}" title="${t('common.delete')}" aria-label="${t('common.delete')}">${svgIcon('x', 12)}</button>
         </div>
       </div>
       <div class="chat-session-card-meta">
-        ${agentId && agentId !== 'main' ? `<span class="chat-session-agent">${escapeAttr(agentId)}</span>` : ''}
-        ${msgCount > 0 ? `<span>${msgCount} msgs</span>` : ''}
-        ${timeStr ? `<span>${timeStr}</span>` : ''}
+        ${row.agentId && row.agentId !== 'main' ? `<span class="chat-session-agent">${escapeAttr(row.agentId)}</span>` : ''}
+        ${row.msgCount > 0 ? `<span>${t('chat.messagesShort', { count: row.msgCount })}</span>` : ''}
+        ${row.timeStr ? `<span>${row.timeStr}</span>` : ''}
       </div>
     </div>`
   }).join('')
 
   _sessionListEl.onclick = (e) => {
+    const selectBtn = e.target.closest('[data-select]')
+    if (selectBtn) { e.stopPropagation(); toggleSessionSelected(selectBtn.dataset.select); return }
+    const pinBtn = e.target.closest('[data-pin]')
+    if (pinBtn) { e.stopPropagation(); toggleSessionPin(pinBtn.dataset.pin); return }
     const cpBtn = e.target.closest('[data-compaction]')
     if (cpBtn) { e.stopPropagation(); showCompactionHistory(cpBtn.dataset.compaction); return }
     const delBtn = e.target.closest('[data-del]')
@@ -1338,6 +1595,62 @@ function renderSessionList(sessions) {
     e.stopPropagation()
     renameSession(card.dataset.key, labelEl)
   }
+}
+
+function toggleSessionSelected(key) {
+  if (!key) return
+  if (_selectedSessions.has(key)) _selectedSessions.delete(key)
+  else _selectedSessions.add(key)
+  renderSessionList(_lastSessions)
+}
+
+function toggleSessionPin(key) {
+  if (!key) return
+  if (_pinnedSessions.has(key)) {
+    _pinnedSessions.delete(key)
+    toast(t('chat.sessionUnpinned'), 'success')
+  } else {
+    _pinnedSessions.add(key)
+    toast(t('chat.sessionPinned'), 'success')
+  }
+  saveSessionPins()
+  renderSessionList(_lastSessions)
+}
+
+async function deleteSelectedSessions() {
+  const mainKey = wsClient.snapshot?.sessionDefaults?.mainSessionKey || 'agent:main:main'
+  const keys = [..._selectedSessions].filter(key => key && key !== mainKey)
+  if (!keys.length) {
+    toast(t('chat.cannotDeleteMain'), 'warning')
+    return
+  }
+  const yes = await showConfirm({
+    title: t('chat.sessionBulkDeleteTitle', { count: keys.length }),
+    message: t('chat.sessionBulkDeleteConfirm', { count: keys.length }),
+    impact: [
+      t('chat.deleteSessionImpactHistory'),
+      t('chat.deleteSessionImpactCannotUndo'),
+    ],
+    confirmText: t('chat.sessionDeleteSelected'),
+    cancelText: t('chat.deleteSessionCancel'),
+  })
+  if (!yes) return
+  let ok = 0
+  let fail = 0
+  for (const key of keys) {
+    try {
+      await wsClient.sessionsDelete(key)
+      _selectedSessions.delete(key)
+      _pinnedSessions.delete(key)
+      ok++
+    } catch {
+      fail++
+    }
+  }
+  saveSessionPins()
+  toast(fail ? t('chat.sessionBulkDeletePartial', { ok, fail }) : t('chat.sessionBulkDeleted', { count: ok }), fail ? 'warning' : 'success')
+  if (keys.includes(_sessionKey)) void switchSession(mainKey, { forceWorkspace: true })
+  else refreshSessionList()
 }
 
 function formatSessionTime(ts) {
@@ -1384,6 +1697,8 @@ async function switchSession(newKey, options = {}) {
   clearMessages()
   loadHistory()
   refreshSessionList()
+  syncSelectedModelForSession(newKey)
+  renderModelSelect()
   return true
 }
 
@@ -1456,6 +1771,9 @@ async function deleteSession(key) {
   if (!yes) return
   try {
     await wsClient.sessionsDelete(key)
+    _selectedSessions.delete(key)
+    _pinnedSessions.delete(key)
+    saveSessionPins()
     toast(t('chat.sessionDeleted'), 'success')
     if (key === _sessionKey) void switchSession(mainKey, { forceWorkspace: true })
     else refreshSessionList()
@@ -1612,12 +1930,64 @@ function renameSession(key, labelEl) {
     labelEl.textContent = getDisplayLabel(key)
     // 如果是当前会话，同步更新顶部标题
     if (key === _sessionKey) updateSessionTitle()
+    renderSessionList(_lastSessions)
   }
   input.addEventListener('blur', finish)
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); input.blur() }
     if (e.key === 'Escape') { input.value = originalText; input.blur() }
   })
+}
+
+function updateMessageSearch() {
+  if (!_messagesEl) return
+  _messagesEl.querySelectorAll('.msg.search-match, .msg.search-current').forEach(node => {
+    node.classList.remove('search-match', 'search-current')
+  })
+  const q = (_messageSearch || '').trim().toLowerCase()
+  if (!q) {
+    _messageMatches = []
+    _messageMatchIndex = -1
+    updateMessageSearchCount()
+    return
+  }
+  _messageMatches = Array.from(_messagesEl.querySelectorAll('.msg')).filter(node => {
+    const text = (node.innerText || node.textContent || '').toLowerCase()
+    return text.includes(q)
+  })
+  _messageMatches.forEach(node => node.classList.add('search-match'))
+  _messageMatchIndex = _messageMatches.length ? 0 : -1
+  focusMessageMatch(false)
+  updateMessageSearchCount()
+}
+
+function updateMessageSearchCount() {
+  if (!_messageSearchCountEl) return
+  if (!_messageSearch) {
+    _messageSearchCountEl.textContent = ''
+    return
+  }
+  _messageSearchCountEl.textContent = _messageMatches.length
+    ? `${_messageMatchIndex + 1}/${_messageMatches.length}`
+    : t('chat.messageSearchNoResult')
+}
+
+function focusMessageMatch(scroll = true) {
+  _messagesEl?.querySelectorAll('.msg.search-current').forEach(node => node.classList.remove('search-current'))
+  const node = _messageMatches[_messageMatchIndex]
+  if (!node) return
+  node.classList.add('search-current')
+  if (scroll) node.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
+function jumpMessageSearch(delta) {
+  if (!_messageMatches.length) {
+    updateMessageSearch()
+    return
+  }
+  _messageMatchIndex = (_messageMatchIndex + delta + _messageMatches.length) % _messageMatches.length
+  focusMessageMatch(true)
+  updateMessageSearchCount()
 }
 
 // ── 快捷指令面板 ──
@@ -1694,7 +2064,13 @@ async function doSend(text, attachments = []) {
   _isSending = true
   _startResponseWatchdog()
   try {
-    await wsClient.chatSend(_sessionKey, text, attachments.length ? attachments : undefined)
+    const modelRef = parseSelectedModelRef()
+    await wsClient.chatSend(
+      _sessionKey,
+      text,
+      attachments.length ? attachments : undefined,
+      modelRef ? { provider: modelRef.provider, model: modelRef.model } : undefined
+    )
   } catch (err) {
     showTyping(false)
     _cancelResponseWatchdog()
@@ -1978,7 +2354,7 @@ function handleChatEvent(payload) {
           parts.push(`<span class="meta-sep">·</span><span class="msg-tokens">${tokenStr}</span>`)
         }
       }
-      parts.push(`<button class="msg-copy-btn" title="${t('common.copy')}">${svgIcon('copy', 12)}</button>`)
+      parts.push(`<button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${svgIcon('copy', 12)}</button>`)
       meta.innerHTML = parts.join('')
       wrapper.appendChild(meta)
     }
@@ -2005,6 +2381,8 @@ function handleChatEvent(payload) {
     resetStreamState()
     _schedulePostFinalCheck()
     processMessageQueue()
+    // final 后刷新会话列表，让侧边栏最新消息预览即时更新
+    refreshSessionList()
     return
   }
 
@@ -2149,15 +2527,6 @@ function stripAnsi(text) {
   return text.replace(/\u001b\[[0-9;]*[A-Za-z]/g, '')
 }
 
-function escapeHtml(text) {
-  return (text || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-}
-
 function stripThinkingTags(text) {
   const safe = stripAnsi(text)
   return safe
@@ -2258,6 +2627,7 @@ function doRender() {
   _lastRenderTime = performance.now()
   if (_currentAiBubble && _currentAiText) {
     _currentAiBubble.innerHTML = renderMarkdown(_currentAiText)
+    if (_messageSearch) updateMessageSearch()
     scrollToBottom()
   }
 }
@@ -2370,6 +2740,7 @@ function resetStreamState() {
     appendAudiosToEl(_currentAiBubble, _currentAiAudios)
     appendFilesToEl(_currentAiBubble, _currentAiFiles)
     appendToolsToEl(_currentAiBubble, _currentAiTools)
+    if (_messageSearch) updateMessageSearch()
   }
   _renderPending = false
   _lastRenderTime = 0
@@ -2605,6 +2976,14 @@ function appendUserMessage(text, attachments = [], msgTime) {
         const img = document.createElement('img')
         img.src = src
         img.className = 'msg-img'
+        img.setAttribute('role', 'button')
+        img.setAttribute('tabindex', '0')
+        img.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            e.currentTarget.click()
+          }
+        })
         img.onclick = () => showLightbox(img.src)
         mediaContainer.appendChild(img)
       } else if (cat === 'video' && src) {
@@ -2625,7 +3004,7 @@ function appendUserMessage(text, attachments = [], msgTime) {
       } else if (att.fileName || att.name) {
         const card = document.createElement('div')
         card.className = 'msg-file-card'
-        card.innerHTML = `<span class="msg-file-icon">${svgIcon('paperclip', 16)}</span><span class="msg-file-name">${att.fileName || att.name}</span>`
+        card.innerHTML = `<span class="msg-file-icon">${svgIcon('paperclip', 16)}</span><span class="msg-file-name">${escapeHtml(att.fileName || att.name)}</span>`
         mediaContainer.appendChild(card)
       }
     })
@@ -2640,7 +3019,7 @@ function appendUserMessage(text, attachments = [], msgTime) {
 
   const meta = document.createElement('div')
   meta.className = 'msg-meta'
-  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}">${svgIcon('copy', 12)}</button>`
+  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${svgIcon('copy', 12)}</button>`
 
   wrap.appendChild(bubble)
   wrap.appendChild(meta)
@@ -2663,11 +3042,23 @@ function appendAiMessage(text, msgTime, images, videos, audios, files, tools) {
   appendAudiosToEl(bubble, audios)
   appendFilesToEl(bubble, files)
   // 图片点击灯箱
-  bubble.querySelectorAll('img').forEach(img => { if (!img.onclick) img.onclick = () => showLightbox(img.src) })
+  bubble.querySelectorAll('img').forEach(img => {
+    if (!img.onclick) {
+      img.setAttribute('role', 'button')
+      img.setAttribute('tabindex', '0')
+      img.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          e.currentTarget.click()
+        }
+      })
+      img.onclick = () => showLightbox(img.src)
+    }
+  })
 
   const meta = document.createElement('div')
   meta.className = 'msg-meta'
-  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}">${svgIcon('copy', 12)}</button>`
+  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${svgIcon('copy', 12)}</button>`
 
   wrap.appendChild(bubble)
   wrap.appendChild(meta)
@@ -2697,6 +3088,14 @@ function appendImagesToEl(el, images) {
       return
     }
     imgEl.style.cssText = 'max-width:300px;max-height:300px;border-radius:6px;cursor:pointer'
+    imgEl.setAttribute('role', 'button')
+    imgEl.setAttribute('tabindex', '0')
+    imgEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        e.currentTarget.click()
+      }
+    })
     imgEl.onclick = () => showLightbox(imgEl.src)
     container.appendChild(imgEl)
   })
@@ -2742,7 +3141,15 @@ function appendFilesToEl(el, files) {
     const fileIconMap = { pdf: 'file', doc: 'file-text', docx: 'file-text', txt: 'file-plain', md: 'file-plain', json: 'clipboard', csv: 'bar-chart', zip: 'package', rar: 'package' }
     const fileIcon = svgIcon(fileIconMap[ext] || 'paperclip', 16)
     const size = f.size ? formatFileSize(f.size) : ''
-    card.innerHTML = `<span class="msg-file-icon">${fileIcon}</span><div class="msg-file-info"><span class="msg-file-name">${f.name || 'file'}</span>${size ? `<span class="msg-file-size">${size}</span>` : ''}</div>`
+    card.innerHTML = `<span class="msg-file-icon">${fileIcon}</span><div class="msg-file-info"><span class="msg-file-name">${escapeHtml(f.name || 'file')}</span>${size ? `<span class="msg-file-size">${size}</span>` : ''}</div>`
+    card.setAttribute('role', 'button')
+    card.setAttribute('tabindex', '0')
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        e.currentTarget.click()
+      }
+    })
     if (f.url) {
       card.style.cursor = 'pointer'
       card.onclick = () => window.open(f.url, '_blank')
@@ -2860,9 +3267,13 @@ function showLightbox(src) {
   if (existing) existing.remove()
   const lb = document.createElement('div')
   lb.className = 'chat-lightbox'
+  lb.setAttribute('role', 'dialog')
+  lb.setAttribute('aria-label', 'Image lightbox')
+  lb.setAttribute('tabindex', '-1')
   lb.innerHTML = `<img src="${src}" class="chat-lightbox-img" />`
   lb.onclick = (e) => { if (e.target === lb || e.target.tagName !== 'IMG') lb.remove() }
   document.body.appendChild(lb)
+  lb.focus()
   // ESC 关闭
   const onKey = (e) => { if (e.key === 'Escape') { lb.remove(); document.removeEventListener('keydown', onKey) } }
   document.addEventListener('keydown', onKey)
@@ -2878,14 +3289,48 @@ function appendSystemMessage(text) {
 
 function insertMessageNode(wrap) {
   if (!_messagesEl || !_messagesEl.isConnected) return
+
+  // 消息数量限制：超过 MAX_VISIBLE_MESSAGES 时移除最早的消息 DOM
+  const existingMessages = _messagesEl.querySelectorAll('.msg')
+  if (existingMessages.length >= MAX_VISIBLE_MESSAGES) {
+    // 移除最早的消息节点，保留 typing indicator 和 system messages
+    const toRemove = existingMessages.length - MAX_VISIBLE_MESSAGES + 1
+    for (let i = 0; i < toRemove && i < existingMessages.length; i++) {
+      const msg = existingMessages[i]
+      if (!msg.classList.contains('msg-system') || i > 10) {
+        msg.remove()
+      }
+    }
+    // 在顶部插入"加载更多"提示（如果还没有）
+    if (!_messagesEl.querySelector('.msg-load-more')) {
+      const loadMore = document.createElement('div')
+      loadMore.className = 'msg msg-system msg-load-more'
+      loadMore.textContent = t('chat.loadMoreHint') || '↑ 向上滚动加载更多'
+      loadMore.style.cssText = 'cursor:pointer'
+      loadMore.addEventListener('click', () => {
+        loadMore.remove()
+        // 清除限制标记让后续消息正常显示
+      })
+      if (_messagesEl.firstChild) {
+        _messagesEl.insertBefore(loadMore, _messagesEl.firstChild)
+      } else {
+        _messagesEl.appendChild(loadMore)
+      }
+    }
+  }
+
   if (_typingEl && _typingEl.parentNode === _messagesEl) _messagesEl.insertBefore(wrap, _typingEl)
   else _messagesEl.appendChild(wrap)
+  if (_messageSearch) updateMessageSearch()
   scrollToBottom()
 }
 
 function clearMessages() {
   if (!_messagesEl) return
   _messagesEl.querySelectorAll('.msg').forEach(m => m.remove())
+  _messageMatches = []
+  _messageMatchIndex = -1
+  updateMessageSearchCount()
   _autoScrollEnabled = true
   _lastScrollTop = 0
 }
@@ -3152,6 +3597,8 @@ function stopHostedAgent() {
   if (!_hostedSessionConfig) return
   const boundSessionKey = getHostedBoundSessionKey() || getHostedSessionKey()
   if (_hostedAbort) { _hostedAbort.abort(); _hostedAbort = null }
+  clearTimeout(_hostedAutoStopTimer)
+  _hostedAutoStopTimer = null
   clearTimeout(_hostedAutoStopTimer); _hostedAutoStopTimer = null
   clearInterval(_countdownInterval); _countdownInterval = null
   _hostedBusy = false
@@ -3231,6 +3678,41 @@ function buildHostedMessages() {
 function detectStopFromText(text) {
   if (!text) return false
   return /\b(完成|无需继续|结束|停止|done|stop|final)\b/i.test(text)
+}
+
+function isHostedDeepSeekConfig(config, baseOverride = '') {
+  if (normalizeHostedApiType(config?.apiType) !== 'openai-completions') return false
+  const model = String(config?.model || '').toLowerCase()
+  if (model.includes('deepseek')) return true
+  const baseUrl = baseOverride || config?.baseUrl || ''
+  try {
+    const host = new URL(baseUrl).hostname.toLowerCase()
+    return host === 'api.deepseek.com' || host.endsWith('.deepseek.com')
+  } catch {
+    return /(^|\/\/|\.)(api\.)?deepseek\.com(\/|$)/i.test(baseUrl)
+  }
+}
+
+function sanitizeHostedDeepSeekMessages(messages) {
+  return messages.map(m => {
+    const next = { ...m }
+    if (next.role === 'assistant') delete next.reasoning_content
+    return next
+  })
+}
+
+function hostedDeepSeekCacheUsage(usage) {
+  if (!usage || typeof usage !== 'object') return null
+  const prompt = usage.prompt_tokens || usage.input_tokens || 0
+  const hit = usage.prompt_cache_hit_tokens || usage.prompt_tokens_details?.cached_tokens || 0
+  const miss = usage.prompt_cache_miss_tokens || (hit > 0 && prompt > hit ? prompt - hit : 0)
+  return {
+    prompt,
+    completion: usage.completion_tokens || usage.output_tokens || 0,
+    total: usage.total_tokens || 0,
+    cacheHit: hit,
+    cacheMiss: miss,
+  }
 }
 
 async function runHostedAgentStep() {
@@ -3330,7 +3812,14 @@ async function callHostedAI(messages, onChunk) {
   try {
     const headers = { 'Content-Type': 'application/json' }
     if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`
-    const body = { model: config.model, messages, stream: true, temperature: config.temperature || 0.7 }
+    const deepseek = isHostedDeepSeekConfig(config, base)
+    const body = {
+      model: config.model,
+      messages: deepseek ? sanitizeHostedDeepSeekMessages(messages) : messages,
+      stream: true,
+      temperature: config.temperature || 0.7,
+    }
+    if (deepseek) body.stream_options = { include_usage: true }
     const resp = await fetch(base + '/chat/completions', { method: 'POST', headers, body: JSON.stringify(body), signal })
     if (!resp.ok) {
       const errText = await resp.text().catch(() => '')
@@ -3352,7 +3841,15 @@ async function callHostedAI(messages, onChunk) {
         if (!trimmed || !trimmed.startsWith('data:')) continue
         const data = trimmed.slice(5).trim()
         if (data === '[DONE]') return
-        try { const json = JSON.parse(data); if (json.choices?.[0]?.delta?.content) onChunk(json.choices[0].delta.content) } catch {}
+        try {
+          const json = JSON.parse(data)
+          const usage = hostedDeepSeekCacheUsage(json.usage)
+          if (usage) {
+            _hostedRuntime.lastUsage = usage
+            persistHostedRuntime()
+          }
+          if (json.choices?.[0]?.delta?.content) onChunk(json.choices[0].delta.content)
+        } catch {}
       }
     }
   } finally {
@@ -3440,7 +3937,19 @@ export function cleanup() {
   _typingEl = null
   _scrollBtn = null
   _sessionListEl = null
+  _sessionSearchEl = null
+  _sessionAgentFilterEl = null
+  _sessionBulkBarEl = null
+  _messageSearchEl = null
+  _messageSearchCountEl = null
   _cmdPanelEl = null
+  _lastSessions = []
+  _sessionSearch = ''
+  _sessionAgentFilter = '__all__'
+  _selectedSessions = new Set()
+  _messageSearch = ''
+  _messageMatches = []
+  _messageMatchIndex = -1
   _currentAiBubble = null
   _currentAiText = ''
   _currentAiImages = []
@@ -3457,17 +3966,16 @@ export function cleanup() {
   _hostedPanelEl = null
   _hostedBadgeEl = null
   _hostedPromptEl = null
-  _hostedEnableEl = null
   _hostedMaxStepsEl = null
   _hostedStepDelayEl = null
   _hostedRetryLimitEl = null
+  _hostedAutoStopEl = null
   _hostedSaveBtn = null
-  _hostedPauseBtn = null
   _hostedStopBtn = null
   _hostedCloseBtn = null
-  _hostedGlobalSyncEl = null
   _hostedSessionConfig = null
   _hostedDefaults = null
+  _hostedBoundSessionKey = null
   _hostedRuntime = { ...HOSTED_RUNTIME_DEFAULT }
   _hostedBusy = false
   _workspaceBtn = null

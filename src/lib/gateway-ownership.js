@@ -2,15 +2,7 @@ import { api } from './tauri-api.js'
 import { showContentModal, showConfirm } from '../components/modal.js'
 import { toast } from '../components/toast.js'
 import { t } from './i18n.js'
-
-function escapeHtml(str) {
-  if (!str) return ''
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+import { escapeHtml } from './utils.js'
 
 function cliSourceLabel(source) {
   if (source === 'standalone') return t('dashboard.cliSourceStandalone')
@@ -149,10 +141,10 @@ export async function showGatewayConflictGuidance({ error = null, service = null
   const installationHtml = installations.length
     ? installations.map(inst => {
       const isActive = !!inst.active
-      const borderColor = isActive ? 'rgba(34,197,94,0.4)' : 'var(--border-light)'
-      const bgColor = isActive ? 'rgba(34,197,94,0.06)' : 'var(--bg-secondary)'
+      const borderColor = isActive ? 'rgba(var(--brand-green-rgb, 34,197,94), 0.4)' : 'var(--border-light)'
+      const bgColor = isActive ? 'rgba(var(--brand-green-rgb, 34,197,94), 0.06)' : 'var(--bg-secondary)'
       const activeBadge = isActive
-        ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(34,197,94,0.14);color:#16a34a">● ${escapeHtml(t('services.guidanceActiveBadge'))}</span>`
+        ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(var(--brand-green-rgb, 34,197,94), 0.14);color:var(--success, #16a34a)">● ${escapeHtml(t('services.guidanceActiveBadge'))}</span>`
         : ''
       const versionBadge = inst.version
         ? `<span style="display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:500;background:rgba(99,102,241,0.10);color:var(--text-secondary)">${escapeHtml(inst.version)}</span>`
@@ -183,13 +175,13 @@ export async function showGatewayConflictGuidance({ error = null, service = null
 
   const stepCard = (n, text) => `
     <div style="display:flex;gap:10px;align-items:flex-start">
-      <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--primary, #6366f1);color:#fff;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px">${n}</span>
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--text-inverse, #fff);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px">${n}</span>
       <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;flex:1">${escapeHtml(text)}</div>
     </div>`
 
   const content = `
     <div style="display:flex;flex-direction:column;gap:14px;font-size:var(--font-size-sm);color:var(--text-secondary);line-height:1.7">
-      <div style="display:flex;gap:10px;padding:12px 14px;border-radius:10px;background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.2)">
+      <div style="display:flex;gap:10px;padding:12px 14px;border-radius:10px;background:rgba(var(--brand-amber-rgb, 245,158,11), 0.10);border:1px solid rgba(var(--brand-amber-rgb, 245,158,11), 0.2)">
         <span style="font-size:18px;flex-shrink:0">⚠️</span>
         <div style="color:var(--warning);font-size:13px;line-height:1.6">${escapeHtml(summaryText)}</div>
       </div>
@@ -286,12 +278,12 @@ export async function showInstallationCleanup({ onRefresh = null } = {}) {
   const installCards = installations.map((inst, idx) => {
     const isActive = !!inst.active
     const isBound = boundPath && openclawInstallationIdentity({ path: inst.path }) === openclawInstallationIdentity({ path: boundPath })
-    const borderColor = isActive ? 'rgba(34,197,94,0.4)' : 'var(--border-light)'
-    const bgColor = isActive ? 'rgba(34,197,94,0.04)' : 'var(--bg-secondary)'
+    const borderColor = isActive ? 'rgba(var(--brand-green-rgb, 34,197,94), 0.4)' : 'var(--border-light)'
+    const bgColor = isActive ? 'rgba(var(--brand-green-rgb, 34,197,94), 0.04)' : 'var(--bg-secondary)'
 
     const badges = []
-    if (isActive) badges.push(`<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(34,197,94,0.14);color:#16a34a">● ${t('services.cleanupActive')}</span>`)
-    if (isBound) badges.push(`<span style="display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(99,102,241,0.14);color:#6366f1">✓ ${t('services.cleanupBound')}</span>`)
+    if (isActive) badges.push(`<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(var(--brand-green-rgb, 34,197,94), 0.14);color:var(--success, #16a34a)">● ${t('services.cleanupActive')}</span>`)
+    if (isBound) badges.push(`<span style="display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--accent-muted);color:var(--accent)">✓ ${t('services.cleanupBound')}</span>`)
     if (inst.version) badges.push(`<span style="display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px;background:var(--bg-tertiary);color:var(--text-secondary)">${escapeHtml(inst.version)}</span>`)
     if (inst.source) badges.push(`<span style="display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px;background:var(--bg-tertiary);color:var(--text-tertiary)">${escapeHtml(sourceLabel(inst.source))}</span>`)
 
@@ -331,8 +323,8 @@ export async function showInstallationCleanup({ onRefresh = null } = {}) {
 
   // 概要提示
   const summaryStyle = installations.length > 1
-    ? 'background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.2);color:var(--warning)'
-    : 'background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);color:var(--success)'
+    ? 'background:rgba(var(--brand-amber-rgb, 245,158,11), 0.10);border:1px solid rgba(var(--brand-amber-rgb, 245,158,11), 0.2);color:var(--warning)'
+    : 'background:rgba(var(--brand-green-rgb, 34,197,94), 0.08);border:1px solid rgba(var(--brand-green-rgb, 34,197,94), 0.2);color:var(--success)'
   const summaryIcon = installations.length > 1 ? '⚠️' : '✅'
   const summaryText = installations.length > 1
     ? t('services.cleanupMultiSummary', { count: installations.length })

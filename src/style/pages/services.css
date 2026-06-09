@@ -1,0 +1,565 @@
+/* === Services · Gateway · Logs · Upgrades === */
+/* Split from pages.css — ClawPanel UI Refactor T01 */
+
+/* 服务卡片 */
+.service-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-lg);
+  background: var(--bg-card);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-md);
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.service-card:hover {
+  border-color: var(--border-primary);
+  box-shadow: var(--shadow-md);
+}
+
+.service-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.service-name {
+  font-weight: 600;
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+}
+
+.service-name .proto-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border-radius: var(--radius-sm);
+  background: var(--accent-muted);
+  color: var(--accent);
+  border: 1px solid var(--accent-muted);
+  vertical-align: middle;
+  cursor: help;
+}
+
+.service-desc {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.service-actions {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+/* 服务操作加载状态 */
+.service-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.service-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-primary);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: service-spin 0.8s linear infinite;
+}
+
+@keyframes service-spin {
+  to { transform: rotate(360deg); }
+}
+
+.service-loading-text {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  min-width: 100px;
+}
+
+.service-cancel-btn {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  padding: 2px 8px;
+  transition: color var(--transition-fast);
+}
+.service-cancel-btn:hover {
+  color: var(--error);
+}
+
+/* 状态点：加载中脉冲动画 */
+.status-dot.loading {
+  background: var(--warning, #f59e0b);
+  animation: dot-pulse 1s ease-in-out infinite;
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* 日志加载状态 */
+.log-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl) 0;
+}
+
+/* 日志工具栏 */
+.log-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+/* 日志查看器 */
+.log-viewer {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: 1.6;
+  overflow: auto;
+  max-height: calc(100vh - 240px);
+  padding: var(--space-md);
+}
+
+.log-line {
+  white-space: pre-wrap;
+  word-break: break-all;
+  padding: 1px 0;
+}
+
+.log-line:hover {
+  background: var(--bg-glass);
+}
+
+/* 配置项说明 */
+.form-hint {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+/* 升级进度弹窗 */
+.upgrade-progress-wrap {
+  margin-bottom: var(--space-md);
+}
+
+.upgrade-progress-bar {
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: var(--space-xs);
+}
+
+.upgrade-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+  transition: width 0.4s ease;
+}
+
+.upgrade-progress-fill.done { background: var(--success); }
+.upgrade-progress-fill.error { background: var(--error); }
+
+.upgrade-progress-text {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.upgrade-log-box {
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* 全局任务状态栏：关闭弹窗后显示在顶部 */
+.upgrade-task-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-max);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: var(--space-2) var(--space-5);
+  background: var(--accent);
+  color: var(--text-inverse);
+  font-size: var(--font-size-sm);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  animation: task-bar-slide-in 0.3s ease;
+}
+.upgrade-task-bar-text {
+  flex: 1;
+}
+.upgrade-task-bar .btn {
+  color: var(--text-inverse);
+  border-color: rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.15);
+  font-size: var(--font-size-sm);
+  padding: 2px 10px;
+}
+.upgrade-task-bar .btn:hover {
+  background: rgba(255,255,255,0.25);
+}
+.upgrade-task-bar .btn-ghost {
+  background: none;
+  border: none;
+  font-size: var(--font-size-lg);
+  padding: 0 var(--space-1);
+  opacity: 0.7;
+}
+.upgrade-task-bar .btn-ghost:hover {
+  opacity: 1;
+}
+@keyframes task-bar-slide-in {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
+/* Gateway 配置页 — 选项卡片 */
+.gw-option-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+
+.gw-option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--bg-card);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  user-select: none;
+}
+
+.gw-option-card:hover {
+  background: var(--bg-card-hover);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-primary));
+  box-shadow: var(--shadow-sm);
+}
+
+.gw-option-card.selected {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border-primary));
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.gw-option-icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.gw-option-card.selected .gw-option-icon {
+  background: var(--accent);
+  color: white;
+}
+
+.gw-option-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.gw-option-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.gw-option-title {
+  font-weight: 600;
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.gw-option-desc {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+/* Gateway — 高级选项折叠 */
+.gw-advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  width: fit-content;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--transition-fast);
+}
+
+.gw-advanced-toggle:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--border-primary));
+  background: var(--bg-card-hover);
+}
+
+.gw-advanced-toggle svg {
+  transition: transform var(--transition-fast);
+}
+
+.gw-advanced-toggle.open svg {
+  transform: rotate(180deg);
+}
+
+.gw-advanced-panel {
+  animation: fadeIn 200ms ease;
+}
+
+/* Gateway — 保存栏 */
+.gw-save-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+  padding: var(--space-md);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-sm);
+}
+
+.gw-save-bar .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.gw-save-hint {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+/* === 通用按钮 === */
+.services-page .btn-icon,
+.service-card .btn-icon {
+  background: none;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  padding: 4px 6px;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  line-height: 1;
+  color: inherit;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.services-page .btn-icon:hover,
+.service-card .btn-icon:hover {
+  background: var(--bg-secondary);
+  border-color: var(--border-focus);
+}
+.services-page .btn-icon.danger:hover,
+.service-card .btn-icon.danger:hover {
+  background: var(--error-muted);
+  border-color: var(--error);
+}
+.services-page .btn-icon:disabled,
+.service-card .btn-icon:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+
+/* 弹窗 */
+.docker-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  animation: fadeIn 150ms ease;
+}
+.docker-dialog {
+  background: var(--bg-primary);
+  border-radius: var(--radius-xl);
+  padding: var(--space-xl, 24px);
+  width: 90%;
+  max-width: 480px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+[data-theme="dark"] .docker-dialog {
+  background: var(--bg-card, #1e1e2e);
+  border: 1px solid var(--border-primary);
+}
+.docker-dialog-wide {
+  max-width: 720px;
+}
+.docker-dialog-title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-lg);
+}
+.docker-dialog-hint {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin: var(--space-md) 0;
+  line-height: 1.6;
+}
+.docker-dialog-hint code {
+  background: var(--bg-primary);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+/* Tab 布局样式 */
+.services-tabs-nav {
+  display: flex;
+  gap: var(--space-xs);
+  padding: var(--space-1);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  margin-top: var(--space-md);
+  width: fit-content;
+}
+
+.tab-nav-btn {
+  background: none;
+  border: none;
+  padding: 6px 16px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.tab-nav-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+.tab-nav-btn.active {
+  color: var(--text-primary);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Tab 内容切换 */
+.services-tab-content {
+  display: none;
+  animation: fadeIn 200ms ease;
+}
+
+.services-tab-content.active {
+  display: block;
+}
+
+/* 适配单栏 Tab 布局后的宽度 */
+.services-ops-column,
+.services-maintenance-column {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: var(--space-md) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* Docker Overlay 等仍保持 wide */
+.docker-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+/* === 移动端响应式 === */
+@media (max-width: 768px) {
+  .gw-option-cards {
+    grid-template-columns: 1fr;
+  }
+  .services-ops-column {
+    max-width: none;
+  }
+  .service-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .service-actions {
+    flex-wrap: wrap;
+  }
+  .service-cancel-btn,
+  .btn-icon,
+  .tab-nav-btn {
+    min-height: 44px;
+  }
+  .log-viewer {
+    max-height: 50vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .gw-option-cards {
+    gap: var(--space-2);
+  }
+  .service-name,
+  .service-desc {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .service-spinner, .status-dot.loading, .service-card,
+  .gw-option-card, .gw-advanced-panel, .services-tab-content,
+  .upgrade-task-bar, .upgrade-progress-fill, .docker-dialog-overlay {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Focus visible for services interactive elements */
+.service-card:focus-visible,
+.gw-option-card:focus-visible,
+.tab-nav-btn:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  box-shadow: var(--shadow-glow);
+}

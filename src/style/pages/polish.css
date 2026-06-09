@@ -1,0 +1,533 @@
+/* ============================================================
+   Polish — Precision Noir visual refinements
+   ============================================================ */
+
+/* ─── Content area ambient gradient ─── */
+#content {
+  background: var(--bg-base);
+}
+
+/* ─── Page max-width ─── */
+.page:not([data-engine="hermes"]):not([data-engine="xintian"]) {
+  max-width: 1400px;
+}
+
+/* ─── Title typography ─── */
+.page-title,
+.config-section-title,
+.models-primary-name,
+.connectors-console-title,
+.skills-hero-title {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* ─── Card hover — subtle lift ─── */
+.card:hover,
+.stat-card:hover,
+.overview-card:hover,
+.service-card:hover,
+.usage-top-card:hover,
+.model-card:hover,
+.connectors-card:hover,
+.platform-card:hover,
+.agent-card:hover,
+.plugin-card:hover,
+.clawhub-item:hover,
+.skill-card-item:hover,
+.gw-option-card:hover {
+  border-color: var(--border-1);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-1px);
+}
+
+/* ─── Primary buttons ─── */
+.btn-primary,
+.dashboard-next-action,
+.chat-send-btn,
+.ast-send-btn,
+.hm-chat-send,
+.hm-chat-send-btn,
+.hm-gc-msg--user .hm-gc-msg-bubble {
+  background: var(--brand);
+  color: var(--text-inverse);
+  box-shadow: none;
+}
+.btn-primary:hover,
+.dashboard-next-action:hover {
+  background: var(--brand-light);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -4px rgba(99, 102, 241, 0.30);
+}
+
+/* ─── Secondary buttons ─── */
+.btn-secondary,
+.btn-ghost,
+.models-preset-btn,
+.chat-hosted-btn,
+.chat-workspace-icon-btn,
+.ast-quick-btn,
+.ast-model-switcher,
+.ast-model-config-btn,
+.chat-model-group,
+.chat-message-search,
+.skills-tab-nav,
+.connectors-segment,
+.gw-advanced-toggle,
+.hm-chat-profile-toggle,
+.hm-chat-new-btn,
+.hm-chat-toggle-sidebar,
+.hm-btn:not(.hm-btn--cta) {
+  border-color: var(--border-1);
+  background: var(--bg-elevated);
+}
+
+/* ─── 输入框统一样式 ─── */
+.input,
+.form-input,
+input,
+textarea,
+select,
+.models-primary-select,
+.connectors-textarea,
+.agent-file-editor,
+.chat-input-wrapper textarea,
+.ast-textarea,
+.ast-settings-form .form-input,
+.hm-input,
+.hm-select,
+.hm-textarea,
+.hm-chat-input,
+.hm-gc-input {
+  border-color: var(--border-1);
+  background: var(--bg-base);
+}
+
+/* ─── Badge 统一 ─── */
+.badge,
+.models-status,
+.models-fallback-pill,
+.agent-file-status,
+.plugin-badge,
+.skills-tab-count,
+.clawhub-badge,
+.chat-workspace-agent-badge,
+.ast-model-badge,
+.hm-chat-source-badge,
+.hm-chat-usage-pill {
+  border: 1px solid currentColor;
+  border-radius: var(--radius-full);
+  border-color: color-mix(in srgb, currentColor 15%, transparent);
+}
+
+/* ─── Code block 统一 ─── */
+.log-viewer,
+.connectors-raw pre,
+.page-inline-error-details pre,
+.memory-preview pre,
+.msg-ai .msg-bubble pre,
+.ast-msg-bubble-ai pre,
+.hm-chat-msg-bubble pre,
+.hm-skills-markdown pre,
+.hm-services-json {
+  background: var(--bg-base);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-md);
+}
+
+/* ─── Assistant ─── */
+.ast-welcome { justify-content: center; }
+.ast-welcome-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-lg);
+  background: var(--brand);
+  color: var(--text-inverse);
+}
+
+.ast-skill-card {
+  background: var(--bg-elevated);
+  border-color: var(--border-1);
+}
+
+.ast-skill-icon {
+  background: var(--brand-muted);
+  color: var(--brand);
+}
+
+.ast-mode-selector,
+.ast-settings-tabs {
+  padding: 3px;
+  border: 1px solid var(--border-1);
+  background: var(--bg-base);
+  border-radius: var(--radius-md);
+}
+
+.ast-tab.active,
+.ast-mode-btn.active {
+  color: var(--text-inverse);
+  background: var(--brand);
+  border-radius: var(--radius-sm);
+}
+
+/* ─── FAB ─── */
+.ai-fab {
+  border-radius: var(--radius-lg);
+  background: var(--brand);
+  box-shadow: var(--shadow-2);
+}
+.ai-fab:hover {
+  transform: scale(1.02);
+  box-shadow: var(--shadow-3);
+}
+
+/* ─── Error banner ─── */
+.ast-error-banner {
+  border-color: rgba(220, 38, 38, 0.2);
+  background: var(--error-muted);
+}
+
+/* ─── 控制台/ hero 区域 ─── */
+.models-control-console,
+.connectors-console,
+.skills-hero {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-lg);
+}
+
+.models-primary-icon,
+.connectors-console-icon,
+.skills-hero-icon,
+.agent-av,
+.plugin-card-icon,
+.platform-emoji,
+.gw-option-icon,
+.skills-card-icon,
+.skills-store-card-icon {
+  border: 1px solid var(--brand-muted);
+  background: var(--brand-faint);
+  color: var(--brand);
+}
+
+/* ─── 选中状态 ─── */
+.model-card--primary,
+.platform-card.active,
+.plugin-card:not(.plugin-card-inactive) {
+  border-color: var(--success);
+}
+
+.model-card--fallback,
+.gw-option-card.selected,
+.connectors-card.active {
+  border-color: var(--brand);
+  background: var(--brand-faint);
+}
+
+.skills-tab-btn.active,
+.connectors-segment button.active {
+  background: var(--brand);
+  color: var(--text-inverse);
+  box-shadow: none;
+}
+
+/* ─── Grid 对齐 ─── */
+.skills-store-results,
+.skills-installed-grid,
+.clawhub-grid,
+.plugin-grid,
+.models-provider-list,
+.connectors-list,
+.agent-skills-list {
+  align-items: stretch;
+}
+
+/* ─── Hermes 引擎 ─── */
+[data-engine="hermes"].page,
+[data-engine="hermes"].hm-usage-page,
+[data-engine="hermes"].hm-services-page,
+[data-engine="hermes"].hm-channels-page,
+[data-engine="hermes"].hermes-skills-page {
+  background: var(--bg-base);
+}
+
+[data-engine="hermes"] .hm-panel,
+[data-engine="hermes"] .hm-kpi-grid,
+[data-engine="hermes"] .hm-kpi,
+[data-engine="hermes"] .hm-logs-layout,
+[data-engine="hermes"] .hm-skills-layout,
+[data-engine="hermes"] .hm-chat-shell,
+[data-engine="hermes"] .hm-chat-sidebar,
+[data-engine="hermes"] .hm-chat-main,
+[data-engine="hermes"] .hm-chat-input-wrap,
+[data-engine="hermes"] .hm-chat-msg-bubble,
+[data-engine="hermes"] .hm-usage-stat-card,
+[data-engine="hermes"] .hm-usage-card,
+[data-engine="hermes"] .hm-services-env-card,
+[data-engine="hermes"] .hm-services-health-card,
+[data-engine="hermes"] .hm-services-mode,
+[data-engine="hermes"] .hm-channel-stat,
+[data-engine="hermes"] .hm-channel-tab,
+[data-engine="hermes"] .hm-gc-side,
+[data-engine="hermes"] .hm-gc-main {
+  border-color: var(--border-1);
+  box-shadow: var(--shadow-1);
+}
+
+[data-engine="hermes"] .hm-btn--cta,
+[data-engine="hermes"] .hm-chat-send-btn,
+[data-engine="hermes"] .hm-gc-msg--user .hm-gc-msg-bubble {
+  background: var(--brand);
+  border-color: transparent;
+  color: var(--text-inverse);
+  box-shadow: none;
+}
+
+[data-engine="hermes"] .hm-chat-header,
+[data-engine="hermes"] .hm-skills-header,
+[data-engine="hermes"] .hm-logs-header {
+  background: var(--bg-elevated);
+}
+
+/* ─── Services / Models 工作台 ─── */
+.services-page,
+.models-page {
+  max-width: none;
+  width: 100%;
+}
+
+.models-workbench {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.services-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.services-maintenance-column {
+  position: sticky;
+  top: var(--space-4);
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.services-workbench #version-bar .stat-cards,
+.services-workbench #version-bar .stat-card,
+.services-workbench .config-section,
+.models-workbench .config-section,
+.models-workbench .models-control-console {
+  margin-bottom: 0;
+}
+
+.services-workbench #services-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.services-workbench .service-card {
+  margin-bottom: 0;
+  min-height: 88px;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.services-workbench #services-list > .service-card { min-height: 110px; }
+.services-workbench .service-info { min-width: 0; align-items: flex-start; }
+.services-workbench .service-info > div { min-width: 0; }
+.services-workbench .service-name,
+.services-workbench .service-desc { overflow-wrap: anywhere; }
+
+.services-workbench .service-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  max-width: min(460px, 46%);
+}
+
+.services-maintenance-column .config-section { padding: var(--space-4); }
+.services-maintenance-column textarea.form-input { min-height: 240px; }
+
+.models-workbench .models-toolbar { margin-bottom: 0; }
+.models-workbench .models-control-console {
+  /* .control-console is flex column (models.css), grid properties have no effect here */
+}
+.models-workbench #providers-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(560px, 100%), 1fr));
+  gap: var(--space-3);
+}
+.models-workbench .models-provider-section { padding: var(--space-4); }
+
+/* ─── Chat layout ─── */
+.chat-page {
+  padding: var(--space-3);
+  gap: var(--space-3);
+}
+.chat-sidebar.open {
+  width: 280px;
+  min-width: 280px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-1);
+  box-shadow: var(--shadow-1);
+}
+.chat-main {
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-1);
+}
+.chat-header { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+
+.ast-page {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+.ast-page:has(.ast-sidebar:not(.open)) { grid-template-columns: minmax(0, 1fr); }
+.ast-page:has(.ast-sidebar:not(.open)) .ast-sidebar { display: none; }
+
+.ast-sidebar.open {
+  width: auto;
+  min-width: 0;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+}
+.ast-main {
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-1);
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 1024px) {
+  .services-workbench { grid-template-columns: 1fr; }
+  .services-maintenance-column { position: static; max-height: none; }
+  .ast-page { grid-template-columns: 220px minmax(0, 1fr); }
+}
+
+@media (max-width: 1024px) {
+  .models-workbench .models-control-console {
+    grid-template-columns: minmax(0, 1fr); /* was: 1fr minmax(280px,380px) — .control-console is flex column, grid-col does nothing */
+  }
+  .ast-page {
+    display: flex;
+    padding: 0;
+    gap: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+  .ast-sidebar.open {
+    position: fixed;
+    left: 0;
+    top: var(--topbar-height, 56px);
+    bottom: 0;
+    z-index: calc(var(--z-drawer) + 1);
+    width: min(320px, calc(100vw - 72px));
+    min-width: 0;
+    height: auto;
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  }
+  .ast-main {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 768px) {
+  .page:not([data-engine="hermes"]):not([data-engine="xintian"]) { padding: var(--space-4); }
+  .models-control-console,
+  .connectors-console,
+  .skills-hero { padding: var(--space-4); }
+
+  .chat-page {
+    display: flex;
+    padding: 0;
+    gap: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+  .chat-main {
+    border-radius: 0;
+    border: none;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+}
+
+/* ─── Staggered Reveal (page children animate in sequence) ─── */
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page > :where(.dashboard-header, .stat-cards, .dashboard-health-card, .overview-grid, .quick-actions, .config-section, .card, .tab-bar, .services-workbench, .models-workbench, .channels-layout, .form-group, .page-header) {
+  animation: revealUp 350ms var(--ease-out) both;
+}
+
+.page > :nth-child(1) { animation-delay: 0ms; }
+.page > :nth-child(2) { animation-delay: 50ms; }
+.page > :nth-child(3) { animation-delay: 100ms; }
+.page > :nth-child(4) { animation-delay: 150ms; }
+.page > :nth-child(5) { animation-delay: 200ms; }
+.page > :nth-child(6) { animation-delay: 250ms; }
+.page > :nth-child(7) { animation-delay: 300ms; }
+.page > :nth-child(n+8) { animation-delay: 350ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .page > * {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}
+
+/* ─── Card hover: disable translateY on touch devices to prevent layout shift ─── */
+@media (hover: none) {
+  .card:hover,
+  .stat-card:hover,
+  .overview-card:hover,
+  .service-card:hover,
+  .usage-top-card:hover,
+  .model-card:hover,
+  .connectors-card:hover,
+  .platform-card:hover,
+  .agent-card:hover,
+  .plugin-card:hover,
+  .clawhub-item:hover,
+  .skill-card-item:hover,
+  .gw-option-card:hover {
+    transform: none;
+  }
+}
+
+/* ─── Scrollbar: thin on touch devices ─── */
+@media (hover: none) {
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+}

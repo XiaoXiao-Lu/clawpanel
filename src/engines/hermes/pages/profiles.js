@@ -17,12 +17,10 @@ import { showConfirm, showModal } from '../../../components/modal.js'
 import { humanizeError } from '../../../lib/humanize-error.js'
 import { getChatStore } from '../lib/chat-store.js'
 import { svgIcon } from '../lib/svg-icons.js'
+import { escapeHtml as escHtml } from '../../../lib/utils.js'
 
 const chatStore = getChatStore()
 
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
 function escAttr(s) { return escHtml(s) }
 
 function renderInlineError(err) {

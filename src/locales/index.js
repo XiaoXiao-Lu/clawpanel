@@ -12,6 +12,7 @@ import settings from './modules/settings.js'
 import models from './modules/models.js'
 import agents from './modules/agents.js'
 import agentDetail from './modules/agentDetail.js'
+import expertTeams from './modules/expertTeams.js'
 import gateway from './modules/gateway.js'
 import security from './modules/security.js'
 import communication from './modules/communication.js'
@@ -21,6 +22,7 @@ import dreaming from './modules/dreaming.js'
 import cron from './modules/cron.js'
 import usage from './modules/usage.js'
 import skills from './modules/skills.js'
+import connectors from './modules/connectors.js'
 import chat from './modules/chat.js'
 import chatDebug from './modules/chat-debug.js'
 import setup from './modules/setup.js'
@@ -45,8 +47,8 @@ import siteMessages from './modules/siteMessages.js'
 
 const MODULES = {
   common, sidebar, instance, dashboard, services, settings,
-  models, agents, agentDetail, gateway, security, communication, channels,
-  memory, dreaming, cron, usage, skills, chat, chatDebug, setup, about,
+  models, agents, agentDetail, expertTeams, gateway, security, communication, channels,
+  memory, dreaming, cron, usage, skills, connectors, chat, chatDebug, setup, about,
   ext, logs, assistant, toast, modal, engagement, diagnose, routeMap, extensions,
   engine, ciaoBug, cliConflict, glossary, hermesLazyDeps, notifications, kernel, siteMessages,
 }

@@ -607,7 +607,7 @@ export class WsClient {
       }, 3000)
     } catch (e) {
       console.error('[ws] 自动配对失败:', e)
-      this._setConnected(false, 'error', `配对失败: ${e}`)
+      this._setConnected(false, 'error', `配对失败: ${e?.message || e}`)
     }
   }
 
@@ -634,7 +634,7 @@ export class WsClient {
       }, 3000)
     } catch (e) {
       console.error('[ws] 刷新凭据失败:', e)
-      this._setConnected(false, 'error', `凭据刷新失败: ${e}`)
+      this._setConnected(false, 'error', `凭据刷新失败: ${e?.message || e}`)
     }
   }
 
@@ -875,8 +875,10 @@ export class WsClient {
     this._unsupportedMethods.clear()
   }
 
-  chatSend(sessionKey, message, attachments) {
+  chatSend(sessionKey, message, attachments, options = {}) {
     const params = { sessionKey, message, deliver: false, idempotencyKey: uuid() }
+    if (options.provider) params.provider = options.provider
+    if (options.model) params.model = options.model
     if (attachments && attachments.length > 0) {
       params.attachments = attachments
       console.log('[ws] 发送附件:', attachments.length, '个')
@@ -979,6 +981,14 @@ export class WsClient {
     if (messages.length > this._cacheSize) {
       messages.splice(0, messages.length - this._cacheSize)
     }
+
+    // 总大小限制：超过 5MB 时移除最早消息
+    try {
+      const totalSize = JSON.stringify(messages).length
+      while (totalSize > 5 * 1024 * 1024 && messages.length > 1) {
+        messages.shift()
+      }
+    } catch {}
   }
 
   /**
