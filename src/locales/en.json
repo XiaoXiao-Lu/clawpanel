@@ -276,6 +276,7 @@
   "settings": {
     "title": "Settings",
     "desc": "Manage ClawPanel network, proxy and download source settings",
+    "searchPlaceholder": "Search settings...",
     "networkProxy": "Network Proxy",
     "modelProxy": "Model Request Proxy",
     "npmRegistry": "npm Registry",

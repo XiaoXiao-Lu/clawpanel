@@ -482,6 +482,7 @@ function showSkillPreview(name, agentId) {
     </div>
   `
   document.body.appendChild(overlay)
+  _trackOverlay(overlay)
 
   const close = () => overlay.remove()
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
@@ -667,6 +668,7 @@ async function openFileEditor(container, state, name, isNew = false) {
     </div>
   `
   document.body.appendChild(overlay)
+  _trackOverlay(overlay)
 
   const textarea = overlay.querySelector('#file-editor-textarea')
   textarea.focus()
@@ -784,4 +786,19 @@ function renderBindingsList(container, state, bindings) {
       toast(humanizeError(e, t('agentDetail.bindingFailed')), 'error')
     }
   })
+}
+
+// ── 页面离开清理（移除挂在 document.body 上的孤儿模态框） ──
+let _openOverlays = []
+function _trackOverlay(overlay) {
+  _openOverlays.push(overlay)
+  const observer = new MutationObserver(() => {
+    if (!overlay.isConnected) _openOverlays = _openOverlays.filter(o => o !== overlay)
+  })
+  observer.observe(overlay, { childList: true })
+}
+
+export function cleanup() {
+  _openOverlays.forEach(o => { try { o.remove() } catch (_) {} })
+  _openOverlays = []
 }

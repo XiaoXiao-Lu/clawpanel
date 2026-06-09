@@ -1,6 +1,44 @@
 /* === Settings · Config · Skills · Plugins · Routes === */
 /* Split from pages.css — ClawPanel UI Refactor T01 */
 
+/* ── 设置搜索栏 ── */
+.settings-search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.settings-search-icon {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.settings-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: var(--text-base);
+  color: var(--text-1);
+}
+.settings-search-input::placeholder { color: var(--text-3); }
+.settings-search-count {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.config-section-title mark {
+  background: rgba(245, 158, 11, 0.25);
+  color: var(--text-1);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
 /* 配置编辑区 */
 .config-section {
   background: var(--surface-raised);

@@ -492,3 +492,7 @@ export function render() {
   requestAnimationFrame(() => { if (el.parentNode) observer.observe(el.parentNode, { childList: true }) })
   return el
 }
+
+export function cleanup() {
+  // 所有 DOM 层监听器在页面移除时自动 GC，此函数为约定占位
+}

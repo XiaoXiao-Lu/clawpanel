@@ -358,6 +358,7 @@
   "settings": {
     "title": "面板设置",
     "desc": "管理 ClawPanel 的网络、代理和下载源配置",
+    "searchPlaceholder": "搜索设置...",
     "networkProxy": "网络代理",
     "modelProxy": "模型请求代理",
     "npmRegistry": "npm 源设置",

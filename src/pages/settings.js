@@ -69,6 +69,12 @@ export async function render() {
       <p class="page-desc">${t('settings.desc')}</p>
     </div>
 
+    <div class="settings-search-bar">
+      <svg class="settings-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="form-input settings-search-input" id="settings-search" type="text" placeholder="${t('settings.searchPlaceholder') || '搜索设置...'}" autocomplete="off">
+      <span class="settings-search-count" id="settings-search-count"></span>
+    </div>
+
     <div class="config-section" id="proxy-section">
       <div class="config-section-title">${t('settings.networkProxy')}</div>
       <div id="proxy-bar"><div class="stat-card loading-placeholder" style="height:48px"></div></div>
@@ -128,7 +134,41 @@ export async function render() {
 
   bindEvents(page)
   loadAll(page)
+  initSettingsSearch(page)
   return page
+}
+
+function initSettingsSearch(page) {
+  const searchInput = page.querySelector('#settings-search')
+  const searchCount = page.querySelector('#settings-search-count')
+  if (!searchInput) return
+
+  const sections = page.querySelectorAll('.config-section')
+  let totalSections = sections.length
+
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.toLowerCase().trim()
+    let visible = 0
+    sections.forEach(section => {
+      const title = section.querySelector('.config-section-title')
+      const match = !q || (title && title.textContent.toLowerCase().includes(q))
+      section.style.display = match ? '' : 'none'
+      if (match) visible++
+      // 高亮匹配文本
+      if (title && q) {
+        const text = title.textContent
+        const idx = text.toLowerCase().indexOf(q)
+        if (idx >= 0) {
+          title.innerHTML = `${escapeHtml(text.slice(0, idx))}<mark>${escapeHtml(text.slice(idx, idx + q.length))}</mark>${escapeHtml(text.slice(idx + q.length))}`
+        }
+      } else if (title) {
+        title.textContent = title.textContent // reset
+      }
+    })
+    if (searchCount) {
+      searchCount.textContent = q ? `${visible}/${totalSections}` : ''
+    }
+  })
 }
 
 async function loadAll(page) {

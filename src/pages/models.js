@@ -186,11 +186,13 @@ export async function render() {
   }
 
   // 点击外部关闭 Provider 操作菜单
-  document.addEventListener('click', (e) => {
+  if (_docClickHandler) document.removeEventListener('click', _docClickHandler)
+  _docClickHandler = (e) => {
     if (!e.target.closest('.provider-card__actions')) {
       page.querySelectorAll('.provider-card__actions.menu-open').forEach(el => el.classList.remove('menu-open'))
     }
-  })
+  }
+  document.addEventListener('click', _docClickHandler)
 
   // Provider Tab 切换
   page.addEventListener('click', (e) => {
@@ -1275,6 +1277,9 @@ let _batchTestAbort = null // 批量测试终止控制器
 // 页面级组合框实例(供 cleanup 销毁)
 let _globalPrimaryCombo = null
 
+// 组件清理跟踪
+let _docClickHandler = null
+
 export function cleanup() {
   clearTimeout(_saveTimer)
   _saveTimer = null
@@ -1282,6 +1287,10 @@ export function cleanup() {
   if (_globalPrimaryCombo) {
     _globalPrimaryCombo.destroy()
     _globalPrimaryCombo = null
+  }
+  if (_docClickHandler) {
+    document.removeEventListener('click', _docClickHandler)
+    _docClickHandler = null
   }
 }
 function autoSave(state) {

@@ -80,6 +80,7 @@ const _toolEventSeen = new Set()
 let _errorTimer = null, _lastErrorMsg = null
 let _responseWatchdog = null, _postFinalCheck = null
 let _ultimateTimer = null, _sendTimestamp = 0
+let _lightboxKeyHandler = null
 let _attachments = []
 let _hasEverConnected = false
 let _availableModels = []
@@ -3275,8 +3276,9 @@ function showLightbox(src) {
   document.body.appendChild(lb)
   lb.focus()
   // ESC 关闭
-  const onKey = (e) => { if (e.key === 'Escape') { lb.remove(); document.removeEventListener('keydown', onKey) } }
-  document.addEventListener('keydown', onKey)
+  if (_lightboxKeyHandler) document.removeEventListener('keydown', _lightboxKeyHandler)
+  _lightboxKeyHandler = (e) => { if (e.key === 'Escape') { lb.remove(); document.removeEventListener('keydown', _lightboxKeyHandler); _lightboxKeyHandler = null } }
+  document.addEventListener('keydown', _lightboxKeyHandler)
 }
 
 function appendSystemMessage(text) {
@@ -3928,6 +3930,7 @@ export function cleanup() {
   clearTimeout(_postFinalCheck)
   _postFinalCheck = null
   if (_hostedAbort) { _hostedAbort.abort(); _hostedAbort = null }
+  if (_lightboxKeyHandler) { document.removeEventListener('keydown', _lightboxKeyHandler); _lightboxKeyHandler = null }
   _sessionKey = null
   _page = null
   _messagesEl = null
