@@ -1,4 +1,5 @@
 /* Runtime compatibility aliases for older page styles. */
 :root {
-  --text-xxs: var(--text-2xs);
+  --text-2xs: var(--text-xxs);
+  --font-size-2xs: var(--text-2xs);
 }
