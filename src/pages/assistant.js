@@ -7455,28 +7455,41 @@ function syncActiveExpertGroup() {
 function renderExpertTeamMenu() {
   const menu = _page?.querySelector('#ast-expert-team-menu')
   const label = _page?.querySelector('#ast-expert-team-trigger-label')
+  const trigger = _page?.querySelector('#ast-expert-team-trigger')
   if (!menu || !label) return
 
-  const directHtml = `<button class="ast-expert-team-option ${!_activeExpertGroupId ? 'active' : ''}" type="button" role="option" data-group-id="">直接对话<span>不启用专家团，直接与模型对话</span></button>`
+  const directLabel = t('assistant.expertTeamDirect')
+  const directHtml = `<button class="ast-expert-team-option ${!_activeExpertGroupId ? 'active' : ''}" type="button" role="option" aria-selected="${!_activeExpertGroupId ? 'true' : 'false'}" data-group-id="">
+    <span>${escHtml(directLabel)}</span>
+    <small>${escHtml(t('assistant.expertTeamDirectDesc'))}</small>
+  </button>`
 
   const groups = _expertGroups.map(g => {
     const memberCount = countRunnableMembers(g)
     const modeLabel = getModeLabel(g.mode)
     const disabled = memberCount ? '' : 'disabled aria-disabled="true"'
-    return `<button class="ast-expert-team-option ${_activeExpertGroupId === g.id ? 'active' : ''}" type="button" role="option" data-group-id="${escAttr(g.id)}" ${disabled}>
+    const active = _activeExpertGroupId === g.id
+    return `<button class="ast-expert-team-option ${active ? 'active' : ''}" type="button" role="option" aria-selected="${active ? 'true' : 'false'}" data-group-id="${escAttr(g.id)}" ${disabled}>
       <span>${escHtml(g.name || g.id)}</span>
-      <small>${memberCount ? `${memberCount}人 · ${modeLabel}` : '无可用成员'}</small>
+      <small>${escHtml(memberCount ? t('assistant.expertTeamOptionMeta', { count: memberCount, mode: modeLabel }) : t('assistant.expertTeamNoRunnableMembers'))}</small>
     </button>`
   }).join('')
 
   menu.innerHTML = directHtml + groups
 
   // 更新触发按钮标签
+  let selectedLabel = directLabel
   if (_activeExpertGroupId) {
     const g = _expertGroups.find(g => g.id === _activeExpertGroupId)
-    label.textContent = g ? (g.name || g.id) : '专家团'
+    selectedLabel = g ? (g.name || g.id) : t('assistant.expertTeam')
+    label.textContent = selectedLabel
   } else {
-    label.textContent = '直接对话'
+    label.textContent = selectedLabel
+  }
+  if (trigger) {
+    const title = t('assistant.expertTeamTriggerTitle', { selection: selectedLabel })
+    trigger.title = title
+    trigger.setAttribute('aria-label', title)
   }
 }
 
@@ -7486,8 +7499,15 @@ function countRunnableMembers(group) {
 }
 
 function getModeLabel(mode) {
-  const map = { panel: '专家会诊', creation: '团队创作', debate: '辩论评审', review: '交叉审稿', research: '并行调研', sequential: '串联接力' }
-  return map[mode] || mode || '专家会诊'
+  const map = {
+    panel: t('assistant.expertTeamModePanel'),
+    creation: t('assistant.expertTeamModeCreation'),
+    debate: t('assistant.expertTeamModeDebate'),
+    review: t('assistant.expertTeamModeReview'),
+    research: t('assistant.expertTeamModeResearch'),
+    sequential: t('assistant.expertTeamModeSequential'),
+  }
+  return map[mode] || mode || t('assistant.expertTeamModePanel')
 }
 
 function initExpertTeamRunMeta(group = {}) {
@@ -8536,12 +8556,12 @@ export async function render() {
           <span class="ast-title">${_config?.assistantName || DEFAULT_NAME}</span>
           <span class="ast-model-badge ${_config.model ? 'configured' : 'unconfigured'}" id="ast-model-badge">${_config.model || t('assistant.notConfigured')}</span>
           <div class="ast-expert-team-selector" id="ast-expert-team-selector">
-            <button class="ast-expert-team-trigger" id="ast-expert-team-trigger" type="button" title="专家团" aria-label="专家团">
+            <button class="ast-expert-team-trigger" id="ast-expert-team-trigger" type="button" title="${t('assistant.expertTeamTriggerTitle', { selection: t('assistant.expertTeamDirect') })}" aria-label="${t('assistant.expertTeamTriggerTitle', { selection: t('assistant.expertTeamDirect') })}" aria-haspopup="listbox" aria-expanded="false">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-              <span class="ast-expert-team-trigger-label" id="ast-expert-team-trigger-label">直接对话</span>
+              <span class="ast-expert-team-trigger-label" id="ast-expert-team-trigger-label">${t('assistant.expertTeamDirect')}</span>
               <svg class="ast-expert-team-trigger-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
-            <div class="ast-expert-team-menu" id="ast-expert-team-menu" role="listbox" hidden></div>
+            <div class="ast-expert-team-menu" id="ast-expert-team-menu" role="listbox" aria-label="${t('assistant.expertTeamMenuLabel')}" hidden></div>
           </div>
         </div>
         <div class="ast-header-actions">

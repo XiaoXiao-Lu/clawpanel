@@ -2331,7 +2331,20 @@
     "inputPlaceholder": "描述你的问题，粘贴日志、截图或错误信息...",
     "send": "发送",
     "inputHint": "Enter 发送 · Shift+Enter 换行 · 支持粘贴/拖拽图片 · AI 助手独立于 OpenClaw",
-    "autoSwitchExecute": "已自动切换到执行模式"
+    "autoSwitchExecute": "已自动切换到执行模式",
+    "expertTeam": "专家团",
+    "expertTeamDirect": "直接对话",
+    "expertTeamDirectDesc": "不启用专家团，直接与模型对话",
+    "expertTeamTriggerTitle": "选择专家团 — 当前：{selection}",
+    "expertTeamMenuLabel": "选择专家团或直接对话",
+    "expertTeamOptionMeta": "{count}人 · {mode}",
+    "expertTeamNoRunnableMembers": "无可用成员",
+    "expertTeamModePanel": "专家会诊",
+    "expertTeamModeCreation": "团队创作",
+    "expertTeamModeDebate": "辩论评审",
+    "expertTeamModeReview": "交叉审稿",
+    "expertTeamModeResearch": "并行调研",
+    "expertTeamModeSequential": "串联接力"
   },
   "toast": {
     "copySuccess": "已复制到剪贴板",
