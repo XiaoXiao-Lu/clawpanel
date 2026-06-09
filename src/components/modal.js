@@ -5,8 +5,10 @@
 import { t } from '../lib/i18n.js'
 import { escapeAttr } from '../lib/utils.js'
 
-/** 记录打开 modal 前聚焦的元素，关闭时恢复 */
-let _previousFocus = null
+/** 焦点栈 — 支持嵌套 modal 时正确恢复焦点 */
+const _focusStack = []
+function pushFocus() { _focusStack.push(document.activeElement) }
+function popFocus() { const el = _focusStack.pop(); if (el?.focus) el.focus() }
 
 /**
  * Focus trap — 将 Tab 键限制在 modal 内部
@@ -96,7 +98,7 @@ export function showConfirm(message, options = {}) {
     : ''
 
   return new Promise((resolve) => {
-    _previousFocus = document.activeElement
+    pushFocus()
     const overlay = document.createElement('div')
     overlay.className = 'modal-overlay'
     const modalId = 'modal-' + Date.now()
@@ -118,8 +120,7 @@ export function showConfirm(message, options = {}) {
 
     const close = (result) => {
       overlay.remove()
-      if (_previousFocus && _previousFocus.focus) _previousFocus.focus()
-      _previousFocus = null
+      popFocus()
       resolve(result)
     }
 
@@ -136,7 +137,7 @@ export function showConfirm(message, options = {}) {
 }
 
 export function showModal({ title, fields, onConfirm }) {
-  _previousFocus = document.activeElement
+  pushFocus()
   const overlay = document.createElement('div')
   overlay.className = 'modal-overlay'
   const modalId = 'modal-' + Date.now()
@@ -187,12 +188,15 @@ export function showModal({ title, fields, onConfirm }) {
   trapFocus(overlay, modalEl)
 
   // 点击遮罩关闭（带拖拽防误触）
-  bindOverlayClose(overlay)
+  bindOverlayClose(overlay, () => {
+    document.removeEventListener('keydown', _docEscHandler)
+    overlay.remove()
+    popFocus()
+  })
 
   overlay.querySelector('[data-action="cancel"]').onclick = () => {
     overlay.remove()
-    if (_previousFocus && _previousFocus.focus) _previousFocus.focus()
-    _previousFocus = null
+    popFocus()
   }
 
   overlay.querySelector('[data-action="confirm"]').onclick = () => {
@@ -209,6 +213,7 @@ export function showModal({ title, fields, onConfirm }) {
     setTimeout(() => {
       document.removeEventListener('keydown', _docEscHandler)
       overlay.remove()
+      popFocus()
     }, 0)
     callback(result)
   }
@@ -221,6 +226,7 @@ export function showModal({ title, fields, onConfirm }) {
     } else if (e.key === 'Escape') {
       document.removeEventListener('keydown', _docEscHandler)
       overlay.remove()
+      popFocus()
     }
   }
   document.addEventListener('keydown', _docEscHandler)
@@ -237,7 +243,7 @@ export function showModal({ title, fields, onConfirm }) {
  * @returns {HTMLElement} overlay 元素（带 .close() 方法）
  */
 export function showContentModal({ title, content, buttons = [], width = 480 }) {
-  _previousFocus = document.activeElement
+  pushFocus()
   const overlay = document.createElement('div')
   overlay.className = 'modal-overlay'
   const modalId = 'modal-' + Date.now()
@@ -264,8 +270,7 @@ export function showContentModal({ title, content, buttons = [], width = 480 }) 
 
   overlay.close = () => {
     overlay.remove()
-    if (_previousFocus && _previousFocus.focus) _previousFocus.focus()
-    _previousFocus = null
+    popFocus()
   }
 
   bindOverlayClose(overlay)

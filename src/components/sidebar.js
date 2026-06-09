@@ -441,7 +441,10 @@ function _closeMobileSidebar() {
   const sidebar = document.getElementById('sidebar')
   const overlay = document.getElementById('sidebar-overlay')
   if (sidebar) sidebar.classList.remove('sidebar-open')
-  if (overlay) overlay.classList.remove('visible')
+  if (overlay) {
+    overlay.classList.remove('visible')
+    overlay.remove()
+  }
 }
 
 export function openMobileSidebar() {

@@ -828,11 +828,11 @@
 }
 .hm-log-level.info { background: rgba(99,102,241,0.08); color: var(--accent, #6366f1); }
 .hm-log-level.debug { background: rgba(0,0,0,0.04); color: var(--text-tertiary); }
-.hm-log-level.warn { background: rgba(245,158,11,0.1); color: #d97706; }
+.hm-log-level.warn { background: var(--warning-muted); color: var(--warning); }
 .hm-log-level.error { background: rgba(239,68,68,0.1); color: var(--error, #ef4444); }
 .hm-log-msg { color: var(--text-secondary); white-space: pre-wrap; word-break: break-all; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .hm-log-entry.error .hm-log-msg { color: var(--error, #ef4444); }
-.hm-log-entry.warn .hm-log-msg { color: #d97706; }
+.hm-log-entry.warn .hm-log-msg { color: var(--warning); }
 .hm-log-entry.raw .hm-log-msg { color: var(--text-tertiary); }
 
 /* === Hermes Skills Page === */

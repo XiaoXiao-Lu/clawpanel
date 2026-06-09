@@ -1999,6 +1999,15 @@
 }
 .btn svg { vertical-align: -2px; }
 
+@media (prefers-reduced-motion: reduce) {
+  .ast-sidebar, .ast-cursor, .ast-typing, .ast-msg,
+  .ast-tool-block.pending, .ast-queue-item, .ast-ask-card,
+  .ast-retry-bar, .ast-mode-trigger-chevron, .ast-model-trigger-chevron {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 /* 加载旋转动画 */
 .ast-spin {
   animation: ast-spin 1s linear infinite;

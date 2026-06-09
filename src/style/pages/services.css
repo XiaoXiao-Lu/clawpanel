@@ -541,3 +541,12 @@
     overflow-wrap: anywhere;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .service-spinner, .status-dot.loading, .service-card,
+  .gw-option-card, .gw-advanced-panel, .services-tab-content,
+  .upgrade-task-bar, .upgrade-progress-fill, .docker-dialog-overlay {
+    animation: none !important;
+    transition: none !important;
+  }
+}

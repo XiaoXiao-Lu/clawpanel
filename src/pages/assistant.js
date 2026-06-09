@@ -8976,5 +8976,10 @@ export function cleanup() {
     document.removeEventListener('click', _expertTeamOutsideClickHandler)
     _expertTeamOutsideClickHandler = null
   }
+  // 清理专家团定时器
+  if (_expertTeamDomUpdateTimers) {
+    _expertTeamDomUpdateTimers.forEach(t => clearTimeout(t))
+    _expertTeamDomUpdateTimers.clear()
+  }
   window.removeEventListener('assistant-error-injected', handleAssistantErrorInjected)
 }

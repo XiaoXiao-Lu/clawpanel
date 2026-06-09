@@ -1794,6 +1794,11 @@
   .chat-workspace-icon-btn {
     transition: none;
   }
+  .chat-sidebar, .chat-scroll-btn, .chat-send-btn,
+  .typing-indicator span, .stream-cursor, .msg {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 /* 托管 Agent */

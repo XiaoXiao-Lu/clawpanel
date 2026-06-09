@@ -57,6 +57,7 @@ function _canShow() {
 }
 
 let _showing = false
+let _previousFocus = null
 
 /**
  * 在正向时机调用（如 Gateway 启动成功、配置保存成功）
@@ -65,6 +66,7 @@ let _showing = false
 export function tryShowEngagement() {
   if (_showing || !_canShow()) return
   if (document.querySelector('.engage-overlay')) return
+  _previousFocus = document.activeElement
   _showing = true
   localStorage.setItem(KEYS.lastShown, String(Date.now()))
 
@@ -147,7 +149,12 @@ export function tryShowEngagement() {
   function dismiss(markToday = true) {
     if (markToday) localStorage.setItem(KEYS.todayDismiss, _todayKey())
     overlay.classList.remove('engage-visible')
-    setTimeout(() => { overlay.remove(); _showing = false }, 250)
+    setTimeout(() => {
+      overlay.remove()
+      _showing = false
+      if (_previousFocus?.focus) _previousFocus.focus()
+      _previousFocus = null
+    }, 250)
   }
 
   overlay.addEventListener('click', (e) => { if (e.target === overlay) dismiss() })

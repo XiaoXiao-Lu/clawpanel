@@ -89,6 +89,7 @@ export function toast(message, type = 'info', options = {}) {
     el.appendChild(body)
   } else {
     const textSpan = document.createElement('span')
+    // SECURITY: options.html=true bypasses XSS protection — caller MUST ensure message is trusted
     if (options.html) {
       textSpan.innerHTML = message
     } else {

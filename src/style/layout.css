@@ -943,6 +943,25 @@ body.has-desktop-chrome #main-col {
   .nav-item { min-height: 44px; }
   .btn:not(.btn-xs):not(.btn-sm) { min-height: 44px; }
   .input, .form-input { min-height: 44px; }
+  .chat-sidebar-btn { min-width: 44px; min-height: 44px; }
+  .chat-session-select { min-width: 44px; min-height: 44px; }
+  .chat-session-del { min-width: 44px; min-height: 44px; }
+  .chat-toggle-sidebar { min-width: 44px; min-height: 44px; }
+  .msg-copy-btn { min-width: 44px; min-height: 44px; }
+  .chat-scroll-btn { min-width: 44px; min-height: 44px; }
+  .ast-sidebar-btn { min-width: 44px; min-height: 44px; }
+  .ast-toggle-sidebar { min-width: 44px; min-height: 44px; }
+  .chat-message-search-btn { min-width: 44px; min-height: 44px; }
+  .chat-workspace-tree-toggle { min-width: 44px; min-height: 44px; }
+  .chat-workspace-icon-btn { min-width: 44px; min-height: 44px; }
+  .hosted-agent-close { min-width: 44px; min-height: 44px; }
+  .chat-guide-close { min-width: 44px; min-height: 44px; }
+  .ast-guide-close { min-width: 44px; min-height: 44px; }
+  .lang-trigger { min-height: 44px; }
+  #btn-theme-toggle { min-height: 44px; }
+  .sidebar-collapse-btn { min-width: 44px; min-height: 44px; }
+  .sidebar-close-btn { min-width: 44px; min-height: 44px; }
+  .mobile-hamburger { min-width: 44px; min-height: 44px; }
 }
 
 /* dvh 适配 */
