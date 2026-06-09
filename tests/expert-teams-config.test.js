@@ -261,9 +261,6 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'document.removeEventListener(\'click\', _expertTeamOutsideClickHandler)',
     'event.type === \'expert_error\'',
     'event.type === \'moderator_error\'',
-    '主持综合已自动降级',
-    '临时交付',
-    '主持专家合成失败',
     'ast-expert-item--warning',
     'event.type === \'expert_retry\'',
     'event.type === \'moderator_retry\'',
@@ -352,7 +349,7 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'assistant.expertTeamWorkboardQueue',
     'expertTeamToolTargetBrief',
     'expertTeamProcessSummary',
-    '专家团运行已停止。后续消息将按普通对话发送。',
+    'assistant.expertTeamStoppedChatFallback',
     'assistant.expertTeamResumeRunStopped',
   ]) {
     assert.match(assistant, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
@@ -372,6 +369,7 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'expertTeamCloseoutTitle',
     'expertTeamQualityGate',
     'expertTeamWorkboardQueue',
+    'expertTeamStoppedChatFallback',
   ]) {
     assert.match(assistantLocale, new RegExp(`${token}:\\s*_\\(`))
   }
@@ -392,6 +390,62 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
   const renderedExpertTeamMessage = assistant.slice(assistant.indexOf('return `<div class="ast-msg ast-msg-ai ast-msg-expert-team"'), assistant.indexOf('function renderExpertTeamFocus'))
   assert.doesNotMatch(renderedExpertTeamMessage, /\$\{stageHtml\}/)
   assert.match(assistant, /<details class="ast-expert-run-details">/)
+})
+
+test('Assistant Expert Teams detail events render from locale keys', () => {
+  const assistant = readFileSync(new URL('../src/pages/assistant.js', import.meta.url), 'utf8')
+  const assistantLocale = readFileSync(new URL('../src/locales/modules/assistant.js', import.meta.url), 'utf8')
+  const detailBlock = assistant.slice(
+    assistant.indexOf('function getExpertTeamPipeline'),
+    assistant.indexOf('function renderMessages'),
+  ).replace(/\/\/[^\n]*/g, '')
+  for (const token of [
+    'assistant.expertTeamPipelineAria',
+    'assistant.expertTeamPipelinePrepare',
+    'assistant.expertTeamPipelinePreparedDetail',
+    'assistant.expertTeamPipelineDelivered',
+    'assistant.expertTeamModeratorDegradedTitle',
+    'assistant.expertTeamSynthesisConclusion',
+    'assistant.expertTeamViewFullDeliverable',
+    'assistant.expertTeamToolArgs',
+    'assistant.expertTeamToolResult',
+    'assistant.expertTeamToolRunCommand',
+    'assistant.expertTeamToolNoTextResult',
+    'assistant.expertTeamDoneExpandHint',
+    'assistant.expertTeamContentMeta',
+    'assistant.expertTeamDeliverySummaryHeading',
+    'assistant.expertTeamCodeBlockLabel',
+    'assistant.expertTeamGenericError',
+    'assistant.expertTeamGenerating',
+  ]) {
+    assert.match(detailBlock, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
+  for (const token of [
+    'expertTeamPipelineAria',
+    'expertTeamPipelinePrepare',
+    'expertTeamToolRunCommand',
+    'expertTeamToolNoTextResult',
+    'expertTeamDoneExpandHint',
+    'expertTeamContentMeta',
+    'expertTeamDeliverySummaryHeading',
+    'expertTeamGenericError',
+  ]) {
+    assert.match(assistantLocale, new RegExp(`${token}:\\s*_\\(`), `${token} should be translated`)
+  }
+  for (const hardcoded of [
+    '执行管线',
+    '主持综合已自动降级',
+    '可重新综合',
+    '查看完整交付',
+    '已完成，可展开查看完整发言',
+    '执行完成，无文本结果',
+    '模型调用失败，正在重试第',
+    '交付摘要',
+    '代码块',
+    '运行出错',
+  ]) {
+    assert.doesNotMatch(detailBlock, new RegExp(hardcoded))
+  }
 })
 
 test('Assistant Expert Teams run card chrome renders from locale keys', () => {
