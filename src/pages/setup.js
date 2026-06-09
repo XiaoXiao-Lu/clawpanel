@@ -892,7 +892,6 @@ function bindEvents(page, nodeOk, detectState) {
       } else {
         resultEl.innerHTML = results.map(r => {
           const compatible = r.compatible !== false
-          const color = compatible ? 'var(--success)' : 'var(--danger)'
           const status = compatible
             ? ''
             : `<span style="font-size:11px;color:var(--danger)">${t('setup.nodeVersionTooLowShort', { required: r.requiredVersion || t('common.unknown') })}</span>`

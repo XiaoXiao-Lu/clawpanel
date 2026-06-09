@@ -1110,7 +1110,7 @@ function renderOnboarding(page, ctx) {
     const num = idx + 1
     const cls = s.done ? 'onboarding-step done' : 'onboarding-step'
     const badge = s.done
-      ? `<span class="onboarding-step-badge done">✓ ${escapeHtml(t('dashboard.onboardingDone'))}</span>`
+      ? `<span class="onboarding-step-badge done">${statusIcon('ok', 12)} ${escapeHtml(t('dashboard.onboardingDone'))}</span>`
       : `<span class="onboarding-step-badge todo">${num}</span>`
     const cta = s.done
       ? ''
