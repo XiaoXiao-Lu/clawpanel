@@ -379,11 +379,9 @@ body.has-desktop-chrome #main-col {
 .nav-section-items.collapsed { display: none; }
 
 .sidebar-footer {
-  position: relative;
-  padding: 10px 16px 10px;
-  border-top: 1px solid rgba(255,255,255,0.05);
-  background: linear-gradient(180deg, transparent 0%, var(--sidebar-bg) 60%);
-  z-index: 1;
+  padding: 12px 14px 10px;
+  border-top: 1px solid var(--sidebar-border);
+  background: var(--sidebar-bg);
 }
 
 .sidebar-tools {
@@ -395,13 +393,10 @@ body.has-desktop-chrome #main-col {
 }
 
 .sidebar-tools > .lang-switcher {
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  min-height: 34px;
-  max-width: 34px;
-  max-height: 34px;
-  flex: 0 0 34px;
+  width: 32px; height: 32px;
+  min-width: 32px; min-height: 32px;
+  max-width: 32px; max-height: 32px;
+  flex: 0 0 32px;
   display: inline-grid;
   place-items: center;
 }
@@ -409,13 +404,10 @@ body.has-desktop-chrome #main-col {
 .sidebar-tools > .sidebar-tool-btn,
 .sidebar-tools > .lang-switcher > .sidebar-tool-btn {
   position: relative;
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  min-height: 34px;
-  max-width: 34px;
-  max-height: 34px;
-  flex: 0 0 34px;
+  width: 32px; height: 32px;
+  min-width: 32px; min-height: 32px;
+  max-width: 32px; max-height: 32px;
+  flex: 0 0 32px;
   display: inline-grid;
   place-items: center;
   padding: 0;
@@ -427,22 +419,19 @@ body.has-desktop-chrome #main-col {
   line-height: 1;
   appearance: none;
   box-shadow: none;
-  transition: all 0.18s ease;
+  transition: all 0.16s ease;
 }
 
 .sidebar-tools > .sidebar-tool-btn:hover,
 .sidebar-tools > .lang-switcher > .sidebar-tool-btn:hover {
-  border-color: rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.05);
+  border-color: var(--border-1);
+  background: var(--bg-hover);
   color: var(--text-1);
-  box-shadow: none;
-  transform: translateY(-1px);
 }
 
 .sidebar-tools > .sidebar-tool-btn:active,
 .sidebar-tools > .lang-switcher > .sidebar-tool-btn:active {
-  transform: scale(0.93);
-  transition: transform 0.08s ease;
+  transform: scale(0.94);
 }
 
 .sidebar-tools > .sidebar-tool-btn:focus-visible,
@@ -453,10 +442,8 @@ body.has-desktop-chrome #main-col {
 
 .sidebar-tools > .sidebar-tool-btn svg,
 .sidebar-tools > .lang-switcher > .sidebar-tool-btn svg {
-  width: 18px;
-  height: 18px;
-  min-width: 18px;
-  min-height: 18px;
+  width: 17px; height: 17px;
+  min-width: 17px; min-height: 17px;
   display: block;
   flex: 0 0 auto;
   fill: none;
