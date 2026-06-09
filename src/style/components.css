@@ -1312,7 +1312,7 @@ mark:focus {
   position: fixed;
   inset: 0;
   z-index: 1100;
-  background: rgba(0,0,0,.5);
+  background: var(--overlay-dark);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -1586,6 +1586,6 @@ mark:focus {
 
 /* ─── Selection for dark theme ─── */
 [data-theme="dark"] ::selection {
-  background: rgba(129, 140, 248, 0.35);
+  background: color-mix(in srgb, var(--brand) 35%, transparent);
   color: var(--text-1);
 }
