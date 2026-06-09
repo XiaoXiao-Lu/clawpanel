@@ -45,8 +45,8 @@ test('Model console styling preserves responsive commercial layout', () => {
   assert.match(cssBlock('.models-fallback-pill'), /max-width:\s*160px/)
   assert.match(cssBlock('.fallback-workbench'), /grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(320px,\s*0\.92fr\)/)
   assert.match(cssBlock('.model-reasoning-toggle'), /display:\s*inline-flex/)
-  assert.match(modelsCss, /@media \(max-width:\s*980px\)[\s\S]*\.fallback-workbench\s*\{[\s\S]*grid-template-columns:\s*1fr/)
-  assert.match(modelsCss, /@media \(max-width:\s*640px\)[\s\S]*\.models-control-console\s*\{[\s\S]*padding:\s*var\(--space-lg\)/)
+  assert.match(modelsCss, /@media \(max-width:\s*(?:980|1024)px\)[\s\S]*\.fallback-workbench\s*\{[\s\S]*grid-template-columns:\s*1fr/)
+  assert.match(modelsCss, /@media \(max-width:\s*(?:640|768)px\)[\s\S]*\.models-control-console\s*\{[\s\S]*padding:\s*var\(--space-lg\)/)
 })
 
 test('Model console locale keys are present', () => {

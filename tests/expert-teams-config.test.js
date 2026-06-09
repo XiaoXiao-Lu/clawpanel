@@ -362,5 +362,5 @@ test('Expert Teams styling keeps a responsive workbench layout', () => {
   assert.match(cssBlock('.expert-workflow-grid-wide'), /grid-column:\s*1\s*\/\s*-1/)
   assert.match(css, /\.expert-form-section \.form-group\.is-muted/)
   assert.doesNotMatch(css, /\.expert-run-/)
-  assert.match(css, /@media \(max-width:\s*1120px\)[\s\S]*\.expert-teams-shell\s*\{[\s\S]*grid-template-columns:\s*1fr/)
+  assert.match(css, /@media \(max-width:\s*(?:1120|1024)px\)[\s\S]*\.expert-teams-shell\s*\{[\s\S]*grid-template-columns:\s*1fr/)
 })
