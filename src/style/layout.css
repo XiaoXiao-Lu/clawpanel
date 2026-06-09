@@ -688,8 +688,8 @@ body.has-desktop-chrome #main-col {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 40px;
-  padding: 8px 12px;
+  min-height: 36px;
+  padding: 6px 12px;
   margin: 1px 8px;
   border-radius: var(--radius-lg);
   color: var(--text-2);
@@ -716,7 +716,7 @@ body.has-desktop-chrome #main-col {
   color: #c7d2fe;
   font-weight: 600;
   border-color: rgba(99,102,241,0.25);
-  box-shadow: 0 0 12px -4px rgba(99,102,241,0.2), inset 0 1px 0 rgba(255,255,255,0.04);
+  box-shadow: inset 3px 0 0 var(--brand), 0 0 12px -4px rgba(99,102,241,0.2), inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
 /* Press feedback */

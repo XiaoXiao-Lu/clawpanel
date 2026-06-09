@@ -848,6 +848,10 @@ mark:focus {
   transition: opacity var(--ease-slow);
 }
 #login-overlay.hide { opacity: 0; pointer-events: none; }
+body.has-desktop-chrome #login-overlay,
+body.has-desktop-chrome #backend-down-overlay {
+  top: 36px;
+}
 .login-card {
   position: relative;
   width: min(430px, 100%);

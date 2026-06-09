@@ -638,6 +638,7 @@ function renderConsole(page, state) {
         <div id="models-primary-combobox-container" class="form-input-container" style="min-width:220px"></div>
         <button class="btn btn-sm btn-secondary" id="models-test-primary" title="${t('models.testPrimary')}">${icon('activity', 14)} ${t('models.testPrimary')}</button>
         <button class="btn btn-sm btn-secondary" id="models-locate-primary" title="${t('models.locateModel')}">${icon('map-pin', 14)} ${t('models.locateModel')}</button>
+        <button class="btn btn-sm btn-secondary" id="models-toggle-fallbacks" title="${t('models.manageFallbacks')}">${icon('shuffle', 14)} ${t('models.manageFallbacks')}</button>
         <button class="btn btn-sm btn-primary" id="models-apply-gateway" title="${t('models.applyGatewayHint')}">${icon('refresh-cw', 14)} ${t('models.applyGateway')}</button>
       </div>
     </div>

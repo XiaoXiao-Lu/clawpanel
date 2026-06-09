@@ -8,6 +8,7 @@
   --brand:              #818cf8;
   --brand-400:          #a5b4fc;
   --brand-light:        var(--brand-400);
+  --brand-warm:         #f59e0b;
   --brand-muted:        rgba(129, 140, 248, 0.10);
   --brand-faint:        rgba(129, 140, 248, 0.05);
 
