@@ -131,6 +131,7 @@ export default {
   loadFailed: _('加载专家团配置失败', 'Failed to load expert team config'),
   saveFailed: _('保存失败', 'Save failed'),
   saveSuccess: _('已保存专家团配置', 'Expert team config saved'),
+  deleteFailed: _('删除失败', 'Delete failed'),
   deleteExpertTitle: _('删除专家', 'Delete Expert'),
   deleteExpertConfirm: _('确认删除专家 {name}？', 'Delete expert {name}?'),
   deleteExpertImpact: _('该专家会从所有专家团成员列表中移除。', 'This expert will be removed from all team member lists.'),

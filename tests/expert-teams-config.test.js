@@ -73,6 +73,7 @@ test('Expert Teams page supports expert editing and team member selection', () =
     'api.listExpertGroups',
     'api.saveExpertGroup',
     'api.deleteExpertGroup',
+    "humanizeError(e, t('expertTeams.deleteFailed'))",
     'api.skillsList',
     'role="tablist"',
     'role="tab"',
@@ -187,6 +188,7 @@ test('Expert Teams page supports expert editing and team member selection', () =
   assert.match(page, /\.expert-tag-modal-overlay:not\(\[hidden\]\)/)
   assert.match(page, /state\.draftExpert/)
   assert.match(expertTeamsLocale, /modelIdInvalid/)
+  assert.match(expertTeamsLocale, /deleteFailed/)
   assert.match(expertTeamsLocale, /groupMembersRequired/)
   assert.match(expertTeamsLocale, /workflowSequentialRoundMeaning/)
   assert.match(expertTeamsLocale, /workflowResearchTuning/)
@@ -299,6 +301,13 @@ test('Expert Teams browser smoke guards deleted expert pruning teams', () => {
     'Failed expert team save changed the dirty draft unexpectedly',
     'teamSaveFailureDraft',
     'page.unroute(routePattern, failSaveExpertGroup)',
+    'checkExpertDeleteFailurePreservesState',
+    'Smoke forced delete_expert failure',
+    'Failed expert delete removed smoke expert despite a server error',
+    'Failed expert delete changed team moderator unexpectedly',
+    'Failed expert delete pruned smoke team members unexpectedly',
+    'expertDeleteFailureState',
+    'page.unroute(routePattern, failDeleteExpert)',
     'createBlankTeamDraft',
     '.expert-template-picker-overlay [data-action="template-blank"]',
     'checkDeletedExpertPrunesPersistedTeam',

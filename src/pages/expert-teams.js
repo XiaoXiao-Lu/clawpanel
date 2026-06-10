@@ -869,9 +869,13 @@ async function deleteCurrent(page, state) {
       confirmText: t('expertTeams.delete'),
     })
     if (!ok) return
-    await api.deleteExpert(expert.id)
-    state.selectedExpertId = null
-    await loadData(page, state)
+    try {
+      await api.deleteExpert(expert.id)
+      state.selectedExpertId = null
+      await loadData(page, state)
+    } catch (e) {
+      toast(humanizeError(e, t('expertTeams.deleteFailed')), 'error')
+    }
     return
   }
 
@@ -890,9 +894,13 @@ async function deleteCurrent(page, state) {
     confirmText: t('expertTeams.delete'),
   })
   if (!ok) return
-  await api.deleteExpertGroup(group.id)
-  state.selectedGroupId = null
-  await loadData(page, state)
+  try {
+    await api.deleteExpertGroup(group.id)
+    state.selectedGroupId = null
+    await loadData(page, state)
+  } catch (e) {
+    toast(humanizeError(e, t('expertTeams.deleteFailed')), 'error')
+  }
 }
 
 function collectExpert(page, current = {}) {

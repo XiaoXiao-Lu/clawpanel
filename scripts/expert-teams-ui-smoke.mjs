@@ -967,6 +967,89 @@ async function checkDelayedSkillsRefreshPreservesDirtyEditor(page) {
   return valuesAfterSkillsRefresh
 }
 
+async function checkExpertDeleteFailurePreservesState(page, consoleErrors) {
+  let intercepted = false
+  const routePattern = '**/__api/delete_expert'
+  const failDeleteExpert = async route => {
+    if (intercepted) return route.continue()
+    intercepted = true
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json; charset=utf-8',
+      body: JSON.stringify({ error: 'Smoke forced delete_expert failure' }),
+    })
+  }
+
+  await page.route(routePattern, failDeleteExpert)
+  try {
+    await page.goto(url, { waitUntil: 'domcontentloaded' })
+    await page.waitForSelector('#expert-teams-editor', { timeout: 30000 })
+    await waitForExpertTeamsIdle(page)
+    await page.locator('[data-expert-tab="experts"]').click()
+    await page.locator('[data-select-id="smoke-reviewer"]').click()
+    await page.locator('#expert-id').waitFor({ timeout: 10000 })
+
+    await clickAction(page, 'delete')
+    await Promise.all([
+      page.waitForResponse(response => response.url().includes('/__api/delete_expert') && response.status() === 500),
+      page.locator('.modal-overlay [data-action="confirm"]').click(),
+    ])
+    if (!intercepted) throw new Error('Failed expert delete smoke did not intercept delete_expert')
+    await page.waitForTimeout(50)
+    consumeExpectedConsoleError(consoleErrors, /Failed to load resource: the server responded with a status of 500/)
+
+    const toastMessage = page.locator('.toast.error, .toast[role="alert"], [role="alert"]').filter({
+      hasText: /Smoke forced delete_expert failure|删除失败|Delete failed/,
+    })
+    await toastMessage.first().waitFor({ timeout: 5000 })
+
+    const persisted = await page.evaluate(async () => {
+      const [expertsResponse, groupsResponse] = await Promise.all([
+        fetch('/__api/list_experts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        }).then(response => response.json()),
+        fetch('/__api/list_expert_groups', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        }).then(response => response.json()),
+      ])
+      const expertIds = (Array.isArray(expertsResponse) ? expertsResponse : []).map(expert => expert.id)
+      const group = (Array.isArray(groupsResponse) ? groupsResponse : []).find(item => item.id === 'smoke-review-panel')
+      return {
+        expertIds,
+        moderatorExpertId: group?.moderatorExpertId || '',
+        memberIds: (Array.isArray(group?.members) ? group.members : []).map(member => member.expertId),
+      }
+    })
+    if (!persisted.expertIds.includes('smoke-reviewer')) {
+      throw new Error('Failed expert delete removed smoke expert despite a server error')
+    }
+    if (persisted.moderatorExpertId !== 'smoke-reviewer') {
+      throw new Error(`Failed expert delete changed team moderator unexpectedly: ${persisted.moderatorExpertId || '<empty>'}`)
+    }
+    if (!persisted.memberIds.includes('smoke-reviewer')) {
+      throw new Error(`Failed expert delete pruned smoke team members unexpectedly: ${persisted.memberIds.join(',')}`)
+    }
+
+    const editorState = {
+      idValue: await page.locator('#expert-id').inputValue(),
+      nameValue: await page.locator('#expert-name').inputValue(),
+      toastText: await toastMessage.first().innerText(),
+      ...persisted,
+    }
+    if (editorState.idValue !== 'smoke-reviewer' || editorState.nameValue !== 'Smoke Reviewer') {
+      throw new Error(`Failed expert delete changed the selected expert unexpectedly: ${JSON.stringify(editorState)}`)
+    }
+
+    return editorState
+  } finally {
+    await page.unroute(routePattern, failDeleteExpert).catch(() => {})
+  }
+}
+
 async function checkDeletedExpertPrunesPersistedTeam(page) {
   await page.evaluate(async () => {
     const response = await fetch('/__api/delete_expert', {
@@ -1102,6 +1185,7 @@ async function main() {
     const expertSaveFailureDraft = await checkExpertSaveFailurePreservesDraft(page, consoleErrors)
     const teamSaveFailureDraft = await checkTeamSaveFailurePreservesDraft(page, consoleErrors)
     const delayedSkillsRefresh = await checkDelayedSkillsRefreshPreservesDirtyEditor(page)
+    const expertDeleteFailureState = await checkExpertDeleteFailurePreservesState(page, consoleErrors)
     const deletionPrune = await checkDeletedExpertPrunesPersistedTeam(page)
     const mobile = await checkExpertTeamsPage(page, { width: 390, height: 844 }, 'mobile')
     if (consoleErrors.length) {
@@ -1124,6 +1208,7 @@ async function main() {
       expertSaveFailureDraft,
       teamSaveFailureDraft,
       delayedSkillsRefresh,
+      expertDeleteFailureState,
       deletionPrune,
       mobile,
       checkedAt: new Date().toISOString(),
