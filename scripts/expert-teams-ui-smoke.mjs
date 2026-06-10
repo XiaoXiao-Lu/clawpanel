@@ -568,6 +568,58 @@ async function checkEmptyTeamSaveIsBlocked(page) {
   return draftState
 }
 
+async function checkInvalidTeamIdSaveIsBlocked(page) {
+  await page.goto(url, { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('#expert-teams-editor', { timeout: 30000 })
+  await waitForExpertTeamsIdle(page)
+  await page.locator('[data-expert-tab="groups"]').click()
+  await waitForExpertTeamsIdle(page)
+
+  await createBlankTeamDraft(page)
+  await page.locator('#group-id').fill('smoke invalid/team')
+  await page.locator('#group-name').fill('Smoke Invalid Team')
+  await page.locator('#group-description').fill('Verifies invalid team IDs are blocked before save.')
+  await page.locator('input[data-member-toggle][value="smoke-planner"]').setChecked(true)
+
+  const saveRequest = page.waitForRequest(
+    request => request.url().includes('/__api/save_expert_group'),
+    { timeout: 700 },
+  ).catch(() => null)
+  await clickAction(page, 'save')
+  const unexpectedRequest = await saveRequest
+  if (unexpectedRequest) {
+    throw new Error('Invalid expert team attempted to call save_expert_group')
+  }
+
+  const toastMessage = page.locator('.toast.error, .toast[role="alert"], [role="alert"]').filter({
+    hasText: /ID 只能包含字母、数字、点、下划线和短横线|ID can only include letters, numbers, dots, underscores, and hyphens/,
+  })
+  await toastMessage.first().waitFor({ timeout: 5000 })
+
+  const saved = await page.evaluate(async () => {
+    const response = await fetch('/__api/list_expert_groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+    if (!response.ok) throw new Error(`list_expert_groups failed: ${response.status}`)
+    const groups = await response.json()
+    return (Array.isArray(groups) ? groups : []).find(group => group.id === 'smoke invalid/team') || null
+  })
+  if (saved) throw new Error('Invalid expert team ID was persisted despite validation failure')
+
+  const draftState = {
+    idValue: await page.locator('#group-id').inputValue(),
+    selectedCount: await page.locator('#expert-member-picker [data-member-row].is-selected').count(),
+    toastText: await toastMessage.first().innerText(),
+  }
+  if (draftState.idValue !== 'smoke invalid/team' || draftState.selectedCount !== 1) {
+    throw new Error(`Invalid team ID validation changed the draft unexpectedly: ${JSON.stringify(draftState)}`)
+  }
+
+  return draftState
+}
+
 async function checkDelayedSkillsRefreshPreservesDirtyEditor(page) {
   let releaseSkills
   let intercepted = false
@@ -770,6 +822,7 @@ async function main() {
     const moderatorMemberSync = await checkModeratorClearsWhenMemberRemoved(page)
     const memberOrderDrag = await checkMemberDragOrderPersists(page)
     const emptyTeamValidation = await checkEmptyTeamSaveIsBlocked(page)
+    const invalidTeamIdValidation = await checkInvalidTeamIdSaveIsBlocked(page)
     const delayedSkillsRefresh = await checkDelayedSkillsRefreshPreservesDirtyEditor(page)
     const deletionPrune = await checkDeletedExpertPrunesPersistedTeam(page)
     const mobile = await checkExpertTeamsPage(page, { width: 390, height: 844 }, 'mobile')
@@ -787,6 +840,7 @@ async function main() {
       moderatorMemberSync,
       memberOrderDrag,
       emptyTeamValidation,
+      invalidTeamIdValidation,
       delayedSkillsRefresh,
       deletionPrune,
       mobile,
