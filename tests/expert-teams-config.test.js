@@ -99,6 +99,8 @@ test('Expert Teams page supports expert editing and team member selection', () =
     'workflowParallelRoundMeaning',
     'workflowSequentialRoundMeaning',
     'classList.toggle(\'is-muted\'',
+    'workflowInactiveHint',
+    'data-muted-note',
     'availableSkills',
     'normalizeSkillOptions',
     'skillOptionsForExpert',
@@ -147,6 +149,8 @@ test('Expert Teams page supports expert editing and team member selection', () =
   assert.doesNotMatch(page, />确认</)
   assert.doesNotMatch(page, /已选 \$\{[^}]+\} 项/)
   assert.doesNotMatch(page, /点击选择\.\.\./)
+  assert.match(css, /content:\s*attr\(data-muted-note\)/)
+  assert.doesNotMatch(css, /当前模式不生效/)
   const workflowSection = page.slice(page.indexOf('function renderWorkflowGuide'), page.indexOf('function currentGroupFromForm'))
   for (const hardcodedWorkflowText of [
     '执行次数',
@@ -286,6 +290,7 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'expertTeamRunElapsed',
     'renderExpertTeamRunMeta',
     'renderExpertTeamRunDetails',
+    'renderExpertTeamDetailPanel',
     'renderExpertTeamFocus',
     'getExpertTeamFocus',
     'renderExpertTeamWorkboard',
@@ -305,7 +310,16 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'ast-expert-run-meta',
     'ast-expert-run-details',
     'ast-expert-live-synthesis',
-    'ast-expert-stage-board',
+    'ex-overview',
+    'ex-panel--live',
+    'ex-panel--delivery',
+    'ex-panel--recovery',
+    'ex-members-rail',
+    'ex-live-text',
+    'ex-skel',
+    'ast-expert-detail-panel',
+    'ast-expert-detail-radio',
+    'ast-expert-detail-tab-bar',
     'ast-expert-governance',
     'ast-expert-closeout',
     'getExpertTeamStages',
@@ -335,7 +349,6 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'final.status',
     "status: event.final?.status || ''",
     'getExpertTeamActiveAgents',
-    'isRunning ? getExpertTeamActiveAgents(transcript) : []',
     'clearActiveExpertGroupSelection',
     'ast-expert-disclosure',
     'ast-expert-live-text',
@@ -350,7 +363,6 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
     'assistant.expertTeamQualityGate',
     'assistant.expertTeamWorkboardQueue',
     'expertTeamToolTargetBrief',
-    'expertTeamProcessSummary',
     'assistant.expertTeamStoppedChatFallback',
     'assistant.expertTeamResumeRunStopped',
     "toast(t('assistant.expertTeamTaskRequired'), 'warning')",
@@ -393,11 +405,22 @@ test('Assistant Expert Teams entry loads arrays, persists selection, and cleans 
   assert.match(assistant, /const effectiveStopped = stopped && !isRunning && !finalDone && !failed/)
   assert.match(assistant, /fallback \? 'degraded' : finalDone \? 'done'/)
   assert.match(assistant, /hasExpertTeamModeratorFallback\(transcript\)[\s\S]*transcript\.some\(item => item\.type === 'final'\) && !fallback/)
-  assert.match(assistant, /\$\{focusHtml\}[\s\S]*\$\{topPrimaryHtml\}[\s\S]*\$\{showWorkboard \? workboardHtml : ''\}[\s\S]*\$\{inlinePrimaryHtml\}[\s\S]*\$\{resumeActionsHtml\}[\s\S]*\$\{detailsHtml\}[\s\S]*\$\{processBlock\}/)
-  assert.match(assistant, /renderExpertTeamRunDetails\(\{[\s\S]*activityHtml[\s\S]*closeoutHtml: isRunning \? '' : closeoutHtml[\s\S]*planHtml[\s\S]*traceHtml/)
+  assert.ok(
+    /\$\{focusHtml\}[\s\S]*\$\{topPrimaryHtml\}[\s\S]*\$\{showWorkboard \? workboardHtml : ''\}[\s\S]*\$\{inlinePrimaryHtml\}[\s\S]*\$\{resumeActionsHtml\}[\s\S]*\$\{detailsHtml\}[\s\S]*\$\{processBlock\}/.test(assistant) ||
+      /\$\{overviewHtml\}[\s\S]*\$\{liveHtml\}[\s\S]*\$\{deliveryHtml\}[\s\S]*\$\{doneHtml\}[\s\S]*\$\{errorHtml\}[\s\S]*\$\{membersHtml\}[\s\S]*\$\{recoveryHtml\}[\s\S]*\$\{detailsHtml\}/.test(assistant),
+    'expert team card should render the primary progress, output, recovery, and detail sections'
+  )
+  assert.ok(
+    /renderExpertTeamRunDetails\(\{[\s\S]*activityHtml[\s\S]*closeoutHtml: isRunning \? '' : closeoutHtml[\s\S]*planHtml[\s\S]*traceHtml/.test(assistant) ||
+      /const detailsHtml = renderExpertTeamDetailPanel\(transcript,\s*plan,\s*progress,\s*isRunning,\s*m\)/.test(assistant),
+    'expert team card should keep a detailed run panel'
+  )
   const renderedExpertTeamMessage = assistant.slice(assistant.indexOf('return `<div class="ast-msg ast-msg-ai ast-msg-expert-team"'), assistant.indexOf('function renderExpertTeamFocus'))
   assert.doesNotMatch(renderedExpertTeamMessage, /\$\{stageHtml\}/)
+  assert.doesNotMatch(renderedExpertTeamMessage, /\$\{processBlock\}/)
+  assert.match(renderedExpertTeamMessage, /role="list" aria-label="\$\{escAttr\(t\('assistant\.expertTeamPipelineAria'\)\)\}"/)
   assert.match(assistant, /<details class="ast-expert-run-details">/)
+  assert.match(assistant, /<details class="ast-expert-detail-panel"/)
 })
 
 test('Assistant Expert Teams detail events render from locale keys', () => {
@@ -465,11 +488,15 @@ test('Assistant Expert Teams run card chrome renders from locale keys', () => {
     "t('assistant.expertTeamActivityStripAria')",
     "t('assistant.expertTeamDetailSummary')",
     "t('assistant.expertTeamTabAll')",
-    "t('assistant.expertTeamStageBoardAria')",
     "t('assistant.expertTeamWorkboardAria')",
     "t('assistant.expertTeamActivityAria')",
     "t('assistant.expertTeamTraceTitle')",
-    "t('assistant.expertTeamProcessSummary'",
+    "t('assistant.expertTeamMetricOpinions')",
+    "t('assistant.expertTeamMetricExceptions')",
+    "t('assistant.expertTeamStatNoErrors')",
+    "t('assistant.expertTeamCurrentOutput')",
+    "t('assistant.expertTeamCompletedSection')",
+    "t('assistant.expertTeamMemberQueueAria')",
   ]) {
     assert.match(assistant, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
@@ -480,7 +507,12 @@ test('Assistant Expert Teams run card chrome renders from locale keys', () => {
     'expertTeamDetailSummary',
     'expertTeamWorkboardAria',
     'expertTeamTraceTitle',
-    'expertTeamProcessSummary',
+    'expertTeamMetricOpinions',
+    'expertTeamMetricExceptions',
+    'expertTeamStatNoErrors',
+    'expertTeamCurrentOutput',
+    'expertTeamCompletedSection',
+    'expertTeamMemberQueueAria',
   ]) {
     assert.match(assistantLocale, new RegExp(`${token}:\\s*_\\(`), `${token} should be translated`)
   }
@@ -553,6 +585,13 @@ test('Assistant Expert Teams resume controls expose complete and synthesis-only 
   assert.match(assistantCss, /\.ast-expert-trace/)
   assert.match(assistantCss, /\.ast-expert-identity-pill--warning/)
   assert.match(assistantCss, /\.ast-expert-run-details-summary/)
+  assert.match(assistantCss, /\.ex-overview/)
+  assert.match(assistantCss, /\.ex-panel--live/)
+  assert.match(assistantCss, /\.ex-panel--recovery/)
+  assert.match(assistantCss, /\.ex-members-rail/)
+  assert.match(assistantCss, /\.ast-expert-detail-panel/)
+  assert.match(assistantCss, /\.ast-expert-detail-tab:focus-visible/)
+  assert.match(assistantCss, /@media \(prefers-reduced-motion: reduce\)/)
 })
 
 test('Expert Teams styling keeps a responsive workbench layout', () => {

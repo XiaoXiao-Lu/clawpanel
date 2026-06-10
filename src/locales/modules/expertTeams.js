@@ -100,6 +100,7 @@ export default {
   noModerator: _('未指定主持人', 'No moderator'),
   maxRounds: _('最大轮次', 'Max rounds'),
   maxParallel: _('最大并行专家数', 'Max parallel experts'),
+  workflowInactiveHint: _('（当前模式不生效）', '(Inactive in current mode)'),
   approvalPolicy: _('人工确认', 'Human approval'),
   approvalNone: _('不需要', 'None'),
   approvalBeforeFinal: _('最终输出前确认', 'Before final output'),

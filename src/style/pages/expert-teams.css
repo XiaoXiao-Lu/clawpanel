@@ -281,7 +281,7 @@
 }
 
 .expert-form-section .form-group.is-muted .form-label::after {
-  content: '（当前模式不生效）';
+  content: attr(data-muted-note);
   margin-left: 4px;
   color: var(--text-3);
   font-weight: 500;

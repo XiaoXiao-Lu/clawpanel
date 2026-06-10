@@ -498,8 +498,8 @@ function renderGroupEditor(group, state) {
               ${GROUP_MODES.map(([value, key]) => option(value, t(key), group.mode || 'panel')).join('')}
             </select>
           </label>
-          ${field('group-max-rounds', t('expertTeams.maxRounds'), group.maxRounds ?? 3, { type: 'number', min: 1, max: 10 })}
-          ${field('group-max-parallel', t('expertTeams.maxParallel'), group.maxParallel ?? 3, { type: 'number', min: 1, max: 8 })}
+          ${field('group-max-rounds', t('expertTeams.maxRounds'), group.maxRounds ?? 3, { type: 'number', min: 1, max: 10, mutedNote: t('expertTeams.workflowInactiveHint') })}
+          ${field('group-max-parallel', t('expertTeams.maxParallel'), group.maxParallel ?? 3, { type: 'number', min: 1, max: 8, mutedNote: t('expertTeams.workflowInactiveHint') })}
           <label class="form-group">
             <span class="form-label">${t('expertTeams.approvalPolicy')}</span>
             <select class="form-input" id="group-approval-policy">
@@ -949,9 +949,10 @@ function field(id, label, value, opts = {}) {
     opts.min != null ? `min="${escapeAttr(opts.min)}"` : '',
     opts.max != null ? `max="${escapeAttr(opts.max)}"` : '',
   ].filter(Boolean).join(' ')
+  const mutedNoteAttr = opts.mutedNote ? ` data-muted-note="${escapeAttr(opts.mutedNote)}"` : ''
   return `
     <label class="form-group">
-      <span class="form-label">${escapeHtml(label)}</span>
+      <span class="form-label"${mutedNoteAttr}>${escapeHtml(label)}</span>
       <input ${attrs}>
     </label>
   `
