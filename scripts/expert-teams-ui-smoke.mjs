@@ -6,6 +6,7 @@ import { chromium } from 'playwright'
 
 const root = path.resolve(import.meta.dirname, '..')
 const artifactsDir = path.join(root, 'artifacts', 'expert-teams')
+const stateDir = path.join(artifactsDir, 'state')
 const port = Number(process.env.EXPERT_TEAMS_SMOKE_PORT || 15180)
 const baseUrl = `http://127.0.0.1:${port}`
 const url = `${baseUrl}/#/expert-teams`
@@ -30,7 +31,13 @@ function startServer() {
   const child = spawn(process.execPath, ['scripts/serve.js', '--host', '127.0.0.1', '--port', String(port)], {
     cwd: root,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, HOST: '127.0.0.1', PORT: String(port) },
+    env: {
+      ...process.env,
+      HOST: '127.0.0.1',
+      PORT: String(port),
+      OPENCLAW_HOME: stateDir,
+      DISABLE_GATEWAY_SPAWN: '1',
+    },
   })
   let output = ''
   child.stdout.on('data', chunk => { output += chunk.toString() })
@@ -76,6 +83,130 @@ async function assertNoHorizontalOverflow(page, label) {
   return overflow
 }
 
+function isIgnoredConsoleError(message) {
+  return /\[ws\].*(AUTH_TOKEN_MISSING|生成 connect frame 失败|Failed to fetch)/.test(String(message || ''))
+}
+
+async function clickAction(page, action) {
+  await page.locator(`.expert-teams-actions [data-action="${action}"], .expert-editor-actions [data-action="${action}"]`).last().click()
+}
+
+async function waitForExpertTeamsIdle(page) {
+  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {})
+  try {
+    await page.waitForFunction(() => {
+      const loadingText = ['加载', 'Loading']
+      const hasSkeleton = !!document.querySelector('.expert-list-skeleton, .loading-placeholder')
+      const editorText = document.querySelector('#expert-teams-editor')?.textContent || ''
+      const hasAddButton = !!document.querySelector('.expert-teams-actions [data-action="add"]')
+      return hasAddButton && !hasSkeleton && !loadingText.some(text => editorText.includes(text))
+    }, { timeout: 30000 })
+  } catch (error) {
+    await fs.writeFile(path.join(artifactsDir, 'expert-teams-timeout.html'), await page.content())
+    await page.screenshot({ path: path.join(artifactsDir, 'expert-teams-timeout.png'), fullPage: true })
+    throw error
+  }
+}
+
+async function saveAndWait(page, cmd) {
+  await Promise.all([
+    page.waitForResponse(response => response.url().includes(`/__api/${cmd}`) && response.ok()),
+    clickAction(page, 'save'),
+  ])
+}
+
+async function createExpert(page, expert) {
+  await clickAction(page, 'add')
+  await page.locator('#expert-id').fill(expert.id)
+  await page.locator('#expert-name').fill(expert.name)
+  await page.locator('#expert-title').fill(expert.title)
+  await page.locator('#expert-description').fill(expert.description)
+  await page.locator('#expert-system-prompt').fill(expert.prompt)
+  await saveAndWait(page, 'save_expert')
+  await page.locator(`[data-select-id="${expert.id}"]`).waitFor({ timeout: 10000 })
+}
+
+async function createPersistedTeam(page) {
+  const experts = [
+    {
+      id: 'smoke-reviewer',
+      name: 'Smoke Reviewer',
+      title: 'Quality Gate',
+      description: 'Checks risky edges before release.',
+      prompt: 'Review the task for correctness, UX risk, and missing validation.',
+    },
+    {
+      id: 'smoke-planner',
+      name: 'Smoke Planner',
+      title: 'Execution Planner',
+      description: 'Turns ambiguous requests into ordered steps.',
+      prompt: 'Create a concise plan and identify the smallest safe next action.',
+    },
+  ]
+
+  await page.goto(url, { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('#expert-teams-editor', { timeout: 30000 })
+  await waitForExpertTeamsIdle(page)
+  for (const expert of experts) await createExpert(page, expert)
+
+  await page.locator('[data-expert-tab="groups"]').click()
+  await waitForExpertTeamsIdle(page)
+  await clickAction(page, 'add')
+  await page.locator('#group-id').fill('smoke-review-panel')
+  await page.locator('#group-name').fill('Smoke Review Panel')
+  await page.locator('#group-description').fill('Verifies that expert team config survives a real browser save and reload.')
+  await page.locator('#group-mode').selectOption('review')
+  await page.locator('input[data-member-toggle][value="smoke-planner"]').setChecked(true)
+  await page.locator('input[data-member-toggle][value="smoke-reviewer"]').setChecked(true)
+  await page.locator('#group-moderator').selectOption('smoke-reviewer')
+  await saveAndWait(page, 'save_expert_group')
+  await page.locator('[data-select-id="smoke-review-panel"]').waitFor({ timeout: 10000 })
+
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await waitForExpertTeamsIdle(page)
+  await page.locator('[data-expert-tab="groups"]').click()
+  await page.locator('[data-select-id="smoke-review-panel"]').click()
+  await page.locator('#group-id').waitFor({ timeout: 10000 })
+
+  const persisted = await page.evaluate(async () => {
+    const [expertsResponse, groupsResponse] = await Promise.all([
+      fetch('/__api/list_experts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      }).then(response => response.json()),
+      fetch('/__api/list_expert_groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      }).then(response => response.json()),
+    ])
+    return { experts: expertsResponse, groups: groupsResponse }
+  })
+  const savedExpertIds = new Set((Array.isArray(persisted.experts) ? persisted.experts : []).map(expert => expert.id))
+  const savedGroup = (Array.isArray(persisted.groups) ? persisted.groups : []).find(group => group.id === 'smoke-review-panel')
+  if (!savedExpertIds.has('smoke-reviewer') || !savedExpertIds.has('smoke-planner')) {
+    throw new Error('Saved smoke experts were not returned by the API after reload')
+  }
+  if (!savedGroup || savedGroup.moderatorExpertId !== 'smoke-reviewer') {
+    throw new Error('Saved smoke expert team did not preserve its moderator')
+  }
+  const savedMemberIds = (Array.isArray(savedGroup.members) ? savedGroup.members : []).map(member => member.expertId)
+  if (savedMemberIds.join(',') !== 'smoke-planner,smoke-reviewer') {
+    throw new Error(`Saved smoke expert team members were not ordered correctly: ${savedMemberIds.join(',')}`)
+  }
+
+  const selectedCount = await page.locator('#expert-member-picker [data-member-row].is-selected').count()
+  if (selectedCount !== 2) throw new Error(`Reloaded smoke team selected ${selectedCount} members instead of 2`)
+
+  return {
+    experts: [...savedExpertIds].filter(id => id.startsWith('smoke-')).length,
+    groupId: savedGroup.id,
+    moderatorExpertId: savedGroup.moderatorExpertId,
+    memberIds: savedMemberIds,
+  }
+}
+
 async function checkExpertTeamsPage(page, viewport, label) {
   await page.setViewportSize(viewport)
   await page.goto(url, { waitUntil: 'domcontentloaded' })
@@ -112,6 +243,21 @@ async function checkExpertTeamsPage(page, viewport, label) {
 }
 
 async function main() {
+  await fs.rm(stateDir, { recursive: true, force: true })
+  await fs.mkdir(stateDir, { recursive: true })
+  await fs.writeFile(path.join(stateDir, 'clawpanel.json'), JSON.stringify({
+    ignoreRisk: true,
+    engineMode: 'openclaw',
+    enabledEngines: ['openclaw'],
+    engineSetupChoice: 'openclaw',
+  }, null, 2))
+  await fs.writeFile(path.join(stateDir, 'openclaw.json'), JSON.stringify({
+    version: 1,
+    model: {
+      default: 'smoke/local',
+      provider: 'smoke',
+    },
+  }, null, 2))
   await fs.mkdir(artifactsDir, { recursive: true })
   const server = startServer()
   let browser
@@ -121,11 +267,16 @@ async function main() {
     const page = await browser.newPage()
     const consoleErrors = []
     page.on('console', message => {
-      if (message.type() === 'error') consoleErrors.push(message.text())
+      if (message.type() !== 'error') return
+      const text = message.text()
+      if (!isIgnoredConsoleError(text)) consoleErrors.push(text)
     })
-    page.on('pageerror', error => consoleErrors.push(error.message))
+    page.on('pageerror', error => {
+      if (!isIgnoredConsoleError(error.message)) consoleErrors.push(error.message)
+    })
 
     const desktop = await checkExpertTeamsPage(page, { width: 1366, height: 900 }, 'desktop')
+    const persistence = await createPersistedTeam(page)
     const mobile = await checkExpertTeamsPage(page, { width: 390, height: 844 }, 'mobile')
     if (consoleErrors.length) {
       throw new Error(`Console errors found:\n${consoleErrors.join('\n')}`)
@@ -135,6 +286,7 @@ async function main() {
       ok: true,
       url,
       desktop,
+      persistence,
       mobile,
       checkedAt: new Date().toISOString(),
     }

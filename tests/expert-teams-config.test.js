@@ -110,6 +110,7 @@ test('Expert Teams page supports expert editing and team member selection', () =
     'workflowInactiveHint',
     'data-muted-note',
     'availableSkills',
+    'loadSkillsOptions(page, state)',
     'normalizeSkillOptions',
     'skillOptionsForExpert',
     'mergeSelectedTagOptions',
@@ -175,6 +176,10 @@ test('Expert Teams page supports expert editing and team member selection', () =
     assert.doesNotMatch(workflowSection, new RegExp(hardcodedWorkflowText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
   assert.doesNotMatch(page, /modal\.querySelector\('\.expert-tag-modal-overlay'\)/)
+  const loadDataBlock = page.slice(page.indexOf('async function loadData'), page.indexOf('async function loadSkillsOptions'))
+  assert.doesNotMatch(loadDataBlock, /api\.skillsList\(\)/)
+  assert.match(loadDataBlock, /loadSkillsOptions\(page,\s*state\)/)
+  assert.match(page, /async function loadSkillsOptions\(page,\s*state\)/)
   assert.match(expertTeamsLocale, /modelIdInvalid/)
   assert.match(expertTeamsLocale, /groupMembersRequired/)
   assert.match(expertTeamsLocale, /workflowSequentialRoundMeaning/)

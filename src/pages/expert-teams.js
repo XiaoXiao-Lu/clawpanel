@@ -227,15 +227,14 @@ async function loadData(page, state, opts = {}) {
   state.loading = true
   renderAll(page, state)
   try {
-    const [experts, groups, skillsResult] = await Promise.all([
+    const [experts, groups] = await Promise.all([
       api.listExperts(),
       api.listExpertGroups(),
-      api.skillsList().catch(error => ({ error })),
     ])
     state.experts = Array.isArray(experts) ? experts : []
     state.groups = Array.isArray(groups) ? groups : []
-    state.availableSkills = normalizeSkillOptions(skillsResult?.skills || [])
-    state.skillsLoadFailed = !!skillsResult?.error
+    state.availableSkills = []
+    state.skillsLoadFailed = false
     state.loading = false
     if (opts.clearDrafts) {
       state.draftExpert = null
@@ -246,11 +245,24 @@ async function loadData(page, state, opts = {}) {
     if (!state.selectedExpertId && state.experts[0]) state.selectedExpertId = state.experts[0].id
     if (!state.selectedGroupId && state.groups[0]) state.selectedGroupId = state.groups[0].id
     renderAll(page, state)
+    loadSkillsOptions(page, state)
   } catch (e) {
     state.loading = false
     renderAll(page, state)
     toast(humanizeError(e, t('expertTeams.loadFailed')), 'error')
   }
+}
+
+async function loadSkillsOptions(page, state) {
+  try {
+    const skillsResult = await api.skillsList()
+    state.availableSkills = normalizeSkillOptions(skillsResult?.skills || [])
+    state.skillsLoadFailed = false
+  } catch {
+    state.availableSkills = []
+    state.skillsLoadFailed = true
+  }
+  if (state.activeTab === TABS.experts) renderEditor(page, state)
 }
 
 function renderAll(page, state) {

@@ -238,7 +238,9 @@ let _hermesGwProcess = null
 let _hermesGwStarting = null
 
 const __dev_dirname = path.dirname(fileURLToPath(import.meta.url))
-const DEFAULT_OPENCLAW_DIR = path.join(homedir(), '.openclaw')
+const DEFAULT_OPENCLAW_DIR = process.env.OPENCLAW_HOME
+  ? path.resolve(process.env.OPENCLAW_HOME)
+  : path.join(homedir(), '.openclaw')
 let OPENCLAW_DIR = DEFAULT_OPENCLAW_DIR
 let CONFIG_PATH = path.join(OPENCLAW_DIR, 'openclaw.json')
 let MCP_CONFIG_PATH = path.join(OPENCLAW_DIR, 'mcp.json')
