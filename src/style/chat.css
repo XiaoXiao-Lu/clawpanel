@@ -1538,10 +1538,14 @@
   margin-left: auto;
 }
 .msg:hover .msg-feedback,
+.msg:focus-within .msg-feedback,
+.msg-feedback:focus-within,
 .msg-feedback.has-vote { opacity: 1; }
 .msg-fb-btn {
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1556,6 +1560,10 @@
 .msg-fb-btn:hover {
   background: var(--bg-hover);
   color: var(--text-1);
+}
+.msg-fb-btn:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--brand));
+  outline-offset: 2px;
 }
 .msg-fb-btn:active { transform: scale(0.88); }
 .msg-fb-btn.active-like { color: var(--success); }

@@ -13,6 +13,13 @@ function cssBlock(selector) {
   return css.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))?.[1] || ''
 }
 
+function functionBody(name) {
+  const start = chatPage.indexOf(`function ${name}`)
+  assert.notEqual(start, -1, `${name} should exist`)
+  const next = chatPage.indexOf('\nfunction ', start + 1)
+  return chatPage.slice(start, next === -1 ? undefined : next)
+}
+
 test('OpenClaw chat composer reserves a stable send-button column', () => {
   const block = cssBlock('.chat-input-area')
   assert.match(block, /display:\s*grid/, 'composer should use grid to prevent textarea/button overlap')
@@ -85,4 +92,29 @@ test('OpenClaw chat management translations and icons are present', () => {
   }
   assert.match(icons, /'chevron-up'/)
   assert.match(icons, /'chevron-down'/)
+})
+
+test('OpenClaw chat AI feedback is stable, localized, and keyboard visible', () => {
+  assert.match(chatPage, /function renderMessageFeedbackControls\(\)/)
+  assert.match(chatPage, /svgIcon\('thumbs-up',\s*13\)/)
+  assert.match(chatPage, /svgIcon\('thumbs-down',\s*13\)/)
+  assert.match(chatPage, /appendAiMessage\(msg\.content \|\| '',\s*msgTime,\s*images,\s*\[\],\s*\[\],\s*\[\],\s*\[\],\s*msg\.id\)/)
+  assert.match(chatPage, /appendAiMessage\(msg\.text,\s*msgTime,\s*msg\.images,\s*msg\.videos,\s*msg\.audios,\s*msg\.files,\s*msg\.tools,\s*msg\.id\)/)
+  assert.match(chatPage, /const assistantMessageId = payload\.runId \|\| uuid\(\)/)
+  assert.match(chatPage, /wrapper\.dataset\.msgId = assistantMessageId/)
+  assert.match(chatPage, /_restoreFeedbackUI\(wrap\)/)
+  assert.match(functionBody('appendAiMessage'), /renderMessageFeedbackControls\(\)/)
+  assert.doesNotMatch(functionBody('appendUserMessage'), /renderMessageFeedbackControls\(\)/)
+  assert.doesNotMatch(chatPage, /feedbackLike'\) \|\| '有帮助'/)
+  assert.doesNotMatch(chatPage, /feedbackDislike'\) \|\| '待改进'/)
+
+  for (const key of ['feedbackLike', 'feedbackDislike']) {
+    assert.match(chatLocale, new RegExp(`${key}:\\s*_\\(`), `${key} should be translated`)
+  }
+  assert.match(icons, /'thumbs-up'/)
+  assert.match(icons, /'thumbs-down'/)
+  assert.match(cssBlock('.msg-fb-btn'), /min-width:\s*30px/)
+  assert.match(cssBlock('.msg-fb-btn'), /min-height:\s*30px/)
+  assert.match(css, /\.msg:focus-within \.msg-feedback/)
+  assert.match(cssBlock('.msg-fb-btn:focus-visible'), /outline:\s*2px solid/)
 })

@@ -31,6 +31,8 @@ export default {
   messageSearchNext: _('下一条匹配', 'Next match', '下一條匹配'),
   messageSearchClear: _('清除查找', 'Clear search', '清除查找'),
   messageSearchNoResult: _('无结果', 'No results', '無結果'),
+  feedbackLike: _('有帮助', 'Helpful', '有幫助', '役に立った', '도움됨', 'Hữu ích', 'Útil', 'Útil', 'Полезно', 'Utile', 'Hilfreich'),
+  feedbackDislike: _('待改进', 'Needs improvement', '待改進', '改善が必要', '개선 필요', 'Cần cải thiện', 'Necesita mejoras', 'Precisa melhorar', 'Нужно улучшить', 'À améliorer', 'Verbesserungsbedarf'),
   send: _('发送', 'Send', '發送', '送信', '전송', 'Gửi', 'Enviar', 'Enviar', 'Отправить', 'Envoyer', 'Senden'),
   stopGeneration: _('停止生成', 'Stop Generation'),
   doubleClickRename: _('双击重命名', 'Double-click to rename', '雙擊重命名'),

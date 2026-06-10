@@ -2341,6 +2341,7 @@ function handleChatEvent(payload) {
       appendFilesToEl(_currentAiBubble, _currentAiFiles)
       appendToolsToEl(_currentAiBubble, finalTools.length ? finalTools : _currentAiTools)
     }
+    const assistantMessageId = payload.runId || uuid()
     // 添加时间戳 + 耗时 + token 消耗
     const wrapper = _currentAiBubble?.parentElement
     if (wrapper) {
@@ -2368,13 +2369,15 @@ function handleChatEvent(payload) {
         }
       }
       parts.push(`<button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${svgIcon('copy', 12)}</button>`)
-      parts.push(`<span class="msg-feedback"><button class="msg-fb-btn" data-fb="like" title="${t('chat.feedbackLike') || '有帮助'}" aria-label="${t('chat.feedbackLike') || '有帮助'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14zM7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg></button><button class="msg-fb-btn" data-fb="dislike" title="${t('chat.feedbackDislike') || '待改进'}" aria-label="${t('chat.feedbackDislike') || '待改进'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10zM17 2h3a2 2 0 012 2v7a2 2 0 01-2 2h-3"/></svg></button></span>`)
+      parts.push(renderMessageFeedbackControls())
       meta.innerHTML = parts.join('')
       wrapper.appendChild(meta)
+      wrapper.dataset.msgId = assistantMessageId
+      _restoreFeedbackUI(wrapper)
     }
     if (_currentAiText || _currentAiImages.length) {
       saveMessage({
-        id: payload.runId || uuid(), sessionKey: _sessionKey, role: 'assistant',
+        id: assistantMessageId, sessionKey: _sessionKey, role: 'assistant',
         content: _currentAiText, timestamp: Date.now(),
         attachments: _currentAiImages.map(i => ({ category: 'image', mimeType: i.mediaType || 'image/png', url: i.url, content: i.data })).filter(a => a.url || a.content)
       })
@@ -2603,6 +2606,10 @@ function formatTime(date) {
   return `${mon}-${day} ${h}:${m}`
 }
 
+function renderMessageFeedbackControls() {
+  return `<span class="msg-feedback"><button class="msg-fb-btn" data-fb="like" title="${t('chat.feedbackLike')}" aria-label="${t('chat.feedbackLike')}">${svgIcon('thumbs-up', 13)}</button><button class="msg-fb-btn" data-fb="dislike" title="${t('chat.feedbackDislike')}" aria-label="${t('chat.feedbackDislike')}">${svgIcon('thumbs-down', 13)}</button></span>`
+}
+
 function formatFileSize(bytes) {
   if (!bytes || bytes <= 0) return ''
   if (bytes < 1024) return bytes + ' B'
@@ -2791,7 +2798,7 @@ async function loadHistory() {
         if (msg.role === 'user') appendUserMessage(msg.content || '', msg.attachments || null, msgTime)
         else if (msg.role === 'assistant') {
           const images = (msg.attachments || []).filter(a => a.category === 'image').map(a => ({ mediaType: a.mimeType, data: a.content, url: a.url }))
-          appendAiMessage(msg.content || '', msgTime, images, [], [], [], [])
+          appendAiMessage(msg.content || '', msgTime, images, [], [], [], [], msg.id)
         }
       })
       scrollToBottom()
@@ -2834,7 +2841,7 @@ async function loadHistory() {
         if (msg.images?.length && !userAtts.length) hasOmittedImages = true
         appendUserMessage(msg.text, userAtts, msgTime)
       } else if (msg.role === 'assistant') {
-        appendAiMessage(msg.text, msgTime, msg.images, msg.videos, msg.audios, msg.files, msg.tools)
+        appendAiMessage(msg.text, msgTime, msg.images, msg.videos, msg.audios, msg.files, msg.tools, msg.id)
       }
     })
     if (hasOmittedImages) {
@@ -2881,7 +2888,7 @@ function dedupeHistory(messages) {
         continue
       }
     }
-    deduped.push({ role, text: c.text, images: c.images, videos: c.videos, audios: c.audios, files: c.files, tools, timestamp: msg.timestamp })
+    deduped.push({ id: msg.id || msg.messageId || msg.runId || '', role, text: c.text, images: c.images, videos: c.videos, audios: c.audios, files: c.files, tools, timestamp: msg.timestamp })
   }
   return deduped
 }
@@ -3033,17 +3040,18 @@ function appendUserMessage(text, attachments = [], msgTime) {
 
   const meta = document.createElement('div')
   meta.className = 'msg-meta'
-  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${svgIcon('copy', 12)}</button><span class="msg-feedback"><button class="msg-fb-btn" data-fb="like" title="${t('chat.feedbackLike') || '有帮助'}" aria-label="${t('chat.feedbackLike') || '有帮助'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14zM7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg></button><button class="msg-fb-btn" data-fb="dislike" title="${t('chat.feedbackDislike') || '待改进'}" aria-label="${t('chat.feedbackDislike') || '待改进'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10zM17 2h3a2 2 0 012 2v7a2 2 0 01-2 2h-3"/></svg></button></span>`
+  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${svgIcon('copy', 12)}</button>`
 
   wrap.appendChild(bubble)
   wrap.appendChild(meta)
   insertMessageNode(wrap)
 }
 
-function appendAiMessage(text, msgTime, images, videos, audios, files, tools) {
+function appendAiMessage(text, msgTime, images, videos, audios, files, tools, messageId = '') {
   if (!_messagesEl || !_messagesEl.isConnected) return
   const wrap = document.createElement('div')
   wrap.className = 'msg msg-ai'
+  if (messageId) wrap.dataset.msgId = messageId
   const bubble = document.createElement('div')
   bubble.className = 'msg-bubble'
   appendToolsToEl(bubble, tools)
@@ -3072,7 +3080,7 @@ function appendAiMessage(text, msgTime, images, videos, audios, files, tools) {
 
   const meta = document.createElement('div')
   meta.className = 'msg-meta'
-  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${svgIcon('copy', 12)}</button>`
+  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${svgIcon('copy', 12)}</button>${renderMessageFeedbackControls()}`
 
   wrap.appendChild(bubble)
   wrap.appendChild(meta)
@@ -3336,6 +3344,7 @@ function insertMessageNode(wrap) {
 
   if (_typingEl && _typingEl.parentNode === _messagesEl) _messagesEl.insertBefore(wrap, _typingEl)
   else _messagesEl.appendChild(wrap)
+  _restoreFeedbackUI(wrap)
   if (_messageSearch) updateMessageSearch()
   scrollToBottom()
 }
