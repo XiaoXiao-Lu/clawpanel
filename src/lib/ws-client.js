@@ -31,6 +31,11 @@ const MESSAGE_CACHE_SIZE = 100
 // Gateway 启动前的初始重连延迟（更长，给 Gateway 充足的重启/初始化时间）
 const INITIAL_RECONNECT_DELAY = 10000
 
+function logWsDebug(message, ...details) {
+  if (!import.meta.env?.DEV) return
+  console.debug(message, ...details)
+}
+
 /**
  * 判断 RPC 错误是否为「method 不被当前 Gateway 支持」类型。
  * 用于跨内核兼容降级：老内核没有的新 RPC 应该被静默吃掉，而不是 toast 给小白用户。
@@ -262,7 +267,7 @@ export class WsClient {
       // 等 Gateway 发 connect.challenge，超时则主动发
       this._challengeTimer = setTimeout(() => {
         if (!this._handshaking && !this._gatewayReady) {
-          console.log('[ws] 未收到 challenge，主动发 connect')
+          logWsDebug('[ws] 未收到 challenge，主动发 connect')
           this._sendConnectFrame('')
         }
       }, CHALLENGE_TIMEOUT)
@@ -286,7 +291,7 @@ export class WsClient {
       // 上游仅在 config reload 和 device removal 时发 4001
       // 正确做法：短延迟后自动重连，而非永久断开
       if (e.code === 4001) {
-        console.log('[ws] Gateway 配置变更，3秒后自动重连:', e.reason)
+        logWsDebug('[ws] Gateway 配置变更，3秒后自动重连')
         this._setConnected(false, 'reconnecting', 'Gateway 配置已更新，自动重连中...')
         this._gatewayReady = false
         this._handshaking = false
@@ -305,7 +310,7 @@ export class WsClient {
         if (/origin not allowed/i.test(reason)) {
           // Origin 不在白名单 → 自动配对（写 allowedOrigins + reload）
           if (this._autoPairAttempts < 1) {
-            console.log('[ws] origin not allowed，尝试自动修复...')
+            logWsDebug('[ws] origin not allowed，尝试自动修复...')
             this._setConnected(false, 'reconnecting', 'origin 修复中...')
             this._autoPairAndReconnect()
             return
@@ -317,7 +322,7 @@ export class WsClient {
           // Token/password 不匹配 → 尝试刷新凭据并重连
           if (this._authRetryCount < 2) {
             this._authRetryCount++
-            console.log(`[ws] 认证失败，刷新凭据 (${this._authRetryCount}/2):`, e.reason)
+            logWsDebug(`[ws] 认证失败，刷新凭据 (${this._authRetryCount}/2)`)
             this._setConnected(false, 'reconnecting', `认证失败，刷新凭据中 (${this._authRetryCount}/2)...`)
             this._refreshCredentialsAndReconnect()
             return
@@ -330,7 +335,7 @@ export class WsClient {
         if (/pairing required/i.test(reason) || /not.paired/i.test(reason)) {
           // 设备未配对 → 自动配对
           if (this._autoPairAttempts < 1) {
-            console.log('[ws] 设备未配对，尝试自动配对...')
+            logWsDebug('[ws] 设备未配对，尝试自动配对...')
             this._setConnected(false, 'reconnecting', '设备配对中...')
             this._autoPairAndReconnect()
             return
@@ -341,7 +346,7 @@ export class WsClient {
         if (/device identity required/i.test(reason) || /device auth/i.test(reason)) {
           // 设备认证问题 → 重新配对
           if (this._autoPairAttempts < 1) {
-            console.log('[ws] 设备认证问题，尝试重新配对:', e.reason)
+            logWsDebug('[ws] 设备认证问题，尝试重新配对')
             this._setConnected(false, 'reconnecting', '设备认证修复中...')
             this._autoPairAndReconnect()
             return
@@ -351,7 +356,7 @@ export class WsClient {
         }
         if (/rate.?limit/i.test(reason)) {
           // 被限流 → 等待后重试
-          console.log('[ws] 被限流，30秒后重试')
+          logWsDebug('[ws] 被限流，30秒后重试')
           this._setConnected(false, 'reconnecting', '请求过于频繁，30秒后重试...')
           setTimeout(() => {
             if (!this._intentionalClose) this._doConnect()
@@ -394,7 +399,7 @@ export class WsClient {
 
     // 握手阶段：connect.challenge
     if (msg.type === 'event' && msg.event === 'connect.challenge') {
-      console.log('[ws] 收到 connect.challenge')
+      logWsDebug('[ws] 收到 connect.challenge')
       this._clearChallengeTimer()
       const nonce = msg.payload?.nonce || ''
       this._sendConnectFrame(nonce)
@@ -420,7 +425,7 @@ export class WsClient {
           case 'CONTROL_UI_ORIGIN_NOT_ALLOWED':
             // 可自动修复：配对 + 写 origins
             if (this._autoPairAttempts < 1) {
-              console.log('[ws] 自动修复:', detailCode)
+              logWsDebug('[ws] 自动修复:', detailCode)
               this._autoPairAndReconnect()
               return
             }
@@ -435,7 +440,7 @@ export class WsClient {
             // 认证凭据问题 → 刷新凭据重试
             if (this._authRetryCount < 2) {
               this._authRetryCount++
-              console.log(`[ws] 认证失败 (${detailCode})，刷新凭据 (${this._authRetryCount}/2)`)
+              logWsDebug(`[ws] 认证失败 (${detailCode})，刷新凭据 (${this._authRetryCount}/2)`)
               this._refreshCredentialsAndReconnect()
               return
             }
@@ -444,7 +449,7 @@ export class WsClient {
           case 'AUTH_RATE_LIMITED': {
             // 被限流 → 等待后重试
             const retryMs = msg.error?.retryAfterMs || 30000
-            console.log(`[ws] 被限流，${Math.round(retryMs / 1000)}秒后重试`)
+            logWsDebug(`[ws] 被限流，${Math.round(retryMs / 1000)}秒后重试`)
             this._setConnected(false, 'reconnecting', `请求过于频繁，${Math.round(retryMs / 1000)}秒后重试...`)
             setTimeout(() => { if (!this._intentionalClose) this._doConnect() }, retryMs)
             return
@@ -458,7 +463,7 @@ export class WsClient {
           case 'DEVICE_AUTH_INVALID':
             // 设备签名/认证问题 → 重新配对
             if (this._autoPairAttempts < 1) {
-              console.log('[ws] 设备认证问题:', detailCode)
+              logWsDebug('[ws] 设备认证问题:', detailCode)
               this._autoPairAndReconnect()
               return
             }
@@ -467,7 +472,7 @@ export class WsClient {
             // 兼容旧版 Gateway（不含 details）：按 errCode / errMsg 分流
             if (errCode === 'NOT_PAIRED' || /origin not allowed/i.test(errMsg)) {
               if (this._autoPairAttempts < 1) {
-                console.log('[ws] 检测到配对/origin 错误，尝试自动修复...', errCode || errMsg)
+                logWsDebug('[ws] 检测到配对/origin 错误，尝试自动修复...', errCode || errMsg)
                 this._autoPairAndReconnect()
                 return
               }
@@ -492,7 +497,7 @@ export class WsClient {
           )
         if (!handled && isStartupSidecars) {
           const retryMs = Math.max(500, Math.min(details.retryAfterMs || msg.error?.retryAfterMs || 1500, 10000))
-          console.log(`[ws] Gateway 启动中 (sidecars 加载)，${retryMs}ms 后重试`)
+          logWsDebug(`[ws] Gateway 启动中 (sidecars 加载)，${retryMs}ms 后重试`)
           // 标 reconnecting 而非 error，UI 上显示的是 spinner 不是红色叉
           this._setConnected(false, 'reconnecting', 'Gateway 启动中...')
           setTimeout(() => { if (!this._intentionalClose) this._doConnect() }, retryMs)
@@ -560,7 +565,7 @@ export class WsClient {
     if (msg.type === 'event') {
       // 消息去重检查
       if (msg.id && this._seenMessageIds.has(msg.id)) {
-        console.log('[ws] 跳过重复消息:', msg.id)
+        logWsDebug('[ws] 跳过重复消息')
         return
       }
       if (msg.id) {
@@ -586,18 +591,18 @@ export class WsClient {
   async _autoPairAndReconnect() {
     this._autoPairAttempts++
     try {
-      console.log('[ws] 执行自动配对（第', this._autoPairAttempts, '次）...')
+      logWsDebug('[ws] 执行自动配对')
       const result = await api.autoPairDevice()
-      console.log('[ws] 配对结果:', result)
+      logWsDebug('[ws] 配对结果:', { ok: !!result })
 
       // 这里只修配对文件，不自动重启 Gateway。
       // Windows 上手动启动的 Gateway 会被 restart/stop 打断，表现为“启动后一会就停止”。
       // Gateway 对设备配对文件按连接读取；如遇 origin 配置变更，交由用户手动重启。
-      console.log('[ws] 自动配对文件已修复，跳过自动重启 Gateway')
+      logWsDebug('[ws] 自动配对文件已修复，跳过自动重启 Gateway')
 
       // 修复 #160: 不调用 reconnect()（它会重置 _autoPairAttempts 导致无限循环），
       // 而是直接重连一次。如果仍然失败，_autoPairAttempts 不会被重置，不会再次触发自动修复。
-      console.log('[ws] 配对成功，3秒后重新连接...')
+      logWsDebug('[ws] 配对成功，3秒后重新连接...')
       setTimeout(() => {
         if (!this._intentionalClose) {
           this._reconnectAttempts = 0
@@ -618,7 +623,7 @@ export class WsClient {
       const newToken = config?.gateway?.auth?.token || ''
       const newPassword = config?.gateway?.auth?.password || ''
       if ((newToken && newToken !== this._token) || (newPassword && newPassword !== this._password)) {
-        console.log('[ws] 检测到凭据变更，使用新凭据重连')
+        logWsDebug('[ws] 检测到凭据变更，使用新凭据重连')
         this._token = newToken
         this._password = newPassword
         const base = this._url.split('?')[0]
@@ -643,7 +648,7 @@ export class WsClient {
     try {
       const frame = await api.createConnectFrame(nonce, this._token, this._password)
       if (this._ws && this._ws.readyState === WebSocket.OPEN) {
-        console.log('[ws] 发送 connect frame')
+        logWsDebug('[ws] 发送 connect frame')
         this._ws.send(JSON.stringify(frame))
       }
     } catch (e) {
@@ -670,7 +675,7 @@ export class WsClient {
     this._gatewayReady = true
     this._reconnectState = 'idle'
     this._pendingReconnect = false
-    console.log('[ws] Gateway 就绪, sessionKey:', this._sessionKey)
+    logWsDebug('[ws] Gateway 就绪')
     this._setConnected(true, 'ready')
     this._readyCallbacks.forEach(fn => {
       try { fn(this._hello, this._sessionKey) } catch (e) {
@@ -742,7 +747,7 @@ export class WsClient {
     this._reconnectState = 'scheduled'
     this._pendingReconnect = true
     this._setConnected(false, 'reconnecting', `重连中 (${this._reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})，${Math.round(delay/1000)}秒后...`)
-    console.log(`[ws] 计划重连 (${this._reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})，延迟 ${Math.round(delay/1000)}秒`)
+    logWsDebug(`[ws] 计划重连 (${this._reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})，延迟 ${Math.round(delay/1000)}秒`)
     this._reconnectTimer = setTimeout(() => {
       if (!this._intentionalClose) {
         this._reconnectState = 'attempting'
@@ -870,7 +875,7 @@ export class WsClient {
    */
   resetCompatCache() {
     if (this._unsupportedMethods.size > 0) {
-      console.log('[ws] 清空 method 降级集合', Array.from(this._unsupportedMethods))
+      logWsDebug('[ws] 清空 method 降级集合', Array.from(this._unsupportedMethods))
     }
     this._unsupportedMethods.clear()
   }
@@ -881,8 +886,7 @@ export class WsClient {
     if (options.model) params.model = options.model
     if (attachments && attachments.length > 0) {
       params.attachments = attachments
-      console.log('[ws] 发送附件:', attachments.length, '个')
-      console.log('[ws] 附件详情:', attachments.map(a => ({ type: a.type, mime: a.mimeType, name: a.fileName, size: a.content?.length })))
+      logWsDebug('[ws] 发送附件:', { count: attachments.length })
     }
     return this.request('chat.send', params)
   }
@@ -1010,7 +1014,7 @@ export class WsClient {
     } else {
       this._messageCache.clear()
     }
-    console.log('[ws] 消息缓存已清除:', sessionKey || '全部')
+    logWsDebug('[ws] 消息缓存已清除:', sessionKey ? 'single-session' : 'all')
   }
 
   /**
