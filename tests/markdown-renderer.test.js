@@ -52,8 +52,10 @@ test('renderMarkdown renders execution-flow markdown document syntax', () => {
     '# 专家团执行流程',
     '#### 阶段 1：准备',
     '- [x] 收集输入',
+    '  - 校验专家配置',
     '- [ ] 生成交付文档',
     '> 主持人会综合专家意见',
+    '> 并标注风险和下一步',
     '---',
     '| 阶段 | 状态 |',
     '| --- | --- |',
@@ -63,10 +65,28 @@ test('renderMarkdown renders execution-flow markdown document syntax', () => {
   assert.match(html, /<h1>专家团执行流程<\/h1>/)
   assert.match(html, /<h4>阶段 1：准备<\/h4>/)
   assert.match(html, /<li class="task-list-item"><input class="task-list-checkbox" type="checkbox" disabled checked> 收集输入<\/li>/)
+  assert.match(html, /<li class="md-list-depth-1">校验专家配置<\/li>/)
   assert.match(html, /<li class="task-list-item"><input class="task-list-checkbox" type="checkbox" disabled> 生成交付文档<\/li>/)
-  assert.match(html, /<blockquote><p>主持人会综合专家意见<\/p><\/blockquote>/)
+  assert.match(html, /<blockquote><p>主持人会综合专家意见<br>并标注风险和下一步<\/p><\/blockquote>/)
   assert.match(html, /<hr>/)
   assert.match(html, /<table>/)
   assert.match(html, /<th>阶段<\/th>/)
   assert.match(html, /<td>完成<\/td>/)
+})
+
+test('renderMarkdown preserves visual hierarchy for nested execution lists', () => {
+  const html = renderMarkdown([
+    '1. 准备',
+    '  1. 读取上下文',
+    '    - [x] 建立基线',
+    '      - 记录未处理风险',
+    '2. 交付',
+  ].join('\n'))
+
+  assert.match(html, /<ol>/)
+  assert.match(html, /<li>准备<\/li>/)
+  assert.match(html, /<li class="md-list-depth-1">读取上下文<\/li>/)
+  assert.match(html, /<li class="task-list-item md-list-depth-2"><input class="task-list-checkbox" type="checkbox" disabled checked> 建立基线<\/li>/)
+  assert.match(html, /<li class="md-list-depth-3">记录未处理风险<\/li>/)
+  assert.match(html, /<li>交付<\/li>/)
 })

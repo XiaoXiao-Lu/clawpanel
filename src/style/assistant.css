@@ -351,6 +351,10 @@
   margin: 0;
 }
 
+.ast-msg-bubble-ai blockquote p + p {
+  margin-top: 6px;
+}
+
 .ast-msg-bubble-ai hr {
   height: 1px;
   margin: 14px 0;
@@ -389,6 +393,22 @@
 .ast-msg-bubble-ai .task-list-checkbox {
   margin-right: 6px;
   accent-color: var(--brand);
+}
+
+.ast-msg-bubble-ai .md-list-depth-1 {
+  margin-left: 16px;
+}
+
+.ast-msg-bubble-ai .md-list-depth-2 {
+  margin-left: 32px;
+}
+
+.ast-msg-bubble-ai .md-list-depth-3 {
+  margin-left: 48px;
+}
+
+.ast-msg-bubble-ai .md-list-depth-4 {
+  margin-left: 64px;
 }
 
 /* 消息元信息 + 复制按钮 */
@@ -4106,6 +4126,11 @@
   margin: 0;
 }
 
+.ast-expert-item-body blockquote p + p,
+.ast-expert-final-body blockquote p + p {
+  margin-top: 6px;
+}
+
 .ast-expert-item-body hr,
 .ast-expert-final-body hr {
   height: 1px;
@@ -4150,6 +4175,26 @@
 .ast-expert-final-body .task-list-checkbox {
   margin-right: 6px;
   accent-color: var(--brand);
+}
+
+.ast-expert-item-body .md-list-depth-1,
+.ast-expert-final-body .md-list-depth-1 {
+  margin-left: 16px;
+}
+
+.ast-expert-item-body .md-list-depth-2,
+.ast-expert-final-body .md-list-depth-2 {
+  margin-left: 32px;
+}
+
+.ast-expert-item-body .md-list-depth-3,
+.ast-expert-final-body .md-list-depth-3 {
+  margin-left: 48px;
+}
+
+.ast-expert-item-body .md-list-depth-4,
+.ast-expert-final-body .md-list-depth-4 {
+  margin-left: 64px;
 }
 
 .ast-expert-disclosure {

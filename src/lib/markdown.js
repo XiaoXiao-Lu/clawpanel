@@ -182,46 +182,56 @@ export function renderMarkdown(text) {
       continue
     }
 
-    // 引用块
+    // 引用块：连续引用行合并为一个块，避免流程文档被切成多个引用框。
     const quoteMatch = line.match(/^\s{0,3}>\s?(.*)$/)
     if (quoteMatch) {
       flushTable()
       closeList()
-      result.push(`<blockquote>${quoteMatch[1].trim() ? `<p>${inlineFormat(quoteMatch[1])}</p>` : ''}</blockquote>`)
+      const quoteLines = [quoteMatch[1]]
+      while (i + 1 < lines.length) {
+        const nextQuote = lines[i + 1].match(/^\s{0,3}>\s?(.*)$/)
+        if (!nextQuote) break
+        quoteLines.push(nextQuote[1])
+        i += 1
+      }
+      result.push(renderBlockquote(quoteLines))
       continue
     }
 
     // 任务列表
-    const taskMatch = line.match(/^[\s]*[-*]\s+\[([ xX])\]\s+(.+)$/)
+    const taskMatch = line.match(/^(\s*)[-*]\s+\[([ xX])\]\s+(.+)$/)
     if (taskMatch) {
       if (!inList || listType !== 'ul') {
         if (inList) result.push(`</${listType}>`)
         result.push('<ul>'); inList = true; listType = 'ul'
       }
-      const checked = taskMatch[1].toLowerCase() === 'x'
-      result.push(`<li class="task-list-item"><input class="task-list-checkbox" type="checkbox" disabled${checked ? ' checked' : ''}> ${inlineFormat(taskMatch[2])}</li>`)
+      const checked = taskMatch[2].toLowerCase() === 'x'
+      const depthClass = getListDepthClass(taskMatch[1])
+      result.push(`<li class="task-list-item${depthClass}"><input class="task-list-checkbox" type="checkbox" disabled${checked ? ' checked' : ''}> ${inlineFormat(taskMatch[3])}</li>`)
       continue
     }
 
     // 无序列表
-    const ulMatch = line.match(/^[\s]*[-*]\s+(.+)$/)
+    const ulMatch = line.match(/^(\s*)[-*]\s+(.+)$/)
     if (ulMatch) {
       if (!inList || listType !== 'ul') {
         if (inList) result.push(`</${listType}>`)
         result.push('<ul>'); inList = true; listType = 'ul'
       }
-      result.push(`<li>${inlineFormat(ulMatch[1])}</li>`)
+      const depthClass = getListDepthClass(ulMatch[1])
+      result.push(`<li${depthClass ? ` class="${depthClass.trim()}"` : ''}>${inlineFormat(ulMatch[2])}</li>`)
       continue
     }
 
     // 有序列表
-    const olMatch = line.match(/^[\s]*\d+\.\s+(.+)$/)
+    const olMatch = line.match(/^(\s*)\d+\.\s+(.+)$/)
     if (olMatch) {
       if (!inList || listType !== 'ol') {
         if (inList) result.push(`</${listType}>`)
         result.push('<ol>'); inList = true; listType = 'ol'
       }
-      result.push(`<li>${inlineFormat(olMatch[1])}</li>`)
+      const depthClass = getListDepthClass(olMatch[1])
+      result.push(`<li${depthClass ? ` class="${depthClass.trim()}"` : ''}>${inlineFormat(olMatch[2])}</li>`)
       continue
     }
 
@@ -234,6 +244,33 @@ export function renderMarkdown(text) {
   // 处理剩余的表格
   flushTable()
   return result.join('\n')
+}
+
+function getListDepthClass(indent = '') {
+  const size = String(indent).replace(/\t/g, '  ').length
+  const depth = Math.max(0, Math.min(4, Math.floor(size / 2)))
+  return depth ? ` md-list-depth-${depth}` : ''
+}
+
+function renderBlockquote(lines) {
+  const paragraphs = []
+  let current = []
+  const flushParagraph = () => {
+    if (!current.length) return
+    paragraphs.push(`<p>${current.map(part => inlineFormat(part)).join('<br>')}</p>`)
+    current = []
+  }
+
+  for (const line of lines) {
+    if (String(line).trim() === '') {
+      flushParagraph()
+      continue
+    }
+    current.push(line)
+  }
+  flushParagraph()
+
+  return `<blockquote>${paragraphs.join('')}</blockquote>`
 }
 
 /**
