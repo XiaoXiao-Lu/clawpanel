@@ -262,7 +262,33 @@ async function loadSkillsOptions(page, state) {
     state.availableSkills = []
     state.skillsLoadFailed = true
   }
-  if (state.activeTab === TABS.experts) renderEditor(page, state)
+  if (state.activeTab === TABS.experts && !shouldDeferSkillsEditorRefresh(page, state)) {
+    renderEditor(page, state)
+  }
+}
+
+function shouldDeferSkillsEditorRefresh(page, state) {
+  if (state.draftExpert) return true
+  const form = page.querySelector('#expert-editor-form')
+  if (!form) return false
+  const modalOpen = !!form.querySelector('.expert-tag-modal-overlay:not([hidden])')
+  if (modalOpen || form.contains(document.activeElement)) return true
+  const expert = currentExpert(state)
+  if (!expert) return false
+  const model = expert.model && typeof expert.model === 'object' ? expert.model : {}
+  const inheritDefault = model.inheritDefault !== false
+  const expected = {
+    '#expert-id': expert.id || '',
+    '#expert-name': expert.name || '',
+    '#expert-title': expert.title || '',
+    '#expert-description': expert.description || '',
+    '#expert-system-prompt': expert.systemPrompt || '',
+    '#expert-model-inherit': inheritDefault ? 'inherit' : 'fixed',
+    '#expert-model-id': model.modelId || '',
+    '#expert-knowledge': joinLines(expert.knowledgeRefs),
+    '#expert-output-schema': expert.outputSchema || '',
+  }
+  return Object.entries(expected).some(([selector, value]) => valueOf(page, selector) !== String(value).trim())
 }
 
 function renderAll(page, state) {
