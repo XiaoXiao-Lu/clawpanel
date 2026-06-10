@@ -631,6 +631,18 @@ function bindEvents(page) {
       }
       return
     }
+    // 消息反馈（点赞/点踩）
+    const fbBtn = e.target.closest('.msg-fb-btn')
+    if (fbBtn) {
+      e.stopPropagation()
+      const msgWrap = fbBtn.closest('.msg')
+      if (!msgWrap) return
+      const isLike = fbBtn.dataset.fb === 'like'
+      const msgId = msgWrap.dataset.msgId || _genMsgId(msgWrap)
+      msgWrap.dataset.msgId = msgId
+      _toggleMsgFeedback(msgWrap, msgId, isLike ? 'like' : 'dislike')
+      return
+    }
     hideCmdPanel()
   })
 }
@@ -2356,6 +2368,7 @@ function handleChatEvent(payload) {
         }
       }
       parts.push(`<button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${svgIcon('copy', 12)}</button>`)
+      parts.push(`<span class="msg-feedback"><button class="msg-fb-btn" data-fb="like" title="${t('chat.feedbackLike') || '有帮助'}" aria-label="${t('chat.feedbackLike') || '有帮助'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14zM7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg></button><button class="msg-fb-btn" data-fb="dislike" title="${t('chat.feedbackDislike') || '待改进'}" aria-label="${t('chat.feedbackDislike') || '待改进'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10zM17 2h3a2 2 0 012 2v7a2 2 0 01-2 2h-3"/></svg></button></span>`)
       meta.innerHTML = parts.join('')
       wrapper.appendChild(meta)
     }
@@ -3020,7 +3033,7 @@ function appendUserMessage(text, attachments = [], msgTime) {
 
   const meta = document.createElement('div')
   meta.className = 'msg-meta'
-  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${svgIcon('copy', 12)}</button>`
+  meta.innerHTML = `<span class="msg-time">${formatTime(msgTime || new Date())}</span><button class="msg-copy-btn" title="${t('common.copy')}" aria-label="${t('common.copy')}">${svgIcon('copy', 12)}</button><span class="msg-feedback"><button class="msg-fb-btn" data-fb="like" title="${t('chat.feedbackLike') || '有帮助'}" aria-label="${t('chat.feedbackLike') || '有帮助'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14zM7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg></button><button class="msg-fb-btn" data-fb="dislike" title="${t('chat.feedbackDislike') || '待改进'}" aria-label="${t('chat.feedbackDislike') || '待改进'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10zM17 2h3a2 2 0 012 2v7a2 2 0 01-2 2h-3"/></svg></button></span>`
 
   wrap.appendChild(bubble)
   wrap.appendChild(meta)
@@ -4008,4 +4021,59 @@ export function cleanup() {
   _workspaceLoading = false
   _workspaceLoadSeq = 0
   _workspaceOpenSeq = 0
+}
+
+// ── 消息反馈（点赞/点踩） ──
+const FEEDBACK_KEY = 'clawpanel-msg-feedback'
+let _msgIdCounter = 0
+
+function _genMsgId(el) {
+  const ts = Date.now()
+  return `msg-${ts}-${_msgIdCounter++}`
+}
+
+function _loadFeedback() {
+  try { return JSON.parse(localStorage.getItem(FEEDBACK_KEY)) || {} } catch { return {} }
+}
+
+function _saveFeedback(data) {
+  try { localStorage.setItem(FEEDBACK_KEY, JSON.stringify(data)) } catch {}
+}
+
+function _toggleMsgFeedback(msgWrap, msgId, vote) {
+  const feedback = _loadFeedback()
+  const current = feedback[msgId]
+
+  // 如果点击的是当前投票，取消
+  if (current === vote) {
+    delete feedback[msgId]
+    _saveFeedback(feedback)
+    _updateFeedbackUI(msgWrap, null)
+    return
+  }
+
+  // 设置新投票
+  feedback[msgId] = vote
+  _saveFeedback(feedback)
+  _updateFeedbackUI(msgWrap, vote)
+}
+
+function _updateFeedbackUI(msgWrap, vote) {
+  const feedbackEl = msgWrap.querySelector('.msg-feedback')
+  if (!feedbackEl) return
+  const likeBtn = feedbackEl.querySelector('[data-fb="like"]')
+  const disBtn = feedbackEl.querySelector('[data-fb="dislike"]')
+  if (likeBtn) likeBtn.classList.toggle('active-like', vote === 'like')
+  if (disBtn) disBtn.classList.toggle('active-dislike', vote === 'dislike')
+  if (vote) feedbackEl.classList.add('has-vote')
+  else feedbackEl.classList.remove('has-vote')
+}
+
+// 加载历史投票后恢复UI
+function _restoreFeedbackUI(msgEl) {
+  const msgId = msgEl.dataset.msgId
+  if (!msgId) return
+  const feedback = _loadFeedback()
+  const vote = feedback[msgId]
+  if (vote) _updateFeedbackUI(msgEl, vote)
 }

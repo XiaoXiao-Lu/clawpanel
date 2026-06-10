@@ -1528,6 +1528,41 @@
 .msg-copy-btn:hover { color: var(--text-primary); background: var(--bg-tertiary); }
 .msg-copy-btn.copied { opacity: 1; color: var(--success); }
 
+/* ── 消息反馈（点赞/点踩） ── */
+.msg-feedback {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  opacity: 0;
+  transition: opacity var(--ease-fast);
+  margin-left: auto;
+}
+.msg:hover .msg-feedback,
+.msg-feedback.has-vote { opacity: 1; }
+.msg-fb-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--ease-fast), background var(--ease-fast), transform var(--ease-fast);
+  padding: 0;
+}
+.msg-fb-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+.msg-fb-btn:active { transform: scale(0.88); }
+.msg-fb-btn.active-like { color: var(--success); }
+.msg-fb-btn.active-dislike { color: var(--error); }
+.msg-fb-btn.active-like:hover { background: rgba(16,185,129,0.1); }
+.msg-fb-btn.active-dislike:hover { background: rgba(239,68,68,0.1); }
+
 /* 消息内图片 */
 .msg-img {
   max-width: min(280px, 60vw);
