@@ -287,6 +287,77 @@ async function createPersistedTeam(page) {
   }
 }
 
+async function checkTemplateTeamSavePersists(page) {
+  await page.goto(url, { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('#expert-teams-editor', { timeout: 30000 })
+  await waitForExpertTeamsIdle(page)
+  await page.locator('[data-expert-tab="groups"]').click()
+  await waitForExpertTeamsIdle(page)
+
+  await clickAction(page, 'add')
+  const picker = page.locator('.expert-template-picker-overlay')
+  await picker.waitFor({ timeout: 10000 })
+  await picker.locator('[data-template-idx="1"]').click()
+  await page.locator('#group-id').waitFor({ timeout: 10000 })
+  await page.locator('#group-id').fill('smoke-template-product')
+  await page.locator('input[data-member-toggle][value="smoke-planner"]').setChecked(true)
+  await page.locator('#group-moderator').selectOption('smoke-planner')
+  await saveAndWait(page, 'save_expert_group')
+  await page.locator('[data-select-id="smoke-template-product"]').waitFor({ timeout: 10000 })
+
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await waitForExpertTeamsIdle(page)
+  await page.locator('[data-expert-tab="groups"]').click()
+  await page.locator('[data-select-id="smoke-template-product"]').click()
+  await page.locator('#group-id').waitFor({ timeout: 10000 })
+
+  const saved = await page.evaluate(async () => {
+    const response = await fetch('/__api/list_expert_groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+    if (!response.ok) throw new Error(`list_expert_groups failed: ${response.status}`)
+    const groups = await response.json()
+    return (Array.isArray(groups) ? groups : []).find(group => group.id === 'smoke-template-product') || null
+  })
+  if (!saved) throw new Error('Saved template team was not returned by the API after reload')
+  const memberIds = (Array.isArray(saved.members) ? saved.members : []).map(member => member.expertId)
+  if (saved.mode !== 'panel') throw new Error(`Saved template team mode changed to ${saved.mode}`)
+  if (saved.maxRounds !== 2 || saved.maxParallel !== 3) {
+    throw new Error(`Saved template team limits changed: rounds=${saved.maxRounds}, parallel=${saved.maxParallel}`)
+  }
+  if (saved.moderatorExpertId !== 'smoke-planner') {
+    throw new Error(`Saved template team moderator changed to ${saved.moderatorExpertId || '<none>'}`)
+  }
+  if (memberIds.join(',') !== 'smoke-planner') {
+    throw new Error(`Saved template team members changed: ${memberIds.join(',')}`)
+  }
+
+  const ui = {
+    mode: await page.locator('#group-mode').inputValue(),
+    maxRounds: await page.locator('#group-max-rounds').inputValue(),
+    maxParallel: await page.locator('#group-max-parallel').inputValue(),
+    selectedCount: await page.locator('#expert-member-picker [data-member-row].is-selected').count(),
+    moderatorValue: await page.locator('#group-moderator').inputValue(),
+  }
+  if (ui.mode !== 'panel' || ui.maxRounds !== '2' || ui.maxParallel !== '3') {
+    throw new Error(`Reloaded template team UI values changed: ${JSON.stringify(ui)}`)
+  }
+  if (ui.selectedCount !== 1 || ui.moderatorValue !== 'smoke-planner') {
+    throw new Error(`Reloaded template team member UI changed: ${JSON.stringify(ui)}`)
+  }
+
+  return {
+    groupId: saved.id,
+    mode: saved.mode,
+    maxRounds: saved.maxRounds,
+    maxParallel: saved.maxParallel,
+    moderatorExpertId: saved.moderatorExpertId,
+    memberIds,
+  }
+}
+
 async function checkDelayedSkillsRefreshPreservesDirtyEditor(page) {
   let releaseSkills
   let intercepted = false
@@ -485,6 +556,7 @@ async function main() {
     const desktop = await checkExpertTeamsPage(page, { width: 1366, height: 900 }, 'desktop')
     const templateDraft = await checkGroupTemplatePickerAppliesDraft(page)
     const persistence = await createPersistedTeam(page)
+    const templatePersistence = await checkTemplateTeamSavePersists(page)
     const delayedSkillsRefresh = await checkDelayedSkillsRefreshPreservesDirtyEditor(page)
     const deletionPrune = await checkDeletedExpertPrunesPersistedTeam(page)
     const mobile = await checkExpertTeamsPage(page, { width: 390, height: 844 }, 'mobile')
@@ -498,6 +570,7 @@ async function main() {
       desktop,
       templateDraft,
       persistence,
+      templatePersistence,
       delayedSkillsRefresh,
       deletionPrune,
       mobile,
