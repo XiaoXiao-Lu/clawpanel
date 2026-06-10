@@ -844,6 +844,12 @@ function renderWaterfall(page, state) {
   }
 }
 
+function renderDefaultModelViews(page, state, options = {}) {
+  if (options.providers) renderProviders(page, state)
+  renderDefaultBar(page, state)
+  if (state._fallbacks_expanded) renderWaterfall(page, state)
+}
+
 function bindWaterfallActions(page, state) {
   const container = page.querySelector('#fallback-waterfall-container')
 
@@ -854,7 +860,7 @@ function bindWaterfallActions(page, state) {
       const modelConfig = ensureDefaultModelConfig(state)
       pushUndo(state)
       modelConfig.fallbacks = modelConfig.fallbacks.filter(f => f !== id)
-      renderDefaultBar(page, state)
+      renderDefaultModelViews(page, state)
       updateUndoBtn(page, state)
       autoSave(state)
     }
@@ -866,8 +872,7 @@ function bindWaterfallActions(page, state) {
       const full = btn.dataset.id
       pushUndo(state)
       setPrimary(state, full)
-      renderDefaultBar(page, state)
-      renderProviders(page, state)
+      renderDefaultModelViews(page, state, { providers: true })
       updateUndoBtn(page, state)
       autoSave(state)
       toast(t('models.setAsPrimarySuccess', { model: full }), 'success')
@@ -882,7 +887,7 @@ function bindWaterfallActions(page, state) {
       if (modelConfig.fallbacks.includes(full)) return
       pushUndo(state)
       modelConfig.fallbacks.push(full)
-      renderDefaultBar(page, state)
+      renderDefaultModelViews(page, state)
       updateUndoBtn(page, state)
       autoSave(state)
     }
@@ -898,7 +903,7 @@ function bindWaterfallActions(page, state) {
       if (!modelConfig.fallbacks.length) return
       pushUndo(state)
       modelConfig.fallbacks = []
-      renderDefaultBar(page, state)
+      renderDefaultModelViews(page, state)
       updateUndoBtn(page, state)
       autoSave(state)
     }
@@ -918,7 +923,7 @@ function bindWaterfallActions(page, state) {
       const group = header.closest('.candidate-provider-group')
       const pKey = group.dataset.provider
       state._fallback_candidates_collapsed[pKey] = !state._fallback_candidates_collapsed[pKey]
-      renderDefaultBar(page, state)
+      renderWaterfall(page, state)
     }
   })
 
@@ -938,7 +943,7 @@ function bindWaterfallActions(page, state) {
           updateUndoBtn(page, state)
           autoSave(state)
         }
-        renderDefaultBar(page, state)
+        renderDefaultModelViews(page, state)
       },
     })
   }
@@ -1461,8 +1466,7 @@ async function handleAction(action, btn, card, section, providerKey, provider, p
       pushUndo(state)
       delete state.config.models.providers[providerKey]
       cleanupDeletedProviderReferences(state, providerKey)
-      renderProviders(page, state)
-      renderDefaultBar(page, state)
+      renderDefaultModelViews(page, state, { providers: true })
       updateUndoBtn(page, state)
       autoSave(state)
       toast(t('models.providerDeleted', { name: providerKey }), 'info')
@@ -1486,8 +1490,7 @@ async function handleAction(action, btn, card, section, providerKey, provider, p
       const idx = findModelIdx(provider, modelId)
       if (idx >= 0) provider.models.splice(idx, 1)
       cleanupDeletedModelReferences(state, [`${providerKey}/${modelId}`])
-      renderProviders(page, state)
-      renderDefaultBar(page, state)
+      renderDefaultModelViews(page, state, { providers: true })
       updateUndoBtn(page, state)
       autoSave(state)
       toast(t('models.modelDeleted', { name: modelId }), 'info')
@@ -1503,8 +1506,7 @@ async function handleAction(action, btn, card, section, providerKey, provider, p
       if (!card) return
       pushUndo(state)
       setPrimary(state, card.dataset.full)
-      renderProviders(page, state)
-      renderDefaultBar(page, state)
+      renderDefaultModelViews(page, state, { providers: true })
       updateUndoBtn(page, state)
       autoSave(state)
       toast(t('models.setPrimaryDone'), 'success')

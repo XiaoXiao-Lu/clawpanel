@@ -91,7 +91,7 @@
   border: 1px solid color-mix(in srgb, var(--success) 15%, var(--border-secondary));
   border-radius: var(--radius-xl);
   background: linear-gradient(135deg, color-mix(in srgb, var(--success) 4%, var(--bg-elevated)), var(--bg-elevated));
-  position: relative; overflow: hidden;
+  position: relative; overflow: visible;
   position: sticky; top: 0; z-index: var(--z-sticky);
   box-shadow: var(--shadow-sm);
 }
@@ -145,7 +145,14 @@
 
 /* Hero actions (buttons inside console) */
 .models-console-actions {
-  display: flex; gap: 6px; flex-shrink: 0;
+  display: flex; gap: 6px; flex-shrink: 0; align-items: center; flex-wrap: wrap;
+  position: relative; z-index: 1;
+}
+
+#models-primary-combobox-container {
+  flex: 1 1 280px;
+  min-width: min(280px, 100%);
+  max-width: 420px;
 }
 
 /* ═══ FALLBACK CHAIN BAR ═══ */
@@ -729,7 +736,7 @@
 .connectors-editor-error { min-height: 18px; white-space: pre-wrap; }
 
 /* ═══ COMBOBOX ═══ */
-.hm-combo { position: relative; display: inline-block; }
+.hm-combo { position: relative; display: block; width: 100%; min-width: 0; }
 .hm-combo__input {
   width: 100%; padding: var(--space-sm) var(--space-md);
   font-size: var(--font-size-sm);
@@ -740,8 +747,9 @@
 .hm-combo__input:focus { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-muted); }
 .hm-combo__input:disabled { background: var(--bg-sunken); color: var(--text-tertiary); cursor: not-allowed; }
 .hm-combo__dropdown {
-  position: absolute; top: 100%; left: 0; right: 0; z-index: var(--z-overlay);
-  margin-top: 4px; max-height: 240px; overflow-y: auto;
+  position: absolute; top: calc(100% + 6px); left: 0; right: auto; z-index: 1000;
+  width: max(100%, min(420px, calc(100vw - 48px)));
+  max-height: 260px; overflow-y: auto;
   border: 1px solid var(--border-secondary); border-radius: var(--radius-md);
   background: var(--bg-elevated); box-shadow: var(--shadow-md);
 }

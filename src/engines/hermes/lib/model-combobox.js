@@ -195,7 +195,13 @@ export function createModelCombobox(container, options = {}) {
   input.addEventListener('focus', () => {
     if (!models.length || input.disabled) return
     activeIndex = -1
-    renderDropdown(input.value)
+    renderDropdown('')
+  })
+
+  input.addEventListener('click', () => {
+    if (!models.length || input.disabled || open) return
+    activeIndex = -1
+    renderDropdown('')
   })
 
   input.addEventListener('input', () => {
