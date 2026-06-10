@@ -36,6 +36,33 @@ function logWsDebug(message, ...details) {
   console.debug(message, ...details)
 }
 
+function safeErrorSummary(error) {
+  if (!error) return { message: 'Unknown error' }
+  if (typeof error === 'string') return { message: safeLogText(error) }
+  const summary = {
+    name: safeLogText(error.name || 'Error'),
+    message: safeLogText(error.message || error.reason || String(error)),
+  }
+  if (error.code != null) summary.code = safeLogText(error.code)
+  if (error.type) summary.type = safeLogText(error.type)
+  return summary
+}
+
+function safeCloseReason(reason) {
+  const text = safeLogText(reason)
+  if (!text) return 'Gateway rejected the connection'
+  if (/token|password|secret|credential|authorization|bearer/i.test(text)) return 'Gateway authentication rejected'
+  if (/signature|protocol|origin|pairing|device|rate.?limit|unauthorized/i.test(text)) return text
+  return text.length > 120 ? `${text.slice(0, 120)}...` : text
+}
+
+function safeLogText(value) {
+  return String(value || '')
+    .replace(/(token|password|secret|api[-_]?key|authorization|bearer)\s*[:=]\s*([^\s,;&]+)/gi, '$1=[redacted]')
+    .replace(/([?&](?:token|password|secret|api_key|apiKey)=)[^&\s]+/gi, '$1[redacted]')
+    .trim()
+}
+
 /**
  * 判断 RPC 错误是否为「method 不被当前 Gateway 支持」类型。
  * 用于跨内核兼容降级：老内核没有的新 RPC 应该被静默吃掉，而不是 toast 给小白用户。
@@ -307,6 +334,7 @@ export class WsClient {
 
       // ── 1008: 握手期策略拒绝（按 reason 文本精确分流）──
       if (e.code === 1008 && !this._intentionalClose) {
+        const safeReason = safeCloseReason(e.reason)
         if (/origin not allowed/i.test(reason)) {
           // Origin 不在白名单 → 自动配对（写 allowedOrigins + reload）
           if (this._autoPairAttempts < 1) {
@@ -327,7 +355,7 @@ export class WsClient {
             this._refreshCredentialsAndReconnect()
             return
           }
-          this._setConnected(false, 'auth_failed', `认证失败: ${e.reason || 'token mismatch'}。请检查 Gateway Token 配置。`)
+          this._setConnected(false, 'auth_failed', '认证失败，请检查 Gateway Token 配置。')
           this._intentionalClose = true
           this._flushPending()
           return
@@ -351,7 +379,7 @@ export class WsClient {
             this._autoPairAndReconnect()
             return
           }
-          this._setConnected(false, 'error', `设备认证失败: ${e.reason}`)
+          this._setConnected(false, 'error', '设备认证失败，请重新配对设备。')
           return
         }
         if (/rate.?limit/i.test(reason)) {
@@ -366,15 +394,15 @@ export class WsClient {
         // Gateway 内核过旧：不支持 ClawPanel 0.15+ 使用的 v3 签名 payload / minProtocol=3
         // 关闭 reason 通常是 'device signature invalid' / 'protocol mismatch'
         if (isProtocolIncompatReason(reason)) {
-          console.warn('[ws] Gateway 协议/签名不兼容（内核过旧）:', e.reason)
+          console.warn('[ws] Gateway 协议/签名不兼容（内核过旧）:', { reason: safeReason })
           this._intentionalClose = true
           this._flushPending()
           this._setConnected(false, 'error', kernelTooOldMessage())
           return
         }
         // 其他 1008（如 invalid role）→ 显示错误
-        console.warn('[ws] 收到 1008 关闭:', e.reason)
-        this._setConnected(false, 'error', e.reason || '连接被 Gateway 拒绝')
+        console.warn('[ws] 收到 1008 关闭:', { reason: safeReason })
+        this._setConnected(false, 'error', safeReason || '连接被 Gateway 拒绝')
         return
       }
 
@@ -388,7 +416,7 @@ export class WsClient {
     }
 
     ws.onerror = (err) => {
-      console.error('[ws] WebSocket 错误:', err)
+      console.error('[ws] WebSocket 错误:', safeErrorSummary(err))
     }
   }
 
@@ -416,7 +444,7 @@ export class WsClient {
         const details = msg.error?.details || {}
         const detailCode = details.code || ''
         const nextStep = details.recommendedNextStep || ''
-        console.error('[ws] connect 失败:', { errCode, detailCode, nextStep, errMsg })
+        console.error('[ws] connect 失败:', { errCode, detailCode, nextStep, errMsg: safeLogText(errMsg) })
 
         // 按 detailCode 精确分流（上游 ConnectErrorDetailCodes）
         let handled = false
@@ -472,7 +500,7 @@ export class WsClient {
             // 兼容旧版 Gateway（不含 details）：按 errCode / errMsg 分流
             if (errCode === 'NOT_PAIRED' || /origin not allowed/i.test(errMsg)) {
               if (this._autoPairAttempts < 1) {
-                logWsDebug('[ws] 检测到配对/origin 错误，尝试自动修复...', errCode || errMsg)
+                logWsDebug('[ws] 检测到配对/origin 错误，尝试自动修复...', errCode || safeLogText(errMsg))
                 this._autoPairAndReconnect()
                 return
               }
@@ -523,6 +551,7 @@ export class WsClient {
         }
 
         // 使用 recommendedNextStep 给用户更好的提示
+        const safeErrMsg = safeLogText(errMsg) || 'Gateway 握手失败'
         const hints = {
           'retry_with_device_token': '设备令牌需要更新，请重启面板',
           'update_auth_configuration': '请检查 Gateway 认证配置',
@@ -531,7 +560,7 @@ export class WsClient {
           'review_auth_configuration': '请检查 Gateway 安全配置',
         }
         const hint = hints[nextStep] || ''
-        const displayMsg = hint ? `${errMsg}（${hint}）` : errMsg
+        const displayMsg = hint ? `${safeErrMsg}（${hint}）` : safeErrMsg
         this._setConnected(false, 'error', displayMsg)
         this._readyCallbacks.forEach(fn => {
           try { fn(null, null, { error: true, message: displayMsg, detailCode, nextStep }) } catch {}
@@ -583,7 +612,7 @@ export class WsClient {
       }
 
       this._eventListeners.forEach(fn => {
-        try { fn(msg) } catch (e) { console.error('[ws] handler error:', e) }
+        try { fn(msg) } catch (e) { console.error('[ws] handler error:', safeErrorSummary(e)) }
       })
     }
   }
@@ -611,8 +640,9 @@ export class WsClient {
         }
       }, 3000)
     } catch (e) {
-      console.error('[ws] 自动配对失败:', e)
-      this._setConnected(false, 'error', `配对失败: ${e?.message || e}`)
+      const summary = safeErrorSummary(e)
+      console.error('[ws] 自动配对失败:', summary)
+      this._setConnected(false, 'error', `配对失败: ${summary.message}`)
     }
   }
 
@@ -638,8 +668,9 @@ export class WsClient {
         }
       }, 3000)
     } catch (e) {
-      console.error('[ws] 刷新凭据失败:', e)
-      this._setConnected(false, 'error', `凭据刷新失败: ${e?.message || e}`)
+      const summary = safeErrorSummary(e)
+      console.error('[ws] 刷新凭据失败:', summary)
+      this._setConnected(false, 'error', `凭据刷新失败: ${summary.message}`)
     }
   }
 
@@ -652,7 +683,7 @@ export class WsClient {
         this._ws.send(JSON.stringify(frame))
       }
     } catch (e) {
-      console.error('[ws] 生成 connect frame 失败:', e)
+      console.error('[ws] 生成 connect frame 失败:', safeErrorSummary(e))
       this._handshaking = false
     }
   }
@@ -679,7 +710,7 @@ export class WsClient {
     this._setConnected(true, 'ready')
     this._readyCallbacks.forEach(fn => {
       try { fn(this._hello, this._sessionKey) } catch (e) {
-        console.error('[ws] ready cb error:', e)
+        console.error('[ws] ready cb error:', safeErrorSummary(e))
       }
     })
   }
@@ -688,7 +719,7 @@ export class WsClient {
     this._connected = val
     const s = status || (val ? 'connected' : 'disconnected')
     this._statusListeners.forEach(fn => {
-      try { fn(s, errorMsg) } catch (e) { console.error('[ws] status listener error:', e) }
+      try { fn(s, errorMsg) } catch (e) { console.error('[ws] status listener error:', safeErrorSummary(e)) }
     })
   }
 
@@ -1058,8 +1089,9 @@ export class WsClient {
       }
       return { history }
     } catch (e) {
-      console.error('[ws] 拉取历史消息失败:', e)
-      return { error: e.message }
+      const summary = safeErrorSummary(e)
+      console.error('[ws] 拉取历史消息失败:', summary)
+      return { error: summary.message }
     }
   }
 }

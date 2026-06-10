@@ -21,7 +21,7 @@ function functionBody(name) {
 }
 
 function methodBody(name) {
-  const match = new RegExp(`\\n\\s{2}${name}\\(`).exec(wsClient)
+  const match = new RegExp(`\\n\\s{2}(?:async\\s+)?${name}\\(`).exec(wsClient)
   assert.ok(match, `Expected ${name} method to exist`)
   const start = match.index
   const lineEnd = wsClient.indexOf('\n', start + 1)
@@ -57,4 +57,38 @@ test('ws-client logs do not expose session keys or attachment details', () => {
   assert.doesNotMatch(chatSend, /fileName/)
   assert.doesNotMatch(chatSend, /content\?\.length/)
   assert.doesNotMatch(chatSend, /附件详情/)
+})
+
+test('ws-client production error logs use sanitized summaries', () => {
+  const safeError = functionBody('safeErrorSummary')
+  assert.match(safeError, /safeLogText\(error\.message/)
+  assert.match(safeError, /summary\.code = safeLogText\(error\.code\)/)
+
+  const safeText = functionBody('safeLogText')
+  assert.match(safeText, /\[redacted\]/)
+  assert.match(safeText, /token\|password\|secret\|api/)
+
+  const unsafeLogPattern = /console\.(?:warn|error)\([^)\n]*(?:,\s*(?:e|err|error)(?:[\s,)])|e\.reason)/
+  assert.doesNotMatch(wsClient, unsafeLogPattern, 'production logs should not print raw error objects or close reasons')
+
+  const autoPair = methodBody('_autoPairAndReconnect')
+  assert.match(autoPair, /const summary = safeErrorSummary\(e\)/)
+  assert.doesNotMatch(autoPair, /e\?\.message \|\| e/)
+
+  const refresh = methodBody('_refreshCredentialsAndReconnect')
+  assert.match(refresh, /const summary = safeErrorSummary\(e\)/)
+  assert.doesNotMatch(refresh, /e\?\.message \|\| e/)
+})
+
+test('ws-client close reasons are sanitized before logging or display', () => {
+  const closeReason = functionBody('safeCloseReason')
+  assert.match(closeReason, /Gateway authentication rejected/)
+  assert.match(closeReason, /safeLogText\(reason\)/)
+
+  const doConnect = methodBody('_doConnect')
+  assert.match(doConnect, /const safeReason = safeCloseReason\(e\.reason\)/)
+  assert.doesNotMatch(doConnect, /console\.warn\([^)\n]*e\.reason/)
+  assert.doesNotMatch(doConnect, /_setConnected\([^)\n]*e\.reason/)
+  assert.doesNotMatch(doConnect, /认证失败: \$\{e\.reason/)
+  assert.doesNotMatch(doConnect, /设备认证失败: \$\{e\.reason/)
 })
