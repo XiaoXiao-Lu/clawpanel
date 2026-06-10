@@ -240,6 +240,8 @@ test('Expert Teams browser smoke guards slow Skills refresh while editing', () =
 
 test('Expert Teams browser smoke guards deleted expert pruning teams', () => {
   for (const token of [
+    'createBlankTeamDraft',
+    '.expert-template-picker-overlay [data-action="template-blank"]',
     'checkDeletedExpertPrunesPersistedTeam',
     '/__api/delete_expert',
     "id: 'smoke-reviewer'",

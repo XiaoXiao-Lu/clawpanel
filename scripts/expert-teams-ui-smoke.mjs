@@ -126,6 +126,15 @@ async function createExpert(page, expert) {
   await page.locator(`[data-select-id="${expert.id}"]`).waitFor({ timeout: 10000 })
 }
 
+async function createBlankTeamDraft(page) {
+  await clickAction(page, 'add')
+  const blankTemplate = page.locator('.expert-template-picker-overlay [data-action="template-blank"]')
+  if (await blankTemplate.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await blankTemplate.click()
+  }
+  await page.locator('#group-id').waitFor({ timeout: 10000 })
+}
+
 async function createPersistedTeam(page) {
   const experts = [
     {
@@ -151,7 +160,7 @@ async function createPersistedTeam(page) {
 
   await page.locator('[data-expert-tab="groups"]').click()
   await waitForExpertTeamsIdle(page)
-  await clickAction(page, 'add')
+  await createBlankTeamDraft(page)
   await page.locator('#group-id').fill('smoke-review-panel')
   await page.locator('#group-name').fill('Smoke Review Panel')
   await page.locator('#group-description').fill('Verifies that expert team config survives a real browser save and reload.')
