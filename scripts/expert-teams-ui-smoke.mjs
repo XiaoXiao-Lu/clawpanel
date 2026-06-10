@@ -620,6 +620,67 @@ async function checkInvalidTeamIdSaveIsBlocked(page) {
   return draftState
 }
 
+async function checkInvalidExpertModelSaveIsBlocked(page) {
+  await page.goto(url, { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('#expert-teams-editor', { timeout: 30000 })
+  await waitForExpertTeamsIdle(page)
+  await page.locator('[data-expert-tab="experts"]').click()
+  await waitForExpertTeamsIdle(page)
+
+  await clickAction(page, 'add')
+  await page.locator('#expert-id').waitFor({ timeout: 10000 })
+  await page.locator('#expert-id').fill('smoke-invalid-model')
+  await page.locator('#expert-name').fill('Smoke Invalid Model')
+  await page.locator('#expert-title').fill('Model Gate')
+  await page.locator('#expert-description').fill('Verifies fixed model references are validated before save.')
+  await page.locator('#expert-system-prompt').fill('Keep this expert as an unsaved validation draft.')
+  await page.locator('#expert-model-inherit').selectOption('fixed')
+  await page.locator('#expert-model-id').fill('smoke-invalid-model-ref')
+
+  const saveRequest = page.waitForRequest(
+    request => request.url().includes('/__api/save_expert'),
+    { timeout: 700 },
+  ).catch(() => null)
+  await clickAction(page, 'save')
+  const unexpectedRequest = await saveRequest
+  if (unexpectedRequest) {
+    throw new Error('Invalid expert fixed model attempted to call save_expert')
+  }
+
+  const toastMessage = page.locator('.toast.error, .toast[role="alert"], [role="alert"]').filter({
+    hasText: /指定模型时请填写 provider\/model|Enter provider\/model for a fixed model/,
+  })
+  await toastMessage.first().waitFor({ timeout: 5000 })
+
+  const saved = await page.evaluate(async () => {
+    const response = await fetch('/__api/list_experts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+    if (!response.ok) throw new Error(`list_experts failed: ${response.status}`)
+    const experts = await response.json()
+    return (Array.isArray(experts) ? experts : []).find(expert => expert.id === 'smoke-invalid-model') || null
+  })
+  if (saved) throw new Error('Invalid expert fixed model was persisted despite validation failure')
+
+  const draftState = {
+    idValue: await page.locator('#expert-id').inputValue(),
+    modelMode: await page.locator('#expert-model-inherit').inputValue(),
+    modelId: await page.locator('#expert-model-id').inputValue(),
+    toastText: await toastMessage.first().innerText(),
+  }
+  if (
+    draftState.idValue !== 'smoke-invalid-model'
+    || draftState.modelMode !== 'fixed'
+    || draftState.modelId !== 'smoke-invalid-model-ref'
+  ) {
+    throw new Error(`Invalid expert model validation changed the draft unexpectedly: ${JSON.stringify(draftState)}`)
+  }
+
+  return draftState
+}
+
 async function checkDelayedSkillsRefreshPreservesDirtyEditor(page) {
   let releaseSkills
   let intercepted = false
@@ -823,6 +884,7 @@ async function main() {
     const memberOrderDrag = await checkMemberDragOrderPersists(page)
     const emptyTeamValidation = await checkEmptyTeamSaveIsBlocked(page)
     const invalidTeamIdValidation = await checkInvalidTeamIdSaveIsBlocked(page)
+    const invalidExpertModelValidation = await checkInvalidExpertModelSaveIsBlocked(page)
     const delayedSkillsRefresh = await checkDelayedSkillsRefreshPreservesDirtyEditor(page)
     const deletionPrune = await checkDeletedExpertPrunesPersistedTeam(page)
     const mobile = await checkExpertTeamsPage(page, { width: 390, height: 844 }, 'mobile')
@@ -841,6 +903,7 @@ async function main() {
       memberOrderDrag,
       emptyTeamValidation,
       invalidTeamIdValidation,
+      invalidExpertModelValidation,
       delayedSkillsRefresh,
       deletionPrune,
       mobile,
