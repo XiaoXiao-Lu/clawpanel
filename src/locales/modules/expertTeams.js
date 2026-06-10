@@ -138,5 +138,6 @@ export default {
   deleteGroupImpact: _('只删除团队配置，不删除专家库中的专家。', 'Only the team config is deleted; expert profiles remain.'),
   idInvalid: _('ID 只能包含字母、数字、点、下划线和短横线。', 'ID can only include letters, numbers, dots, underscores, and hyphens.'),
   nameRequired: _('请填写名称。', 'Please enter a name.'),
+  groupMembersRequired: _('请至少为专家团选择一位专家。', 'Select at least one expert for the team.'),
   modelIdInvalid: _('指定模型时请填写 provider/model，例如 openai/gpt-4o。', 'Enter provider/model for a fixed model, for example openai/gpt-4o.'),
 }

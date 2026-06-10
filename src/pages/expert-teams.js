@@ -884,6 +884,7 @@ function collectGroup(page, current = {}) {
     .sort((a, b) => a.order - b.order)
     .map((member, index) => ({ ...member, order: index + 1 }))
   const memberIds = new Set(members.map(member => member.expertId))
+  if (!members.length) throw new Error(t('expertTeams.groupMembersRequired'))
   const moderatorExpertId = valueOf(page, '#group-moderator')
   return {
     ...current,

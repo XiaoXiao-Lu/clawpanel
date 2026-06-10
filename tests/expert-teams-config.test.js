@@ -112,6 +112,7 @@ test('Expert Teams page supports expert editing and team member selection', () =
     'selectedSkillNotScanned',
     'selectedTagNotAvailable',
     'modelIdInvalid',
+    'groupMembersRequired',
     'isProviderModelRef',
     'normalizeProviderModelRef',
     'const rawModelId',
@@ -163,6 +164,7 @@ test('Expert Teams page supports expert editing and team member selection', () =
   }
   assert.doesNotMatch(page, /modal\.querySelector\('\.expert-tag-modal-overlay'\)/)
   assert.match(expertTeamsLocale, /modelIdInvalid/)
+  assert.match(expertTeamsLocale, /groupMembersRequired/)
   assert.match(expertTeamsLocale, /workflowSequentialRoundMeaning/)
   assert.match(expertTeamsLocale, /workflowResearchTuning/)
 
