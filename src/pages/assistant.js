@@ -4469,8 +4469,6 @@ function renderExpertTeamMessage(m, idx) {
   const groupName = escHtml(m._expertTeamName || t('assistant.expertTeamGroupFallback'))
   const plan = m._expertTeamPlan
   const progress = getExpertTeamProgress(transcript, plan, isRunning)
-  const activeAgents = isRunning ? getExpertTeamActiveAgents(transcript) : []
-
   const memberStatuses = getExpertTeamMemberStatuses(plan, transcript, isRunning)
   const resumeActionsHtml = renderExpertTeamResumeActions(m, idx)
   const hasFinal = transcript.some(item => item.type === 'final')
@@ -4483,9 +4481,6 @@ function renderExpertTeamMessage(m, idx) {
 
   const errorEvents = transcript.filter(item => item.type === 'expert_error' || item.type === 'moderator_error' || item.type === 'error')
   const doneItems = isRunning ? transcript.filter(item => item.type === 'expert_done' && String(item.content || '').trim()) : []
-  const processItems = transcript.filter(item => !['final', 'error', 'stopped'].includes(item.type))
-  const processHtml = processItems.length ? processItems.map((item, eventIndex) => renderExpertTeamEventItem(item, eventIndex)).join('') : ''
-  const processCount = processItems.filter(item => item.type !== 'round_start').length || 0
 
   const runMeta = getExpertTeamRunMeta(m, progress)
   const elapsed = expertTeamRunElapsed(runMeta)
@@ -4493,49 +4488,11 @@ function renderExpertTeamMessage(m, idx) {
   const expertTotal = Math.max(Array.isArray(plan?.members) ? plan.members.length : 0, 1)
   const errorCount = errorEvents.length
   const pipeline = getExpertTeamPipeline(transcript, plan, isRunning)
-  const focusHtml = renderExpertTeamFocus(getExpertTeamFocus(transcript, plan, progress, isRunning))
-  const workboardHtml = renderExpertTeamWorkboard(plan, transcript, progress, isRunning, activeAgents)
-  const showWorkboard = !!workboardHtml
-  const activityHtml = renderExpertTeamActivityFeed(transcript, runMeta, isRunning)
-  const closeoutHtml = isRunning ? '' : renderExpertTeamCloseout(transcript, plan, progress)
-  const planHtml = plan ? `
-    <details class="ast-expert-plan">
-      <summary class="ast-expert-plan-head">
-        <strong>${escHtml(expertTeamPlanMetaLabel(plan))}</strong>
-        <span>${icon('chevron-down', 13)}</span>
-      </summary>
-      <div class="ast-expert-plan-members">
-        ${(plan.members || []).map(member => `
-          <span class="ast-expert-plan-member" style="--expert-color:${escAttr(getExpertColor(member.id))}" title="${escAttr(`${member.name || member.id}${member.title ? ` · ${member.title}` : ''}`)}">
-            <span>${escHtml(member.name || member.id)}</span>
-            ${member.title ? `<small>${escHtml(member.title)}</small>` : ''}
-          </span>
-        `).join('')}
-      </div>
-    </details>
-  ` : ''
-  const governanceHtml = renderExpertTeamGovernance(getExpertTeamGovernance(plan, transcript, progress))
-  const traceHtml = renderExpertTeamOperationTrace(transcript)
-  const runMetaHtml = renderExpertTeamRunMeta(runMeta, progress)
-  const detailsHtml = renderExpertTeamRunDetails({
-    activityHtml,
-    closeoutHtml: isRunning ? '' : closeoutHtml,
-    governanceHtml,
-    planHtml,
-    traceHtml,
-    runMetaHtml,
-  })
-  const stageHtml = `<div class="ast-expert-stage-board" aria-label="${escAttr(t('assistant.expertTeamStageBoardAria'))}">
-    ${pipeline.steps.map((step, i) => `<div class="ast-expert-stage-row ast-expert-stage-row--${escAttr(step.status)}">
-      <span class="ast-expert-stage-index">${i + 1}</span>
-      <span class="ast-expert-stage-name"><span>${escHtml(step.name)}</span><small>${escHtml(step.detail)}</small></span>
-      <span class="ast-expert-stage-status">${escHtml(expertTeamStageStatusLabel(step.status))}</span>
-    </div>`).join('')}
-  </div>`
+  const detailsHtml = renderExpertTeamDetailPanel(transcript, plan, progress, isRunning, m)
 
   const pipeHtml = pipeline.steps.map((s, i) => {
     const cls = s.status === 'done' ? 'is-done' : s.status === 'running' ? 'is-active' : ''
-    return '<span class="ex-pipe-step ' + cls + '"><span class="ex-pipe-dot"></span>' + escHtml(s.name) + '</span>'
+    return `<span class="ex-pipe-step ${cls}" role="listitem" title="${escAttr(s.detail)}"><span class="ex-pipe-dot"></span><span>${escHtml(s.name)}</span></span>`
   }).join('<span class="ex-pipe-arrow">→</span>')
 
   const active = isRunning ? [...transcript].reverse().find(item =>
@@ -4548,21 +4505,26 @@ function renderExpertTeamMessage(m, idx) {
   ) : ''
   const liveLabel = active ? (active.type?.startsWith('moderator') ? t('assistant.expertTeamLiveModerator') : (active.expertName || t('assistant.expertTeamLiveOutputting'))) : ''
   const liveModel = active?.model ? escHtml(modelTextFromSummary(active.model)) : ''
-  const liveHtml = isRunning && active ? `
-    <div class="ex-section">
-      <div class="ex-section-label">${escHtml(t('assistant.expertTeamCurrentOutput'))}</div>
-      <div class="ex-live-head">
-        <span class="ex-live-dot"></span>
-        <span class="ex-live-name">${escHtml(liveLabel)}</span>
-        ${liveModel ? `<span class="ex-live-model">${liveModel}</span>` : ''}
+  const liveHtml = isRunning ? `
+    <section class="ex-panel ex-panel--live" aria-label="${escAttr(t('assistant.expertTeamCurrentOutput'))}">
+      <div class="ex-panel-head">
+        <span class="ex-section-label">${escHtml(t('assistant.expertTeamCurrentOutput'))}</span>
+        <strong>${escHtml(progress.currentLabel)}</strong>
       </div>
-      <div class="ex-live-body" data-expert-live-id="${escAttr(liveId)}">
-        ${active.content ? `<div class="ex-live-text">${escHtml(expertTeamLiveText(active.content, 900))}</div>` : '<div class="ex-skel"><span></span><span></span></div>'}
-      </div>
-    </div>
+      ${active ? `
+        <div class="ex-live-head">
+          <span class="ex-live-dot"></span>
+          <span class="ex-live-name">${escHtml(liveLabel)}</span>
+          ${liveModel ? `<span class="ex-live-model">${liveModel}</span>` : ''}
+        </div>
+        <div class="ex-live-body" data-expert-live-id="${escAttr(liveId)}">
+          ${active.content ? `<div class="ex-live-text">${escHtml(expertTeamLiveText(active.content, 900))}</div>` : '<div class="ex-skel"><span></span><span></span></div>'}
+        </div>
+      ` : `<div class="ex-skel"><span></span><span></span></div>`}
+    </section>
   ` : ''
   const doneHtml = doneItems.length ? `
-    <div class="ex-section">
+    <section class="ex-panel ex-panel--completed">
       <div class="ex-section-label">${escHtml(t('assistant.expertTeamCompletedSection'))}</div>
       ${doneItems.map(item => `
         <div class="ex-done">
@@ -4573,54 +4535,53 @@ function renderExpertTeamMessage(m, idx) {
           <div class="ex-done-body">${escHtml(expertTeamLiveText(item.content, 180))}</div>
         </div>
       `).join('')}
-    </div>
+    </section>
   ` : ''
   const errorHtml = errorEvents.length ? `
-    <div class="ex-section">
+    <section class="ex-panel ex-panel--errors">
       ${errorEvents.map(item => `<div class="ex-error">
         <span class="ex-error-dot"></span>
         <span>${escHtml(expertTeamMessageText(item.message, t('assistant.expertTeamRuntimeException')))}</span>
         ${item.expertName ? `<span class="ex-error-who">${escHtml(item.expertName)}</span>` : ''}
       </div>`).join('')}
-    </div>
+    </section>
   ` : ''
   const membersHtml = memberStatuses.length ? `
-    <div class="ex-section">
+    <section class="ex-members-rail" aria-label="${escAttr(t('assistant.expertTeamMemberQueueAria'))}">
       <div class="ex-members">
         ${memberStatuses.map(member => {
           const sc = member.status === 'done' ? 'is-done' : member.status === 'running' ? 'is-active' : member.status === 'error' || member.status === 'warning' ? 'is-err' : ''
-          return `<span class="ex-member ${sc}"><span class="ex-member-dot" style="--c:${escAttr(getExpertColor(member.expertId))}"></span>${escHtml(member.name)}</span>`
+          return `<span class="ex-member ${sc}" title="${escAttr(member.title || member.detail)}"><span class="ex-member-dot" style="--c:${escAttr(getExpertColor(member.expertId))}"></span>${escHtml(member.name)}</span>`
         }).join('')}
       </div>
-    </div>
+    </section>
   ` : ''
-  const statsHtml = `<div class="ex-stats">
-    <span class="ex-stats-done">${escHtml(t('assistant.expertTeamStatsCompleted', { done: expertDone, total: expertTotal }))}</span>
-    ${errorCount ? `<span class="ex-stats-err">${escHtml(t('assistant.expertTeamStatErrors', { count: errorCount }))}</span>` : ''}
-    ${elapsed ? `<span>${escHtml(elapsed)}</span>` : ''}
-  </div>`
-  const topPrimaryHtml = !isRunning && primaryHtml ? `<div class="ex-section">${primaryHtml}</div>` : ''
-  const inlinePrimaryHtml = [stageHtml, liveHtml, doneHtml, errorHtml, membersHtml, statsHtml].filter(Boolean).join('')
-  const processBlock = !isRunning && processCount
-    ? `<details class="ex-process"><summary class="ex-process-summary">${escHtml(t('assistant.expertTeamProcessSummary', { count: processCount }))}</summary><div class="ex-process-body">${processHtml}</div></details>`
-    : ''
+  const overviewHtml = `<section class="ex-overview" aria-label="${escAttr(t('assistant.expertTeamStatsAria'))}">
+    <span><small>${escHtml(t('assistant.expertTeamStageRunning'))}</small><strong>${escHtml(progress.currentLabel)}</strong></span>
+    <span><small>${escHtml(t('assistant.expertTeamMetricOpinions'))}</small><strong>${escHtml(t('assistant.expertTeamStatsCompleted', { done: expertDone, total: expertTotal }))}</strong></span>
+    <span><small>${escHtml(t('assistant.expertTeamMetricExceptions'))}</small><strong class="${errorCount ? 'ex-danger' : ''}">${escHtml(errorCount ? t('assistant.expertTeamStatErrors', { count: errorCount }) : t('assistant.expertTeamStatNoErrors'))}</strong></span>
+    ${elapsed ? `<span><small>${escHtml(t('assistant.expertTeamElapsedLabel'))}</small><strong>${escHtml(elapsed)}</strong></span>` : ''}
+  </section>`
+  const deliveryHtml = !isRunning && primaryHtml ? `<section class="ex-panel ex-panel--delivery">${primaryHtml}</section>` : ''
+  const recoveryHtml = resumeActionsHtml ? `<section class="ex-panel ex-panel--recovery">${resumeActionsHtml}</section>` : ''
   const runningBarHtml = isRunning ? '<div class="ex-running-bar"></div>' : ''
 
   return `<div class="ast-msg ast-msg-ai ast-msg-expert-team" data-msg-idx="${escAttr(String(idx))}" data-expert-dom-id="${escAttr(expertTeamDomId(m))}">
     <div class="ex-card ast-expert-copy-source">
       <div class="ex-head">
-        <span class="ex-head-title">${escHtml(groupName)}</span>
+        <span class="ex-head-title">${groupName}</span>
         <span class="ex-head-badge ex-head-badge--${escAttr(progress.status)}">${escHtml(progress.statusLabel)}</span>
       </div>
-      <div class="ex-pipe">${pipeHtml}</div>
+      ${overviewHtml}
+      <div class="ex-pipe" role="list" aria-label="${escAttr(t('assistant.expertTeamPipelineAria'))}">${pipeHtml}</div>
       ${isRunning ? `<div class="ex-progress ast-expert-progress"><div class="ex-progress-bar" style="width:${progress.percent}%"></div></div>` : ''}
-      ${focusHtml}
-      ${topPrimaryHtml}
-      ${showWorkboard ? workboardHtml : ''}
-      ${inlinePrimaryHtml}
-      ${resumeActionsHtml}
+      ${liveHtml}
+      ${deliveryHtml}
+      ${doneHtml}
+      ${errorHtml}
+      ${membersHtml}
+      ${recoveryHtml}
       ${detailsHtml}
-      ${processBlock}
       ${runningBarHtml}
     </div>
     <div class="ast-msg-meta">
@@ -6349,9 +6310,10 @@ function applyExpertTeamLiveDomUpdate(payload) {
   if (!root) return
   const slots = root.querySelectorAll(`[data-expert-live-id="${cssEscape(payload.liveId)}"]`)
   slots.forEach(slot => {
+    const compactLive = slot.classList.contains('ex-live-body')
     slot.innerHTML = payload.content
-      ? `<div class="ast-expert-live-text">${escHtml(payload.content)}</div>`
-      : '<div class="ast-expert-skeleton"><span></span><span></span></div>'
+      ? `<div class="${compactLive ? 'ex-live-text' : 'ast-expert-live-text'}">${escHtml(payload.content)}</div>`
+      : compactLive ? '<div class="ex-skel"><span></span><span></span></div>' : '<div class="ast-expert-skeleton"><span></span><span></span></div>'
   })
   root.querySelectorAll(`[data-expert-active-id="${cssEscape(payload.liveId)}"] small`).forEach(chip => {
     if (payload.meta) chip.textContent = payload.meta
