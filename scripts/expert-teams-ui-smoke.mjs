@@ -358,6 +358,69 @@ async function checkTemplateTeamSavePersists(page) {
   }
 }
 
+async function checkModeratorClearsWhenMemberRemoved(page) {
+  await page.goto(url, { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('#expert-teams-editor', { timeout: 30000 })
+  await waitForExpertTeamsIdle(page)
+  await page.locator('[data-expert-tab="groups"]').click()
+  await waitForExpertTeamsIdle(page)
+
+  await createBlankTeamDraft(page)
+  await page.locator('#group-id').fill('smoke-moderator-sync')
+  await page.locator('#group-name').fill('Smoke Moderator Sync')
+  await page.locator('#group-description').fill('Verifies moderator choices update immediately when members change.')
+  await page.locator('#group-mode').selectOption('panel')
+  await page.locator('input[data-member-toggle][value="smoke-planner"]').setChecked(true)
+  await page.locator('input[data-member-toggle][value="smoke-reviewer"]').setChecked(true)
+  await page.locator('#group-moderator').selectOption('smoke-reviewer')
+
+  const beforeRemoval = await page.locator('#group-moderator').inputValue()
+  if (beforeRemoval !== 'smoke-reviewer') {
+    throw new Error(`Moderator setup selected ${beforeRemoval || '<none>'} before member removal`)
+  }
+
+  await page.locator('input[data-member-toggle][value="smoke-reviewer"]').setChecked(false)
+  await page.waitForFunction(() => document.querySelector('#group-moderator')?.value === '', null, { timeout: 5000 })
+  const ui = {
+    moderatorValue: await page.locator('#group-moderator').inputValue(),
+    reviewerOptions: await page.locator('#group-moderator option[value="smoke-reviewer"]').count(),
+    selectedCount: await page.locator('#expert-member-picker [data-member-row].is-selected').count(),
+  }
+  if (ui.moderatorValue || ui.reviewerOptions !== 0 || ui.selectedCount !== 1) {
+    throw new Error(`Moderator choices did not refresh after member removal: ${JSON.stringify(ui)}`)
+  }
+
+  await saveAndWait(page, 'save_expert_group')
+  await page.locator('[data-select-id="smoke-moderator-sync"]').waitFor({ timeout: 10000 })
+
+  const saved = await page.evaluate(async () => {
+    const response = await fetch('/__api/list_expert_groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+    if (!response.ok) throw new Error(`list_expert_groups failed: ${response.status}`)
+    const groups = await response.json()
+    return (Array.isArray(groups) ? groups : []).find(group => group.id === 'smoke-moderator-sync') || null
+  })
+  if (!saved) throw new Error('Moderator sync smoke team was not returned by the API')
+  const memberIds = (Array.isArray(saved.members) ? saved.members : []).map(member => member.expertId)
+  if (saved.moderatorExpertId) {
+    throw new Error(`Removed member stayed as saved moderator: ${saved.moderatorExpertId}`)
+  }
+  if (memberIds.join(',') !== 'smoke-planner') {
+    throw new Error(`Moderator sync team saved unexpected members: ${memberIds.join(',')}`)
+  }
+
+  return {
+    groupId: saved.id,
+    beforeRemoval,
+    moderatorValue: saved.moderatorExpertId || '',
+    memberIds,
+    reviewerOptionsAfterRemoval: ui.reviewerOptions,
+  }
+}
+
 async function checkDelayedSkillsRefreshPreservesDirtyEditor(page) {
   let releaseSkills
   let intercepted = false
@@ -557,6 +620,7 @@ async function main() {
     const templateDraft = await checkGroupTemplatePickerAppliesDraft(page)
     const persistence = await createPersistedTeam(page)
     const templatePersistence = await checkTemplateTeamSavePersists(page)
+    const moderatorMemberSync = await checkModeratorClearsWhenMemberRemoved(page)
     const delayedSkillsRefresh = await checkDelayedSkillsRefreshPreservesDirtyEditor(page)
     const deletionPrune = await checkDeletedExpertPrunesPersistedTeam(page)
     const mobile = await checkExpertTeamsPage(page, { width: 390, height: 844 }, 'mobile')
@@ -571,6 +635,7 @@ async function main() {
       templateDraft,
       persistence,
       templatePersistence,
+      moderatorMemberSync,
       delayedSkillsRefresh,
       deletionPrune,
       mobile,
