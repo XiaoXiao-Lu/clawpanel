@@ -280,6 +280,60 @@ async function checkDelayedSkillsRefreshPreservesDirtyEditor(page) {
   return valuesAfterSkillsRefresh
 }
 
+async function checkDeletedExpertPrunesPersistedTeam(page) {
+  await page.evaluate(async () => {
+    const response = await fetch('/__api/delete_expert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: 'smoke-reviewer' }),
+    })
+    if (!response.ok) throw new Error(`delete_expert failed: ${response.status}`)
+  })
+
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await waitForExpertTeamsIdle(page)
+  await page.locator('[data-expert-tab="groups"]').click()
+  await page.locator('[data-select-id="smoke-review-panel"]').click()
+  await page.locator('#group-id').waitFor({ timeout: 10000 })
+
+  const pruned = await page.evaluate(async () => {
+    const [expertsResponse, groupsResponse] = await Promise.all([
+      fetch('/__api/list_experts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      }).then(response => response.json()),
+      fetch('/__api/list_expert_groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      }).then(response => response.json()),
+    ])
+    const expertIds = (Array.isArray(expertsResponse) ? expertsResponse : []).map(expert => expert.id)
+    const group = (Array.isArray(groupsResponse) ? groupsResponse : []).find(item => item.id === 'smoke-review-panel')
+    return {
+      expertIds,
+      moderatorExpertId: group?.moderatorExpertId || '',
+      memberIds: (Array.isArray(group?.members) ? group.members : []).map(member => member.expertId),
+    }
+  })
+  if (pruned.expertIds.includes('smoke-reviewer')) {
+    throw new Error('Deleted smoke expert still exists in the expert API list')
+  }
+  if (pruned.moderatorExpertId) {
+    throw new Error(`Deleted moderator was not cleared from smoke team: ${pruned.moderatorExpertId}`)
+  }
+  if (pruned.memberIds.join(',') !== 'smoke-planner') {
+    throw new Error(`Deleted expert was not pruned from smoke team members: ${pruned.memberIds.join(',')}`)
+  }
+
+  const selectedCount = await page.locator('#expert-member-picker [data-member-row].is-selected').count()
+  const moderatorValue = await page.locator('#group-moderator').inputValue()
+  if (selectedCount !== 1) throw new Error(`Pruned smoke team selected ${selectedCount} members instead of 1`)
+  if (moderatorValue) throw new Error(`Pruned smoke team still selected moderator ${moderatorValue}`)
+  return { ...pruned, selectedCount, moderatorValue }
+}
+
 async function checkExpertTeamsPage(page, viewport, label) {
   await page.setViewportSize(viewport)
   await page.goto(url, { waitUntil: 'domcontentloaded' })
@@ -351,6 +405,7 @@ async function main() {
     const desktop = await checkExpertTeamsPage(page, { width: 1366, height: 900 }, 'desktop')
     const persistence = await createPersistedTeam(page)
     const delayedSkillsRefresh = await checkDelayedSkillsRefreshPreservesDirtyEditor(page)
+    const deletionPrune = await checkDeletedExpertPrunesPersistedTeam(page)
     const mobile = await checkExpertTeamsPage(page, { width: 390, height: 844 }, 'mobile')
     if (consoleErrors.length) {
       throw new Error(`Console errors found:\n${consoleErrors.join('\n')}`)
@@ -362,6 +417,7 @@ async function main() {
       desktop,
       persistence,
       delayedSkillsRefresh,
+      deletionPrune,
       mobile,
       checkedAt: new Date().toISOString(),
     }

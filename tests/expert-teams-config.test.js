@@ -238,6 +238,21 @@ test('Expert Teams browser smoke guards slow Skills refresh while editing', () =
   }
 })
 
+test('Expert Teams browser smoke guards deleted expert pruning teams', () => {
+  for (const token of [
+    'checkDeletedExpertPrunesPersistedTeam',
+    '/__api/delete_expert',
+    "id: 'smoke-reviewer'",
+    'Deleted smoke expert still exists in the expert API list',
+    'Deleted moderator was not cleared from smoke team',
+    'Deleted expert was not pruned from smoke team members',
+    'Pruned smoke team selected',
+    'deletionPrune',
+  ]) {
+    assert.match(smoke, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
+})
+
 test('Expert Teams runner defines structured expert communication', () => {
   for (const token of [
     'buildExpertTeamPlan',
