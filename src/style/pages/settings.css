@@ -348,7 +348,7 @@
 .clawhub-item.store-item .clawhub-item-actions .btn:hover {
   background: var(--brand);
   border-color: var(--brand);
-  color: white;
+  color: var(--text-inverse);
 }
 .skill-card-item .clawhub-badge,
 .clawhub-item.store-item .clawhub-badge {
@@ -374,7 +374,7 @@
 .skills-preview-modal-icon {
   width: 38px; height: 38px; border-radius: var(--radius-md);
   display: grid; place-items: center; flex: 0 0 auto;
-  color: white; font-weight: 700; font-size: var(--font-size-xl);
+  color: var(--text-inverse); font-weight: 700; font-size: var(--font-size-xl);
   background: var(--brand);
   position: relative; overflow: hidden;
 }
@@ -534,7 +534,7 @@
   width: 44px; height: 44px; display: grid; place-items: center;
   border-radius: var(--radius-lg);
   background: var(--brand);
-  color: white; font-size: var(--font-size-xl); flex-shrink: 0;
+  color: var(--text-inverse); font-size: var(--font-size-xl); flex-shrink: 0;
 }
 
 .skills-store-title {
@@ -582,7 +582,7 @@
   background: color-mix(in srgb, var(--brand) 6%, var(--surface-raised));
 }
 .skills-chip.active {
-  border-color: var(--brand); color: white; background: var(--brand);
+  border-color: var(--brand); color: var(--text-inverse); background: var(--brand);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--brand) 35%, transparent);
 }
 .skills-chip .chip-icon {

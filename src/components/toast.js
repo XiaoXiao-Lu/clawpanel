@@ -13,6 +13,9 @@ import { t } from '../lib/i18n.js'
 import { navigate } from '../router.js'
 
 let _container = null
+// Toast 去重：跟踪最近显示的 toast 消息，防止相同消息堆叠
+const _recentMessages = new Map()
+const _TOAST_DEDUP_WINDOW = 2000 // 2秒内同消息不重复显示
 
 function ensureContainer() {
   if (!_container) {
@@ -30,6 +33,18 @@ function isStructuredError(v) {
 }
 
 export function toast(message, type = 'info', options = {}) {
+  // 去重：2秒内相同消息不重复显示
+  const dedupKey = (typeof message === 'string' ? message : message?.message || '') + '|' + type
+  const now = Date.now()
+  if (_recentMessages.has(dedupKey) && (now - _recentMessages.get(dedupKey)) < _TOAST_DEDUP_WINDOW) {
+    return
+  }
+  _recentMessages.set(dedupKey, now)
+  // 清理过期记录
+  if (_recentMessages.size > 20) {
+    for (const [k, t] of _recentMessages) { if (now - t > _TOAST_DEDUP_WINDOW) _recentMessages.delete(k) }
+  }
+
   // 结构化错误对象需要展示「主行 + hint + 技术详情折叠」，duration 给长一些
   const structured = isStructuredError(message)
   const duration = options.duration || (structured && (message.hint || message.raw) ? 6000

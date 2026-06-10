@@ -36,7 +36,19 @@ function cssFiles(dir = srcDir, files = []) {
 
 test('design tokens define legacy aliases used across older pages', () => {
   const rootTokens = cssBlock(variablesCss, ':root')
-  for (const name of ['--primary', '--primary-hover', '--border', '--border-color', '--bg-hover', '--accent-bg', '--accent-border', '--accent-subtle']) {
+  for (const name of [
+    '--primary',
+    '--primary-hover',
+    '--border',
+    '--border-color',
+    '--bg-hover',
+    '--bg-active',
+    '--accent-bg',
+    '--accent-border',
+    '--accent-subtle',
+    '--shadow-brand',
+    '--shadow-slate',
+  ]) {
     assert.match(variablesCss, new RegExp(`${name}\\s*:`), `${name} should be defined as a stable token`)
   }
   assert.match(rootTokens, /--primary-hover:\s*var\(--brand-400\)/, '--primary-hover should follow the brand hover color')

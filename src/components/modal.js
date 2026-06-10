@@ -10,6 +10,30 @@ const _focusStack = []
 function pushFocus() { _focusStack.push(document.activeElement) }
 function popFocus() { const el = _focusStack.pop(); if (el?.focus) el.focus() }
 
+/** Body scroll lock — 防止 modal 打开时背景滚动 */
+let _scrollLockCount = 0
+let _scrollPosition = 0
+function lockBodyScroll() {
+  if (_scrollLockCount === 0) {
+    _scrollPosition = window.scrollY
+    document.body.style.position = 'fixed'
+    document.body.style.top = `-${_scrollPosition}px`
+    document.body.style.width = '100%'
+    document.body.style.overflow = 'hidden'
+  }
+  _scrollLockCount++
+}
+function unlockBodyScroll() {
+  _scrollLockCount = Math.max(0, _scrollLockCount - 1)
+  if (_scrollLockCount === 0) {
+    document.body.style.position = ''
+    document.body.style.top = ''
+    document.body.style.width = ''
+    document.body.style.overflow = ''
+    window.scrollTo(0, _scrollPosition)
+  }
+}
+
 /**
  * Focus trap — 将 Tab 键限制在 modal 内部
  * @param {HTMLElement} overlay
@@ -99,6 +123,7 @@ export function showConfirm(message, options = {}) {
 
   return new Promise((resolve) => {
     pushFocus()
+    lockBodyScroll()
     const overlay = document.createElement('div')
     overlay.className = 'modal-overlay'
     const modalId = 'modal-' + Date.now()
@@ -120,6 +145,7 @@ export function showConfirm(message, options = {}) {
 
     const close = (result) => {
       overlay.remove()
+      unlockBodyScroll()
       popFocus()
       resolve(result)
     }
@@ -138,6 +164,7 @@ export function showConfirm(message, options = {}) {
 
 export function showModal({ title, fields, onConfirm }) {
   pushFocus()
+  lockBodyScroll()
   const overlay = document.createElement('div')
   overlay.className = 'modal-overlay'
   const modalId = 'modal-' + Date.now()
@@ -191,11 +218,13 @@ export function showModal({ title, fields, onConfirm }) {
   bindOverlayClose(overlay, () => {
     document.removeEventListener('keydown', _docEscHandler)
     overlay.remove()
+    unlockBodyScroll()
     popFocus()
   })
 
   overlay.querySelector('[data-action="cancel"]').onclick = () => {
     overlay.remove()
+    unlockBodyScroll()
     popFocus()
   }
 
@@ -213,6 +242,7 @@ export function showModal({ title, fields, onConfirm }) {
     setTimeout(() => {
       document.removeEventListener('keydown', _docEscHandler)
       overlay.remove()
+      unlockBodyScroll()
       popFocus()
     }, 0)
     callback(result)
@@ -226,6 +256,7 @@ export function showModal({ title, fields, onConfirm }) {
     } else if (e.key === 'Escape') {
       document.removeEventListener('keydown', _docEscHandler)
       overlay.remove()
+      unlockBodyScroll()
       popFocus()
     }
   }
@@ -244,6 +275,7 @@ export function showModal({ title, fields, onConfirm }) {
  */
 export function showContentModal({ title, content, buttons = [], width = 480 }) {
   pushFocus()
+  lockBodyScroll()
   const overlay = document.createElement('div')
   overlay.className = 'modal-overlay'
   const modalId = 'modal-' + Date.now()
@@ -270,6 +302,7 @@ export function showContentModal({ title, content, buttons = [], width = 480 }) 
 
   overlay.close = () => {
     overlay.remove()
+    unlockBodyScroll()
     popFocus()
   }
 

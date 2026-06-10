@@ -369,7 +369,7 @@
 .dashboard-next-action:hover {
   background: var(--brand-light);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px -4px rgba(99, 102, 241, 0.35);
+  box-shadow: var(--shadow-glow);
 }
 
 .dashboard-health-metrics {

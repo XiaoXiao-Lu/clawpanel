@@ -8,7 +8,7 @@
   display: flex;
   justify-content: center;
   padding-top: 120px;
-  animation: cp-fade-in 0.15s ease;
+  animation: cp-fade-in var(--ease-fast);
 }
 
 @keyframes cp-fade-in {
@@ -26,7 +26,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: cp-slide-in 0.15s ease;
+  animation: cp-slide-in var(--ease-fast);
 }
 
 @keyframes cp-slide-in {
@@ -109,6 +109,47 @@
   text-align: center;
   color: var(--text-tertiary);
   font-size: var(--font-size-sm);
+}
+
+/* Search highlight */
+.cp-highlight {
+  background: var(--brand-faint);
+  color: var(--brand);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* Keyboard hint footer */
+.command-palette-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border-1);
+  background: var(--bg-hover);
+}
+.cp-footer-hint {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.cp-footer-hint kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-1);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-2);
+  line-height: 1;
 }
 
 /* 移动端适配 */

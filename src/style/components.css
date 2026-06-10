@@ -1319,16 +1319,16 @@ body.has-desktop-chrome #backend-down-overlay {
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  border: 1px solid var(--border-primary, #e5e7eb);
-  border-radius: 12px;
-  background: var(--bg-secondary, #f9fafb);
+  border: 1px solid var(--border-1);
+  border-radius: var(--radius-xl);
+  background: var(--bg-elevated);
   color: inherit;
   cursor: pointer;
   text-decoration: none;
 }
 .engage-action-card:hover {
   border-color: var(--brand);
-  box-shadow: 0 2px 12px rgba(99,102,241,.12);
+  box-shadow: 0 2px 12px var(--shadow-brand);
   transform: translateY(-1px);
 }
 .engage-action-icon {
@@ -1338,7 +1338,7 @@ body.has-desktop-chrome #backend-down-overlay {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
 }
 .engage-action-star { background: var(--engage-star-bg); border: 1px solid var(--engage-star-border); }
 .engage-action-link { background: var(--engage-link-bg); color: var(--brand); border: 1px solid var(--engage-link-border); }
@@ -1367,13 +1367,13 @@ body.has-desktop-chrome #backend-down-overlay {
 }
 .engage-qr-item {
   padding: 6px;
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   color: inherit;
   text-align: center;
   text-decoration: none;
 }
 .engage-qr-item:hover {
-  background: var(--bg-secondary, #f5f5f5);
+  background: var(--bg-hover);
   transform: translateY(-2px);
 }
 .engage-qr-item img {

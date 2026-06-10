@@ -23,6 +23,7 @@
   --bg-card:            #121224;
   --bg-card-hover:      #181830;
   --bg-hover:           rgba(255, 255, 255, 0.04);
+  --bg-active:          var(--bg-glass-hover);
   --bg-glass:           rgba(255, 255, 255, 0.025);
   --bg-glass-hover:     rgba(255, 255, 255, 0.05);
   --surface-raised:     var(--bg-elevated);
@@ -99,6 +100,8 @@
   --shadow-xl:          0 16px 48px rgba(0, 0, 0, 0.55);
   --shadow-glow:        0 0 0 2px var(--brand-muted);
   --shadow-glow-strong: 0 0 20px -6px rgba(99, 102, 241, 0.35);
+  --shadow-brand:       rgba(129, 140, 248, 0.24);
+  --shadow-slate:       rgba(15, 23, 42, 0.16);
 
   /* ═══ Sidebar ═══ */
   --sidebar-bg:         #12122A;
@@ -194,6 +197,17 @@
   --z-fullscreen:  5000;
   --z-splash:      99999;
   --z-titlebar:    100000;
+
+  /* ─── Local Z-Index layers (for internal component stacking) ─── */
+  --z-layer-1:          1;
+  --z-layer-2:          2;
+  --z-layer-3:          3;
+  --z-layer-4:          4;
+  --z-layer-5:          5;
+  --z-layer-10:         10;
+  --z-layer-20:         20;
+  --z-layer-30:         30;
+  --z-layer-50:         50;
 
   /* ─── Legacy Compatibility (deprecated, migrate to --brand-* / --error-* etc.) ─── */
   --accent:           var(--brand);
@@ -504,16 +518,6 @@
   --engage-link-bg:     rgba(239, 246, 255, 0.08);
   --engage-link-border: rgba(59, 130, 246, 0.15);
 
-  /* ─── Local Z-Index layers (for internal component stacking) ─── */
-  --z-layer-1:          1;
-  --z-layer-2:          2;
-  --z-layer-3:          3;
-  --z-layer-4:          4;
-  --z-layer-5:          5;
-  --z-layer-10:         10;
-  --z-layer-20:         20;
-  --z-layer-30:         30;
-  --z-layer-50:         50;
 }
 
 /* ══════════════════════════════════════

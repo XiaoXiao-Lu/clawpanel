@@ -68,7 +68,7 @@
   color: var(--text-2);
 }
 .community-qr--white-bg img {
-  background: #fff;
+  background: var(--bg-elevated);
 }
 .community-side {
   flex: 1;
@@ -165,7 +165,7 @@
   height: 64px;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
-  background: #fff;
+  background: var(--bg-elevated);
   padding: 2px;
   cursor: pointer;
 }

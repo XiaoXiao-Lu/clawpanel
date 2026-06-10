@@ -315,20 +315,20 @@ body.has-desktop-chrome #main-col {
   gap: 8px;
   margin: 0 8px 4px;
   padding: 7px 12px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--border-1);
   border-radius: var(--radius-lg);
-  background: rgba(255,255,255,0.02);
+  background: var(--bg-hover);
   color: var(--text-3);
   transition: opacity var(--ease-fast), transform var(--ease-fast);
 }
 .sidebar-search:hover {
-  border-color: rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.03);
+  border-color: var(--border-2);
+  background: var(--bg-active);
 }
 .sidebar-search:focus-within {
-  border-color: rgba(99,102,241,0.4);
-  background: rgba(99,102,241,0.04);
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.08);
+  border-color: var(--brand-muted);
+  background: var(--brand-faint);
+  box-shadow: 0 0 0 3px var(--brand-faint);
 }
 .sidebar-search:focus-within svg {
   color: var(--brand);
@@ -628,8 +628,8 @@ body.has-desktop-chrome #main-col {
   right: 12px;
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
-  border-radius: 12px;
-  box-shadow: 0 -12px 30px rgba(15, 23, 42, 0.16);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 -12px 30px var(--shadow-slate);
   max-height: 0;
   overflow: hidden;
   opacity: 0;
@@ -732,18 +732,18 @@ body.has-desktop-chrome #main-col {
 }
 
 .nav-item:hover {
-  background: rgba(255,255,255,0.04);
+  background: var(--bg-hover);
   color: var(--text-1);
-  border-color: rgba(255,255,255,0.06);
+  border-color: var(--border-1);
 }
 
 /* Active — glowing pill */
 .nav-item.active {
-  background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(139,92,246,0.08) 100%);
-  color: var(--brand-300);
+  background: linear-gradient(135deg, var(--brand-faint) 0%, var(--brand-muted) 100%);
+  color: var(--brand);
   font-weight: 600;
-  border-color: rgba(99,102,241,0.25);
-  box-shadow: inset 3px 0 0 var(--brand), 0 0 12px -4px rgba(99,102,241,0.2), inset 0 1px 0 rgba(255,255,255,0.04);
+  border-color: var(--brand-muted);
+  box-shadow: inset 3px 0 0 var(--brand), 0 0 12px -4px var(--shadow-brand), inset 0 1px 0 var(--brand-faint);
 }
 
 /* Press feedback */
@@ -930,7 +930,7 @@ body.has-desktop-chrome #main-col {
   padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .setup-source-option:hover {
@@ -986,7 +986,7 @@ body.has-desktop-chrome #main-col {
   padding: 10px 20px;
   font-size: var(--text-sm);
   z-index: var(--z-sticky);
-  transition: max-height 350ms var(--ease-out), padding 350ms var(--ease-out), opacity 250ms ease, transform 300ms var(--ease-out);
+  transition: max-height var(--ease-slow), padding var(--ease-slow), opacity var(--ease-normal), transform var(--ease-out);
   overflow: hidden;
   max-height: 60px;
   transform: translateY(0);
@@ -1363,7 +1363,7 @@ body.has-desktop-chrome #main-col {
   gap: 8px;
   padding: 6px 8px 6px 12px;
   border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border-primary));
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   background: color-mix(in srgb, var(--bg-secondary) 92%, var(--warning));
   color: var(--text-primary);
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.14);
@@ -1397,7 +1397,7 @@ body.has-desktop-chrome #main-col {
   justify-content: center;
   padding: 0 10px;
   border: 1px solid color-mix(in srgb, var(--brand) 24%, transparent);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--brand) 10%, transparent);
   color: var(--brand);
   font-size: var(--font-size-xs);
@@ -1417,7 +1417,7 @@ body.has-desktop-chrome #main-col {
   place-items: center;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;

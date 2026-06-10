@@ -86,7 +86,12 @@ async function loadRoute() {
   const hash = window.location.hash.slice(1) || _defaultRoute
   const routePath = hash.split('?')[0]
   const loader = routes[routePath]
-  if (!loader || !_contentEl) return
+  if (!loader || !_contentEl) {
+    if (!loader && _contentEl && routePath) {
+      showNotFound(_contentEl, routePath)
+    }
+    return
+  }
 
   // 竞态防护：记录本次加载 ID
   const thisLoad = ++_loadId
@@ -207,6 +212,24 @@ function showLoadError(container, hash, error) {
       <div class="page-loader-text" style="color:var(--text-primary)">${escHtml(t('common.pageLoadFailed'))}</div>
       <div style="color:var(--text-tertiary);font-size:12px;margin:8px 0 16px;max-width:400px;word-break:break-all">${escHtml(String(error?.message || error))}</div>
       <button onclick="location.hash='${hash}';location.reload()" style="padding:6px 20px;border-radius:6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;font-size:13px">${escHtml(t('common.reloadRetry'))}</button>
+    </div>
+  `
+}
+
+function showNotFound(container, routePath) {
+  container.innerHTML = `
+    <div class="page-loader" style="text-align:center;padding:60px 20px">
+      <div style="color:var(--text-3);margin-bottom:16px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="56" height="56">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M16 16s-1.5-2-4-2-4 2-4 2"/>
+          <line x1="9" y1="9" x2="9.01" y2="9"/>
+          <line x1="15" y1="9" x2="15.01" y2="9"/>
+        </svg>
+      </div>
+      <div class="page-loader-text" style="color:var(--text-1);font-size:18px;margin-bottom:8px">${escHtml(t('common.pageNotFound') || '页面未找到')}</div>
+      <div style="color:var(--text-3);font-size:13px;margin-bottom:24px">${escHtml(t('common.pageNotFoundDesc') || '该路由未注册')}: <code style="background:var(--bg-hover);padding:2px 8px;border-radius:4px;font-size:12px">${escHtml(routePath)}</code></div>
+      <button onclick="location.hash='${escHtml(_defaultRoute)}'" style="padding:8px 24px;border-radius:var(--radius-lg);border:1px solid var(--brand-muted);background:var(--brand-faint);color:var(--brand);cursor:pointer;font-size:14px;font-weight:500;transition:background var(--ease-fast)">${escHtml(t('common.backToHome') || '返回首页')}</button>
     </div>
   `
 }

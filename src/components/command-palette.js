@@ -8,6 +8,7 @@ import { escapeHtml } from '../lib/utils.js'
 
 const _commandIndex = []
 const COMMAND_PALETTE_COMMANDS_KEY = '__clawpanelCommandPaletteCommands'
+const COMMAND_FREQ_KEY = '__clawpanelCommandFreq'
 let _overlay = null
 let _input = null
 let _resultsEl = null
@@ -16,6 +17,25 @@ let _selectedIndex = 0
 let _filteredItems = []
 let _previousFocus = null
 let _hydratedGlobalCommands = null
+let _currentQuery = ''
+
+/** 读取命令使用频率 */
+function getFreqMap() {
+  try {
+    const raw = localStorage.getItem(COMMAND_FREQ_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch { return {} }
+}
+
+/** 保存命令使用频率 */
+function recordUsage(cmdId) {
+  if (!cmdId) return
+  try {
+    const map = getFreqMap()
+    map[cmdId] = (map[cmdId] || 0) + 1
+    localStorage.setItem(COMMAND_FREQ_KEY, JSON.stringify(map))
+  } catch { /* ignore */ }
+}
 
 function hydrateGlobalCommands() {
   if (typeof window === 'undefined') return
@@ -43,7 +63,16 @@ export function registerCommands(cmds) {
 export function searchCommands(query) {
   hydrateGlobalCommands()
   const q = query.toLowerCase().trim()
-  if (!q) return _commandIndex.filter(c => !c.disabled)
+  _currentQuery = q
+  if (!q) {
+    // 无搜索时按使用频率排序
+    const freq = getFreqMap()
+    return _commandIndex.filter(c => !c.disabled).sort((a, b) => {
+      const fa = a.id ? (freq[a.id] || 0) : 0
+      const fb = b.id ? (freq[b.id] || 0) : 0
+      return fb - fa
+    })
+  }
   return _commandIndex.filter(c => {
     if (c.disabled) return false
     const haystack = [c.label, c.hint || '', ...(c.keywords || [])].join(' ').toLowerCase()
@@ -54,8 +83,22 @@ export function searchCommands(query) {
   }).sort((a, b) => {
     const aPrefix = a.label.toLowerCase().startsWith(q) ? 0 : 1
     const bPrefix = b.label.toLowerCase().startsWith(q) ? 0 : 1
-    return aPrefix - bPrefix
+    if (aPrefix !== bPrefix) return aPrefix - bPrefix
+    // 前缀相同时按频率排序
+    const freq = getFreqMap()
+    const fa = a.id ? (freq[a.id] || 0) : 0
+    const fb = b.id ? (freq[b.id] || 0) : 0
+    return fb - fa
   })
+}
+
+/** 高亮匹配文本 */
+function highlightMatch(text, query) {
+  if (!query) return escapeHtml(text)
+  const escaped = escapeHtml(text)
+  const q = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`(${q})`, 'gi')
+  return escaped.replace(regex, '<mark class="cp-highlight">$1</mark>')
 }
 
 /** 打开 Command Palette */
@@ -98,6 +141,16 @@ export function openPalette() {
   _resultsEl.className = 'command-palette-results'
   _resultsEl.setAttribute('role', 'listbox')
   palette.appendChild(_resultsEl)
+
+  // 键盘提示 footer
+  const footer = document.createElement('div')
+  footer.className = 'command-palette-footer'
+  footer.innerHTML = `
+    <span class="cp-footer-hint"><kbd>↑↓</kbd> 导航</span>
+    <span class="cp-footer-hint"><kbd>↵</kbd> 选择</span>
+    <span class="cp-footer-hint"><kbd>Esc</kbd> 关闭</span>
+  `
+  palette.appendChild(footer)
 
   // 实时区域 — 播报搜索结果数量
   _liveRegion = document.createElement('div')
@@ -251,13 +304,13 @@ function renderResults(items) {
 
       const labelSpan = document.createElement('span')
       labelSpan.className = 'command-palette-item-label'
-      labelSpan.textContent = item.label
+      labelSpan.innerHTML = highlightMatch(item.label, _currentQuery)
       row.appendChild(labelSpan)
 
       if (item.hint) {
         const hintSpan = document.createElement('span')
         hintSpan.className = 'command-palette-item-hint'
-        hintSpan.textContent = item.hint
+        hintSpan.innerHTML = highlightMatch(item.hint, _currentQuery)
         row.appendChild(hintSpan)
       }
 
@@ -292,6 +345,7 @@ function updateSelection() {
 }
 
 function executeCommand(cmd) {
+  recordUsage(cmd.id)
   closePalette()
   if (cmd && typeof cmd.execute === 'function') {
     try { cmd.execute() } catch (err) { console.error('Command execute error:', err) }

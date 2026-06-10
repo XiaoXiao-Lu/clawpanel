@@ -63,7 +63,7 @@
   height: 100%;
   background: var(--brand);
   border-radius: var(--radius-sm);
-  transition: width 0.4s ease;
+  transition: width var(--ease-slow);
 }
 .hermes-progress-bar.error {
   background: var(--error, #ef4444);
@@ -120,7 +120,7 @@
   color: var(--text-primary);
   font-size: var(--font-size-sm);
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color var(--ease-fast);
 }
 .hermes-field .input:focus {
   border-color: var(--brand);
@@ -192,7 +192,7 @@
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-sm);
-  transition: background 0.15s, opacity 0.15s;
+  transition: background var(--ease-fast), opacity var(--ease-fast);
 }
 .hm-new-btn:hover {
   background: var(--bg-tertiary);
@@ -212,7 +212,7 @@
   cursor: pointer;
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--ease-fast), color var(--ease-fast);
   margin-bottom: 2px;
 }
 .hm-session-item:hover {
@@ -237,7 +237,7 @@
   font-size: var(--font-size-lg);
   padding: 0 2px;
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity var(--ease-fast);
 }
 .hm-session-item:hover .hm-session-del {
   opacity: 0.6;
@@ -282,7 +282,7 @@
   border: 1px solid var(--border-primary);
   color: var(--text-primary);
   font-weight: 500;
-  transition: border-color 0.15s;
+  transition: border-color var(--ease-fast);
 }
 .hm-chat-model-bar .hm-model-input:hover {
   border-color: var(--brand);
@@ -298,7 +298,7 @@
   color: var(--text-tertiary);
   font-size: var(--font-size-sm);
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition: background var(--ease-fast), border-color var(--ease-fast);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -320,7 +320,7 @@
   text-decoration: none;
   white-space: nowrap;
   opacity: 0.8;
-  transition: opacity 0.15s;
+  transition: opacity var(--ease-fast);
 }
 .hm-chat-model-bar .hm-model-link:hover {
   opacity: 1;
@@ -346,7 +346,7 @@
   cursor: pointer;
   font-size: var(--font-size-sm);
   border-radius: var(--radius-sm);
-  transition: background 0.12s;
+  transition: background var(--ease-fast);
   color: var(--text-secondary);
 }
 .hm-chat-model-opt:hover {
@@ -382,7 +382,7 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: var(--font-size-sm);
-  transition: background 0.12s;
+  transition: background var(--ease-fast);
 }
 .hm-slash-item:hover {
   background: var(--bg-tertiary);
@@ -419,7 +419,7 @@
   background: var(--bg-tertiary);
   border-left: 3px solid var(--brand);
   overflow: hidden;
-  transition: border-color 0.2s;
+  transition: border-color var(--ease-fast);
 }
 .hm-tool-card.active {
   animation: hm-tool-pulse 1.5s ease-in-out infinite;
@@ -441,7 +441,7 @@
   color: var(--text-secondary);
   cursor: pointer;
   user-select: none;
-  transition: background 0.12s;
+  transition: background var(--ease-fast);
 }
 .hm-tool-card-header:hover {
   background: rgba(0,0,0,0.04);
@@ -467,7 +467,7 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   margin-left: 4px;
-  transition: transform 0.15s;
+  transition: transform var(--ease-fast);
 }
 @keyframes hm-tool-pulse {
   0%, 100% { opacity: 1; }
@@ -532,7 +532,7 @@
   gap: 12px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border-primary);
-  transition: background 0.12s;
+  transition: background var(--ease-fast);
 }
 .hm-cli-row:last-child {
   border-bottom: none;
@@ -587,7 +587,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition: color var(--ease-fast), border-color var(--ease-fast), background var(--ease-fast);
 }
 .hm-cli-copy:hover {
   color: var(--brand);
@@ -720,7 +720,7 @@
   border: 1px solid var(--border-primary);
   background: var(--bg-secondary);
   color: var(--text-primary);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--ease-fast), box-shadow var(--ease-fast);
 }
 .hm-chat-input-wrap textarea:focus {
   outline: none;
@@ -795,13 +795,13 @@
 .hm-logs-select {
   padding: var(--space-1) var(--space-2); border: 1px solid var(--border-primary); border-radius: var(--radius-sm, 6px);
   background: var(--bg-primary); color: var(--text-primary); font-size: var(--font-size-sm); cursor: pointer;
-  outline: none; transition: border-color 0.15s;
+  outline: none; transition: border-color var(--ease-fast);
 }
 .hm-logs-select:focus { border-color: var(--brand); }
 .hm-logs-search {
   padding: 4px 10px; border: 1px solid var(--border-primary); border-radius: var(--radius-sm, 6px);
   background: var(--bg-primary); color: var(--text-primary); font-size: var(--font-size-sm);
-  flex: 1; max-width: 200px; outline: none; transition: border-color 0.15s;
+  flex: 1; max-width: 200px; outline: none; transition: border-color var(--ease-fast);
 }
 .hm-logs-search:focus { border-color: var(--brand); }
 .hm-logs-search::placeholder { color: var(--text-tertiary); }
@@ -815,7 +815,7 @@
 }
 .hm-log-entry {
   display: flex; align-items: center; gap: 8px; padding: 2px 20px;
-  border-left: 2px solid transparent; transition: background 0.1s;
+  border-left: 2px solid transparent; transition: background var(--ease-fast);
 }
 .hm-log-entry:hover { background: rgba(0,0,0,0.02); }
 .hm-log-entry.error { border-left-color: var(--error, #ef4444); }
@@ -847,7 +847,7 @@
 .hm-skills-header-search {
   width: 200px; padding: 5px 10px; border: 1px solid var(--border-primary);
   border-radius: var(--radius-sm, 6px); background: var(--bg-primary); color: var(--text-primary);
-  font-size: var(--font-size-sm); outline: none; transition: border-color 0.15s;
+  font-size: var(--font-size-sm); outline: none; transition: border-color var(--ease-fast);
 }
 .hm-skills-header-search:focus { border-color: var(--brand); }
 .hm-skills-header-search::placeholder { color: var(--text-tertiary); }
@@ -874,7 +874,7 @@
   font-size: var(--font-size-xs); padding: 1px 6px; border-radius: var(--radius-md);
 }
 .hm-skills-item {
-  padding: 8px 14px; cursor: pointer; transition: background 0.12s;
+  padding: 8px 14px; cursor: pointer; transition: background var(--ease-fast);
   border-left: 2px solid transparent;
 }
 .hm-skills-item:hover { background: var(--bg-tertiary); }
@@ -1069,7 +1069,7 @@
 .es-glow {
   position: absolute;
   pointer-events: none;
-  transition: opacity 0.5s ease;
+  transition: opacity var(--ease-spring);
 }
 .es-glow-openclaw {
   top: -10%;
@@ -1096,7 +1096,7 @@
   inset: 0;
   background: linear-gradient(45deg, transparent calc(50% - 0.5px), rgba(180, 180, 180, 0.6) 50%, transparent calc(50% + 0.5px));
   pointer-events: none;
-  transition: opacity 0.5s ease;
+  transition: opacity var(--ease-spring);
 }
 
 /* —— 顶部 banner + 角标 —— */
@@ -1112,7 +1112,7 @@
   z-index: 5;
   pointer-events: none;
   font-weight: 500;
-  transition: opacity 0.5s ease;
+  transition: opacity var(--ease-spring);
 }
 .es-corner-mark {
   position: absolute;
@@ -1122,7 +1122,7 @@
   pointer-events: none;
   z-index: 5;
   font-weight: 500;
-  transition: opacity 0.5s ease;
+  transition: opacity var(--ease-spring);
 }
 .es-corner-tl { top: 32px; left: 36px; color: rgba(255, 255, 255, 0.45) }
 .es-corner-br { bottom: 32px; right: 36px; color: rgba(0, 0, 0, 0.45) }
@@ -1282,7 +1282,7 @@
   height: 18px;
   display: grid;
   place-items: center;
-  transition: transform 0.3s;
+  transition: transform var(--ease-out);
   font-weight: 400;
 }
 .es-stage[data-hover='openclaw'] .es-content-openclaw .es-cta-arrow { transform: translateX(4px) }
@@ -1304,7 +1304,7 @@
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   border: 1px solid rgba(180, 180, 180, 0.18);
-  transition: opacity 0.5s ease;
+  transition: opacity var(--ease-spring);
 }
 .es-secondary-link {
   background: transparent;
@@ -1316,7 +1316,7 @@
   cursor: pointer;
   padding: 6px 8px;
   border-radius: var(--radius-sm);
-  transition: color 0.2s ease, background 0.2s ease;
+  transition: color var(--ease-fast), background var(--ease-fast);
 }
 .es-secondary-link:hover {
   color: rgba(20, 20, 20, 0.95);
@@ -1341,7 +1341,7 @@
 .es-stage[data-expanding='openclaw'] .es-panel-hermes,
 .es-stage[data-expanding='hermes'] .es-panel-openclaw {
   opacity: 0;
-  transition: opacity 0.4s ease;
+  transition: opacity var(--ease-slow);
 }
 .es-stage[data-expanding] .es-content,
 .es-stage[data-expanding] .es-divider,

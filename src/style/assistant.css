@@ -463,7 +463,7 @@
 
 .ast-send-btn {
   background: var(--brand);
-  color: white;
+  color: var(--text-inverse);
   border: none;
   border-radius: var(--radius-md, 8px);
   width: 36px;
