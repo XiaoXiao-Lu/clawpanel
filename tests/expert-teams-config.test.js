@@ -72,6 +72,13 @@ test('Expert Teams page supports expert editing and team member selection', () =
     'api.saveExpertGroup',
     'api.deleteExpertGroup',
     'api.skillsList',
+    'role="tablist"',
+    'role="tab"',
+    'aria-selected="true"',
+    "tab.setAttribute('aria-selected'",
+    "tab.tabIndex = active ? 0 : -1",
+    "['ArrowLeft', 'ArrowRight', 'Home', 'End']",
+    'aria-current="true"',
     'expert-member-picker',
     'data-member-toggle',
     'data-member-order',
@@ -602,6 +609,8 @@ test('Expert Teams styling keeps a responsive workbench layout', () => {
   assert.match(cssBlock('.expert-member-order-label'), /border-radius:\s*var\(--radius-full\)/)
   assert.match(cssBlock('.expert-member-drag'), /cursor:\s*grab/)
   assert.match(cssBlock('.expert-member-row.is-dragging'), /opacity:\s*\.72/)
+  assert.match(css, /\.expert-list-item:focus-visible/)
+  assert.match(css, /\.expert-tag-picker-trigger:focus-visible/)
   assert.match(cssBlock('.expert-workflow-grid'), /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/)
   assert.match(cssBlock('.expert-workflow-grid-wide'), /grid-column:\s*1\s*\/\s*-1/)
   assert.match(css, /\.expert-form-section \.form-group\.is-muted/)

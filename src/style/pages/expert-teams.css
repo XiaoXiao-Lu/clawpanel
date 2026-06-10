@@ -137,6 +137,14 @@
   background: var(--bg-hover);
 }
 
+.expert-list-item:focus-visible,
+.expert-member-drag:focus-visible,
+.expert-tag-picker-trigger:focus-visible,
+.expert-tag-modal-close:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
 .expert-list-item.is-active {
   background: var(--brand-faint);
   box-shadow: inset 3px 0 0 var(--brand);

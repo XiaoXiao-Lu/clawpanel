@@ -64,9 +64,9 @@ export async function render() {
     </div>
 
     <div class="expert-teams-topline">
-      <div class="tab-bar expert-teams-tabs" id="expert-teams-tabs">
-        <button class="tab active" type="button" data-expert-tab="experts">${t('expertTeams.libraryTab')} <span id="expert-count">0</span></button>
-        <button class="tab" type="button" data-expert-tab="groups">${t('expertTeams.groupsTab')} <span id="group-count">0</span></button>
+      <div class="tab-bar expert-teams-tabs" id="expert-teams-tabs" role="tablist" aria-label="${escapeAttr(t('expertTeams.title'))}">
+        <button class="tab active" type="button" role="tab" aria-selected="true" tabindex="0" data-expert-tab="experts">${t('expertTeams.libraryTab')} <span id="expert-count">0</span></button>
+        <button class="tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-expert-tab="groups">${t('expertTeams.groupsTab')} <span id="group-count">0</span></button>
       </div>
       <div class="expert-teams-summary" id="expert-teams-summary"></div>
     </div>
@@ -146,6 +146,24 @@ function bindEvents(page, state) {
     if (e.target.id !== 'expert-teams-search') return
     state.search = e.target.value.trim().toLowerCase()
     renderList(page, state)
+  })
+
+  page.addEventListener('keydown', (e) => {
+    const tab = e.target.closest('[data-expert-tab]')
+    if (!tab) return
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
+    e.preventDefault()
+    const tabs = [...page.querySelectorAll('[data-expert-tab]')]
+    const currentIndex = Math.max(0, tabs.indexOf(tab))
+    const nextIndex = e.key === 'Home'
+      ? 0
+      : e.key === 'End'
+        ? tabs.length - 1
+        : e.key === 'ArrowLeft'
+          ? (currentIndex + tabs.length - 1) % tabs.length
+          : (currentIndex + 1) % tabs.length
+    tabs[nextIndex]?.focus()
+    tabs[nextIndex]?.click()
   })
 
   page.addEventListener('change', (e) => {
@@ -240,6 +258,8 @@ function renderTabs(page, state) {
   page.querySelectorAll('[data-expert-tab]').forEach(tab => {
     const active = tab.dataset.expertTab === state.activeTab
     tab.classList.toggle('active', active)
+    tab.setAttribute('aria-selected', active ? 'true' : 'false')
+    tab.tabIndex = active ? 0 : -1
   })
   const search = page.querySelector('#expert-teams-search')
   if (search) {
@@ -311,7 +331,7 @@ function renderList(page, state) {
 
 function renderExpertListItem(expert, active) {
   return `
-    <button class="expert-list-item ${active ? 'is-active' : ''}" type="button" data-select-id="${escapeAttr(expert.id)}">
+    <button class="expert-list-item ${active ? 'is-active' : ''}" type="button" data-select-id="${escapeAttr(expert.id)}" ${active ? 'aria-current="true"' : ''}>
       <span class="expert-avatar" style="--expert-color:${escapeAttr(expert.color || 'var(--brand, #4f46e5)')}"></span>
       <span class="expert-list-main">
         <strong>${escapeHtml(expert.name || expert.id)}</strong>
@@ -334,7 +354,7 @@ function renderGroupListItem(group, active, experts) {
     .slice(0, 3)
     .join(' / ')
   return `
-    <button class="expert-list-item ${active ? 'is-active' : ''}" type="button" data-select-id="${escapeAttr(group.id)}">
+    <button class="expert-list-item ${active ? 'is-active' : ''}" type="button" data-select-id="${escapeAttr(group.id)}" ${active ? 'aria-current="true"' : ''}>
       <span class="expert-avatar expert-avatar--team"></span>
       <span class="expert-list-main">
         <strong>${escapeHtml(group.name || group.id)}</strong>
