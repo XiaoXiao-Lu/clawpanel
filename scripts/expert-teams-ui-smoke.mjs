@@ -681,6 +681,60 @@ async function checkInvalidExpertModelSaveIsBlocked(page) {
   return draftState
 }
 
+async function checkInvalidExpertIdSaveIsBlocked(page) {
+  await page.goto(url, { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('#expert-teams-editor', { timeout: 30000 })
+  await waitForExpertTeamsIdle(page)
+  await page.locator('[data-expert-tab="experts"]').click()
+  await waitForExpertTeamsIdle(page)
+
+  await clickAction(page, 'add')
+  await page.locator('#expert-id').waitFor({ timeout: 10000 })
+  await page.locator('#expert-id').fill('smoke invalid/expert')
+  await page.locator('#expert-name').fill('Smoke Invalid Expert ID')
+  await page.locator('#expert-title').fill('Identity Gate')
+  await page.locator('#expert-description').fill('Verifies invalid expert IDs are blocked before save.')
+  await page.locator('#expert-system-prompt').fill('Keep this invalid ID expert as an unsaved validation draft.')
+
+  const saveRequest = page.waitForRequest(
+    request => request.url().includes('/__api/save_expert'),
+    { timeout: 700 },
+  ).catch(() => null)
+  await clickAction(page, 'save')
+  const unexpectedRequest = await saveRequest
+  if (unexpectedRequest) {
+    throw new Error('Invalid expert ID attempted to call save_expert')
+  }
+
+  const toastMessage = page.locator('.toast.error, .toast[role="alert"], [role="alert"]').filter({
+    hasText: /ID 只能包含字母、数字、点、下划线和短横线|ID can only include letters, numbers, dots, underscores, and hyphens/,
+  })
+  await toastMessage.first().waitFor({ timeout: 5000 })
+
+  const saved = await page.evaluate(async () => {
+    const response = await fetch('/__api/list_experts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+    if (!response.ok) throw new Error(`list_experts failed: ${response.status}`)
+    const experts = await response.json()
+    return (Array.isArray(experts) ? experts : []).find(expert => expert.id === 'smoke invalid/expert') || null
+  })
+  if (saved) throw new Error('Invalid expert ID was persisted despite validation failure')
+
+  const draftState = {
+    idValue: await page.locator('#expert-id').inputValue(),
+    nameValue: await page.locator('#expert-name').inputValue(),
+    toastText: await toastMessage.first().innerText(),
+  }
+  if (draftState.idValue !== 'smoke invalid/expert' || draftState.nameValue !== 'Smoke Invalid Expert ID') {
+    throw new Error(`Invalid expert ID validation changed the draft unexpectedly: ${JSON.stringify(draftState)}`)
+  }
+
+  return draftState
+}
+
 async function checkDelayedSkillsRefreshPreservesDirtyEditor(page) {
   let releaseSkills
   let intercepted = false
@@ -885,6 +939,7 @@ async function main() {
     const emptyTeamValidation = await checkEmptyTeamSaveIsBlocked(page)
     const invalidTeamIdValidation = await checkInvalidTeamIdSaveIsBlocked(page)
     const invalidExpertModelValidation = await checkInvalidExpertModelSaveIsBlocked(page)
+    const invalidExpertIdValidation = await checkInvalidExpertIdSaveIsBlocked(page)
     const delayedSkillsRefresh = await checkDelayedSkillsRefreshPreservesDirtyEditor(page)
     const deletionPrune = await checkDeletedExpertPrunesPersistedTeam(page)
     const mobile = await checkExpertTeamsPage(page, { width: 390, height: 844 }, 'mobile')
@@ -904,6 +959,7 @@ async function main() {
       emptyTeamValidation,
       invalidTeamIdValidation,
       invalidExpertModelValidation,
+      invalidExpertIdValidation,
       delayedSkillsRefresh,
       deletionPrune,
       mobile,
