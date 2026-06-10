@@ -87,6 +87,11 @@ function isIgnoredConsoleError(message) {
   return /\[ws\].*(AUTH_TOKEN_MISSING|生成 connect frame 失败|Failed to fetch)/.test(String(message || ''))
 }
 
+function consumeExpectedConsoleError(consoleErrors, pattern) {
+  const index = consoleErrors.findIndex(message => pattern.test(String(message || '')))
+  if (index >= 0) consoleErrors.splice(index, 1)
+}
+
 async function clickAction(page, action) {
   await page.locator(`.expert-teams-actions [data-action="${action}"], .expert-editor-actions [data-action="${action}"]`).last().click()
 }
@@ -735,6 +740,80 @@ async function checkInvalidExpertIdSaveIsBlocked(page) {
   return draftState
 }
 
+async function checkExpertSaveFailurePreservesDraft(page, consoleErrors) {
+  let intercepted = false
+  const routePattern = '**/__api/save_expert'
+  const failSaveExpert = async route => {
+    if (intercepted) return route.continue()
+    intercepted = true
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json; charset=utf-8',
+      body: JSON.stringify({ error: 'Smoke forced save_expert failure' }),
+    })
+  }
+
+  await page.route(routePattern, failSaveExpert)
+  try {
+    await page.goto(url, { waitUntil: 'domcontentloaded' })
+    await page.waitForSelector('#expert-teams-editor', { timeout: 30000 })
+    await waitForExpertTeamsIdle(page)
+    await page.locator('[data-expert-tab="experts"]').click()
+    await waitForExpertTeamsIdle(page)
+
+    await clickAction(page, 'add')
+    await page.locator('#expert-id').waitFor({ timeout: 10000 })
+    await page.locator('#expert-id').fill('smoke-save-failure')
+    await page.locator('#expert-name').fill('Smoke Save Failure')
+    await page.locator('#expert-title').fill('Failure Gate')
+    await page.locator('#expert-description').fill('Verifies failed expert saves keep the dirty draft intact.')
+    await page.locator('#expert-system-prompt').fill('Preserve this prompt when save_expert returns a server error.')
+
+    await Promise.all([
+      page.waitForResponse(response => response.url().includes('/__api/save_expert') && response.status() === 500),
+      clickAction(page, 'save'),
+    ])
+    if (!intercepted) throw new Error('Failed expert save smoke did not intercept save_expert')
+    await page.waitForTimeout(50)
+    consumeExpectedConsoleError(consoleErrors, /Failed to load resource: the server responded with a status of 500/)
+
+    const toastMessage = page.locator('.toast.error, .toast[role="alert"], [role="alert"]').filter({
+      hasText: /Smoke forced save_expert failure|保存失败|Save failed/,
+    })
+    await toastMessage.first().waitFor({ timeout: 5000 })
+
+    const saved = await page.evaluate(async () => {
+      const response = await fetch('/__api/list_experts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      })
+      if (!response.ok) throw new Error(`list_experts failed: ${response.status}`)
+      const experts = await response.json()
+      return (Array.isArray(experts) ? experts : []).find(expert => expert.id === 'smoke-save-failure') || null
+    })
+    if (saved) throw new Error('Failed expert save was persisted despite a server error')
+
+    const draftState = {
+      idValue: await page.locator('#expert-id').inputValue(),
+      nameValue: await page.locator('#expert-name').inputValue(),
+      promptValue: await page.locator('#expert-system-prompt').inputValue(),
+      toastText: await toastMessage.first().innerText(),
+    }
+    if (
+      draftState.idValue !== 'smoke-save-failure'
+      || draftState.nameValue !== 'Smoke Save Failure'
+      || draftState.promptValue !== 'Preserve this prompt when save_expert returns a server error.'
+    ) {
+      throw new Error(`Failed expert save changed the dirty draft unexpectedly: ${JSON.stringify(draftState)}`)
+    }
+
+    return draftState
+  } finally {
+    await page.unroute(routePattern, failSaveExpert).catch(() => {})
+  }
+}
+
 async function checkDelayedSkillsRefreshPreservesDirtyEditor(page) {
   let releaseSkills
   let intercepted = false
@@ -940,6 +1019,7 @@ async function main() {
     const invalidTeamIdValidation = await checkInvalidTeamIdSaveIsBlocked(page)
     const invalidExpertModelValidation = await checkInvalidExpertModelSaveIsBlocked(page)
     const invalidExpertIdValidation = await checkInvalidExpertIdSaveIsBlocked(page)
+    const expertSaveFailureDraft = await checkExpertSaveFailurePreservesDraft(page, consoleErrors)
     const delayedSkillsRefresh = await checkDelayedSkillsRefreshPreservesDirtyEditor(page)
     const deletionPrune = await checkDeletedExpertPrunesPersistedTeam(page)
     const mobile = await checkExpertTeamsPage(page, { width: 390, height: 844 }, 'mobile')
@@ -960,6 +1040,7 @@ async function main() {
       invalidTeamIdValidation,
       invalidExpertModelValidation,
       invalidExpertIdValidation,
+      expertSaveFailureDraft,
       delayedSkillsRefresh,
       deletionPrune,
       mobile,
