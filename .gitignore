@@ -21,6 +21,12 @@ src-tauri/gen/schemas/linux-schema.json
 tauri-dev.log
 api_doc_mcp.log
 
+# 本地 UI 巡检临时产物（已跟踪的基准报告/截图不受影响）
+reports/ui-review-*.md
+screenshots/models-*.png
+.workbuddy/memory/*.tmp.md
+.workbuddy/memory/*.bak.md
+
 # macOS
 .DS_Store
 .AppleDouble
