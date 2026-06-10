@@ -814,6 +814,86 @@ async function checkExpertSaveFailurePreservesDraft(page, consoleErrors) {
   }
 }
 
+async function checkTeamSaveFailurePreservesDraft(page, consoleErrors) {
+  let intercepted = false
+  const routePattern = '**/__api/save_expert_group'
+  const failSaveExpertGroup = async route => {
+    if (intercepted) return route.continue()
+    intercepted = true
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json; charset=utf-8',
+      body: JSON.stringify({ error: 'Smoke forced save_expert_group failure' }),
+    })
+  }
+
+  await page.route(routePattern, failSaveExpertGroup)
+  try {
+    await page.goto(url, { waitUntil: 'domcontentloaded' })
+    await page.waitForSelector('#expert-teams-editor', { timeout: 30000 })
+    await waitForExpertTeamsIdle(page)
+    await page.locator('[data-expert-tab="groups"]').click()
+    await waitForExpertTeamsIdle(page)
+
+    await createBlankTeamDraft(page)
+    await page.locator('#group-id').fill('smoke-group-save-failure')
+    await page.locator('#group-name').fill('Smoke Group Save Failure')
+    await page.locator('#group-description').fill('Verifies failed expert team saves keep the dirty draft intact.')
+    await page.locator('#group-mode').selectOption('sequential')
+    await page.locator('#group-max-rounds').fill('3')
+    await page.locator('#group-max-parallel').fill('2')
+    await page.locator('input[data-member-toggle][value="smoke-planner"]').setChecked(true)
+    await page.locator('#group-moderator').selectOption('smoke-planner')
+
+    await Promise.all([
+      page.waitForResponse(response => response.url().includes('/__api/save_expert_group') && response.status() === 500),
+      clickAction(page, 'save'),
+    ])
+    if (!intercepted) throw new Error('Failed expert team save smoke did not intercept save_expert_group')
+    await page.waitForTimeout(50)
+    consumeExpectedConsoleError(consoleErrors, /Failed to load resource: the server responded with a status of 500/)
+
+    const toastMessage = page.locator('.toast.error, .toast[role="alert"], [role="alert"]').filter({
+      hasText: /Smoke forced save_expert_group failure|保存失败|Save failed/,
+    })
+    await toastMessage.first().waitFor({ timeout: 5000 })
+
+    const saved = await page.evaluate(async () => {
+      const response = await fetch('/__api/list_expert_groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      })
+      if (!response.ok) throw new Error(`list_expert_groups failed: ${response.status}`)
+      const groups = await response.json()
+      return (Array.isArray(groups) ? groups : []).find(group => group.id === 'smoke-group-save-failure') || null
+    })
+    if (saved) throw new Error('Failed expert team save was persisted despite a server error')
+
+    const draftState = {
+      idValue: await page.locator('#group-id').inputValue(),
+      nameValue: await page.locator('#group-name').inputValue(),
+      modeValue: await page.locator('#group-mode').inputValue(),
+      moderatorValue: await page.locator('#group-moderator').inputValue(),
+      selectedCount: await page.locator('#expert-member-picker [data-member-row].is-selected').count(),
+      toastText: await toastMessage.first().innerText(),
+    }
+    if (
+      draftState.idValue !== 'smoke-group-save-failure'
+      || draftState.nameValue !== 'Smoke Group Save Failure'
+      || draftState.modeValue !== 'sequential'
+      || draftState.moderatorValue !== 'smoke-planner'
+      || draftState.selectedCount !== 1
+    ) {
+      throw new Error(`Failed expert team save changed the dirty draft unexpectedly: ${JSON.stringify(draftState)}`)
+    }
+
+    return draftState
+  } finally {
+    await page.unroute(routePattern, failSaveExpertGroup).catch(() => {})
+  }
+}
+
 async function checkDelayedSkillsRefreshPreservesDirtyEditor(page) {
   let releaseSkills
   let intercepted = false
@@ -1020,6 +1100,7 @@ async function main() {
     const invalidExpertModelValidation = await checkInvalidExpertModelSaveIsBlocked(page)
     const invalidExpertIdValidation = await checkInvalidExpertIdSaveIsBlocked(page)
     const expertSaveFailureDraft = await checkExpertSaveFailurePreservesDraft(page, consoleErrors)
+    const teamSaveFailureDraft = await checkTeamSaveFailurePreservesDraft(page, consoleErrors)
     const delayedSkillsRefresh = await checkDelayedSkillsRefreshPreservesDirtyEditor(page)
     const deletionPrune = await checkDeletedExpertPrunesPersistedTeam(page)
     const mobile = await checkExpertTeamsPage(page, { width: 390, height: 844 }, 'mobile')
@@ -1041,6 +1122,7 @@ async function main() {
       invalidExpertModelValidation,
       invalidExpertIdValidation,
       expertSaveFailureDraft,
+      teamSaveFailureDraft,
       delayedSkillsRefresh,
       deletionPrune,
       mobile,
