@@ -44,12 +44,13 @@ export async function render() {
     <div class="dashboard-section-divider"></div>
     <div class="stats-heading">${t('dashboard.statsTitle')}</div>
     <div class="stat-cards" id="stat-cards">
-      <div class="stat-card loading-placeholder"></div>
-      <div class="stat-card loading-placeholder"></div>
-      <div class="stat-card loading-placeholder"></div>
-      <div class="stat-card loading-placeholder"></div>
-      <div class="stat-card loading-placeholder"></div>
-      <div class="stat-card loading-placeholder"></div>
+      ${[1,2,3,4,5,6].map(() => `
+        <div class="stat-card">
+          <div class="stat-card-header"><span class="skeleton-line" style="width:60%"></span></div>
+          <div class="skeleton-line" style="width:40%;height:22px;margin-bottom:6px"></div>
+          <div class="skeleton-line" style="width:50%"></div>
+        </div>
+      `).join('')}
     </div>
     <div class="dashboard-section-divider"></div>
     <div class="stats-heading">${t('dashboard.overviewTitle')}</div>
@@ -560,7 +561,7 @@ function renderStatCards(page, services, version, agents, config, panelConfig) {
   const providerCount = config?.models?.providers ? Object.keys(config.models.providers).length : 0
 
   cardsEl.innerHTML = `
-    <div class="stat-card">
+    <div class="stat-card"${foreignGateway ? ' data-tone="warn"' : gw?.running ? ' data-tone="success"' : ' data-tone="info"'}>
       <div class="stat-card-header">
         <span class="stat-card-label">${t('dashboard.gateway')}</span>
         <span class="status-dot ${gw?.running ? 'running' : 'stopped'}"></span>
@@ -575,7 +576,7 @@ function renderStatCards(page, services, version, agents, config, panelConfig) {
            </div>`
         : ''}
     </div>
-    <div class="stat-card">
+    <div class="stat-card"${multiInstall && !cliBound ? ' data-tone="warn"' : multiInstall && cliBound ? ' data-tone="success"' : ''}>
       <div class="stat-card-header">
         <span class="stat-card-label">${t('dashboard.versionLabel')} · ${version.source === 'official' ? t('dashboard.versionOfficial') : version.source === 'chinese' ? t('dashboard.versionChinese') : t('dashboard.versionUnknownSource')}</span>
       </div>
@@ -608,7 +609,7 @@ function renderStatCards(page, services, version, agents, config, panelConfig) {
       <div class="stat-card-value">${modelCount} ${t('common.unit')}</div>
       <div class="stat-card-meta">${t('dashboard.basedOnProviders', { count: providerCount })}</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card"${runningCount === services.length && services.length > 0 ? ' data-tone="success"' : runningCount > 0 ? ' data-tone="warn"' : ' data-tone="error"'}>
       <div class="stat-card-header">
         <span class="stat-card-label">${t('dashboard.baseServices')}</span>
       </div>
