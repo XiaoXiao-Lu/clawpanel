@@ -114,3 +114,18 @@ test('assistant model calls do not log full provider response bodies', () => {
   assert.doesNotMatch(assistantJs, /console\.debug\(\s*['"`]\[assistant\][\s\S]*json\s*\)/)
   assert.match(assistantJs, /logAssistantDebug\('\[assistant\] 非流式响应摘要:',\s*_lastDebugInfo\.responseBody\)/)
 })
+
+test('assistant error reporting uses sanitized summaries', () => {
+  assert.match(assistantJs, /function\s+safeAssistantErrorText\s*\(error,\s*fallback\s*=\s*'操作失败'\)/)
+  assert.match(assistantJs, /\[REDACTED\]/, 'error summaries should redact obvious credential fields')
+  assert.match(assistantJs, /\[local-path\]/, 'error summaries should hide local filesystem paths')
+  assert.match(assistantJs, /cleanUrl\(url\)/, 'error summaries should strip query strings from URLs')
+  assert.match(assistantJs, /text\.length\s*>\s*180/, 'error summaries should be bounded before UI display')
+
+  assert.doesNotMatch(assistantJs, /console\.(warn|error)\(/, 'assistant production paths should not print raw error objects')
+  assert.doesNotMatch(assistantJs, /\$\{e\?\.message\s*\|\|\s*e\}/, 'prompt/tool output should not embed raw caught errors')
+  assert.doesNotMatch(assistantJs, /String\(err\?\.message\s*\|\|\s*err\)/, 'UI paths should not stringify raw caught errors')
+  assert.doesNotMatch(assistantJs, /:\s*\$\{err\.message\}/, 'chat bubbles should not append raw error messages')
+  assert.match(assistantJs, /error:\s*safeAssistantErrorText\(err,\s*t\('assistant\.testFailed'\)\)/)
+  assert.match(assistantJs, /const\s+safeErr\s*=\s*safeAssistantErrorText\(err,\s*t\('assistant\.requestInterrupted'\)\)/)
+})

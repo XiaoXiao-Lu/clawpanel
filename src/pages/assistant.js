@@ -40,9 +40,36 @@ function logAssistantDebug(message, details) {
   }
 }
 
+function safeAssistantErrorText(error, fallback = '操作失败') {
+  let text = ''
+  if (typeof error === 'string') {
+    text = error
+  } else if (typeof error?.message === 'string') {
+    text = error.message
+  } else if (typeof error?.body === 'string') {
+    text = error.body
+  } else if (error?.status) {
+    text = `HTTP ${error.status}`
+  }
+  text = String(text || fallback || '操作失败')
+    .replace(/(authorization|bearer|api[-_]?key|token|secret|password|credential)(\s*[:=]\s*)["']?[^"'\s,;]+/gi, '$1$2[REDACTED]')
+    .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{12,}/gi, '$1 [REDACTED]')
+    .replace(/([?&](?:api[-_]?key|token|secret|password|credential)=)[^&\s]+/gi, '$1[REDACTED]')
+    .replace(/\b[A-Za-z]:\\[^\s`"'<>]+/g, '[local-path]')
+    .replace(/(?:\/Users|\/home)\/[^\s`"'<>]+/g, '[local-path]')
+    .replace(/\bhttps?:\/\/[^\s`"'<>]+/gi, (url) => cleanUrl(url))
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text.length > 180 ? text.slice(0, 177) + '...' : text
+}
+
+function logAssistantIssue(message, error) {
+  logAssistantDebug(message, safeAssistantErrorText(error))
+}
+
 // ── 图片文件存储（通过 Tauri 后端持久化到 ~/.openclaw/clawpanel/images/）──
 async function saveImageToFile(id, dataUrl) {
-  try { await api.saveImage(id, dataUrl) } catch (e) { console.warn('图片保存失败:', e) }
+  try { await api.saveImage(id, dataUrl) } catch (e) { logAssistantIssue('[assistant] 图片保存失败', e) }
 }
 
 async function loadImageFromFile(id) {
@@ -1515,7 +1542,7 @@ async function buildSystemPromptAsync() {
         prompt += '\n\n' + ctx.markdown
       }
     } catch (e) {
-      prompt += `\n\n## 当前机器 OpenClaw 实况\n- 自动读取失败: ${e?.message || e}`
+      prompt += `\n\n## 当前机器 OpenClaw 实况\n- 自动读取失败: ${safeAssistantErrorText(e, '读取失败')}`
     }
   }
   return prompt
@@ -1554,7 +1581,7 @@ async function scanOpenClawAgents() {
     } catch {}
     return agents
   } catch (err) {
-    console.error('[soul] 扫描 Agent 失败:', err)
+    logAssistantIssue('[soul] 扫描 Agent 失败', err)
     return []
   }
 }
@@ -1604,7 +1631,7 @@ async function loadOpenClawSoul(agentId = 'default') {
     _soulCache = soul
     return soul
   } catch (err) {
-    console.error('[soul] 加载失败:', err)
+    logAssistantIssue('[soul] 加载失败', err)
     _soulCache = null
     return null
   }
@@ -2009,7 +2036,7 @@ async function diagnoseOpenClawTool(args = {}) {
       output += '\n\n## Gateway 连接深度诊断\n'
       output += JSON.stringify(await api.diagnoseGatewayConnection(), null, 2)
     } catch (e) {
-      output += `\n\n## Gateway 连接深度诊断\n读取失败: ${e?.message || e}`
+      output += `\n\n## Gateway 连接深度诊断\n读取失败: ${safeAssistantErrorText(e, '读取失败')}`
     }
     try {
       const tail = await api.readLogTail('gateway', 80)
@@ -2419,7 +2446,7 @@ const CIRCUIT_THRESHOLD = 3 // 同错误指纹出现 ≥3 次视为熔断打开
 let _recentFailures = [] // [{ fp: string, ts: number }]
 
 function _errorFingerprint(err) {
-  const msg = String(err?.message || err || '').trim()
+  const msg = safeAssistantErrorText(err, '').trim()
   if (!msg) return ''
   // 归一化：去掉变化的数字（时间戳/ID）、URL、多余空白，保留错误核心
   return msg
@@ -3200,8 +3227,8 @@ async function callAI(messages, onChunk) {
       if (i >= slots.length - 1) throw err
       // 还有备用：通知用户并继续
       const nextSlot = slots[i + 1]
-      const shortMsg = (err.message || '').slice(0, 80)
-      console.warn(`[assistant] 模型「${slot.label}」失败（${shortMsg}），切换到备用：${nextSlot.label}`)
+      const shortMsg = safeAssistantErrorText(err, '请求失败').slice(0, 80)
+      logAssistantDebug(`[assistant] 模型「${slot.label}」失败，切换到备用：${nextSlot.label}`, shortMsg)
       onChunk(`\n\n> ${t('assistant.failoverNotice', { from: slot.label, to: nextSlot.label, err: shortMsg })}\n\n`)
     }
   }
@@ -3360,14 +3387,14 @@ async function callChatCompletions(base, messages, onChunk) {
 
     // 如果没有 content 但有 reasoning，将推理内容作为回复（部分模型只返回 reasoning）
     if (contentChunks === 0 && reasoningBuf) {
-      console.warn('[assistant] 无 content 块，使用 reasoning_content 作为回复')
+      logAssistantDebug('[assistant] 无 content 块，使用 reasoning_content 作为回复')
       onChunk(reasoningBuf)
       _lastDebugInfo.fallbackToReasoning = true
     }
     // 流式完成但没有任何内容 → 视为无效响应（防止空气泡）
     if (contentChunks === 0 && !reasoningBuf) {
       const errDetail = streamError || t('assistant.errInvalidResponse')
-      console.warn('[assistant] SSE 流完成但 0 内容块:', errDetail)
+      logAssistantDebug('[assistant] SSE 流完成但 0 内容块', safeAssistantErrorText(errDetail, t('assistant.errInvalidResponse')))
       throw new Error(errDetail)
     }
   } else {
@@ -3504,7 +3531,7 @@ async function callAnthropicMessages(base, messages, onChunk) {
   _lastDebugInfo.chunks = { total: chunkCount, content: contentChunks, thinking: thinkingChunks }
 
   if (contentChunks === 0 && thinkingBuf) {
-    console.warn('[assistant] Anthropic: 无 text 块，使用 thinking 作为回复')
+    logAssistantDebug('[assistant] Anthropic: 无 text 块，使用 thinking 作为回复')
     onChunk(thinkingBuf)
     _lastDebugInfo.fallbackToThinking = true
   }
@@ -3837,7 +3864,7 @@ async function executeToolWithSafety(toolName, args, tcForConfirm) {
   }
   if (approved) {
     try { result = await executeTool(toolName, args) }
-    catch (err) { result = `${t('assistant.toolExecFail')}: ${typeof err === 'string' ? err : err.message || JSON.stringify(err)}` }
+    catch (err) { result = `${t('assistant.toolExecFail')}: ${safeAssistantErrorText(err, t('assistant.toolExecFail'))}` }
   }
   return { result, approved }
 }
@@ -7267,13 +7294,14 @@ function showSettings() {
         try {
           const errJson = JSON.parse(errText)
           if (errJson.error?.message) errMsg = errJson.error.message
-        } catch { if (errText) errMsg += ' — ' + errText.slice(0, 200) }
+        } catch { if (errText) errMsg += ' - ' + errText }
+        errMsg = safeAssistantErrorText(errMsg, `HTTP ${resp.status}`)
         // 将 URL 转为可点击链接
         const errHtml = escHtml(errMsg).replace(/(https?:\/\/[^\s,，。）)]+)/g, '<a href="$1" target="_blank" style="color:var(--primary)">$1</a>')
         qtcoolStatus.innerHTML = `<div style="color:var(--error);line-height:1.5">${statusIcon('err', 14)} <strong>${t('assistant.qtcoolTestFail')}</strong></div><div style="color:var(--text-secondary);font-size:11px;line-height:1.5;margin-top:4px;word-break:break-all">${errHtml}</div>`
       }
     } catch (err) {
-      qtcoolStatus.innerHTML = `<div style="color:var(--error)">${statusIcon('err', 14)} ${t('assistant.qtcoolConnectFail')}: ${escHtml(err.message)}</div>`
+      qtcoolStatus.innerHTML = `<div style="color:var(--error)">${statusIcon('err', 14)} ${t('assistant.qtcoolConnectFail')}: ${escHtml(safeAssistantErrorText(err, t('assistant.qtcoolConnectFail')))}</div>`
     }
     btn.disabled = false
     btn.innerHTML = `${icon('search', 12)} ${t('assistant.testBtn')}`
@@ -7464,7 +7492,7 @@ function showSettings() {
         respBody: '',
         respRawHex: '',
         respByteCount: 0,
-        error: err?.message || String(err),
+        error: safeAssistantErrorText(err, t('assistant.testFailed')),
       })
     }
     btn.disabled = false
@@ -7498,7 +7526,7 @@ function showSettings() {
       ).join('')
       dropdown.style.display = 'block'
     } catch (err) {
-      const errStr = String(err?.message || err)
+      const errStr = safeAssistantErrorText(err, t('assistant.fetchNotSupported'))
       // 服务商不支持 /models 接口 → 友好提示引导手动填写
       if (errStr.includes('[NOT_SUPPORTED]') || errStr.includes('不支持自动获取')) {
         resultEl.innerHTML = '<span style="color:var(--warning);line-height:1.5">⚠ ' + escHtml(t('assistant.fetchNotSupported')) + '</span>'
@@ -7612,7 +7640,7 @@ function showSettings() {
       })
 
     } catch (err) {
-      resultEl.innerHTML = '<span style="color:var(--error)">' + t('assistant.importFail') + ': ' + escHtml(err.message || String(err)) + '</span>'
+      resultEl.innerHTML = '<span style="color:var(--error)">' + t('assistant.importFail') + ': ' + escHtml(safeAssistantErrorText(err, t('assistant.importFail'))) + '</span>'
     } finally {
       btn.disabled = false
       btn.innerHTML = `${icon('download', 14)} ${t('assistant.importBtn')}`
@@ -7746,7 +7774,7 @@ async function loadExpertGroups() {
     _expertProfiles = normalizeExpertListResponse(expertRes, 'experts')
     syncActiveExpertGroup()
   } catch (e) {
-    console.warn('加载专家团列表失败:', e)
+    logAssistantIssue('[assistant] 加载专家团列表失败', e)
     _expertGroups = []
     _expertProfiles = []
     syncActiveExpertGroup()
@@ -8585,9 +8613,10 @@ async function sendMessageDirect(text) {
       // Fix #226: 记录错误用于熔断判断
       recordRequestFailure(err)
       // 保留已有内容，追加错误信息和重试按钮
+      const safeErr = safeAssistantErrorText(err, t('assistant.requestInterrupted'))
       const errInfo = aiMsg.content
-        ? `\n\n---\n**${t('assistant.requestInterrupted')}**: ${err.message}`
-        : err.message
+        ? `\n\n---\n**${t('assistant.requestInterrupted')}**: ${safeErr}`
+        : safeErr
       aiMsg.content += errInfo
       aiMsg._canRetry = true
       aiMsg._circuitOpen = isCircuitOpenFor(err)
@@ -8702,9 +8731,10 @@ async function retryAIResponse(session) {
       setSessionStatus(session.id, 'error')
       // Fix #226: 记录错误用于熔断判断
       recordRequestFailure(err)
+      const safeErr = safeAssistantErrorText(err, t('assistant.requestInterrupted'))
       aiMsg.content += aiMsg.content
-        ? `\n\n---\n**${t('assistant.requestInterrupted')}**: ${err.message}`
-        : err.message
+        ? `\n\n---\n**${t('assistant.requestInterrupted')}**: ${safeErr}`
+        : safeErr
       aiMsg._canRetry = true
       aiMsg._circuitOpen = isCircuitOpenFor(err)
     }
@@ -8866,7 +8896,7 @@ export async function render() {
   if (!_isStreaming) loadSessions()
 
   // 确保数据目录存在（~/.openclaw/clawpanel/images/ 等）
-  api.ensureDataDir().catch(e => console.warn('数据目录初始化失败:', e))
+  api.ensureDataDir().catch(e => logAssistantIssue('[assistant] 数据目录初始化失败', e))
 
   // 如果没有会话，不自动创建（显示欢迎页）
   if (_sessions.length > 0 && !_currentSessionId) {
