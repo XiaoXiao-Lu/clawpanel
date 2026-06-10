@@ -37,6 +37,7 @@ $RECYCLE.BIN/
 nul
 release_body.md
 release_body.md.bak
+artifacts/
 
 # 本地临时文件 / 设计文档 / 构建脚本
 .tmp/
