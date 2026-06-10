@@ -207,6 +207,79 @@ async function createPersistedTeam(page) {
   }
 }
 
+async function checkDelayedSkillsRefreshPreservesDirtyEditor(page) {
+  let releaseSkills
+  let intercepted = false
+  const releaseSkillsPromise = new Promise(resolve => { releaseSkills = resolve })
+  await page.route('**/__api/skills_list', async route => {
+    if (intercepted) return route.continue()
+    intercepted = true
+    await releaseSkillsPromise
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json; charset=utf-8',
+      body: JSON.stringify({
+        skills: [
+          {
+            name: 'slow-review-skill',
+            description: 'Synthetic skill returned after the expert form is already dirty.',
+            path: '/smoke/slow-review-skill/SKILL.md',
+          },
+        ],
+      }),
+    })
+  })
+
+  const skillsResponse = page.waitForResponse(response => response.url().includes('/__api/skills_list') && response.ok())
+  await page.goto(`${baseUrl}/?slowSkills=${Date.now()}#/expert-teams`, { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('#expert-teams-tabs [role="tab"]', { timeout: 30000 })
+  await page.locator('[data-expert-tab="experts"]').click()
+  await page.waitForSelector('#expert-teams-editor', { timeout: 30000 })
+  await page.waitForFunction(() => {
+    const hasAddButton = !!document.querySelector('.expert-teams-actions [data-action="add"]')
+    const hasSkeleton = !!document.querySelector('.expert-list-skeleton, .loading-placeholder')
+    const hasEditorForm = !!document.querySelector('#expert-editor-form')
+    return hasAddButton && hasEditorForm && !hasSkeleton
+  }, { timeout: 30000 })
+  await page.locator('[data-select-id="smoke-reviewer"]').click()
+  await page.locator('#expert-name').waitFor({ timeout: 10000 })
+
+  const dirtyValues = {
+    name: 'Unsaved Slow Skill Name',
+    title: 'Unsaved Focus Title',
+    prompt: 'Keep this unsaved prompt while the slow Skills request resolves.',
+  }
+  await page.locator('#expert-name').fill(dirtyValues.name)
+  await page.locator('#expert-title').fill(dirtyValues.title)
+  await page.locator('#expert-system-prompt').fill(dirtyValues.prompt)
+  await page.locator('#expert-system-prompt').focus()
+
+  releaseSkills()
+  await skillsResponse
+  await page.waitForTimeout(100)
+
+  const valuesAfterSkillsRefresh = {
+    name: await page.locator('#expert-name').inputValue(),
+    title: await page.locator('#expert-title').inputValue(),
+    prompt: await page.locator('#expert-system-prompt').inputValue(),
+    focusedId: await page.evaluate(() => document.activeElement?.id || ''),
+  }
+  if (valuesAfterSkillsRefresh.name !== dirtyValues.name) {
+    throw new Error(`Slow Skills refresh reset expert name: ${valuesAfterSkillsRefresh.name}`)
+  }
+  if (valuesAfterSkillsRefresh.title !== dirtyValues.title) {
+    throw new Error(`Slow Skills refresh reset expert title: ${valuesAfterSkillsRefresh.title}`)
+  }
+  if (valuesAfterSkillsRefresh.prompt !== dirtyValues.prompt) {
+    throw new Error('Slow Skills refresh reset expert prompt')
+  }
+  if (valuesAfterSkillsRefresh.focusedId !== 'expert-system-prompt') {
+    throw new Error(`Slow Skills refresh moved focus to ${valuesAfterSkillsRefresh.focusedId || '<none>'}`)
+  }
+  await page.unroute('**/__api/skills_list')
+  return valuesAfterSkillsRefresh
+}
+
 async function checkExpertTeamsPage(page, viewport, label) {
   await page.setViewportSize(viewport)
   await page.goto(url, { waitUntil: 'domcontentloaded' })
@@ -277,6 +350,7 @@ async function main() {
 
     const desktop = await checkExpertTeamsPage(page, { width: 1366, height: 900 }, 'desktop')
     const persistence = await createPersistedTeam(page)
+    const delayedSkillsRefresh = await checkDelayedSkillsRefreshPreservesDirtyEditor(page)
     const mobile = await checkExpertTeamsPage(page, { width: 390, height: 844 }, 'mobile')
     if (consoleErrors.length) {
       throw new Error(`Console errors found:\n${consoleErrors.join('\n')}`)
@@ -287,6 +361,7 @@ async function main() {
       url,
       desktop,
       persistence,
+      delayedSkillsRefresh,
       mobile,
       checkedAt: new Date().toISOString(),
     }

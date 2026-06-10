@@ -9,6 +9,7 @@ const api = readFileSync(new URL('../src/lib/tauri-api.js', import.meta.url), 'u
 const runner = readFileSync(new URL('../src/lib/expert-team-runner.js', import.meta.url), 'utf8')
 const rust = readFileSync(new URL('../src-tauri/src/commands/team.rs', import.meta.url), 'utf8')
 const devApi = readFileSync(new URL('../scripts/dev-api.js', import.meta.url), 'utf8')
+const smoke = readFileSync(new URL('../scripts/expert-teams-ui-smoke.mjs', import.meta.url), 'utf8')
 const engine = readFileSync(new URL('../src/engines/openclaw/index.js', import.meta.url), 'utf8')
 const locales = readFileSync(new URL('../src/locales/index.js', import.meta.url), 'utf8')
 const sidebarLocale = readFileSync(new URL('../src/locales/modules/sidebar.js', import.meta.url), 'utf8')
@@ -218,6 +219,23 @@ test('Expert Teams tab keyboard navigation computes stable roving focus targets'
   assert.equal(nextExpertTabIndex(-4, 2, 'ArrowLeft'), 1)
   assert.equal(nextExpertTabIndex(1, 0, 'ArrowRight'), -1)
   assert.equal(nextExpertTabIndex(1, 2, 'PageDown'), 1)
+})
+
+test('Expert Teams browser smoke guards slow Skills refresh while editing', () => {
+  for (const token of [
+    'checkDelayedSkillsRefreshPreservesDirtyEditor',
+    "'**/__api/skills_list'",
+    'releaseSkillsPromise',
+    'slow-review-skill',
+    'Unsaved Slow Skill Name',
+    'Slow Skills refresh reset expert name',
+    'Slow Skills refresh reset expert title',
+    'Slow Skills refresh reset expert prompt',
+    'Slow Skills refresh moved focus',
+    'delayedSkillsRefresh',
+  ]) {
+    assert.match(smoke, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
 })
 
 test('Expert Teams runner defines structured expert communication', () => {
