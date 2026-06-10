@@ -135,6 +135,57 @@ async function createBlankTeamDraft(page) {
   await page.locator('#group-id').waitFor({ timeout: 10000 })
 }
 
+async function checkGroupTemplatePickerAppliesDraft(page) {
+  await page.goto(url, { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('#expert-teams-editor', { timeout: 30000 })
+  await waitForExpertTeamsIdle(page)
+  await page.locator('[data-expert-tab="groups"]').click()
+  await waitForExpertTeamsIdle(page)
+
+  await clickAction(page, 'add')
+  const picker = page.locator('.expert-template-picker-overlay')
+  await picker.waitFor({ timeout: 10000 })
+  const templateCount = await picker.locator('[data-template-idx]').count()
+  if (templateCount < 6) {
+    throw new Error(`Template picker rendered ${templateCount} templates instead of at least 6`)
+  }
+
+  await picker.locator('[data-template-idx="0"]').click()
+  await page.locator('#group-name').waitFor({ timeout: 10000 })
+  if (await picker.isVisible({ timeout: 1000 }).catch(() => false)) {
+    throw new Error('Template picker stayed open after selecting a template')
+  }
+
+  const draft = {
+    templateCount,
+    name: await page.locator('#group-name').inputValue(),
+    description: await page.locator('#group-description').inputValue(),
+    mode: await page.locator('#group-mode').inputValue(),
+    maxRounds: await page.locator('#group-max-rounds').inputValue(),
+    maxParallel: await page.locator('#group-max-parallel').inputValue(),
+  }
+  if (!draft.name || /^expertTeams\./.test(draft.name)) {
+    throw new Error(`Template draft did not apply a localized team name: ${draft.name || '<empty>'}`)
+  }
+  if (!draft.description || /^expertTeams\./.test(draft.description)) {
+    throw new Error('Template draft did not apply a localized team description')
+  }
+  if (draft.mode !== 'review') {
+    throw new Error(`First template should create a review team, got ${draft.mode}`)
+  }
+  if (draft.maxRounds !== '3' || draft.maxParallel !== '3') {
+    throw new Error(`Template draft wrote unexpected workflow limits: rounds=${draft.maxRounds}, parallel=${draft.maxParallel}`)
+  }
+  return {
+    templateCount: draft.templateCount,
+    name: draft.name,
+    mode: draft.mode,
+    maxRounds: Number(draft.maxRounds),
+    maxParallel: Number(draft.maxParallel),
+    descriptionLength: draft.description.length,
+  }
+}
+
 async function createPersistedTeam(page) {
   const experts = [
     {
@@ -155,6 +206,8 @@ async function createPersistedTeam(page) {
 
   await page.goto(url, { waitUntil: 'domcontentloaded' })
   await page.waitForSelector('#expert-teams-editor', { timeout: 30000 })
+  await waitForExpertTeamsIdle(page)
+  await page.locator('[data-expert-tab="experts"]').click()
   await waitForExpertTeamsIdle(page)
   for (const expert of experts) await createExpert(page, expert)
 
@@ -412,6 +465,7 @@ async function main() {
     })
 
     const desktop = await checkExpertTeamsPage(page, { width: 1366, height: 900 }, 'desktop')
+    const templateDraft = await checkGroupTemplatePickerAppliesDraft(page)
     const persistence = await createPersistedTeam(page)
     const delayedSkillsRefresh = await checkDelayedSkillsRefreshPreservesDirtyEditor(page)
     const deletionPrune = await checkDeletedExpertPrunesPersistedTeam(page)
@@ -424,6 +478,7 @@ async function main() {
       ok: true,
       url,
       desktop,
+      templateDraft,
       persistence,
       delayedSkillsRefresh,
       deletionPrune,

@@ -240,6 +240,12 @@ test('Expert Teams browser smoke guards slow Skills refresh while editing', () =
 
 test('Expert Teams browser smoke guards deleted expert pruning teams', () => {
   for (const token of [
+    'checkGroupTemplatePickerAppliesDraft',
+    'Template picker rendered',
+    'Template picker stayed open after selecting a template',
+    'Template draft did not apply a localized team name',
+    'First template should create a review team',
+    'templateDraft',
     'createBlankTeamDraft',
     '.expert-template-picker-overlay [data-action="template-blank"]',
     'checkDeletedExpertPrunesPersistedTeam',
