@@ -30,6 +30,17 @@ const TABS = {
   groups: 'groups',
 }
 
+export function nextExpertTabIndex(currentIndex, tabCount, key) {
+  const count = Number.parseInt(tabCount, 10)
+  if (!Number.isFinite(count) || count <= 0) return -1
+  const current = Math.max(0, Math.min(Number.parseInt(currentIndex, 10) || 0, count - 1))
+  if (key === 'Home') return 0
+  if (key === 'End') return count - 1
+  if (key === 'ArrowLeft') return (current + count - 1) % count
+  if (key === 'ArrowRight') return (current + 1) % count
+  return current
+}
+
 const GROUP_MODES = [
   ['panel', 'expertTeams.modePanel'],
   ['creation', 'expertTeams.modeCreation'],
@@ -155,13 +166,7 @@ function bindEvents(page, state) {
     e.preventDefault()
     const tabs = [...page.querySelectorAll('[data-expert-tab]')]
     const currentIndex = Math.max(0, tabs.indexOf(tab))
-    const nextIndex = e.key === 'Home'
-      ? 0
-      : e.key === 'End'
-        ? tabs.length - 1
-        : e.key === 'ArrowLeft'
-          ? (currentIndex + tabs.length - 1) % tabs.length
-          : (currentIndex + 1) % tabs.length
+    const nextIndex = nextExpertTabIndex(currentIndex, tabs.length, e.key)
     tabs[nextIndex]?.focus()
     tabs[nextIndex]?.click()
   })

@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { nextExpertTabIndex } from '../src/pages/expert-teams.js'
 
 const page = readFileSync(new URL('../src/pages/expert-teams.js', import.meta.url), 'utf8')
 const css = readFileSync(new URL('../src/style/pages/expert-teams.css', import.meta.url), 'utf8')
@@ -194,6 +195,19 @@ test('Expert Teams page supports expert editing and team member selection', () =
   ]) {
     assert.doesNotMatch(page, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   }
+})
+
+test('Expert Teams tab keyboard navigation computes stable roving focus targets', () => {
+  assert.equal(nextExpertTabIndex(0, 2, 'ArrowRight'), 1)
+  assert.equal(nextExpertTabIndex(1, 2, 'ArrowRight'), 0)
+  assert.equal(nextExpertTabIndex(0, 2, 'ArrowLeft'), 1)
+  assert.equal(nextExpertTabIndex(1, 2, 'ArrowLeft'), 0)
+  assert.equal(nextExpertTabIndex(1, 2, 'Home'), 0)
+  assert.equal(nextExpertTabIndex(0, 2, 'End'), 1)
+  assert.equal(nextExpertTabIndex(9, 2, 'ArrowRight'), 0)
+  assert.equal(nextExpertTabIndex(-4, 2, 'ArrowLeft'), 1)
+  assert.equal(nextExpertTabIndex(1, 0, 'ArrowRight'), -1)
+  assert.equal(nextExpertTabIndex(1, 2, 'PageDown'), 1)
 })
 
 test('Expert Teams runner defines structured expert communication', () => {
