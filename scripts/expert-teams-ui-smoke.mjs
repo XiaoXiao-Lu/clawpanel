@@ -517,6 +517,57 @@ async function selectedMemberRows(page) {
   })))
 }
 
+async function checkEmptyTeamSaveIsBlocked(page) {
+  await page.goto(url, { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('#expert-teams-editor', { timeout: 30000 })
+  await waitForExpertTeamsIdle(page)
+  await page.locator('[data-expert-tab="groups"]').click()
+  await waitForExpertTeamsIdle(page)
+
+  await createBlankTeamDraft(page)
+  await page.locator('#group-id').fill('smoke-empty-team')
+  await page.locator('#group-name').fill('Smoke Empty Team')
+  await page.locator('#group-description').fill('Verifies empty teams are blocked before save.')
+
+  const saveRequest = page.waitForRequest(
+    request => request.url().includes('/__api/save_expert_group'),
+    { timeout: 700 },
+  ).catch(() => null)
+  await clickAction(page, 'save')
+  const unexpectedRequest = await saveRequest
+  if (unexpectedRequest) {
+    throw new Error('Empty expert team attempted to call save_expert_group')
+  }
+
+  const toastMessage = page.locator('.toast.error, .toast[role="alert"], [role="alert"]').filter({
+    hasText: /请至少为专家团选择一位专家|Select at least one expert for the team/,
+  })
+  await toastMessage.first().waitFor({ timeout: 5000 })
+
+  const saved = await page.evaluate(async () => {
+    const response = await fetch('/__api/list_expert_groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+    if (!response.ok) throw new Error(`list_expert_groups failed: ${response.status}`)
+    const groups = await response.json()
+    return (Array.isArray(groups) ? groups : []).find(group => group.id === 'smoke-empty-team') || null
+  })
+  if (saved) throw new Error('Empty expert team was persisted despite validation failure')
+
+  const draftState = {
+    idValue: await page.locator('#group-id').inputValue(),
+    selectedCount: await page.locator('#expert-member-picker [data-member-row].is-selected').count(),
+    toastText: await toastMessage.first().innerText(),
+  }
+  if (draftState.idValue !== 'smoke-empty-team' || draftState.selectedCount !== 0) {
+    throw new Error(`Empty team validation changed the draft unexpectedly: ${JSON.stringify(draftState)}`)
+  }
+
+  return draftState
+}
+
 async function checkDelayedSkillsRefreshPreservesDirtyEditor(page) {
   let releaseSkills
   let intercepted = false
@@ -718,6 +769,7 @@ async function main() {
     const templatePersistence = await checkTemplateTeamSavePersists(page)
     const moderatorMemberSync = await checkModeratorClearsWhenMemberRemoved(page)
     const memberOrderDrag = await checkMemberDragOrderPersists(page)
+    const emptyTeamValidation = await checkEmptyTeamSaveIsBlocked(page)
     const delayedSkillsRefresh = await checkDelayedSkillsRefreshPreservesDirtyEditor(page)
     const deletionPrune = await checkDeletedExpertPrunesPersistedTeam(page)
     const mobile = await checkExpertTeamsPage(page, { width: 390, height: 844 }, 'mobile')
@@ -734,6 +786,7 @@ async function main() {
       templatePersistence,
       moderatorMemberSync,
       memberOrderDrag,
+      emptyTeamValidation,
       delayedSkillsRefresh,
       deletionPrune,
       mobile,
