@@ -203,9 +203,9 @@ export async function runExpertTeamSequential({ group, experts, task, onEvent, s
 }
 
 export async function resumeExpertTeamSynthesis({ plan: sourcePlan, contributions = [], onEvent, signal, externalSlot, tools, executeTool } = {}) {
-  const usableContributions = (Array.isArray(contributions) ? contributions : [])
-    .filter(item => item && item.content)
   if (!sourcePlan?.task) throw new Error('Expert team plan is required to resume synthesis')
+  const sequential = sourcePlan?.group?.mode === 'sequential' || sourcePlan?.mode === 'sequential'
+  const usableContributions = dedupeResumeContributions(contributions, { sequential })
   if (!usableContributions.length) throw new Error('No expert contributions available to resume synthesis')
 
   const { config, defaultSlot } = await resolveRunModelContext(externalSlot)
@@ -232,11 +232,11 @@ export async function resumeExpertTeamSynthesis({ plan: sourcePlan, contribution
 }
 
 export async function resumeExpertTeamRun({ plan: sourcePlan, contributions = [], experts = [], onEvent, signal, externalSlot, tools, executeTool } = {}) {
-  const usableContributions = (Array.isArray(contributions) ? contributions : [])
-    .filter(item => item && item.content)
   if (!sourcePlan?.task) throw new Error('Expert team plan is required to resume run')
 
   const { config, defaultSlot } = await resolveRunModelContext(externalSlot)
+  const sequential = sourcePlan?.group?.mode === 'sequential' || sourcePlan?.mode === 'sequential'
+  const usableContributions = dedupeResumeContributions(contributions, { sequential })
   const plan = normalizeResumePlan(sourcePlan, usableContributions, experts)
   const remaining = getResumeRemainingWork(plan, usableContributions)
   emit(onEvent, {
@@ -348,7 +348,7 @@ function normalizeResumePlan(sourcePlan, contributions, experts = []) {
 
 function getResumeRemainingWork(plan, contributions = []) {
   const sequential = plan.group.mode === 'sequential'
-  const doneKeys = new Set(contributions.map(item => resumeContributionKey(item.expertId, sequential ? (item.round || 1) : (item.round || 0))))
+  const doneKeys = new Set(dedupeResumeContributions(contributions, { sequential }).map(item => resumeContributionKey(item.expertId || item.expertName, sequential ? (item.round || 1) : 0)))
   const rounds = plan.group.mode === 'sequential' ? resolveMaxRounds(plan.group) : 1
   const work = []
   for (let round = 0; round < rounds; round++) {
@@ -364,6 +364,27 @@ function getResumeRemainingWork(plan, contributions = []) {
 
 function resumeContributionKey(expertId, round = 0) {
   return `${expertId || ''}::${round || 0}`
+}
+
+export function dedupeResumeContributions(contributions = [], { sequential = false } = {}) {
+  if (!Array.isArray(contributions)) return []
+  const seen = new Set()
+  const result = []
+  for (const item of contributions) {
+    if (!item || !String(item.content || '').trim()) continue
+    const expertId = item.expertId || item.expertName || ''
+    if (!expertId) continue
+    const round = sequential ? (item.round || 1) : 0
+    const key = resumeContributionKey(expertId, round)
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push({
+      ...item,
+      expertId,
+      round,
+    })
+  }
+  return result
 }
 
 async function resumeParallelExperts({ plan, remaining, contributions, config, defaultSlot, signal, onEvent, tools, executeTool }) {

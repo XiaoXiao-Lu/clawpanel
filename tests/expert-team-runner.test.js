@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildExpertMessages, buildExpertTeamPlan, buildModeratorMessages, extractChatMessageContent, isolateExpertTeamModelConfig, parseProxyBody, resolveDefaultModelSlot, resolveExpertModelSlot, resolveMaxParallel, resolveMaxRounds, resolveMembers, resumeExpertTeamRun, resumeExpertTeamSynthesis } from '../src/lib/expert-team-runner.js'
+import { buildExpertMessages, buildExpertTeamPlan, buildModeratorMessages, dedupeResumeContributions, extractChatMessageContent, isolateExpertTeamModelConfig, parseProxyBody, resolveDefaultModelSlot, resolveExpertModelSlot, resolveMaxParallel, resolveMaxRounds, resolveMembers, resumeExpertTeamRun, resumeExpertTeamSynthesis } from '../src/lib/expert-team-runner.js'
 
 const experts = [
   {
@@ -136,6 +136,30 @@ test('resume run validates source plan before model calls', async () => {
     () => resumeExpertTeamRun({ plan: null, contributions: [{ content: 'Keep this.' }], experts }),
     /Expert team plan is required to resume run/
   )
+})
+
+test('resume contributions are deduped by expert and sequential round', () => {
+  const deduped = dedupeResumeContributions([
+    { id: 'a1', expertId: 'planner', expertName: 'Planner', round: 1, content: 'First planner draft.' },
+    { id: 'a2', expertId: 'planner', expertName: 'Planner', round: 1, content: 'Duplicate planner draft.' },
+    { id: 'b1', expertId: 'reviewer', expertName: 'Reviewer', round: 1, content: 'Reviewer risk note.' },
+    { id: 'c1', expertId: 'planner', expertName: 'Planner', round: 2, content: 'Second-round planner draft.' },
+    { id: 'empty', expertId: 'empty', expertName: 'Empty', round: 1, content: '   ' },
+  ], { sequential: true })
+
+  assert.deepEqual(deduped.map(item => item.id), ['a1', 'b1', 'c1'])
+  assert.deepEqual(deduped.map(item => `${item.expertId}:${item.round}`), ['planner:1', 'reviewer:1', 'planner:2'])
+})
+
+test('resume contributions are deduped by expert for parallel teams', () => {
+  const deduped = dedupeResumeContributions([
+    { id: 'first', expertId: 'planner', expertName: 'Planner', round: 1, content: 'Planner draft.' },
+    { id: 'duplicate', expertId: 'planner', expertName: 'Planner', round: 2, content: 'Same parallel expert again.' },
+    { id: 'fallback-id', expertName: 'Reviewer', content: 'Reviewer note.' },
+  ])
+
+  assert.deepEqual(deduped.map(item => item.id), ['first', 'fallback-id'])
+  assert.deepEqual(deduped.map(item => item.expertId || item.expertName), ['planner', 'Reviewer'])
 })
 
 test('default OpenClaw model slot resolves provider and primary model', () => {
