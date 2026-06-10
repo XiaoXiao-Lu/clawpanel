@@ -1050,6 +1050,94 @@ async function checkExpertDeleteFailurePreservesState(page, consoleErrors) {
   }
 }
 
+async function checkTeamDeleteFailurePreservesState(page, consoleErrors) {
+  let intercepted = false
+  const routePattern = '**/__api/delete_expert_group'
+  const failDeleteExpertGroup = async route => {
+    if (intercepted) return route.continue()
+    intercepted = true
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json; charset=utf-8',
+      body: JSON.stringify({ error: 'Smoke forced delete_expert_group failure' }),
+    })
+  }
+
+  await page.route(routePattern, failDeleteExpertGroup)
+  try {
+    await page.goto(url, { waitUntil: 'domcontentloaded' })
+    await page.waitForSelector('#expert-teams-editor', { timeout: 30000 })
+    await waitForExpertTeamsIdle(page)
+    await page.locator('[data-expert-tab="groups"]').click()
+    await page.locator('[data-select-id="smoke-review-panel"]').click()
+    await page.locator('#group-id').waitFor({ timeout: 10000 })
+
+    await clickAction(page, 'delete')
+    await Promise.all([
+      page.waitForResponse(response => response.url().includes('/__api/delete_expert_group') && response.status() === 500),
+      page.locator('.modal-overlay [data-action="confirm"]').click(),
+    ])
+    if (!intercepted) throw new Error('Failed expert team delete smoke did not intercept delete_expert_group')
+    await page.waitForTimeout(50)
+    consumeExpectedConsoleError(consoleErrors, /Failed to load resource: the server responded with a status of 500/)
+
+    const toastMessage = page.locator('.toast.error, .toast[role="alert"], [role="alert"]').filter({
+      hasText: /Smoke forced delete_expert_group failure|删除失败|Delete failed/,
+    })
+    await toastMessage.first().waitFor({ timeout: 5000 })
+
+    const persisted = await page.evaluate(async () => {
+      const response = await fetch('/__api/list_expert_groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      })
+      if (!response.ok) throw new Error(`list_expert_groups failed: ${response.status}`)
+      const groups = await response.json()
+      const group = (Array.isArray(groups) ? groups : []).find(item => item.id === 'smoke-review-panel')
+      return group
+        ? {
+            id: group.id,
+            name: group.name,
+            mode: group.mode,
+            moderatorExpertId: group.moderatorExpertId || '',
+            memberIds: (Array.isArray(group.members) ? group.members : []).map(member => member.expertId),
+          }
+        : null
+    })
+    if (!persisted) throw new Error('Failed expert team delete removed smoke team despite a server error')
+    if (persisted.moderatorExpertId !== 'smoke-reviewer') {
+      throw new Error(`Failed expert team delete changed moderator unexpectedly: ${persisted.moderatorExpertId || '<empty>'}`)
+    }
+    if (persisted.memberIds.join(',') !== 'smoke-planner,smoke-reviewer') {
+      throw new Error(`Failed expert team delete changed members unexpectedly: ${persisted.memberIds.join(',')}`)
+    }
+
+    const editorState = {
+      idValue: await page.locator('#group-id').inputValue(),
+      nameValue: await page.locator('#group-name').inputValue(),
+      modeValue: await page.locator('#group-mode').inputValue(),
+      moderatorValue: await page.locator('#group-moderator').inputValue(),
+      selectedCount: await page.locator('#expert-member-picker [data-member-row].is-selected').count(),
+      toastText: await toastMessage.first().innerText(),
+      ...persisted,
+    }
+    if (
+      editorState.idValue !== 'smoke-review-panel'
+      || editorState.nameValue !== 'Smoke Review Panel'
+      || editorState.modeValue !== 'review'
+      || editorState.moderatorValue !== 'smoke-reviewer'
+      || editorState.selectedCount !== 2
+    ) {
+      throw new Error(`Failed expert team delete changed the selected team unexpectedly: ${JSON.stringify(editorState)}`)
+    }
+
+    return editorState
+  } finally {
+    await page.unroute(routePattern, failDeleteExpertGroup).catch(() => {})
+  }
+}
+
 async function checkDeletedExpertPrunesPersistedTeam(page) {
   await page.evaluate(async () => {
     const response = await fetch('/__api/delete_expert', {
@@ -1186,6 +1274,7 @@ async function main() {
     const teamSaveFailureDraft = await checkTeamSaveFailurePreservesDraft(page, consoleErrors)
     const delayedSkillsRefresh = await checkDelayedSkillsRefreshPreservesDirtyEditor(page)
     const expertDeleteFailureState = await checkExpertDeleteFailurePreservesState(page, consoleErrors)
+    const teamDeleteFailureState = await checkTeamDeleteFailurePreservesState(page, consoleErrors)
     const deletionPrune = await checkDeletedExpertPrunesPersistedTeam(page)
     const mobile = await checkExpertTeamsPage(page, { width: 390, height: 844 }, 'mobile')
     if (consoleErrors.length) {
@@ -1209,6 +1298,7 @@ async function main() {
       teamSaveFailureDraft,
       delayedSkillsRefresh,
       expertDeleteFailureState,
+      teamDeleteFailureState,
       deletionPrune,
       mobile,
       checkedAt: new Date().toISOString(),
