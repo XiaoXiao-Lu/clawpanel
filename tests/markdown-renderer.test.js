@@ -46,3 +46,27 @@ test('renderMarkdown preserves fenced code blocks without trusting raw pre tags'
   assert.match(html, /&lt;pre&gt;&lt;img src=x onerror=alert\(1\)&gt;&lt;\/pre&gt;/)
   assert.doesNotMatch(html, /<pre><img/i)
 })
+
+test('renderMarkdown renders execution-flow markdown document syntax', () => {
+  const html = renderMarkdown([
+    '# 专家团执行流程',
+    '#### 阶段 1：准备',
+    '- [x] 收集输入',
+    '- [ ] 生成交付文档',
+    '> 主持人会综合专家意见',
+    '---',
+    '| 阶段 | 状态 |',
+    '| --- | --- |',
+    '| 准备 | 完成 |',
+  ].join('\n'))
+
+  assert.match(html, /<h1>专家团执行流程<\/h1>/)
+  assert.match(html, /<h4>阶段 1：准备<\/h4>/)
+  assert.match(html, /<li class="task-list-item"><input class="task-list-checkbox" type="checkbox" disabled checked> 收集输入<\/li>/)
+  assert.match(html, /<li class="task-list-item"><input class="task-list-checkbox" type="checkbox" disabled> 生成交付文档<\/li>/)
+  assert.match(html, /<blockquote><p>主持人会综合专家意见<\/p><\/blockquote>/)
+  assert.match(html, /<hr>/)
+  assert.match(html, /<table>/)
+  assert.match(html, /<th>阶段<\/th>/)
+  assert.match(html, /<td>完成<\/td>/)
+})

@@ -109,12 +109,26 @@ export function renderMarkdown(text) {
   let listType = ''
   let inTable = false
   let tableRows = []
+  const closeList = () => {
+    if (!inList) return
+    result.push(`</${listType}>`)
+    inList = false
+    listType = ''
+  }
+  const flushTable = () => {
+    if (!inTable) return
+    result.push(renderTable(tableRows))
+    inTable = false
+    tableRows = []
+  }
 
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i]
 
     const codeBlockMatch = line.match(/^\x00MDBLOCK(\d+)\x00$/)
     if (codeBlockMatch) {
+      flushTable()
+      closeList()
       result.push(codeBlocks[Number(codeBlockMatch[1])] || '')
       continue
     }
@@ -134,9 +148,7 @@ export function renderMarkdown(text) {
         continue
       } else {
         // 表格结束，渲染表格
-        result.push(renderTable(tableRows))
-        inTable = false
-        tableRows = []
+        flushTable()
       }
     }
     
@@ -145,6 +157,7 @@ export function renderMarkdown(text) {
       const nextLine = lines[i + 1]
       if (/^\s*\|[\s\-:|]+\|\s*$/.test(nextLine) || 
           /^\s*[\-:]+(\s*\|\s*[\-:]+)+\s*$/.test(nextLine)) {
+        closeList()
         inTable = true
         tableRows.push(line)
         continue
@@ -152,11 +165,41 @@ export function renderMarkdown(text) {
     }
 
     // 标题
-    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/)
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)$/)
     if (headingMatch) {
-      if (inList) { result.push(`</${listType}>`); inList = false }
+      flushTable()
+      closeList()
       const level = headingMatch[1].length
       result.push(`<h${level}>${inlineFormat(headingMatch[2])}</h${level}>`)
+      continue
+    }
+
+    // 分割线
+    if (/^\s{0,3}([-*_])(?:\s*\1){2,}\s*$/.test(line)) {
+      flushTable()
+      closeList()
+      result.push('<hr>')
+      continue
+    }
+
+    // 引用块
+    const quoteMatch = line.match(/^\s{0,3}>\s?(.*)$/)
+    if (quoteMatch) {
+      flushTable()
+      closeList()
+      result.push(`<blockquote>${quoteMatch[1].trim() ? `<p>${inlineFormat(quoteMatch[1])}</p>` : ''}</blockquote>`)
+      continue
+    }
+
+    // 任务列表
+    const taskMatch = line.match(/^[\s]*[-*]\s+\[([ xX])\]\s+(.+)$/)
+    if (taskMatch) {
+      if (!inList || listType !== 'ul') {
+        if (inList) result.push(`</${listType}>`)
+        result.push('<ul>'); inList = true; listType = 'ul'
+      }
+      const checked = taskMatch[1].toLowerCase() === 'x'
+      result.push(`<li class="task-list-item"><input class="task-list-checkbox" type="checkbox" disabled${checked ? ' checked' : ''}> ${inlineFormat(taskMatch[2])}</li>`)
       continue
     }
 
@@ -182,16 +225,14 @@ export function renderMarkdown(text) {
       continue
     }
 
-    if (inList) { result.push(`</${listType}>`); inList = false }
+    closeList()
     if (line.trim() === '') { result.push(''); continue }
     result.push(`<p>${inlineFormat(line)}</p>`)
   }
 
-  if (inList) result.push(`</${listType}>`)
+  closeList()
   // 处理剩余的表格
-  if (inTable && tableRows.length > 0) {
-    result.push(renderTable(tableRows))
-  }
+  flushTable()
   return result.join('\n')
 }
 

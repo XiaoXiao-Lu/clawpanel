@@ -323,7 +323,8 @@
   color: var(--text-primary);
 }
 
-.ast-msg-bubble-ai h1, .ast-msg-bubble-ai h2, .ast-msg-bubble-ai h3 {
+.ast-msg-bubble-ai h1, .ast-msg-bubble-ai h2, .ast-msg-bubble-ai h3,
+.ast-msg-bubble-ai h4, .ast-msg-bubble-ai h5, .ast-msg-bubble-ai h6 {
   margin: 12px 0 6px 0;
   font-weight: 600;
   color: var(--text-primary);
@@ -333,6 +334,62 @@
 .ast-msg-bubble-ai h1 { font-size: var(--font-size-xl); border-bottom: 1px solid var(--border-secondary); padding-bottom: 4px; }
 .ast-msg-bubble-ai h2 { font-size: var(--font-size-lg); }
 .ast-msg-bubble-ai h3 { font-size: var(--font-size-sm); }
+.ast-msg-bubble-ai h4,
+.ast-msg-bubble-ai h5,
+.ast-msg-bubble-ai h6 { font-size: var(--font-size-sm); color: var(--text-secondary); }
+
+.ast-msg-bubble-ai blockquote {
+  margin: 10px 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.ast-msg-bubble-ai blockquote p {
+  margin: 0;
+}
+
+.ast-msg-bubble-ai hr {
+  height: 1px;
+  margin: 14px 0;
+  border: 0;
+  background: var(--border-secondary);
+}
+
+.ast-msg-bubble-ai table {
+  display: block;
+  max-width: 100%;
+  margin: 10px 0;
+  border-collapse: collapse;
+  overflow-x: auto;
+  font-size: var(--font-size-sm);
+}
+
+.ast-msg-bubble-ai th,
+.ast-msg-bubble-ai td {
+  padding: 7px 10px;
+  border: 1px solid var(--border-secondary);
+  text-align: left;
+  vertical-align: top;
+}
+
+.ast-msg-bubble-ai th {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.ast-msg-bubble-ai .task-list-item {
+  list-style: none;
+  margin-left: -18px;
+}
+
+.ast-msg-bubble-ai .task-list-checkbox {
+  margin-right: 6px;
+  accent-color: var(--brand);
+}
 
 /* 消息元信息 + 复制按钮 */
 .ast-msg-meta {
@@ -3978,6 +4035,121 @@
 
 .ast-expert-item-body code {
   font-size: var(--font-size-xs);
+}
+
+.ast-expert-item-body h1,
+.ast-expert-item-body h2,
+.ast-expert-item-body h3,
+.ast-expert-item-body h4,
+.ast-expert-item-body h5,
+.ast-expert-item-body h6,
+.ast-expert-final-body h1,
+.ast-expert-final-body h2,
+.ast-expert-final-body h3,
+.ast-expert-final-body h4,
+.ast-expert-final-body h5,
+.ast-expert-final-body h6 {
+  margin: 12px 0 6px;
+  color: var(--text-primary);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.ast-expert-item-body h1,
+.ast-expert-final-body h1 {
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-size-lg);
+}
+
+.ast-expert-item-body h2,
+.ast-expert-final-body h2 {
+  font-size: 15px;
+}
+
+.ast-expert-item-body h3,
+.ast-expert-item-body h4,
+.ast-expert-item-body h5,
+.ast-expert-item-body h6,
+.ast-expert-final-body h3,
+.ast-expert-final-body h4,
+.ast-expert-final-body h5,
+.ast-expert-final-body h6 {
+  font-size: var(--font-size-sm);
+}
+
+.ast-expert-item-body ul,
+.ast-expert-item-body ol,
+.ast-expert-final-body ul,
+.ast-expert-final-body ol {
+  margin: 6px 0 10px;
+  padding-left: 20px;
+}
+
+.ast-expert-item-body li,
+.ast-expert-final-body li {
+  margin: 3px 0;
+}
+
+.ast-expert-item-body blockquote,
+.ast-expert-final-body blockquote {
+  margin: 10px 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.ast-expert-item-body blockquote p,
+.ast-expert-final-body blockquote p {
+  margin: 0;
+}
+
+.ast-expert-item-body hr,
+.ast-expert-final-body hr {
+  height: 1px;
+  margin: 14px 0;
+  border: 0;
+  background: var(--border-subtle);
+}
+
+.ast-expert-item-body table,
+.ast-expert-final-body table {
+  display: block;
+  max-width: 100%;
+  margin: 10px 0;
+  border-collapse: collapse;
+  overflow-x: auto;
+}
+
+.ast-expert-item-body th,
+.ast-expert-item-body td,
+.ast-expert-final-body th,
+.ast-expert-final-body td {
+  padding: 7px 10px;
+  border: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: top;
+}
+
+.ast-expert-item-body th,
+.ast-expert-final-body th {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.ast-expert-item-body .task-list-item,
+.ast-expert-final-body .task-list-item {
+  list-style: none;
+  margin-left: -18px;
+}
+
+.ast-expert-item-body .task-list-checkbox,
+.ast-expert-final-body .task-list-checkbox {
+  margin-right: 6px;
+  accent-color: var(--brand);
 }
 
 .ast-expert-disclosure {
