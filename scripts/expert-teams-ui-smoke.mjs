@@ -142,47 +142,65 @@ async function checkGroupTemplatePickerAppliesDraft(page) {
   await page.locator('[data-expert-tab="groups"]').click()
   await waitForExpertTeamsIdle(page)
 
-  await clickAction(page, 'add')
-  const picker = page.locator('.expert-template-picker-overlay')
-  await picker.waitFor({ timeout: 10000 })
-  const templateCount = await picker.locator('[data-template-idx]').count()
-  if (templateCount < 6) {
-    throw new Error(`Template picker rendered ${templateCount} templates instead of at least 6`)
+  const expectedTemplates = [
+    { index: 0, mode: 'review', maxRounds: 3, maxParallel: 3 },
+    { index: 1, mode: 'panel', maxRounds: 2, maxParallel: 3 },
+    { index: 2, mode: 'creation', maxRounds: 3, maxParallel: 4 },
+    { index: 3, mode: 'debate', maxRounds: 3, maxParallel: 4 },
+    { index: 4, mode: 'research', maxRounds: 3, maxParallel: 3 },
+    { index: 5, mode: 'sequential', maxRounds: 3, maxParallel: 3 },
+  ]
+  const drafts = []
+
+  for (const expected of expectedTemplates) {
+    await clickAction(page, 'add')
+    const picker = page.locator('.expert-template-picker-overlay')
+    await picker.waitFor({ timeout: 10000 })
+    const templateCount = await picker.locator('[data-template-idx]').count()
+    if (templateCount !== expectedTemplates.length) {
+      throw new Error(`Template picker rendered ${templateCount} templates instead of ${expectedTemplates.length}`)
+    }
+
+    await picker.locator(`[data-template-idx="${expected.index}"]`).click()
+    await page.locator('#group-name').waitFor({ timeout: 10000 })
+    if (await picker.isVisible({ timeout: 1000 }).catch(() => false)) {
+      throw new Error(`Template picker stayed open after selecting template ${expected.index}`)
+    }
+
+    const draft = {
+      index: expected.index,
+      templateCount,
+      name: await page.locator('#group-name').inputValue(),
+      description: await page.locator('#group-description').inputValue(),
+      mode: await page.locator('#group-mode').inputValue(),
+      maxRounds: await page.locator('#group-max-rounds').inputValue(),
+      maxParallel: await page.locator('#group-max-parallel').inputValue(),
+    }
+    if (!draft.name || /^expertTeams\./.test(draft.name)) {
+      throw new Error(`Template ${expected.index} did not apply a localized team name: ${draft.name || '<empty>'}`)
+    }
+    if (!draft.description || /^expertTeams\./.test(draft.description)) {
+      throw new Error(`Template ${expected.index} did not apply a localized team description`)
+    }
+    if (draft.mode !== expected.mode) {
+      throw new Error(`Template ${expected.index} should create a ${expected.mode} team, got ${draft.mode}`)
+    }
+    if (Number(draft.maxRounds) !== expected.maxRounds || Number(draft.maxParallel) !== expected.maxParallel) {
+      throw new Error(`Template ${expected.index} wrote unexpected workflow limits: rounds=${draft.maxRounds}, parallel=${draft.maxParallel}`)
+    }
+    drafts.push({
+      index: draft.index,
+      name: draft.name,
+      mode: draft.mode,
+      maxRounds: Number(draft.maxRounds),
+      maxParallel: Number(draft.maxParallel),
+      descriptionLength: draft.description.length,
+    })
   }
 
-  await picker.locator('[data-template-idx="0"]').click()
-  await page.locator('#group-name').waitFor({ timeout: 10000 })
-  if (await picker.isVisible({ timeout: 1000 }).catch(() => false)) {
-    throw new Error('Template picker stayed open after selecting a template')
-  }
-
-  const draft = {
-    templateCount,
-    name: await page.locator('#group-name').inputValue(),
-    description: await page.locator('#group-description').inputValue(),
-    mode: await page.locator('#group-mode').inputValue(),
-    maxRounds: await page.locator('#group-max-rounds').inputValue(),
-    maxParallel: await page.locator('#group-max-parallel').inputValue(),
-  }
-  if (!draft.name || /^expertTeams\./.test(draft.name)) {
-    throw new Error(`Template draft did not apply a localized team name: ${draft.name || '<empty>'}`)
-  }
-  if (!draft.description || /^expertTeams\./.test(draft.description)) {
-    throw new Error('Template draft did not apply a localized team description')
-  }
-  if (draft.mode !== 'review') {
-    throw new Error(`First template should create a review team, got ${draft.mode}`)
-  }
-  if (draft.maxRounds !== '3' || draft.maxParallel !== '3') {
-    throw new Error(`Template draft wrote unexpected workflow limits: rounds=${draft.maxRounds}, parallel=${draft.maxParallel}`)
-  }
   return {
-    templateCount: draft.templateCount,
-    name: draft.name,
-    mode: draft.mode,
-    maxRounds: Number(draft.maxRounds),
-    maxParallel: Number(draft.maxParallel),
-    descriptionLength: draft.description.length,
+    templateCount: drafts.length,
+    templates: drafts,
   }
 }
 
