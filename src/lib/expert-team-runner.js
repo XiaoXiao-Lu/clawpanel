@@ -608,12 +608,17 @@ export function resolveExpertModelSlot(config = {}, expert = {}, defaultSlot = n
 }
 
 export function resolveMembers(group = {}, experts = []) {
-  const byId = new Map(experts.map(expert => [expert.id, expert]))
+  const byId = new Map(experts.filter(expert => expert?.id).map(expert => [expert.id, expert]))
+  const seen = new Set()
   return (Array.isArray(group.members) ? group.members : [])
     .slice()
-    .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
-    .map(member => byId.get(member.expertId))
-    .filter(expert => expert && expert.enabled !== false)
+    .sort((a, b) => (Number(a?.order) || 0) - (Number(b?.order) || 0))
+    .map(member => byId.get(member?.expertId))
+    .filter(expert => {
+      if (!expert || expert.enabled === false || seen.has(expert.id)) return false
+      seen.add(expert.id)
+      return true
+    })
 }
 
 export function resolveMaxParallel(group = {}) {

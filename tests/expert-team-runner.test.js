@@ -216,6 +216,21 @@ test('resolveMembers skips missing and disabled experts', () => {
   assert.deepEqual(resolveMembers(group, experts).map(expert => expert.id), ['planner', 'reviewer'])
 })
 
+test('resolveMembers dedupes repeated members while preserving first ordered slot', () => {
+  const duplicateGroup = {
+    members: [
+      { expertId: 'reviewer', order: 3 },
+      { expertId: 'planner', order: 2 },
+      { expertId: 'planner', order: 4 },
+      { expertId: '', order: 1 },
+      null,
+      { expertId: 'disabled', order: 5 },
+      { expertId: 'missing', order: 6 },
+    ],
+  }
+  assert.deepEqual(resolveMembers(duplicateGroup, experts).map(expert => expert.id), ['planner', 'reviewer'])
+})
+
 test('resolveMaxParallel clamps unsafe team settings', () => {
   assert.equal(resolveMaxParallel({ maxParallel: 3 }), 3)
   assert.equal(resolveMaxParallel({ maxParallel: 0 }), 1)
