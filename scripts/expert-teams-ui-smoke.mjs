@@ -421,6 +421,102 @@ async function checkModeratorClearsWhenMemberRemoved(page) {
   }
 }
 
+async function checkMemberDragOrderPersists(page) {
+  await page.goto(url, { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('#expert-teams-editor', { timeout: 30000 })
+  await waitForExpertTeamsIdle(page)
+  await page.locator('[data-expert-tab="groups"]').click()
+  await waitForExpertTeamsIdle(page)
+
+  await createBlankTeamDraft(page)
+  await page.locator('#group-id').fill('smoke-order-sync')
+  await page.locator('#group-name').fill('Smoke Order Sync')
+  await page.locator('#group-description').fill('Verifies drag ordering is saved and restored.')
+  await page.locator('#group-mode').selectOption('sequential')
+  await page.locator('input[data-member-toggle][value="smoke-planner"]').setChecked(true)
+  await page.locator('input[data-member-toggle][value="smoke-reviewer"]').setChecked(true)
+
+  const beforeDrag = await selectedMemberRows(page)
+  if (beforeDrag.length !== 2) {
+    throw new Error(`Member drag setup selected ${beforeDrag.length} members instead of 2`)
+  }
+  const expectedOrder = [beforeDrag[1].id, beforeDrag[0].id]
+  await page.evaluate(({ sourceId, targetId }) => {
+    const sourceRow = document.querySelector(`#expert-member-picker [data-member-row="${sourceId}"]`)
+    const targetRow = document.querySelector(`#expert-member-picker [data-member-row="${targetId}"]`)
+    const sourceHandle = sourceRow?.querySelector('[data-member-drag]')
+    if (!sourceRow || !targetRow || !sourceHandle) throw new Error('Member drag rows were not found')
+    const dataTransfer = new DataTransfer()
+    const rect = targetRow.getBoundingClientRect()
+    const eventInit = {
+      bubbles: true,
+      cancelable: true,
+      dataTransfer,
+      clientY: rect.top + 1,
+    }
+    sourceHandle.dispatchEvent(new DragEvent('dragstart', eventInit))
+    targetRow.dispatchEvent(new DragEvent('dragover', eventInit))
+    targetRow.dispatchEvent(new DragEvent('drop', eventInit))
+    sourceRow.dispatchEvent(new DragEvent('dragend', eventInit))
+  }, { sourceId: beforeDrag[1].id, targetId: beforeDrag[0].id })
+
+  const afterDrag = await selectedMemberRows(page)
+  const afterDragIds = afterDrag.map(row => row.id)
+  const afterDragOrders = afterDrag.map(row => row.order)
+  if (afterDragIds.join(',') !== expectedOrder.join(',') || afterDragOrders.join(',') !== '1,2') {
+    throw new Error(`Member drag order did not update UI order: ${JSON.stringify(afterDrag)}`)
+  }
+
+  await saveAndWait(page, 'save_expert_group')
+  await page.locator('[data-select-id="smoke-order-sync"]').waitFor({ timeout: 10000 })
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await waitForExpertTeamsIdle(page)
+  await page.locator('[data-expert-tab="groups"]').click()
+  await page.locator('[data-select-id="smoke-order-sync"]').click()
+  await page.locator('#group-id').waitFor({ timeout: 10000 })
+
+  const persisted = await page.evaluate(async () => {
+    const response = await fetch('/__api/list_expert_groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+    if (!response.ok) throw new Error(`list_expert_groups failed: ${response.status}`)
+    const groups = await response.json()
+    return (Array.isArray(groups) ? groups : []).find(group => group.id === 'smoke-order-sync') || null
+  })
+  if (!persisted) throw new Error('Member drag smoke team was not returned by the API')
+  const persistedMembers = (Array.isArray(persisted.members) ? persisted.members : []).map(member => ({
+    id: member.expertId,
+    order: member.order,
+  }))
+  const persistedIds = persistedMembers.map(member => member.id)
+  const persistedOrders = persistedMembers.map(member => member.order)
+  if (persistedIds.join(',') !== expectedOrder.join(',') || persistedOrders.join(',') !== '1,2') {
+    throw new Error(`Dragged member order was not persisted: ${JSON.stringify(persistedMembers)}`)
+  }
+
+  const reloadedRows = await selectedMemberRows(page)
+  if (reloadedRows.map(row => row.id).join(',') !== expectedOrder.join(',')) {
+    throw new Error(`Dragged member order was not restored in UI: ${JSON.stringify(reloadedRows)}`)
+  }
+
+  return {
+    groupId: persisted.id,
+    beforeDrag,
+    afterDrag,
+    persistedMembers,
+  }
+}
+
+async function selectedMemberRows(page) {
+  return page.evaluate(() => [...document.querySelectorAll('#expert-member-picker [data-member-row].is-selected')].map(row => ({
+    id: row.dataset.memberRow || '',
+    order: row.querySelector('[data-member-order]')?.value || '',
+    label: row.querySelector('.expert-member-order-label')?.textContent || '',
+  })))
+}
+
 async function checkDelayedSkillsRefreshPreservesDirtyEditor(page) {
   let releaseSkills
   let intercepted = false
@@ -621,6 +717,7 @@ async function main() {
     const persistence = await createPersistedTeam(page)
     const templatePersistence = await checkTemplateTeamSavePersists(page)
     const moderatorMemberSync = await checkModeratorClearsWhenMemberRemoved(page)
+    const memberOrderDrag = await checkMemberDragOrderPersists(page)
     const delayedSkillsRefresh = await checkDelayedSkillsRefreshPreservesDirtyEditor(page)
     const deletionPrune = await checkDeletedExpertPrunesPersistedTeam(page)
     const mobile = await checkExpertTeamsPage(page, { width: 390, height: 844 }, 'mobile')
@@ -636,6 +733,7 @@ async function main() {
       persistence,
       templatePersistence,
       moderatorMemberSync,
+      memberOrderDrag,
       delayedSkillsRefresh,
       deletionPrune,
       mobile,
