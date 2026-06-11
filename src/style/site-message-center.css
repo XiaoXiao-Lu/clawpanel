@@ -63,8 +63,8 @@
 }
 .site-message-header h2 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 740;
+  font-size: var(--font-size-xl);
+  font-weight: 700;
   letter-spacing: 0;
   line-height: 1.2;
 }
@@ -80,7 +80,7 @@
   gap: 4px;
   padding: 3px;
   border: 1px solid var(--border-secondary);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--bg-primary) 86%, var(--bg-secondary));
 }
 .site-message-tab {
@@ -187,7 +187,7 @@
   gap: 7px;
   padding: 22px;
   border: 1px dashed var(--border-primary);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--bg-card) 84%, var(--bg-primary));
   color: var(--text-tertiary);
   text-align: center;
@@ -232,7 +232,7 @@
 .site-message-section-head span {
   color: var(--text-primary);
   font-size: var(--font-size-sm);
-  font-weight: 740;
+  font-weight: 700;
 }
 .site-message-section-head small {
   color: var(--text-tertiary);
@@ -356,7 +356,7 @@
   gap: 14px;
   padding: 13px 14px 13px 16px;
   border: 1px solid var(--border-primary);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--brand) 5%, transparent), transparent 58%),
     var(--bg-card);
@@ -464,7 +464,7 @@
     padding: 14px 14px 10px;
   }
   .site-message-header h2 {
-    font-size: 18px;
+    font-size: var(--font-size-xl);
   }
   .site-message-title-icon {
     width: 34px;

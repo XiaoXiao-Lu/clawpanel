@@ -792,7 +792,7 @@
 .setup-step-or { color: var(--text-tertiary); }
 .setup-input-row--tight { margin-top: 6px; }
 .setup-input-compact { flex: 1; padding: 4px 8px; border: 1px solid var(--border-primary); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); font-size: var(--font-size-xs); font-family: monospace; }
-.setup-inline-code { background: var(--bg-secondary); padding: 2px 6px; border-radius: 3px; user-select: all; }
+.setup-inline-code { background: var(--bg-secondary); padding: 2px 6px; border-radius: var(--radius-sm); user-select: all; }
 .setup-result { margin-top: 6px; }
 .setup-skeleton-row { height: 48px; margin-top: 8px; }
 .setup-skeleton-row:first-child { margin-top: 0; }

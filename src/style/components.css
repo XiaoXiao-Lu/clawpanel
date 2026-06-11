@@ -858,7 +858,7 @@ body.has-desktop-chrome .toast-container {
   display: block;
   background: linear-gradient(90deg, var(--aether-raised) 25%, var(--aether-glass-hover) 50%, var(--aether-raised) 75%);
   background-size: 200% 100%;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   animation: skeleton-shine 1.8s ease-in-out infinite;
 }
 

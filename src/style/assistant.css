@@ -4439,8 +4439,8 @@
 }
 .ex-pipe-arrow { opacity: 0.35; font-weight: 300; }
 
-.ex-progress { height: 3px; background: var(--aether-elevated); margin-bottom: 14px; border-radius: 2px; overflow: hidden; }
-.ex-progress-bar { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--aether-primary), color-mix(in srgb, var(--aether-primary) 70%, var(--aether-secondary))); transition: width 0.3s ease; }
+.ex-progress { height: 3px; background: var(--aether-elevated); margin-bottom: 14px; border-radius: var(--radius-xs); overflow: hidden; }
+.ex-progress-bar { height: 100%; border-radius: var(--radius-xs); background: linear-gradient(90deg, var(--aether-primary), color-mix(in srgb, var(--aether-primary) 70%, var(--aether-secondary))); transition: width 0.3s ease; }
 
 .ex-panel {
   margin-top: 10px;
@@ -4508,7 +4508,7 @@
   scrollbar-width: thin;
 }
 .ex-skel { padding: 8px 0; display: grid; gap: 6px; }
-.ex-skel span { height: 10px; background: var(--aether-elevated); border-radius: 4px; animation: ex-skel-pulse 1.6s ease-in-out infinite; }
+.ex-skel span { height: 10px; background: var(--aether-elevated); border-radius: var(--radius-xs); animation: ex-skel-pulse 1.6s ease-in-out infinite; }
 .ex-skel span:first-child { width: 80%; }
 .ex-skel span:last-child { width: 50%; }
 @keyframes ex-skel-pulse {

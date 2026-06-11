@@ -35,7 +35,7 @@
 .config-section-title mark {
   background: rgba(245, 158, 11, 0.25);
   color: var(--text-1);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   padding: 0 2px;
 }
 
