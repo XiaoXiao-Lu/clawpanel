@@ -1404,3 +1404,17 @@ body.has-desktop-chrome #main-col {
     #content { flex: 1; min-height: 0; }
   }
 }
+
+/* ══════════════════════════════════════════════════════════
+   REDUCED MOTION — Layout animations
+   ══════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-item,
+  .nav-item svg,
+  .nav-item:active,
+  .page {
+    animation: none !important;
+    transition: none !important;
+  }
+}

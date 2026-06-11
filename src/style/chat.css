@@ -78,6 +78,12 @@
 
 /* Enhanced meta info */
 .msg-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-size: var(--text-xxs);
+  color: var(--text-tertiary);
   opacity: 0.6;
   transition: opacity var(--ease-fast);
 }
@@ -737,15 +743,6 @@
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
-.msg-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-1);
-  font-size: var(--text-xxs);
-  color: var(--text-tertiary);
-}
-
 .msg.user .msg-meta {
   flex-direction: row-reverse;
 }
@@ -960,17 +957,6 @@
    ENHANCED MESSAGE ACTIONS
    Smooth reveal and interaction feedback
    ══════════════════════════════════════════════════════════ */
-
-.msg-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-1);
-  font-size: var(--text-xxs);
-  color: var(--text-tertiary);
-  opacity: 0.7;
-  transition: opacity var(--ease-fast);
-}
 
 .msg:hover .msg-meta {
   opacity: 1;
