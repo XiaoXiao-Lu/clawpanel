@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
+import { Readable } from 'node:stream'
 import test from 'node:test'
 import {
   DIST_DIR,
@@ -161,6 +162,34 @@ test('headless static server supports HEAD without body and rejects unsafe metho
       cacheControl: null,
       contentType: null,
       text: 'Method Not Allowed',
+    },
+  )
+})
+
+test('headless static server returns 500 when a static file stream fails', async (t) => {
+  const originalCreateReadStream = fs.createReadStream
+  fs.createReadStream = () => {
+    const stream = new Readable({ read() {} })
+    queueMicrotask(() => stream.destroy(new Error('disk read failed')))
+    return stream
+  }
+  t.after(() => {
+    fs.createReadStream = originalCreateReadStream
+  })
+
+  const baseUrl = await withStaticServer(t, {
+    'index.html': '<main>shell</main>',
+    'assets/app.js': 'console.log("ok")',
+  })
+
+  assert.deepEqual(
+    await readResponse('/assets/app.js', baseUrl),
+    {
+      status: 500,
+      allow: null,
+      cacheControl: null,
+      contentType: 'text/plain; charset=utf-8',
+      text: 'Internal Server Error',
     },
   )
 })

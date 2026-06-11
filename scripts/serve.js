@@ -160,7 +160,19 @@ function sendFile(res, filePath, { headOnly = false } = {}) {
     res.end()
     return
   }
-  fs.createReadStream(filePath).pipe(res)
+  const stream = fs.createReadStream(filePath)
+  stream.on('error', () => {
+    if (res.headersSent) {
+      res.destroy()
+      return
+    }
+
+    res.statusCode = 500
+    res.removeHeader('Cache-Control')
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+    res.end('Internal Server Error')
+  })
+  stream.pipe(res)
 }
 
 // === 启动服务器 ===
