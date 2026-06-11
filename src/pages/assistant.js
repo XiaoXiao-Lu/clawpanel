@@ -4519,7 +4519,7 @@ function renderExpertTeamMessage(m, idx) {
           ${liveModel ? `<span class="ex-live-model">${liveModel}</span>` : ''}
         </div>
         <div class="ex-live-body" data-expert-live-id="${escAttr(liveId)}">
-          ${active.content ? `<div class="ex-live-text">${escHtml(expertTeamLiveText(active.content, 900))}</div>` : '<div class="ex-skel"><span></span><span></span></div>'}
+          ${active.content ? `<div class="ex-live-text">${escHtml(expertTeamLiveText(active.content, 900, { tail: true }))}</div>` : '<div class="ex-skel"><span></span><span></span></div>'}
         </div>
       ` : `<div class="ex-skel"><span></span><span></span></div>`}
     </section>
@@ -4557,7 +4557,7 @@ function renderExpertTeamMessage(m, idx) {
       </div>
     </section>
   ` : ''
-  const overviewHtml = `<section class="ex-overview" aria-label="${escAttr(t('assistant.expertTeamStatsAria'))}">
+  const overviewHtml = `<section class="ex-overview" role="status" aria-live="polite" aria-atomic="true" aria-label="${escAttr(t('assistant.expertTeamStatsAria'))}">
     <span><small>${escHtml(t('assistant.expertTeamStageRunning'))}</small><strong>${escHtml(progress.currentLabel)}</strong></span>
     <span><small>${escHtml(t('assistant.expertTeamMetricOpinions'))}</small><strong>${escHtml(t('assistant.expertTeamStatsCompleted', { done: expertDone, total: expertTotal }))}</strong></span>
     <span><small>${escHtml(t('assistant.expertTeamMetricExceptions'))}</small><strong class="${errorCount ? 'ex-danger' : ''}">${escHtml(errorCount ? t('assistant.expertTeamStatErrors', { count: errorCount }) : t('assistant.expertTeamStatNoErrors'))}</strong></span>
@@ -5593,7 +5593,7 @@ function renderExpertTeamLiveConsole(plan, transcript, isRunning, activeAgents) 
       <small>${escHtml(detail)}</small>
     </div>
     ${liveId ? `<div class="ast-expert-live-slot ast-expert-live-console-body" data-expert-live-id="${escAttr(liveId)}">
-      ${active?.content ? `<div class="ast-expert-live-text">${escHtml(expertTeamLiveText(active.content, isModerator ? 900 : 700))}</div>` : '<div class="ast-expert-skeleton"><span></span><span></span></div>'}
+      ${active?.content ? `<div class="ast-expert-live-text">${escHtml(expertTeamLiveText(active.content, isModerator ? 900 : 700, { tail: true }))}</div>` : '<div class="ast-expert-skeleton"><span></span><span></span></div>'}
     </div>` : ''}
   </section>`
 }
@@ -6248,7 +6248,7 @@ function expertTeamFinalPreview(content, limit = 360) {
   return `${slice.slice(0, cut > 180 ? cut + 1 : limit).trim()}\n\n...`
 }
 
-function expertTeamLiveText(content, limit = 900) {
+function expertTeamLiveText(content, limit = 900, opts = {}) {
   const raw = String(content || '').trim()
   if (!raw) return ''
   // 先移除 Markdown 标记，提取纯文本预览
@@ -6265,6 +6265,16 @@ function expertTeamLiveText(content, limit = 900) {
     .replace(/\n{3,}/g, '\n\n')
     .trim()
   if (plain.length <= limit) return plain
+  if (opts.tail) {
+    // 流式预览：tail 模式跟随最新生成的尾部，便于感知实时进度。
+    const slice = plain.slice(plain.length - limit)
+    const cut = Math.min(
+      ...[slice.indexOf('\n\n'), slice.indexOf('。'), slice.indexOf('. '), slice.indexOf('？'), slice.indexOf('? ')]
+        .map(idx => (idx >= 0 ? idx + 1 : Infinity))
+    )
+    const head = Number.isFinite(cut) && cut < limit * 0.5 ? slice.slice(cut) : slice
+    return `...${head.trim()}`
+  }
   // 智能截断：优先在句子边界截断
   const slice = plain.slice(0, limit)
   const cut = Math.max(
@@ -6319,7 +6329,7 @@ function scheduleExpertTeamLiveDomUpdate(aiMsg, event, kind) {
   _expertTeamDomUpdatePayloads.set(key, {
     messageId,
     liveId,
-    content: expertTeamLiveText(item?.content || ''),
+    content: expertTeamLiveText(item?.content || '', 900, { tail: true }),
     meta: item?.content ? expertTeamContentMeta(item.content) : t('assistant.expertTeamGenerating'),
   })
   if (_expertTeamDomUpdateTimers.has(key)) return
@@ -6341,6 +6351,9 @@ function applyExpertTeamLiveDomUpdate(payload) {
     slot.innerHTML = payload.content
       ? `<div class="${compactLive ? 'ex-live-text' : 'ast-expert-live-text'}">${escHtml(payload.content)}</div>`
       : compactLive ? '<div class="ex-skel"><span></span><span></span></div>' : '<div class="ast-expert-skeleton"><span></span><span></span></div>'
+    // 跟随最新生成的尾部：把可滚动的实时文本滚到底，增强“正在生成”的实时感。
+    const scroller = slot.querySelector('.ex-live-text, .ast-expert-live-text')
+    if (scroller) scroller.scrollTop = scroller.scrollHeight
   })
   root.querySelectorAll(`[data-expert-active-id="${cssEscape(payload.liveId)}"] small`).forEach(chip => {
     if (payload.meta) chip.textContent = payload.meta
