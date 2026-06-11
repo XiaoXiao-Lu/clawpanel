@@ -442,11 +442,11 @@
   letter-spacing: -0.01em;
   cursor: pointer;
   transition: background var(--ease-fast), transform var(--ease-fast), box-shadow var(--ease-fast);
-  box-shadow: 0 2px 8px rgba(124, 111, 255, 0.3);
+  box-shadow: var(--shadow-btn-primary);
 }
 .dashboard-next-action:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(124, 111, 255, 0.4);
+  box-shadow: var(--shadow-btn-primary-hover);
 }
 
 .dashboard-health-metrics {

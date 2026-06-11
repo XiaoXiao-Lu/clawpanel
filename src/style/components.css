@@ -33,12 +33,12 @@
   background: var(--brand-gradient);
   border-color: transparent;
   color: white;
-  box-shadow: 0 2px 8px rgba(124, 111, 255, 0.3);
+  box-shadow: var(--shadow-btn-primary);
   transition: box-shadow var(--transition-fast), transform var(--transition-fast);
 }
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(124, 111, 255, 0.4);
+  box-shadow: var(--shadow-btn-primary-hover);
 }
 .btn-primary:active:not(:disabled) {
   transform: translateY(0) scale(0.98);
@@ -338,7 +338,7 @@
 }
 .input:hover,
 .form-input:hover {
-  border-color: rgba(124, 111, 255, 0.3);
+  border-color: var(--aether-border-focus);
   background: var(--aether-base);
 }
 .input:focus,

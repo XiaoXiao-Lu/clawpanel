@@ -284,7 +284,7 @@
   color: white;
   border-bottom-right-radius: var(--radius-sm);
   white-space: pre-wrap;
-  box-shadow: 0 2px 8px rgba(124, 111, 255, 0.3);
+  box-shadow: var(--shadow-btn-primary);
 }
 
 .ast-msg-bubble-ai {

@@ -688,7 +688,7 @@
   background: var(--brand-gradient);
   color: white;
   border-color: transparent;
-  box-shadow: 0 2px 8px rgba(124, 111, 255, 0.3);
+  box-shadow: var(--shadow-btn-primary);
 }
 
 .msg-ai .msg-avatar {
@@ -851,7 +851,7 @@
 }
 
 .chat-input:hover {
-  border-color: rgba(124, 111, 255, 0.3);
+  border-color: var(--aether-border-focus);
 }
 
 .chat-input:focus {
@@ -884,8 +884,8 @@
   place-items: center;
   transition: all var(--ease-spring);
   box-shadow:
-    0 2px 8px rgba(124, 111, 255, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+    0 2px 8px var(--shadow-brand),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
   flex-shrink: 0;
   position: relative;
   overflow: hidden;
@@ -896,7 +896,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at center, rgba(255,255,255,0.3) 0%, transparent 70%);
+  background: radial-gradient(circle at center, var(--ripple-color) 0%, transparent 70%);
   opacity: 0;
   transition: opacity var(--ease-fast);
 }
@@ -909,7 +909,7 @@
   transform: scale(1.08);
   box-shadow:
     0 6px 20px rgba(124, 111, 255, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+    inset 0 0 0 1px rgba(255, 255, 255, 0.15);
 }
 
 .chat-send-btn:active {

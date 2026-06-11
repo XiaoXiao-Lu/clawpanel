@@ -101,6 +101,14 @@
   --shadow-glow-lg:        0 0 40px -8px var(--aether-primary-glow);
   --shadow-brand:          rgba(124, 111, 255, 0.24);
 
+  /* ═══ Ripple / Hover Effects ═══ */
+  --ripple-color:        rgba(255, 255, 255, 0.3);
+  --ripple-opacity:      0.3;
+
+  /* ═══ Button Shadows ═══ */
+  --shadow-btn-primary:  0 2px 8px rgba(124, 111, 255, 0.3);
+  --shadow-btn-primary-hover: 0 6px 20px rgba(124, 111, 255, 0.4);
+
   /* ═══ Focus Outline ═══ */
   --outline-width:       2px;
   --outline-offset:      2px;
