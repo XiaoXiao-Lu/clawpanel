@@ -145,6 +145,8 @@ export default {
   modelIdInvalid: _('指定模型时请填写 provider/model，例如 openai/gpt-4o。', 'Enter provider/model for a fixed model, for example openai/gpt-4o.'),
   createFromTemplate: _('从模板新建专家团', 'Create team from template'),
   createBlank: _('空白创建', 'Create blank'),
+  templateMetaRounds: _('最多 {count} 轮', 'Up to {count} rounds'),
+  templateMetaParallel: _('并行 {count} 位', '{count} parallel'),
   templateMemberHint: _('建议添加角色：{roles}', 'Suggested roles: {roles}'),
   tplCodeReview: _('代码审查团', 'Code Review Team'),
   tplCodeReviewDesc: _('从质量、安全、测试、体验角度审查代码', 'Review code from quality, security, testing, and UX angles'),

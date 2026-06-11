@@ -60,6 +60,16 @@ function getModeLabel(mode) {
   return t(GROUP_MODES.find(([value]) => value === mode)?.[1] || 'expertTeams.modePanel')
 }
 
+// 模板节奏标签：sequential 显示轮次，其余显示并行数（带正确的本地化占位符）。
+function templateCadenceLabel(tpl = {}) {
+  const rounds = Number(tpl.maxRounds) || 0
+  if (tpl.mode === 'sequential' && rounds > 1) {
+    return t('expertTeams.templateMetaRounds', { count: rounds })
+  }
+  const parallel = Number(tpl.maxParallel) || 3
+  return t('expertTeams.templateMetaParallel', { count: parallel })
+}
+
 const ID_RE = /^[A-Za-z0-9_.-]+$/
 
 export async function render() {
@@ -822,21 +832,40 @@ function showGroupTemplatePicker(page, state) {
     <button class="expert-template-item" data-template-idx="${idx}" type="button">
       <strong>${icon('users', 13)} ${escapeHtml(t(tpl.labelKey))}</strong>
       <small>${escapeHtml(t(tpl.descKey))}</small>
-      <span class="expert-template-meta">${getModeLabel(tpl.mode)} · ${tpl.maxRounds && tpl.maxRounds > 1 ? t('expertTeams.workflowRounds').replace(/{maxRounds}/, tpl.maxRounds) : `${t('expertTeams.maxParallel')}${tpl.maxParallel || 3}`} · ${tpl.memberRoles?.join('、') || ''}</span>
+      <span class="expert-template-meta">${getModeLabel(tpl.mode)} · ${escapeHtml(templateCadenceLabel(tpl))} · ${escapeHtml(tpl.memberRoles?.join('、') || '')}</span>
     </button>
   `).join('')
 
+  const previousFocus = document.activeElement
+  const titleId = 'expert-template-picker-title'
   const overlay = document.createElement('div')
   overlay.className = 'expert-template-picker-overlay'
   overlay.innerHTML = `
-    <div class="expert-template-picker">
+    <div class="expert-template-picker" role="dialog" aria-modal="true" aria-labelledby="${titleId}">
       <div class="expert-template-picker-head">
-        <span>${t('expertTeams.createFromTemplate')}</span>
+        <span id="${titleId}">${t('expertTeams.createFromTemplate')}</span>
         <button type="button" data-action="template-blank">${t('expertTeams.createBlank')}</button>
       </div>
       <div class="expert-template-picker-body">${items}</div>
     </div>
   `
+
+  const close = () => {
+    document.removeEventListener('keydown', onKeydown, true)
+    overlay.remove()
+    if (previousFocus && typeof previousFocus.focus === 'function') {
+      try { previousFocus.focus() } catch {}
+    }
+  }
+
+  function onKeydown(e) {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      close()
+    }
+  }
+
   overlay.addEventListener('click', (e) => {
     const item = e.target.closest('[data-template-idx]')
     if (item) {
@@ -845,22 +874,27 @@ function showGroupTemplatePicker(page, state) {
       if (tpl) {
         state.selectedGroupId = null
         state.draftGroup = applyGroupTemplate(tpl)
-        overlay.remove()
+        close()
         renderList(page, state)
         renderEditor(page, state)
       }
+      return
     }
-    if (e.target === overlay || e.target.closest('[data-action="template-blank"]')) {
-      if (e.target.closest('[data-action="template-blank"]')) {
-        state.selectedGroupId = null
-        state.draftGroup = blankGroup()
-        renderList(page, state)
-        renderEditor(page, state)
-      }
-      overlay.remove()
+    if (e.target.closest('[data-action="template-blank"]')) {
+      state.selectedGroupId = null
+      state.draftGroup = blankGroup()
+      close()
+      renderList(page, state)
+      renderEditor(page, state)
+      return
     }
+    if (e.target === overlay) close()
   })
+
+  document.addEventListener('keydown', onKeydown, true)
   page.appendChild(overlay)
+  // 打开后把焦点移入弹窗，便于键盘操作与读屏。
+  ;(overlay.querySelector('[data-template-idx]') || overlay.querySelector('[data-action="template-blank"]'))?.focus()
 }
 
 function renderExpertOnboarding() {

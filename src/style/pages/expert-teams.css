@@ -938,6 +938,18 @@
   background: color-mix(in srgb, var(--brand) 4%, var(--bg-primary));
 }
 
+.expert-template-item:focus-visible {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 45%, transparent);
+}
+
+.expert-template-picker-head button:focus-visible {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 45%, transparent);
+}
+
 .expert-template-item strong {
   display: inline-flex;
   align-items: center;
