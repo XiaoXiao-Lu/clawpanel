@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const assistantJs = readFileSync(new URL('../src/pages/assistant.js', import.meta.url), 'utf8')
+const assistantCss = readFileSync(new URL('../src/style/assistant.css', import.meta.url), 'utf8')
 
 // Brace-matching helpers fail on regex literals like {1,6} inside this function,
 // so assert against the raw source instead.
@@ -21,7 +22,7 @@ test('live streaming callers request tail mode', () => {
 })
 
 test('live DOM update auto-scrolls the streaming text to the bottom', () => {
-  assert.match(assistantJs, /querySelector\('\.ex-live-text, \.ast-expert-live-text'\)/, 'must locate the scrollable live text')
+  assert.match(assistantJs, /const liveClass = compactLive \? 'ex-live-text' : 'ast-expert-live-text'/, 'must pick the right live text class')
   assert.match(assistantJs, /scroller\.scrollTop = scroller\.scrollHeight/, 'must scroll to bottom')
 })
 
@@ -31,4 +32,27 @@ test('expert team overview is a polite atomic live region for screen readers', (
     /class="ex-overview" role="status" aria-live="polite" aria-atomic="true"/,
     'overview must be a polite atomic status region',
   )
+})
+
+test('expert team live output exposes throttled screen reader announcements', () => {
+  assert.match(assistantJs, /const EXPERT_TEAM_LIVE_ANNOUNCE_INTERVAL = 3500/, 'announcement interval must be explicit')
+  assert.match(assistantJs, /function expertTeamLiveAnnouncerHtml\(liveId\)/, 'initial render must include announcer markup')
+  assert.match(assistantJs, /data-expert-live-announcer="\$\{escAttr\(liveId\)\}"/, 'announcer must be keyed to the live slot')
+  assert.match(assistantJs, /aria-live="polite" aria-atomic="true"/, 'announcer must be polite and atomic')
+  assert.match(assistantJs, /function shouldAnnounceExpertTeamLive\(key, content\)/, 'announcement throttle helper must exist')
+  assert.match(assistantJs, /now - last < EXPERT_TEAM_LIVE_ANNOUNCE_INTERVAL/, 'announcements must be throttled')
+  assert.match(assistantJs, /previousPayload\?\.announcement \|\| ''/, 'pending announcement must survive DOM debounce overwrites')
+})
+
+test('live DOM updates preserve a stable screen reader announcer node', () => {
+  assert.match(assistantJs, /function ensureExpertTeamLiveAnnouncer\(slot, liveId\)/, 'announcer should be ensured instead of recreated blindly')
+  assert.match(assistantJs, /slot\.insertBefore\(scroller, announcer\)/, 'visible text should be inserted before the announcer')
+  assert.match(assistantJs, /if \(payload\.announcement\) announcer\.textContent = payload\.announcement/, 'announcer text must update only for throttled snapshots')
+})
+
+test('assistant live console text can be manually reviewed', () => {
+  const liveTextRule = assistantCss.match(/^\.ast-expert-live-text \{[\s\S]*?\n\}/m)?.[0] || ''
+  assert.match(liveTextRule, /overflow-y: auto;/, 'console live text should be scrollable')
+  assert.match(liveTextRule, /scrollbar-width: thin;/, 'scrollbar should stay compact')
+  assert.doesNotMatch(liveTextRule, /mask-image:/, 'scrollable review area should not fade out the bottom text')
 })

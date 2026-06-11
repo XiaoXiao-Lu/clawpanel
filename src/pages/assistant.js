@@ -2329,6 +2329,8 @@ let _expertProfiles = []           // 已保存的专家档案列表
 let _expertTeamOutsideClickHandler = null
 const _expertTeamDomUpdateTimers = new Map()
 const _expertTeamDomUpdatePayloads = new Map()
+const _expertTeamLiveAnnouncementAt = new Map()
+const EXPERT_TEAM_LIVE_ANNOUNCE_INTERVAL = 3500
 
 // ── 节流保存 ──
 function throttledSave() {
@@ -4520,6 +4522,7 @@ function renderExpertTeamMessage(m, idx) {
         </div>
         <div class="ex-live-body" data-expert-live-id="${escAttr(liveId)}">
           ${active.content ? `<div class="ex-live-text">${escHtml(expertTeamLiveText(active.content, 900, { tail: true }))}</div>` : '<div class="ex-skel"><span></span><span></span></div>'}
+          ${expertTeamLiveAnnouncerHtml(liveId)}
         </div>
       ` : `<div class="ex-skel"><span></span><span></span></div>`}
     </section>
@@ -5594,6 +5597,7 @@ function renderExpertTeamLiveConsole(plan, transcript, isRunning, activeAgents) 
     </div>
     ${liveId ? `<div class="ast-expert-live-slot ast-expert-live-console-body" data-expert-live-id="${escAttr(liveId)}">
       ${active?.content ? `<div class="ast-expert-live-text">${escHtml(expertTeamLiveText(active.content, isModerator ? 900 : 700, { tail: true }))}</div>` : '<div class="ast-expert-skeleton"><span></span><span></span></div>'}
+      ${expertTeamLiveAnnouncerHtml(liveId)}
     </div>` : ''}
   </section>`
 }
@@ -6317,6 +6321,32 @@ function expertTeamLiveDomId(kind, expertId, round = 0) {
   return `${kind || 'expert'}-${expertId || 'unknown'}-${round || 0}`.replace(/[^a-zA-Z0-9_-]/g, '-')
 }
 
+function expertTeamLiveAnnouncerHtml(liveId) {
+  return `<div class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-expert-live-announcer="${escAttr(liveId)}"></div>`
+}
+
+function ensureExpertTeamLiveAnnouncer(slot, liveId) {
+  let announcer = slot.querySelector(`[data-expert-live-announcer="${cssEscape(liveId)}"]`)
+  if (announcer) return announcer
+  announcer = document.createElement('div')
+  announcer.className = 'sr-only'
+  announcer.setAttribute('role', 'status')
+  announcer.setAttribute('aria-live', 'polite')
+  announcer.setAttribute('aria-atomic', 'true')
+  announcer.dataset.expertLiveAnnouncer = liveId
+  slot.appendChild(announcer)
+  return announcer
+}
+
+function shouldAnnounceExpertTeamLive(key, content) {
+  if (!content) return false
+  const now = Date.now()
+  const last = _expertTeamLiveAnnouncementAt.get(key) || 0
+  if (now - last < EXPERT_TEAM_LIVE_ANNOUNCE_INTERVAL) return false
+  _expertTeamLiveAnnouncementAt.set(key, now)
+  return true
+}
+
 function scheduleExpertTeamLiveDomUpdate(aiMsg, event, kind) {
   if (!_messagesEl || !aiMsg || !event) return
   const messageId = expertTeamDomId(aiMsg)
@@ -6326,10 +6356,15 @@ function scheduleExpertTeamLiveDomUpdate(aiMsg, event, kind) {
   const item = kind === 'moderator'
     ? transcript.find(t => ['moderator_start', 'moderator_stream', 'moderator_retry'].includes(t.type))
     : transcript.find(t => ['expert_start', 'expert_stream', 'expert_retry'].includes(t.type) && sameExpertRun(t, event.expertId, event.round || 0))
+  const previousPayload = _expertTeamDomUpdatePayloads.get(key)
+  const announcement = shouldAnnounceExpertTeamLive(key, item?.content || '')
+    ? expertTeamLiveText(item?.content || '', 220, { tail: true })
+    : previousPayload?.announcement || ''
   _expertTeamDomUpdatePayloads.set(key, {
     messageId,
     liveId,
     content: expertTeamLiveText(item?.content || '', 900, { tail: true }),
+    announcement,
     meta: item?.content ? expertTeamContentMeta(item.content) : t('assistant.expertTeamGenerating'),
   })
   if (_expertTeamDomUpdateTimers.has(key)) return
@@ -6348,11 +6383,24 @@ function applyExpertTeamLiveDomUpdate(payload) {
   const slots = root.querySelectorAll(`[data-expert-live-id="${cssEscape(payload.liveId)}"]`)
   slots.forEach(slot => {
     const compactLive = slot.classList.contains('ex-live-body')
-    slot.innerHTML = payload.content
-      ? `<div class="${compactLive ? 'ex-live-text' : 'ast-expert-live-text'}">${escHtml(payload.content)}</div>`
-      : compactLive ? '<div class="ex-skel"><span></span><span></span></div>' : '<div class="ast-expert-skeleton"><span></span><span></span></div>'
+    const liveClass = compactLive ? 'ex-live-text' : 'ast-expert-live-text'
+    const skeletonHtml = compactLive ? '<div class="ex-skel"><span></span><span></span></div>' : '<div class="ast-expert-skeleton"><span></span><span></span></div>'
+    const announcer = ensureExpertTeamLiveAnnouncer(slot, payload.liveId)
+    let scroller = slot.querySelector(`.${liveClass}`)
+    if (payload.content) {
+      slot.querySelector('.ex-skel, .ast-expert-skeleton')?.remove()
+      if (!scroller) {
+        scroller = document.createElement('div')
+        scroller.className = liveClass
+        slot.insertBefore(scroller, announcer)
+      }
+      scroller.textContent = payload.content
+    } else {
+      slot.querySelector('.ex-live-text, .ast-expert-live-text')?.remove()
+      if (!slot.querySelector('.ex-skel, .ast-expert-skeleton')) slot.insertAdjacentHTML('afterbegin', skeletonHtml)
+    }
+    if (payload.announcement) announcer.textContent = payload.announcement
     // 跟随最新生成的尾部：把可滚动的实时文本滚到底，增强“正在生成”的实时感。
-    const scroller = slot.querySelector('.ex-live-text, .ast-expert-live-text')
     if (scroller) scroller.scrollTop = scroller.scrollHeight
   })
   root.querySelectorAll(`[data-expert-active-id="${cssEscape(payload.liveId)}"] small`).forEach(chip => {
@@ -9472,5 +9520,7 @@ export function cleanup() {
     _expertTeamDomUpdateTimers.forEach(t => clearTimeout(t))
     _expertTeamDomUpdateTimers.clear()
   }
+  _expertTeamDomUpdatePayloads.clear()
+  _expertTeamLiveAnnouncementAt.clear()
   window.removeEventListener('assistant-error-injected', handleAssistantErrorInjected)
 }
