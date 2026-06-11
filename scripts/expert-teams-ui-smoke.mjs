@@ -5,11 +5,14 @@ import path from 'node:path'
 import { chromium } from 'playwright'
 
 const root = path.resolve(import.meta.dirname, '..')
+const distDir = path.join(root, 'dist')
 const artifactsDir = path.join(root, 'artifacts', 'expert-teams')
 const stateDir = path.join(artifactsDir, 'state')
 const port = Number(process.env.EXPERT_TEAMS_SMOKE_PORT || 15180)
 const baseUrl = `http://127.0.0.1:${port}`
 const url = `${baseUrl}/#/expert-teams`
+const distReadyTimeoutMs = Number(process.env.EXPERT_TEAMS_SMOKE_DIST_TIMEOUT_MS || 45000)
+const distStableMs = Number(process.env.EXPERT_TEAMS_SMOKE_DIST_STABLE_MS || 1500)
 
 function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -25,6 +28,104 @@ async function waitForServer(target, timeoutMs = 30000) {
     await wait(350)
   }
   throw new Error(`Server did not become ready: ${target}`)
+}
+
+function normalizeDistReference(value) {
+  const cleanValue = String(value || '').split(/[?#]/, 1)[0].replace(/^\.?\//, '')
+  return cleanValue.startsWith('assets/') ? cleanValue : ''
+}
+
+function extractDistAssetRefs(indexHtml) {
+  const refs = new Set()
+  const attributePattern = /\b(?:src|href)=["']([^"']+)["']/g
+  let match
+  while ((match = attributePattern.exec(indexHtml))) {
+    const ref = normalizeDistReference(match[1])
+    if (ref) refs.add(ref)
+  }
+  return [...refs].sort()
+}
+
+async function listDistFiles(dir, baseDir = dir) {
+  const entries = await fs.readdir(dir, { withFileTypes: true })
+  const files = []
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name)
+    if (entry.isDirectory()) {
+      files.push(...await listDistFiles(fullPath, baseDir))
+    } else if (entry.isFile()) {
+      const stat = await fs.stat(fullPath)
+      files.push({
+        path: path.relative(baseDir, fullPath).replaceAll(path.sep, '/'),
+        size: stat.size,
+        mtimeMs: stat.mtimeMs,
+      })
+    }
+  }
+  return files.sort((a, b) => a.path.localeCompare(b.path))
+}
+
+async function createDistSnapshot() {
+  const indexPath = path.join(distDir, 'index.html')
+  let indexHtml
+  try {
+    indexHtml = await fs.readFile(indexPath, 'utf8')
+  } catch (error) {
+    if (error?.code === 'ENOENT') return { ready: false, reason: 'dist/index.html is missing' }
+    throw error
+  }
+
+  const assetRefs = extractDistAssetRefs(indexHtml)
+  for (const assetRef of assetRefs) {
+    try {
+      await fs.stat(path.join(distDir, assetRef))
+    } catch (error) {
+      if (error?.code === 'ENOENT') return { ready: false, reason: `${assetRef} referenced by index.html is missing` }
+      throw error
+    }
+  }
+
+  let files
+  try {
+    files = await listDistFiles(distDir)
+  } catch (error) {
+    if (error?.code === 'ENOENT') return { ready: false, reason: 'dist changed while scanning' }
+    throw error
+  }
+  return {
+    ready: true,
+    assetRefs,
+    fileCount: files.length,
+    signature: JSON.stringify({ assetRefs, files }),
+  }
+}
+
+async function waitForDistReady(timeoutMs = distReadyTimeoutMs, stableMs = distStableMs) {
+  const started = Date.now()
+  let lastSignature = ''
+  let lastChangeAt = 0
+  let lastReason = 'dist has not been checked yet'
+
+  while (Date.now() - started < timeoutMs) {
+    const snapshot = await createDistSnapshot()
+    if (snapshot.ready) {
+      if (snapshot.signature !== lastSignature) {
+        lastSignature = snapshot.signature
+        lastChangeAt = Date.now()
+        lastReason = 'dist is still changing'
+      } else if (Date.now() - lastChangeAt >= stableMs) {
+        console.log(`[expert-teams-ui-smoke] dist ready: ${snapshot.fileCount} files, ${snapshot.assetRefs.length} entry assets stable for ${stableMs}ms`)
+        return snapshot
+      }
+    } else {
+      lastSignature = ''
+      lastChangeAt = Date.now()
+      lastReason = snapshot.reason
+    }
+    await wait(250)
+  }
+
+  throw new Error(`dist did not become stable within ${timeoutMs}ms (${lastReason}). Run npm run build separately before npm run expert-teams:ui.`)
 }
 
 function startServer() {
@@ -1284,6 +1385,7 @@ async function main() {
     },
   }, null, 2))
   await fs.mkdir(artifactsDir, { recursive: true })
+  await waitForDistReady()
   const server = startServer()
   let browser
   try {

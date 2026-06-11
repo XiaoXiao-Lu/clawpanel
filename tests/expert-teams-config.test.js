@@ -240,6 +240,29 @@ test('Expert Teams browser smoke guards slow Skills refresh while editing', () =
   }
 })
 
+test('Expert Teams browser smoke waits for stable dist assets before serving', () => {
+  for (const token of [
+    'const distDir',
+    'EXPERT_TEAMS_SMOKE_DIST_TIMEOUT_MS',
+    'EXPERT_TEAMS_SMOKE_DIST_STABLE_MS',
+    'extractDistAssetRefs',
+    'normalizeDistReference',
+    'listDistFiles',
+    'createDistSnapshot',
+    'dist changed while scanning',
+    'waitForDistReady',
+    'referenced by index.html is missing',
+    'dist did not become stable',
+    'Run npm run build separately before npm run expert-teams:ui',
+    'await waitForDistReady()',
+    'const server = startServer()',
+  ]) {
+    assert.match(smoke, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  }
+
+  assert.ok(smoke.indexOf('await waitForDistReady()') < smoke.indexOf('const server = startServer()'))
+})
+
 test('Expert Teams browser smoke guards deleted expert pruning teams', () => {
   for (const token of [
     'checkGroupTemplatePickerAppliesDraft',
