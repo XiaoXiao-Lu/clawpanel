@@ -209,6 +209,46 @@ async function checkGroupTemplatePickerAppliesDraft(page) {
   }
 }
 
+async function checkGroupTemplatePickerCancelKeepsDraft(page) {
+  await page.goto(url, { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('#expert-teams-editor', { timeout: 30000 })
+  await waitForExpertTeamsIdle(page)
+  await page.locator('[data-expert-tab="groups"]').click()
+  await waitForExpertTeamsIdle(page)
+
+  const beforeCancel = await groupEditorSnapshot(page)
+  await clickAction(page, 'add')
+  const picker = page.locator('.expert-template-picker-overlay')
+  await picker.waitFor({ timeout: 10000 })
+  await picker.click({ position: { x: 8, y: 8 } })
+  if (await picker.isVisible({ timeout: 1000 }).catch(() => false)) {
+    throw new Error('Template picker stayed open after backdrop cancel')
+  }
+
+  const afterCancel = await groupEditorSnapshot(page)
+  if (JSON.stringify(afterCancel) !== JSON.stringify(beforeCancel)) {
+    throw new Error(`Template picker cancel changed editor state: before=${JSON.stringify(beforeCancel)} after=${JSON.stringify(afterCancel)}`)
+  }
+
+  return afterCancel
+}
+
+async function groupEditorSnapshot(page) {
+  return page.evaluate(() => {
+    const groupId = document.querySelector('#group-id')
+    const groupName = document.querySelector('#group-name')
+    const groupMode = document.querySelector('#group-mode')
+    const selectedRows = document.querySelectorAll('#expert-member-picker [data-member-row].is-selected')
+    return {
+      hasGroupEditor: !!groupId,
+      idValue: groupId?.value || '',
+      nameValue: groupName?.value || '',
+      modeValue: groupMode?.value || '',
+      selectedCount: selectedRows.length,
+    }
+  })
+}
+
 async function createPersistedTeam(page) {
   const experts = [
     {
@@ -1261,6 +1301,7 @@ async function main() {
     })
 
     const desktop = await checkExpertTeamsPage(page, { width: 1366, height: 900 }, 'desktop')
+    const templateCancel = await checkGroupTemplatePickerCancelKeepsDraft(page)
     const templateDraft = await checkGroupTemplatePickerAppliesDraft(page)
     const persistence = await createPersistedTeam(page)
     const templatePersistence = await checkTemplateTeamSavePersists(page)
@@ -1285,6 +1326,7 @@ async function main() {
       ok: true,
       url,
       desktop,
+      templateCancel,
       templateDraft,
       persistence,
       templatePersistence,
