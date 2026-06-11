@@ -384,23 +384,23 @@ function showBackendDownOverlay() {
   overlay.innerHTML = `
     <div class="login-card" style="text-align:center">
       ${_logoSvg}
-      <div class="login-title" style="color:var(--error,#ef4444)">${t('common.backendDownTitle')}</div>
+      <div class="login-title" style="color:var(--error)">${t('common.backendDownTitle')}</div>
       <div class="login-desc" style="line-height:1.8">
         ${t('common.backendDownDesc')}<br>
-        <span style="font-size:12px;color:var(--text-tertiary)">${t('common.backendDownHint')}</span>
+        <span style="font-size:var(--text-sm);color:var(--text-tertiary)">${t('common.backendDownHint')}</span>
       </div>
-      <div style="background:var(--bg-tertiary);border-radius:var(--radius-md,8px);padding:14px 18px;margin:16px 0;text-align:left;font-family:var(--font-mono,monospace);font-size:12px;line-height:1.8;user-select:all;color:var(--text-secondary)">
-        <div style="color:var(--text-tertiary);margin-bottom:4px"># ${t('common.devMode')}</div>
+      <div style="background:var(--bg-tertiary);border-radius:var(--radius-md);padding:var(--space-4) var(--space-5);margin:var(--space-4) 0;text-align:left;font-family:var(--font-mono);font-size:var(--text-sm);line-height:1.8;user-select:all;color:var(--text-secondary)">
+        <div style="color:var(--text-tertiary);margin-bottom:var(--space-1)"># ${t('common.devMode')}</div>
         npm run dev<br>
-        <div style="color:var(--text-tertiary);margin-top:8px;margin-bottom:4px"># ${t('common.prodMode')}</div>
+        <div style="color:var(--text-tertiary);margin-top:var(--space-2);margin-bottom:var(--space-1)"># ${t('common.prodMode')}</div>
         npm run serve
       </div>
       <button class="login-btn" id="btn-backend-retry" style="margin-top:8px">
         <span id="backend-retry-text">${t('common.checkAgain')}</span>
       </button>
-      <div id="backend-retry-status" style="font-size:12px;color:var(--text-tertiary);margin-top:12px"></div>
-      <div style="margin-top:16px;font-size:11px;color:var(--text-3, #aaa)">
-        <a href="https://claw.qt.cool" target="_blank" rel="noopener" style="color:var(--text-3, #aaa);text-decoration:none">claw.qt.cool</a>
+      <div id="backend-retry-status" style="font-size:var(--text-sm);color:var(--text-tertiary);margin-top:var(--space-3)"></div>
+      <div style="margin-top:var(--space-4);font-size:var(--text-xs);color:var(--text-tertiary)">
+        <a href="https://claw.qt.cool" target="_blank" rel="noopener" style="color:var(--text-tertiary);text-decoration:none">claw.qt.cool</a>
         <span style="margin:0 6px">&middot;</span>v${APP_VERSION}
       </div>
     </div>
@@ -902,12 +902,12 @@ async function boot() {
 
     // 立即显示骨架屏，避免 boot() 期间内容区空白
     if (!content.querySelector('.page')) {
-      content.innerHTML = `<div class="page" style="padding:32px">
-        <div class="skeleton-line" style="width:200px;height:28px;margin-bottom:24px"></div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px">
-          ${[1,2,3].map(() => '<div class="card"><div class="card-body" style="padding:16px"><div class="skeleton-line" style="width:60%;height:12px;margin-bottom:10px"></div><div class="skeleton-line" style="width:80%;height:20px"></div></div></div>').join('')}
+      content.innerHTML = `<div class="page" style="padding:var(--space-8)">
+        <div class="skeleton-line" style="width:200px;height:28px;margin-bottom:var(--space-6)"></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--space-4);margin-bottom:var(--space-5)">
+          ${[1,2,3].map(() => '<div class="card"><div class="card-body" style="padding:var(--space-4)"><div class="skeleton-line" style="width:60%;height:12px;margin-bottom:var(--space-3)"></div><div class="skeleton-line" style="width:80%;height:20px"></div></div></div>').join('')}
         </div>
-        <div class="card"><div class="card-body" style="padding:20px"><div class="skeleton-line" style="width:40%;height:16px;margin-bottom:16px"></div><div class="skeleton-line" style="height:36px"></div></div></div>
+        <div class="card"><div class="card-body" style="padding:var(--space-5)"><div class="skeleton-line" style="width:40%;height:16px;margin-bottom:var(--space-4)"></div><div class="skeleton-line" style="height:36px"></div></div></div>
       </div>`
     }
 
@@ -1200,7 +1200,7 @@ function setupGatewayBanner() {
               <a class="btn btn-sm btn-ghost" href="#/services">${t('sidebar.services')}</a>
               <a class="btn btn-sm btn-ghost" href="#/logs">${t('sidebar.logs')}</a>
             </div>
-            <div style="font-size:11px;opacity:0.7;margin-top:4px;font-family:monospace;word-break:break-all">${escapeHtml(errMsg)}</div>
+            <div style="font-size:var(--text-xs);opacity:0.7;margin-top:var(--space-1);font-family:var(--font-mono);word-break:break-all">${escapeHtml(errMsg)}</div>
           `
           update(false)
           return
@@ -1221,7 +1221,7 @@ function setupGatewayBanner() {
         let logHint = ''
         try {
           const logs = await api.readLogTail('gateway', 5)
-          if (logs?.trim()) logHint = `<div style="font-size:12px;margin-top:4px;opacity:0.8;font-family:monospace;white-space:pre-wrap">${logs.trim().split('\n').slice(-3).join('\n')}</div>`
+          if (logs?.trim()) logHint = `<div style="font-size:var(--text-sm);margin-top:var(--space-1);opacity:0.8;font-family:var(--font-mono);white-space:pre-wrap">${logs.trim().split('\n').slice(-3).join('\n')}</div>`
         } catch {}
         banner.innerHTML = `
           <div class="gw-banner-content">
@@ -1265,12 +1265,12 @@ function showGuardianRecovery() {
     overlay.innerHTML = `
       <div class="modal" style="max-width:560px">
         <div class="modal-title">${t('dashboard.fixModalTitle')}</div>
-        <div style="font-size:var(--font-size-sm);color:var(--text-secondary);margin-bottom:12px">
+        <div style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--space-3)">
           ${t('dashboard.fixModalDesc')}
         </div>
-        <div id="fix-log" style="font-family:var(--font-mono);font-size:11px;background:var(--bg-tertiary);padding:12px;border-radius:var(--radius-md);max-height:300px;overflow-y:auto;white-space:pre-wrap;line-height:1.6;color:var(--text-secondary)">${t('dashboard.fixRunning')}\n</div>
-        <div id="fix-status" style="margin-top:12px;font-size:var(--font-size-sm);font-weight:600"></div>
-        <div class="modal-actions" style="margin-top:16px">
+        <div id="fix-log" style="font-family:var(--font-mono);font-size:var(--text-xs);background:var(--bg-tertiary);padding:var(--space-3);border-radius:var(--radius-md);max-height:300px;overflow-y:auto;white-space:pre-wrap;line-height:1.6;color:var(--text-secondary)">${t('dashboard.fixRunning')}\n</div>
+        <div id="fix-status" style="margin-top:var(--space-3);font-size:var(--text-sm);font-weight:600"></div>
+        <div class="modal-actions" style="margin-top:var(--space-4)">
           <button class="btn btn-secondary btn-sm" id="fix-close" style="display:none">${t('common.close')}</button>
         </div>
       </div>
@@ -1412,12 +1412,12 @@ function startAnnouncementChecker() {
     _hideSplash()
     const app = document.getElementById('app')
     if (app) app.innerHTML = `
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-        <div style="font-size:48px;margin-bottom:16px">⚠️</div>
-        <div style="font-size:18px;font-weight:600;margin-bottom:8px;color:var(--text-primary, #18181b)">${t('common.pageLoadFailed')}</div>
-        <div style="font-size:13px;color:var(--text-3, #71717a);max-width:400px;line-height:1.6;margin-bottom:16px">${String(bootErr?.message || bootErr).replace(/</g,'&lt;')}</div>
-        <button onclick="location.reload()" style="padding:8px 20px;border-radius:8px;border:none;background:var(--accent);color:var(--text-inverse, #fff);font-size:13px;cursor:pointer">${t('common.reloadRetry')}</button>
-        <div style="margin-top:24px;font-size:11px;color:var(--text-3, #a1a1aa)">${t('common.pageLoadFailedHint')}<br><a href="https://github.com/qingchencloud/clawpanel/issues" target="_blank" style="color:var(--accent)">GitHub Issues</a></div>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:var(--space-5);text-align:center;font-family:var(--font-sans)">
+        <div style="font-size:48px;margin-bottom:var(--space-4)">⚠️</div>
+        <div style="font-size:var(--text-xl);font-weight:600;margin-bottom:var(--space-2);color:var(--text-primary)">${t('common.pageLoadFailed')}</div>
+        <div style="font-size:var(--text-base);color:var(--text-secondary);max-width:400px;line-height:1.6;margin-bottom:var(--space-4)">${String(bootErr?.message || bootErr).replace(/</g,'&lt;')}</div>
+        <button onclick="location.reload()" style="padding:var(--space-2) var(--space-5);border-radius:var(--radius-md);border:none;background:var(--accent);color:var(--text-inverse);font-size:var(--text-base);cursor:pointer">${t('common.reloadRetry')}</button>
+        <div style="margin-top:var(--space-6);font-size:var(--text-xs);color:var(--text-tertiary)">${t('common.pageLoadFailedHint')}<br><a href="https://github.com/qingchencloud/clawpanel/issues" target="_blank" style="color:var(--accent)">GitHub Issues</a></div>
       </div>`
   }
   initSiteMessageCenter({
