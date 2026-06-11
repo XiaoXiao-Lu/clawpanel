@@ -1,6 +1,102 @@
 # Automation: UI Fix — 执行记录
 
-## 2026-06-09 23:28 — 图标系统美化（重设计+标准化+去Emoji）
+## 2026-06-10 12:39 — UI/UX 第17轮 — 亮暗主题兼容+JS交互增强
+
+### P0 修复 (5项)
+- polish.css chat侧边栏 280→288px; --z-layer-* →:root全局
+- layout.css 侧边栏搜索/nav-item 亮色模式修复
+- about.css #fff→--bg-elevated
+
+### P1 统一 (50+处)
+- 7处color:white→--text-inverse; misc.css 35+处transition→tokens
+- components/layout/reset/command-palette CSS变量统一
+
+### P2 JS增强 (6项)
+- router 404友好页面; 命令面板搜索高亮+频率排序+键盘footer
+- modal body滚动锁定; toast 2秒去重
+
+### 构建: ✅ Vite 2.70s | Git f05b0a7 → main, 17文件 +268/-86
+
+## 2026-06-10 10:55 — UI/UX 第16轮 — Chat消息点赞/点踩
+
+### 新增反馈系统
+- 每条AI消息底部 👍/👎 按钮: hover显示, 点击绿赞/红踩/再点取消
+- localStorage持久化 (clawpanel-msg-feedback), 重载后恢复
+- 覆盖流式+历史两种渲染, 26px触摸目标, 按下scale(0.88)反馈
+
+### 构建: ✅ 2.58s | Git: 4fca6993 → main, 2文件 +104/-1
+
+## 2026-06-10 08:43 — UI/UX 第15轮 — 跨引擎KPI卡片统一+骨架屏增强
+
+### P1 跨引擎KPI统一
+- OpenClaw stat-cards 对齐 Hermes Editorial Luxury: gap隔离→inset-divider网格, 标签大写→混排, 数值700→500, 元数据→等宽字体, hover阴影→背景偏移
+- 新增 `data-tone` 语义着色: success/error/warn/info 四色标签
+- dashboard.js 动态设置 tone: Gateway(running→success/foreign→warn), Version(multi→warn/bound→success), Services(全运行→success/全停→error)
+
+### P2 骨架屏增强
+- Dashboard骨架: 6空白块→6张各含3条skeleton-line(60%/40%/50%宽度)的结构化骨架
+- skeleton-shine: 1.4s→1.8s ease-in-out, 新增 reduced-motion 降级
+
+### 构建: ✅ 2.63s | Git: bbbe9c7 → main, 2文件 +69/-33
+
+## 2026-06-10 07:30 — UI/UX 第14轮 — 事件泄漏修复+Settings搜索
+
+### P0 事件监听器泄漏修复 (3处)
+- **models.js**: document click handler 匿名→`_docClickHandler`，cleanup()中 `removeEventListener`。之前每次导航到该页都挂一个新的永不回收的document级监听器
+- **chat.js**: lightbox ESC keydown→`_lightboxKeyHandler`，cleanup()中移除。之前若用户在灯箱打开时导航离开，handler 永久泄漏
+- **agent-detail.js**: showSkillPreview/openFileEditor 挂 modal 到 `document.body` 无清理→新增 `_openOverlays` 追踪 + `_trackOverlay()` MutationObserver 自动清理 + cleanup()统一移除
+
+### P1 cleanup约定补齐 (3处)
+- `hermes/sessions.js`, `services.js`, `config.js`: 新增 `cleanup()` 占位导出（所有监听器在子元素上，DOM移除时自动GC）
+
+### P1 Settings搜索
+- `settings.js`: 新增实时搜索框，过滤 `.config-section`，`<mark>` 高亮匹配文本，显示匹配计数
+- `settings.css`: `.settings-search-bar/icon/input/count/mark` 完整样式
+- `zh-CN/en.json`: 新增 `settings.searchPlaceholder` 翻译键
+
+### 构建: ✅ 通过 (2.48s, 77 chunk)
+### Git: 已提交推送 (main, commit 56ce9f8), 10文件 +125/-4
+
+### 遗留未实施:
+- 跨引擎KPI卡片视觉统一（OpenClaw vs Hermes dashboard）
+- Chat消息点赞/点踩
+- Dashboard可自定义拖拽布局
+- 页面预加载
+- Chat消息引用/回复线程
+
+- 审查方法：UI/UX Pro Max 设计系统分析 + UX模式扫描Agent + CSS质量扫描Agent + JS交互扫描Agent
+- 全项目地毯式扫描发现：30+ UX模式问题(导航/命令面板/页面过渡/设置页/Chat交互/跨引擎一致性/Toast/动画)、170+ CSS硬编码值、15+ JS交互缺陷
+- **本次实施聚焦高影响低复杂度项**：
+
+### P0 实施
+- **路由过渡动画**: router.js 添加页面退出动画（pageOut 120ms fade+scale），新页面包装pageIn进入动画 → 告别页面切换"闪白"
+- **Toast进度条激活**: 已有CSS `.toast-progress` 从未在JS渲染 → 现已激活，悬停暂停动画，>2s延迟toast自动显示
+- **命令面板可发现性**: sidebar底部新增 `Ctrl+K` 快捷入口按钮 + CSS样式 + click→openPalette()
+- **CSS硬编码收尾**: layout.css(6处hex→var)、components.css(2处→var)、site-message-center.css(1处→var)
+- **z-index硬编码收尾**: layout.css 4处裸数字→`var(--z-layer-1/2)`
+
+### P1 实施
+- **导航徽章框架**: sidebar.js 新增 `updateNavBadge(route, count)` / `clearNavBadges()` API + CSS + 增量更新自动恢复
+- **CSS过渡变量收尾**: layout.css 8处硬编码过渡时间→`var(--ease-fast)`
+- **dark mode变体补充**: components.css engage-action star/link 背景色双主题
+- **variables.css新增**: 16个CSS变量（--text-inverse/brand-300/brand-gradient/error-gradient/engage-*/z-layer-*）
+
+### 修改文件: 7文件 (+197/-30行)
+- `src/router.js`: 页面过渡动画逻辑
+- `src/components/toast.js`: 进度条渲染+悬停暂停
+- `src/components/sidebar.js`: Ctrl+K入口+导航徽章框架
+- `src/style/variables.css`: 16个新变量 (light+dark)
+- `src/style/layout.css`: 硬编码收尾 + 新组件样式 + pageIn/Out优化
+- `src/style/components.css`: engage暗色模式
+- `src/style/site-message-center.css`: hex→变量
+
+### 构建: ✅ 通过 (2.77s, 77 chunk)
+### Git: 已提交推送 (main, commit c68c0dd)
+
+### 遗留未实施（下轮建议重点）:
+- **P0**: 12+页面缺少事件清理函数（内存泄漏）
+- **P1**: Settings页搜索+标签页导航、跨引擎KPI卡片统一、Chat消息点赞/点踩、页面预加载
+- **P2**: 可自定义Dashboard拖拽布局、Chat消息引用/回复、设置导入导出、Skeleton闪烁动画
 
 - 用户反馈"图标很简陋没有设计美感"→全面审计：140+ SVG定义、275次内联SVG、413+ emoji
 - 重设计3个最粗糙图标：BOT_ICON(AI Drawer FAB)、ICON_BELL/ICON_SEND/ICON_X → Lucide风格

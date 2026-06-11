@@ -257,7 +257,7 @@ install_clawpanel() {
     # 生产构建（生成优化后的静态文件）
     echo "📦 构建生产版本..."
     cd "$INSTALL_DIR"
-    npx vite build
+    npm run build
     echo "✅ ClawPanel 安装完成: $INSTALL_DIR"
     echo "✅ 启动命令: npm run serve"
 }
