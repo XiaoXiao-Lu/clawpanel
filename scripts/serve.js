@@ -226,6 +226,9 @@ function sendFile(res, filePath, { headOnly = false, fileSize = null, rangeHeade
     res.setHeader('Content-Type', 'text/plain; charset=utf-8')
     res.end('Internal Server Error')
   })
+  res.on('close', () => {
+    if (!res.writableEnded) stream.destroy()
+  })
   stream.pipe(res)
 }
 

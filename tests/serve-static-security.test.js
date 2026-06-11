@@ -275,6 +275,63 @@ test('headless static server preserves binary bytes for range asset requests', a
   assert.deepEqual([...res.body], [0x80, 0xff, 0x42])
 })
 
+test('headless static server destroys static file streams when clients abort', async (t) => {
+  const originalCreateReadStream = fs.createReadStream
+  let destroyed = false
+  let resolveDestroyed
+  const destroyedPromise = new Promise(resolve => { resolveDestroyed = resolve })
+
+  fs.createReadStream = () => {
+    const stream = new Readable({ read() {} })
+    const originalDestroy = stream.destroy.bind(stream)
+    stream.destroy = (error) => {
+      destroyed = true
+      resolveDestroyed(error || null)
+      return originalDestroy(error)
+    }
+    queueMicrotask(() => stream.push(Buffer.from('chunk')))
+    return stream
+  }
+  t.after(() => {
+    fs.createReadStream = originalCreateReadStream
+  })
+
+  const baseUrl = await withStaticServer(t, {
+    'index.html': '<main>shell</main>',
+    'assets/video.mp4': '0123456789',
+  })
+
+  const target = new URL(baseUrl)
+  await new Promise((resolve, reject) => {
+    let settled = false
+    const finish = (error) => {
+      if (settled) return
+      settled = true
+      if (error) reject(error)
+      else resolve()
+    }
+    const req = http.request({
+      hostname: target.hostname,
+      port: target.port,
+      path: '/assets/video.mp4',
+    }, (res) => {
+      res.on('data', () => {
+        req.destroy()
+        finish()
+      })
+      res.on('error', () => finish())
+    })
+    req.on('error', () => finish())
+    req.end()
+  })
+
+  await Promise.race([
+    destroyedPromise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('stream was not destroyed after client abort')), 500)),
+  ])
+  assert.equal(destroyed, true)
+})
+
 test('headless static server handles HEAD and invalid range requests', async (t) => {
   const baseUrl = await withStaticServer(t, {
     'index.html': '<main>shell</main>',
