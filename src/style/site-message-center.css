@@ -91,7 +91,7 @@
   gap: 6px;
   padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: 9px;
+  border-radius: var(--radius-lg);
   background: transparent;
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
@@ -150,7 +150,7 @@
   display: inline-grid;
   place-items: center;
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--radius-lg);
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
@@ -439,7 +439,7 @@
   min-height: 32px;
   padding: 0 11px;
   border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
-  border-radius: 9px;
+  border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--brand) 9%, transparent);
   text-decoration: none;
 }
