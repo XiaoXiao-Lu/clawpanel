@@ -85,7 +85,7 @@ function isPathInsideDirectory(parentDir, candidatePath) {
   return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath))
 }
 
-function resolveStaticFilePath(rawUrl = '/') {
+function resolveStaticFilePath(rawUrl = '/', distDir = DIST_DIR) {
   const rawPath = String(rawUrl || '/').split('?')[0] || '/'
   let urlPath
   try {
@@ -101,17 +101,17 @@ function resolveStaticFilePath(rawUrl = '/') {
   const relativePath = urlPath === '/'
     ? 'index.html'
     : urlPath.replace(/^\/+/, '')
-  const filePath = path.resolve(DIST_DIR, relativePath)
+  const filePath = path.resolve(distDir, relativePath)
 
-  if (!isPathInsideDirectory(DIST_DIR, filePath)) {
+  if (!isPathInsideDirectory(distDir, filePath)) {
     return { ok: false, statusCode: 403, message: 'Forbidden' }
   }
 
   return { ok: true, filePath, urlPath }
 }
 
-function serveStatic(req, res) {
-  const resolved = resolveStaticFilePath(req.url)
+function serveStatic(req, res, { distDir = DIST_DIR } = {}) {
+  const resolved = resolveStaticFilePath(req.url, distDir)
   if (!resolved.ok) {
     res.statusCode = resolved.statusCode
     res.end(resolved.message)
@@ -129,7 +129,7 @@ function serveStatic(req, res) {
     // SPA fallback：非 API、非静态资源 → index.html
     const ext = path.extname(urlPath)
     if (!ext || ext === '.html') {
-      sendFile(res, path.join(DIST_DIR, 'index.html'))
+      sendFile(res, path.join(distDir, 'index.html'))
     } else {
       res.statusCode = 404
       res.end('Not Found')
@@ -234,4 +234,4 @@ if (path.resolve(process.argv[1] || '') === SERVE_ENTRY) {
   main().catch(e => { console.error('启动失败:', e); process.exit(1) })
 }
 
-export { DIST_DIR, isPathInsideDirectory, resolveStaticFilePath }
+export { DIST_DIR, isPathInsideDirectory, resolveStaticFilePath, serveStatic }
