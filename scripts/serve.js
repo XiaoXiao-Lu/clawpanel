@@ -111,10 +111,17 @@ function resolveStaticFilePath(rawUrl = '/', distDir = DIST_DIR) {
 }
 
 function serveStatic(req, res, { distDir = DIST_DIR } = {}) {
+  if (req.method && !['GET', 'HEAD'].includes(req.method)) {
+    res.statusCode = 405
+    res.setHeader('Allow', 'GET, HEAD')
+    res.end('Method Not Allowed')
+    return
+  }
+
   const resolved = resolveStaticFilePath(req.url, distDir)
   if (!resolved.ok) {
     res.statusCode = resolved.statusCode
-    res.end(resolved.message)
+    res.end(req.method === 'HEAD' ? '' : resolved.message)
     return
   }
   const { filePath, urlPath } = resolved
@@ -122,22 +129,22 @@ function serveStatic(req, res, { distDir = DIST_DIR } = {}) {
   // 尝试读取文件
   fs.stat(filePath, (err, stats) => {
     if (!err && stats.isFile()) {
-      sendFile(res, filePath)
+      sendFile(res, filePath, { headOnly: req.method === 'HEAD' })
       return
     }
 
     // SPA fallback：非 API、非静态资源 → index.html
     const ext = path.extname(urlPath)
     if (!ext || ext === '.html') {
-      sendFile(res, path.join(distDir, 'index.html'))
+      sendFile(res, path.join(distDir, 'index.html'), { headOnly: req.method === 'HEAD' })
     } else {
       res.statusCode = 404
-      res.end('Not Found')
+      res.end(req.method === 'HEAD' ? '' : 'Not Found')
     }
   })
 }
 
-function sendFile(res, filePath) {
+function sendFile(res, filePath, { headOnly = false } = {}) {
   const ext = path.extname(filePath)
   const contentType = MIME_TYPES[ext] || 'application/octet-stream'
 
@@ -149,6 +156,10 @@ function sendFile(res, filePath) {
   }
 
   res.setHeader('Content-Type', contentType)
+  if (headOnly) {
+    res.end()
+    return
+  }
   fs.createReadStream(filePath).pipe(res)
 }
 

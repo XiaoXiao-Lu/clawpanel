@@ -62,14 +62,14 @@ async function withStaticServer(t, files = {}) {
   return `http://127.0.0.1:${port}`
 }
 
-async function readResponse(urlPath, baseUrl) {
+async function readResponse(urlPath, baseUrl, { method = 'GET' } = {}) {
   const target = new URL(baseUrl)
   return new Promise((resolve, reject) => {
     const req = http.request({
       hostname: target.hostname,
       port: target.port,
       path: urlPath,
-      method: 'GET',
+      method,
     }, (res) => {
       let body = ''
       res.setEncoding('utf8')
@@ -77,6 +77,7 @@ async function readResponse(urlPath, baseUrl) {
       res.on('end', () => {
         resolve({
           status: res.statusCode,
+          allow: res.headers.allow || null,
           cacheControl: res.headers['cache-control'] || null,
           contentType: res.headers['content-type'] || null,
           text: body,
@@ -97,6 +98,7 @@ test('headless static server serves assets with immutable cache headers', async 
   const res = await readResponse('/assets/app.js?v=1', baseUrl)
 
   assert.equal(res.status, 200)
+  assert.equal(res.allow, null)
   assert.equal(res.contentType, 'application/javascript; charset=utf-8')
   assert.equal(res.cacheControl, 'public, max-age=31536000, immutable')
   assert.equal(res.text, 'console.log("ok")')
@@ -110,6 +112,7 @@ test('headless static server keeps html uncached and uses SPA fallback', async (
   const res = await readResponse('/workspace/deep/link', baseUrl)
 
   assert.equal(res.status, 200)
+  assert.equal(res.allow, null)
   assert.equal(res.contentType, 'text/html; charset=utf-8')
   assert.equal(res.cacheControl, 'no-cache, no-store, must-revalidate')
   assert.equal(res.text, '<main>shell</main>')
@@ -122,14 +125,42 @@ test('headless static server returns explicit HTTP errors for unsafe or missing 
 
   assert.deepEqual(
     await readResponse('/assets/missing.js', baseUrl),
-    { status: 404, cacheControl: null, contentType: null, text: 'Not Found' },
+    { status: 404, allow: null, cacheControl: null, contentType: null, text: 'Not Found' },
   )
   assert.deepEqual(
     await readResponse('/%2e%2e/package.json', baseUrl),
-    { status: 403, cacheControl: null, contentType: null, text: 'Forbidden' },
+    { status: 403, allow: null, cacheControl: null, contentType: null, text: 'Forbidden' },
   )
   assert.deepEqual(
     await readResponse('/assets/%E0%A4%A', baseUrl),
-    { status: 400, cacheControl: null, contentType: null, text: 'Bad Request' },
+    { status: 400, allow: null, cacheControl: null, contentType: null, text: 'Bad Request' },
+  )
+})
+
+test('headless static server supports HEAD without body and rejects unsafe methods', async (t) => {
+  const baseUrl = await withStaticServer(t, {
+    'index.html': '<main>shell</main>',
+    'assets/app.js': 'console.log("ok")',
+  })
+
+  assert.deepEqual(
+    await readResponse('/assets/app.js', baseUrl, { method: 'HEAD' }),
+    {
+      status: 200,
+      allow: null,
+      cacheControl: 'public, max-age=31536000, immutable',
+      contentType: 'application/javascript; charset=utf-8',
+      text: '',
+    },
+  )
+  assert.deepEqual(
+    await readResponse('/assets/app.js', baseUrl, { method: 'POST' }),
+    {
+      status: 405,
+      allow: 'GET, HEAD',
+      cacheControl: null,
+      contentType: null,
+      text: 'Method Not Allowed',
+    },
   )
 })
