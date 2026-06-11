@@ -13,6 +13,7 @@ import { hasFeature } from '../lib/kernel.js'
 import { termHelpHtml, attachTermTooltips } from '../lib/term-tooltip.js'
 import { escapeHtml as escHtml } from '../lib/utils.js'
 import { icon, statusIcon } from '../lib/icons.js'
+import { devLog } from '../lib/logger.js'
 
 const SHOW_OFFICE_DEMO = import.meta.env.DEV || localStorage.getItem('agentOfficeDemo') === '1'
 const SHOW_OFFICE_STRESS = import.meta.env.DEV || localStorage.getItem('agentOfficeStress') === '1'
@@ -1138,7 +1139,7 @@ async function showEditAgentDialog(page, state, id) {
         if (mid) models.push({ value: `${pk}/${mid}`, label: `${pk}/${mid}` })
       }
     }
-    console.log('[Agent编辑] 获取到模型列表:', models.length, '个')
+    devLog('[Agent编辑] 获取到模型列表:', models.length, '个')
   } catch (e) {
     console.error('[Agent编辑] 获取模型列表失败:', e)
   }
@@ -1155,8 +1156,8 @@ async function showEditAgentDialog(page, state, id) {
       options: models,
     }
     fields.push(modelField)
-    console.log('[Agent编辑] 当前模型:', agent.model)
-    console.log('[Agent编辑] 模型选项:', models)
+    devLog('[Agent编辑] 当前模型:', agent.model)
+    devLog('[Agent编辑] 模型选项:', models)
   } else {
     console.warn('[Agent编辑] 模型列表为空，不显示模型选择器')
   }
@@ -1172,18 +1173,18 @@ async function showEditAgentDialog(page, state, id) {
     title: t('agents.editTitle', { id }),
     fields,
     onConfirm: async (result) => {
-      console.log('[Agent编辑] 保存数据:', result)
+      devLog('[Agent编辑] 保存数据:', result)
       const newName = (result.name || '').trim()
       const emoji = (result.emoji || '').trim()
       const model = (result.model || '').trim()
 
       try {
         if (newName || emoji) {
-          console.log('[Agent编辑] 更新身份信息...')
+          devLog('[Agent编辑] 更新身份信息...')
           await api.updateAgentIdentity(id, newName || null, emoji || null)
         }
         if (model && model !== agent.model) {
-          console.log('[Agent编辑] 更新模型:', agent.model, '->', model)
+          devLog('[Agent编辑] 更新模型:', agent.model, '->', model)
           await api.updateAgentModel(id, model)
         }
 

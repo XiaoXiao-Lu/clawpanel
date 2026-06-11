@@ -12,6 +12,7 @@ import { showModal, showConfirm } from '../components/modal.js'
 import { icon as svgIcon } from '../lib/icons.js'
 import { t } from '../lib/i18n.js'
 import { escapeHtml } from '../lib/utils.js'
+import { devLog } from '../lib/logger.js'
 
 const RENDER_THROTTLE = 30
 const MAX_VISIBLE_MESSAGES = 150  // 最大可见消息 DOM 节点数
@@ -2251,11 +2252,11 @@ function handleChatEvent(payload) {
 
   // 重复 run 过滤：跳过已完成的 runId 的后续事件（Gateway 可能对同一消息触发多个 run）
   if (runId && state === 'final' && _seenRunIds.has(runId)) {
-    console.log('[chat] 跳过重复 final, runId:', runId)
+    devLog('[chat] 跳过重复 final, runId:', runId)
     return
   }
   if (runId && state === 'delta' && _seenRunIds.has(runId) && !_isStreaming) {
-    console.log('[chat] 跳过已完成 run 的 delta, runId:', runId)
+    devLog('[chat] 跳过已完成 run 的 delta, runId:', runId)
     return
   }
 
@@ -2683,7 +2684,7 @@ function _startResponseWatchdog() {
     // 如果还在等待（未开始流式），强制刷新历史
     if (!_isStreaming && _sessionKey && _messagesEl && _pageActive) {
       const elapsed = Math.round((Date.now() - _sendTimestamp) / 1000)
-      console.log(`[chat] 响应看门狗触发：${elapsed}s 无 delta，刷新历史`)
+      devLog(`[chat] 响应看门狗触发：${elapsed}s 无 delta，刷新历史`)
       const oldHash = _lastHistoryHash
       _lastHistoryHash = ''
       await loadHistory()
@@ -2711,7 +2712,7 @@ function _resetWatchdogOnActivity() {
       _responseWatchdog = null
       if (!_isStreaming && _sessionKey && _messagesEl && _pageActive) {
         const elapsed = _sendTimestamp ? Math.round((Date.now() - _sendTimestamp) / 1000) : 0
-        console.log(`[chat] agent 活跃后看门狗触发：${elapsed}s`)
+        devLog(`[chat] agent 活跃后看门狗触发：${elapsed}s`)
         const oldHash = _lastHistoryHash
         _lastHistoryHash = ''
         await loadHistory()

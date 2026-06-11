@@ -3,6 +3,7 @@
  * 管理 openclaw 安装状态，供各组件查询
  */
 import { api } from './tauri-api.js'
+import { devLog } from './logger.js'
 
 const isTauri = !!window.__TAURI_INTERNALS__
 
@@ -159,7 +160,7 @@ function _setGatewayRunning(val, foreign = false) {
     } else if (wasRunning && !_userStopped && !_isUpgrading && _openclawReady && !foreign) {
       _gatewayRunningSince = 0
       // Gateway 意外停止 → 后端 Rust guardian 负责自动重启，前端仅更新 UI 状态
-      console.log('[app-state] Gateway 意外停止，等待后端 guardian 重启...')
+      devLog('[app-state] Gateway 意外停止，等待后端 guardian 重启...')
     } else if (!val) {
       _gatewayRunningSince = 0
     }

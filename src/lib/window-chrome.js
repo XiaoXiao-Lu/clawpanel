@@ -1,6 +1,7 @@
 import { icon } from './icons.js'
 import { isTauriRuntime } from './tauri-api.js'
 import { t } from './i18n.js'
+import { devLog } from './logger.js'
 
 let _windowChromeReady = false
 
@@ -66,6 +67,6 @@ export function initDesktopWindowChrome() {
 
   // 确保标题栏按钮在 Tauri 加载完成后可用
   if (window.__TAURI_INTERNALS__ || window.__TAURI__) {
-    console.log('[window-chrome] Tauri detected, window controls active')
+    devLog('[window-chrome] Tauri detected, window controls active')
   }
 }
