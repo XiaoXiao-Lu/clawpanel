@@ -295,6 +295,13 @@
   font-weight: 500;
 }
 
+.form-label-note {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
 .expert-color-field input[type="color"] {
   padding: 4px;
 }
@@ -850,4 +857,198 @@
   .expert-list-skeleton {
     animation: none !important;
   }
+}
+
+/* ── 模板选择器弹窗 ── */
+.expert-template-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: var(--overlay-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.expert-template-picker {
+  width: 520px;
+  max-width: 90vw;
+  max-height: 80vh;
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.expert-template-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.expert-template-picker-head button {
+  font-size: 12px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.expert-template-picker-head button:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.expert-template-picker-body {
+  padding: 8px;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+
+.expert-template-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  cursor: pointer;
+  text-align: left;
+  margin-bottom: 6px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.expert-template-item:last-child {
+  margin-bottom: 0;
+}
+
+.expert-template-item:hover {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 4%, var(--bg-primary));
+}
+
+.expert-template-item strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.expert-template-item small {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-bottom: 5px;
+}
+
+.expert-template-item .expert-template-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+  background: var(--bg-secondary);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── 空状态三步引导 ── */
+.expert-onboarding {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 28px 20px;
+}
+
+.expert-onboarding-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 20px;
+  color: var(--brand);
+}
+
+.expert-onboarding-head strong {
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.expert-onboarding-head span {
+  font-size: 12px;
+  color: var(--text-muted);
+  max-width: 240px;
+  line-height: 1.5;
+}
+
+.expert-onboarding-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px;
+  width: 100%;
+  max-width: 280px;
+  text-align: left;
+}
+
+.expert-onboarding-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.expert-onboarding-step:last-child {
+  border-bottom: none;
+}
+
+.expert-onboarding-step-num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--brand) 12%, var(--bg-secondary));
+  color: var(--brand);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.expert-onboarding-step strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.expert-onboarding-step span {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.expert-onboarding-step div {
+  display: flex;
+  flex-direction: column;
+}
+
+.expert-onboarding-cta {
+  margin-top: 4px;
 }

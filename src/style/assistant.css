@@ -2292,6 +2292,13 @@
   background: var(--brand-muted);
 }
 
+.ast-expert-team-trigger.is-active {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 8%, var(--bg-tertiary));
+  font-weight: 500;
+}
+
 .ast-expert-team-trigger-label {
   max-width: 80px;
   overflow: hidden;
@@ -2350,6 +2357,19 @@
 .ast-expert-team-option.active {
   background: var(--brand-muted);
   color: var(--brand);
+}
+
+.ast-expert-team-option--manage {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  color: var(--text-muted);
+}
+
+.ast-expert-team-option--manage:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 /* ═══════════════════════════════════════════
@@ -4719,6 +4739,24 @@
 .theme-dark .ast-expert-live-console-head {
   background: linear-gradient(180deg, color-mix(in srgb, var(--brand-muted) 18%, var(--bg-card)), var(--bg-secondary));
 }
+
+.theme-dark .ex-panel--followup {
+  background: color-mix(in srgb, var(--success) 6%, var(--bg-tertiary));
+}
+
+.theme-dark .ex-followup-btn {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+
+.theme-dark .ex-followup-btn:hover {
+  background: var(--bg-secondary);
+}
+
+.theme-dark .ex-stop-btn {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
 .theme-dark .ast-expert-pipe-dot {
   background: var(--bg-tertiary);
 }
@@ -5054,7 +5092,159 @@
   }
 }
 
-/* ─── Design system alignment (migrated from polish.css) ─── */
+/* ── 专家团执行卡片 — 手机端适配 (<640px) ── */
+@media (max-width: 640px) {
+  .ex-card {
+    padding: 10px;
+    border-radius: var(--radius-sm);
+  }
+
+  .ex-head-title {
+    font-size: 14px;
+  }
+
+  .ex-overview {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .ex-overview span:first-child {
+    grid-column: auto;
+  }
+
+  .ex-pipe {
+    gap: 4px;
+    font-size: 11px;
+  }
+
+  .ex-pipe-step span:last-child {
+    max-width: 64px;
+    font-size: 11px;
+  }
+
+  .ex-live-text {
+    max-height: 140px;
+    font-size: 12px;
+  }
+
+  .ex-member {
+    max-width: 110px;
+    font-size: 11px;
+  }
+
+  .ast-expert-team-menu {
+    min-width: 0;
+    max-width: calc(100vw - 24px);
+    width: calc(100vw - 24px);
+    left: 0;
+    right: 0;
+    transform: none;
+    border-radius: var(--radius-sm);
+  }
+
+  .ast-expert-team-trigger-label {
+    max-width: 36px;
+    font-size: 12px;
+  }
+
+  .ex-followup-actions {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .ex-followup-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ── 专家团交付态追问操作区 ── */
+.ex-panel--followup {
+  border-color: color-mix(in srgb, var(--success) 22%, var(--border));
+  background: color-mix(in srgb, var(--success) 4%, var(--bg-primary));
+}
+
+.ex-followup-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.ex-followup-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ex-followup-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ex-followup-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--brand);
+}
+
+.ex-followup-btn:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+.ex-followup-btn--ghost {
+  background: transparent;
+  border-color: var(--border-subtle);
+}
+
+.ex-followup-btn--ghost:hover {
+  background: var(--bg-secondary);
+  border-color: var(--border);
+}
+
+/* ── 卡片头部停止按钮 ── */
+.ex-head-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ex-stop-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--danger);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ex-stop-btn:hover {
+  background: color-mix(in srgb, var(--danger) 10%, var(--bg-secondary));
+  border-color: var(--danger);
+}
+
+.ex-stop-btn:focus-visible {
+  outline: 2px solid var(--danger);
+  outline-offset: 1px;
+}
+
+/* ── Design system alignment (migrated from polish.css) ── */
 .ast-page {
   background: var(--bg-base);
 }

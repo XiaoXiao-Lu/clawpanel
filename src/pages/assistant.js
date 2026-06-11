@@ -2323,6 +2323,7 @@ let _modelSelectSlotMap = new Map()
 let _lastAutoModelLabel = ''
 let _lastAutoModelReason = ''
 let _activeExpertGroupId = null    // 选中的专家团 ID（null = 直接对话）
+let _expertTeamJustDelivered = null // { groupId, groupName, runMeta, transcriptSummary } — 上一次专家团交付信息
 let _expertGroups = []             // 已保存的专家团列表
 let _expertProfiles = []           // 已保存的专家档案列表
 let _expertTeamOutsideClickHandler = null
@@ -4564,13 +4565,38 @@ function renderExpertTeamMessage(m, idx) {
   </section>`
   const deliveryHtml = !isRunning && primaryHtml ? `<section class="ex-panel ex-panel--delivery">${primaryHtml}</section>` : ''
   const recoveryHtml = resumeActionsHtml ? `<section class="ex-panel ex-panel--recovery">${resumeActionsHtml}</section>` : ''
+
+  // ── 交付态追问操作 ──
+  const followUpHtml = !isRunning && m._expertTeamDelivered && hasFinal ? `
+    <section class="ex-panel ex-panel--followup" aria-label="${escAttr(t('assistant.expertTeamFollowUpAria'))}">
+      <div class="ex-followup-hint">${escHtml(t('assistant.expertTeamDeliveredHint'))}</div>
+      <div class="ex-followup-actions">
+        <button type="button" class="ex-followup-btn" data-action="expert-team-followup" data-group-id="${escAttr(m._expertTeamId || '')}" title="${escAttr(t('assistant.expertTeamFollowUpTitle'))}" aria-label="${escAttr(t('assistant.expertTeamFollowUpTitle'))}">
+          ${icon('message-circle', 13)}
+          <span>${escHtml(t('assistant.expertTeamFollowUp'))}</span>
+        </button>
+        <button type="button" class="ex-followup-btn ex-followup-btn--ghost" data-action="expert-team-rerun" data-group-id="${escAttr(m._expertTeamId || '')}" title="${escAttr(t('assistant.expertTeamRerunTitle'))}" aria-label="${escAttr(t('assistant.expertTeamRerunTitle'))}">
+          ${icon('refresh-cw', 13)}
+          <span>${escHtml(t('assistant.expertTeamRerun'))}</span>
+        </button>
+        <button type="button" class="ex-followup-btn ex-followup-btn--ghost" data-action="expert-team-exit" title="${escAttr(t('assistant.expertTeamExitTitle'))}" aria-label="${escAttr(t('assistant.expertTeamExitTitle'))}">
+          ${icon('log-out', 13)}
+          <span>${escHtml(t('assistant.expertTeamExit'))}</span>
+        </button>
+      </div>
+    </section>
+  ` : ''
+
   const runningBarHtml = isRunning ? '<div class="ex-running-bar"></div>' : ''
 
   return `<div class="ast-msg ast-msg-ai ast-msg-expert-team" data-msg-idx="${escAttr(String(idx))}" data-expert-dom-id="${escAttr(expertTeamDomId(m))}">
     <div class="ex-card ast-expert-copy-source">
       <div class="ex-head">
         <span class="ex-head-title">${groupName}</span>
-        <span class="ex-head-badge ex-head-badge--${escAttr(progress.status)}">${escHtml(progress.statusLabel)}</span>
+        <span class="ex-head-right">
+          <span class="ex-head-badge ex-head-badge--${escAttr(progress.status)}">${escHtml(progress.statusLabel)}</span>
+          ${isRunning ? `<button type="button" class="ex-stop-btn" data-action="expert-team-stop" title="${escAttr(t('assistant.expertTeamStopTitle'))}" aria-label="${escAttr(t('assistant.expertTeamStopTitle'))}">${icon('square', 12)}</button>` : ''}
+        </span>
       </div>
       ${overviewHtml}
       <div class="ex-pipe" role="list" aria-label="${escAttr(t('assistant.expertTeamPipelineAria'))}">${pipeHtml}</div>
@@ -4581,6 +4607,7 @@ function renderExpertTeamMessage(m, idx) {
       ${errorHtml}
       ${membersHtml}
       ${recoveryHtml}
+      ${followUpHtml}
       ${detailsHtml}
       ${runningBarHtml}
     </div>
@@ -7812,7 +7839,12 @@ function renderExpertTeamMenu() {
     </button>`
   }).join('')
 
-  menu.innerHTML = directHtml + groups
+  const manageHtml = `<button class="ast-expert-team-option ast-expert-team-option--manage" type="button" data-action="goto-expert-teams">
+    <span>${escHtml(t('assistant.expertTeamManage'))}</span>
+    <small>${escHtml(t('assistant.expertTeamManageDesc'))}</small>
+  </button>`
+
+  menu.innerHTML = directHtml + groups + manageHtml
 
   // 更新触发按钮标签
   let selectedLabel = directLabel
@@ -7827,6 +7859,8 @@ function renderExpertTeamMenu() {
     const title = t('assistant.expertTeamTriggerTitle', { selection: selectedLabel })
     trigger.title = title
     trigger.setAttribute('aria-label', title)
+    // 选中态视觉增强
+    trigger.classList.toggle('is-active', !!_activeExpertGroupId)
   }
 }
 
@@ -8228,6 +8262,14 @@ function bindExpertTeamEvents(page) {
   document.addEventListener('click', _expertTeamOutsideClickHandler)
 
   menu.addEventListener('click', (e) => {
+    // 管理入口
+    const manageBtn = e.target.closest('[data-action="goto-expert-teams"]')
+    if (manageBtn) {
+      menu.hidden = true
+      window.location.hash = '#/expert-teams'
+      return
+    }
+
     const option = e.target.closest('[data-group-id]')
     if (!option || option.disabled) return
     const groupId = option.dataset.groupId || null
@@ -8243,7 +8285,8 @@ async function sendViaExpertTeam(text, images) {
   if (!session) return
 
   const textContent = String(text || '').trim()
-  if (!textContent) {
+  const hasImages = Array.isArray(images) && images.length > 0
+  if (!textContent && !hasImages) {
     toast(t('assistant.expertTeamTaskRequired'), 'warning')
     return
   }
@@ -8293,7 +8336,8 @@ async function sendViaExpertTeam(text, images) {
   renderMessages()
 
   _isStreaming = true
-  clearActiveExpertGroupSelection()
+  // 不再清除专家团选择 — 执行完成后进入交付态，保留上下文供追问
+  // clearActiveExpertGroupSelection()
   _abortController = new AbortController()
   if (_sendBtn) _sendBtn.innerHTML = stopIcon()
   setSessionStatus(session.id, 'streaming')
@@ -8308,6 +8352,7 @@ async function sendViaExpertTeam(text, images) {
       group,
       experts: _expertProfiles,
       task: textContent,
+      images: images.length ? images.map(i => ({ name: i.name, dataUrl: i.dataUrl })) : undefined,
       signal,
       externalSlot: slot,
       tools: getEnabledTools(),
@@ -8338,6 +8383,15 @@ async function sendViaExpertTeam(text, images) {
     _abortController = null
     if (_sendBtn) _sendBtn.innerHTML = sendIcon()
     setSessionStatus(session.id, 'idle')
+    // 标记交付态：保留专家团上下文，供追问使用
+    const hasFinal = (aiMsg._expertTeamTranscript || []).some(item => item.type === 'final')
+    if (hasFinal || aiMsg._expertTeamTranscript?.length > 0) {
+      _expertTeamJustDelivered = {
+        groupId: group.id,
+        groupName: group.name || group.id,
+      }
+      aiMsg._expertTeamDelivered = true
+    }
     saveSessions()
   }
 }
@@ -8454,6 +8508,17 @@ async function sendMessageDirect(text) {
 
   // ── 专家团模式分支 ──
   if (_activeExpertGroupId) {
+    sendViaExpertTeam(text, images)
+    return
+  }
+
+  // ── 专家团交付态追问分支 ──
+  // 当上一次专家团已交付且用户继续发送消息时，自动恢复专家团上下文
+  if (_expertTeamJustDelivered && !_activeExpertGroupId) {
+    const delivered = _expertTeamJustDelivered
+    _activeExpertGroupId = delivered.groupId
+    persistActiveExpertGroupId()
+    renderExpertTeamMenu()
     sendViaExpertTeam(text, images)
     return
   }
@@ -9018,6 +9083,60 @@ export async function render() {
       e.preventDefault()
       e.stopPropagation()
       resumeExpertTeamMessage(Number.parseInt(resumeBtn.dataset.msgIdx, 10), 'synthesis')
+      return
+    }
+
+    // 卡片内停止按钮
+    const stopBtn = e.target.closest('[data-action="expert-team-stop"]')
+    if (stopBtn) {
+      e.preventDefault()
+      e.stopPropagation()
+      stopStreaming()
+      return
+    }
+
+    // 追问专家团
+    const followUpBtn = e.target.closest('[data-action="expert-team-followup"]')
+    if (followUpBtn) {
+      e.preventDefault()
+      e.stopPropagation()
+      const groupId = followUpBtn.dataset.groupId
+      if (groupId) {
+        _activeExpertGroupId = groupId
+        _expertTeamJustDelivered = null
+        persistActiveExpertGroupId()
+        renderExpertTeamMenu()
+        _textarea?.focus()
+        toast(t('assistant.expertTeamFollowUpActivated'), 'info')
+      }
+      return
+    }
+
+    // 重新执行
+    const rerunBtn = e.target.closest('[data-action="expert-team-rerun"]')
+    if (rerunBtn) {
+      e.preventDefault()
+      e.stopPropagation()
+      const groupId = rerunBtn.dataset.groupId
+      if (groupId) {
+        _activeExpertGroupId = groupId
+        _expertTeamJustDelivered = null
+        persistActiveExpertGroupId()
+        renderExpertTeamMenu()
+        _textarea?.focus()
+        toast(t('assistant.expertTeamRerunActivated'), 'info')
+      }
+      return
+    }
+
+    // 退出专家团模式（回到普通对话）
+    const exitBtn = e.target.closest('[data-action="expert-team-exit"]')
+    if (exitBtn) {
+      e.preventDefault()
+      e.stopPropagation()
+      _expertTeamJustDelivered = null
+      clearActiveExpertGroupSelection()
+      toast(t('assistant.expertTeamExited'), 'info')
       return
     }
 

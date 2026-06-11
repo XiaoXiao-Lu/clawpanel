@@ -2,6 +2,7 @@ import { api } from './tauri-api.js'
 
 const DEFAULT_TEMPERATURE = 0.3
 const DEFAULT_RETRY_ATTEMPTS = 1
+const DEFAULT_TIMEOUT_MS = 120_000 // 2 minutes per expert call
 const ALL_EXPERTS_EMPTY_LABEL = '专家团没有收到可用的专家回复'
 
 const COLLABORATION_GUIDANCE = {
@@ -37,7 +38,7 @@ const COLLABORATION_GUIDANCE = {
   ],
 }
 
-export function buildExpertTeamPlan({ group, experts, task }) {
+export function buildExpertTeamPlan({ group, experts, task, images }) {
   const members = resolveMembers(group, experts)
   const moderator = resolveModerator(group, members)
   const cleanedTask = String(task || '').trim()
@@ -46,6 +47,7 @@ export function buildExpertTeamPlan({ group, experts, task }) {
   return {
     id: `run-${Date.now()}`,
     task: cleanedTask,
+    images: Array.isArray(images) && images.length ? images : undefined,
     group: group || {},
     members,
     moderator,
@@ -53,9 +55,9 @@ export function buildExpertTeamPlan({ group, experts, task }) {
   }
 }
 
-export async function runExpertTeam({ group, experts, task, onEvent, signal, externalSlot, tools, executeTool } = {}) {
+export async function runExpertTeam({ group, experts, task, images, onEvent, signal, externalSlot, tools, executeTool } = {}) {
   const { config, defaultSlot } = await resolveRunModelContext(externalSlot)
-  const plan = buildExpertTeamPlan({ group, experts, task })
+  const plan = buildExpertTeamPlan({ group, experts, task, images })
   emit(onEvent, { type: 'start', plan: summarizePlan(plan, defaultSlot, config) })
 
   const contributions = []
@@ -118,7 +120,7 @@ export async function runExpertTeam({ group, experts, task, onEvent, signal, ext
   return { plan: summarizePlan(plan, defaultSlot, config), transcript: plan.blackboard, final: finalMessage }
 }
 
-export async function runExpertTeamSequential({ group, experts, task, onEvent, signal, externalSlot, maxRounds, tools, executeTool } = {}) {
+export async function runExpertTeamSequential({ group, experts, task, images, onEvent, signal, externalSlot, maxRounds, tools, executeTool } = {}) {
   const { config, defaultSlot } = await resolveRunModelContext(externalSlot)
 
   const runtimeGroup = maxRounds == null ? group : { ...(group || {}), maxRounds }
@@ -649,7 +651,7 @@ function expertSystemPrompt(plan, expert) {
 }
 
 function expertUserPrompt(plan, expert, previous) {
-  return [
+  const textParts = [
     `Team: ${plan.group.name || plan.group.id || 'Expert Team'}`,
     `Mode: ${plan.group.mode || 'panel'}`,
     `Task:\n${plan.task}`,
@@ -660,6 +662,20 @@ function expertUserPrompt(plan, expert, previous) {
     '',
     'Respond as this expert only. Do not synthesize the final answer unless you are the moderator.',
   ].filter(Boolean).join('\n')
+
+  // 多模态：用户上传了图片，构建支持的 content 数组
+  if (Array.isArray(plan.images) && plan.images.length) {
+    const imageBlocks = plan.images.map(img => ({
+      type: 'image_url',
+      image_url: { url: img.dataUrl, detail: 'auto' },
+    }))
+    return [
+      { type: 'text', text: `The user attached ${plan.images.length} image(s). Analyze them together with the task below.\n\n${textParts}` },
+      ...imageBlocks,
+    ]
+  }
+
+  return textParts
 }
 
 function moderatorSystemPrompt(plan, moderator) {
@@ -937,8 +953,15 @@ async function callChatModel(slot, messages, opts = {}) {
   if (slot.apiType !== 'openai-completions') {
     throw new Error(`Expert team runtime currently supports OpenAI-compatible Chat Completions only: ${slot.provider}/${slot.model}`)
   }
+
+  // 请求级超时：自动跳过超时专家
+  const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : DEFAULT_TIMEOUT_MS
+  const timeoutSignal = timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : null
+  const signal = opts.signal || timeoutSignal
+  const combined = timeoutSignal && opts.signal ? AbortSignal.any([opts.signal, timeoutSignal]) : signal
+
   if (Array.isArray(opts.tools) && opts.tools.length && typeof opts.executeTool === 'function') {
-    return await callChatModelWithToolLoop(slot, messages, opts)
+    return await callChatModelWithToolLoop(slot, messages, { ...opts, signal: combined })
   }
   const body = {
     model: slot.model,
@@ -948,10 +971,10 @@ async function callChatModel(slot, messages, opts = {}) {
   }
   if (typeof opts.onDelta === 'function' && api.modelChatCompletionsProxyStream) {
     const resp = await api.modelChatCompletionsProxyStream(slot.baseUrl, slot.apiKey || '', slot.apiType, { ...body, stream: true }, {
-      signal: opts.signal,
+      signal: combined,
     })
     if (resp) {
-      const content = await readChatCompletionStream(resp, opts.onDelta, opts.signal)
+      const content = await readChatCompletionStream(resp, opts.onDelta, combined)
       if (content.trim()) return content.trim()
       throw new Error(`Model returned an empty ${opts.emptyResponseLabel || 'expert response'}`)
     }

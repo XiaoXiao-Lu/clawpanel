@@ -56,6 +56,10 @@ const APPROVAL_POLICIES = [
   ['before_tools', 'expertTeams.approvalBeforeTools'],
 ]
 
+function getModeLabel(mode) {
+  return t(GROUP_MODES.find(([value]) => value === mode)?.[1] || 'expertTeams.modePanel')
+}
+
 const ID_RE = /^[A-Za-z0-9_.-]+$/
 
 export async function render() {
@@ -352,13 +356,20 @@ function renderList(page, state) {
 
   const items = state.activeTab === TABS.experts ? state.experts : state.groups
   const filtered = filterItems(items, state.search)
+  const isFirstVisit = items.length === 0 && !state.search
   if (!filtered.length) {
-    body.innerHTML = `
-      <div class="expert-teams-empty">
-        <strong>${state.activeTab === TABS.experts ? t('expertTeams.noExperts') : t('expertTeams.noGroups')}</strong>
-        <span>${state.activeTab === TABS.experts ? t('expertTeams.emptyExpertsHint') : t('expertTeams.emptyGroupsHint')}</span>
-      </div>
-    `
+    if (isFirstVisit) {
+      body.innerHTML = state.activeTab === TABS.experts
+        ? renderExpertOnboarding()
+        : renderGroupOnboarding()
+    } else {
+      body.innerHTML = `
+        <div class="expert-teams-empty">
+          <strong>${state.activeTab === TABS.experts ? t('expertTeams.noExperts') : t('expertTeams.noGroups')}</strong>
+          <span>${state.activeTab === TABS.experts ? t('expertTeams.emptyExpertsHint') : t('expertTeams.emptyGroupsHint')}</span>
+        </div>
+      `
+    }
     return
   }
 
@@ -564,7 +575,7 @@ function renderGroupEditor(group, state) {
           ${field('group-max-rounds', t('expertTeams.maxRounds'), group.maxRounds ?? 3, { type: 'number', min: 1, max: 10, mutedNote: t('expertTeams.workflowInactiveHint') })}
           ${field('group-max-parallel', t('expertTeams.maxParallel'), group.maxParallel ?? 3, { type: 'number', min: 1, max: 8, mutedNote: t('expertTeams.workflowInactiveHint') })}
           <label class="form-group">
-            <span class="form-label">${t('expertTeams.approvalPolicy')}</span>
+            <span class="form-label">${t('expertTeams.approvalPolicy')} <small class="form-label-note">${t('expertTeams.approvalPolicyNote')}</small></span>
             <select class="form-input" id="group-approval-policy">
               ${APPROVAL_POLICIES.map(([value, key]) => option(value, t(key), group.approvalPolicy || 'none')).join('')}
             </select>
@@ -794,12 +805,120 @@ function addCurrent(page, state) {
   if (state.activeTab === TABS.experts) {
     state.selectedExpertId = null
     state.draftExpert = blankExpert()
+    renderList(page, state)
+    renderEditor(page, state)
   } else {
-    state.selectedGroupId = null
-    state.draftGroup = blankGroup()
+    // 专家团：弹出模板选择器
+    showGroupTemplatePicker(page, state)
   }
-  renderList(page, state)
-  renderEditor(page, state)
+}
+
+function showGroupTemplatePicker(page, state) {
+  // 移除已有弹窗
+  const old = page.querySelector('.expert-template-picker-overlay')
+  if (old) old.remove()
+
+  const items = GROUP_TEMPLATES.map((tpl, idx) => `
+    <button class="expert-template-item" data-template-idx="${idx}" type="button">
+      <strong>${icon('users', 13)} ${escapeHtml(t(tpl.labelKey))}</strong>
+      <small>${escapeHtml(t(tpl.descKey))}</small>
+      <span class="expert-template-meta">${getModeLabel(tpl.mode)} · ${tpl.maxRounds && tpl.maxRounds > 1 ? t('expertTeams.workflowRounds').replace(/{maxRounds}/, tpl.maxRounds) : `${t('expertTeams.maxParallel')}${tpl.maxParallel || 3}`} · ${tpl.memberRoles?.join('、') || ''}</span>
+    </button>
+  `).join('')
+
+  const overlay = document.createElement('div')
+  overlay.className = 'expert-template-picker-overlay'
+  overlay.innerHTML = `
+    <div class="expert-template-picker">
+      <div class="expert-template-picker-head">
+        <span>${t('expertTeams.createFromTemplate')}</span>
+        <button type="button" data-action="template-blank">${t('expertTeams.createBlank')}</button>
+      </div>
+      <div class="expert-template-picker-body">${items}</div>
+    </div>
+  `
+  overlay.addEventListener('click', (e) => {
+    const item = e.target.closest('[data-template-idx]')
+    if (item) {
+      const idx = Number.parseInt(item.dataset.templateIdx, 10)
+      const tpl = GROUP_TEMPLATES[idx]
+      if (tpl) {
+        state.selectedGroupId = null
+        state.draftGroup = applyGroupTemplate(tpl)
+        overlay.remove()
+        renderList(page, state)
+        renderEditor(page, state)
+      }
+    }
+    if (e.target === overlay || e.target.closest('[data-action="template-blank"]')) {
+      if (e.target.closest('[data-action="template-blank"]')) {
+        state.selectedGroupId = null
+        state.draftGroup = blankGroup()
+        renderList(page, state)
+        renderEditor(page, state)
+      }
+      overlay.remove()
+    }
+  })
+  page.appendChild(overlay)
+}
+
+function renderExpertOnboarding() {
+  const steps = [
+    { icon: 'user-plus', title: t('expertTeams.onboardStep1Title'), desc: t('expertTeams.onboardStep1Desc') },
+    { icon: 'settings', title: t('expertTeams.onboardStep2Title'), desc: t('expertTeams.onboardStep2Desc') },
+    { icon: 'message-circle', title: t('expertTeams.onboardStep3Title'), desc: t('expertTeams.onboardStep3Desc') },
+  ]
+  return `
+    <div class="expert-onboarding">
+      <div class="expert-onboarding-head">
+        ${icon('sparkles', 20)}
+        <strong>${t('expertTeams.onboardExpertTitle')}</strong>
+        <span>${t('expertTeams.onboardExpertDesc')}</span>
+      </div>
+      <ol class="expert-onboarding-steps">
+        ${steps.map((s, i) => `
+          <li class="expert-onboarding-step">
+            <span class="expert-onboarding-step-num">${i + 1}</span>
+            <div>
+              <strong>${icon(s.icon, 13)} ${escapeHtml(s.title)}</strong>
+              <span>${escapeHtml(s.desc)}</span>
+            </div>
+          </li>
+        `).join('')}
+      </ol>
+      <button class="btn btn-primary btn-sm expert-onboarding-cta" data-action="add">${icon('plus', 13)} ${t('expertTeams.addExpert')}</button>
+    </div>
+  `
+}
+
+function renderGroupOnboarding() {
+  const steps = [
+    { icon: 'users', title: t('expertTeams.onboardGroupStep1Title'), desc: t('expertTeams.onboardGroupStep1Desc') },
+    { icon: 'settings-2', title: t('expertTeams.onboardGroupStep2Title'), desc: t('expertTeams.onboardGroupStep2Desc') },
+    { icon: 'play', title: t('expertTeams.onboardGroupStep3Title'), desc: t('expertTeams.onboardGroupStep3Desc') },
+  ]
+  return `
+    <div class="expert-onboarding">
+      <div class="expert-onboarding-head">
+        ${icon('sparkles', 20)}
+        <strong>${t('expertTeams.onboardGroupTitle')}</strong>
+        <span>${t('expertTeams.onboardGroupDesc')}</span>
+      </div>
+      <ol class="expert-onboarding-steps">
+        ${steps.map((s, i) => `
+          <li class="expert-onboarding-step">
+            <span class="expert-onboarding-step-num">${i + 1}</span>
+            <div>
+              <strong>${icon(s.icon, 13)} ${escapeHtml(s.title)}</strong>
+              <span>${escapeHtml(s.desc)}</span>
+            </div>
+          </li>
+        `).join('')}
+      </ol>
+      <button class="btn btn-primary btn-sm expert-onboarding-cta" data-action="add">${icon('plus', 13)} ${t('expertTeams.addGroup')}</button>
+    </div>
+  `
 }
 
 function duplicateCurrent(page, state) {
@@ -1007,6 +1126,30 @@ function blankGroup() {
     maxRounds: 3,
     maxParallel: 3,
     approvalPolicy: 'none',
+  }
+}
+
+// ── 团队模板（按模式预设） ──
+// label/description 使用 i18n key，运行时通过 t() 翻译
+const GROUP_TEMPLATES = [
+  { labelKey: 'expertTeams.tplCodeReview', mode: 'review', descKey: 'expertTeams.tplCodeReviewDesc', maxParallel: 3, memberRoles: ['安全审计', '测试工程师', '体验顾问'] },
+  { labelKey: 'expertTeams.tplProductReview', mode: 'panel', descKey: 'expertTeams.tplProductReviewDesc', maxParallel: 3, maxRounds: 2, memberRoles: ['产品经理', '技术负责人', '用户研究员'] },
+  { labelKey: 'expertTeams.tplContentCreation', mode: 'creation', descKey: 'expertTeams.tplContentCreationDesc', maxParallel: 4, memberRoles: ['策略', '编辑', '视觉建议'] },
+  { labelKey: 'expertTeams.tplDebate', mode: 'debate', descKey: 'expertTeams.tplDebateDesc', maxParallel: 4, memberRoles: ['支持方', '反对方', '风险评估', '成本分析'] },
+  { labelKey: 'expertTeams.tplResearch', mode: 'research', descKey: 'expertTeams.tplResearchDesc', maxParallel: 3, memberRoles: ['技术调研', '市场分析', '竞品调查'] },
+  { labelKey: 'expertTeams.tplSequential', mode: 'sequential', descKey: 'expertTeams.tplSequentialDesc', maxRounds: 3, memberRoles: ['规划师', '执行者', '审查者'] },
+]
+
+function applyGroupTemplate(template) {
+  return {
+    ...blankGroup(),
+    name: t(template.labelKey),
+    description: t(template.descKey),
+    mode: template.mode,
+    maxRounds: template.maxRounds ?? 3,
+    maxParallel: template.maxParallel ?? 3,
+    members: [],
+    _templateHint: template.memberRoles?.join('、'),
   }
 }
 
