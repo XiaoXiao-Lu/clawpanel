@@ -3,9 +3,11 @@ import { devApiPlugin, readJsonFileRelaxed } from './scripts/dev-api.js'
 import fs from 'fs'
 import path from 'path'
 import { homedir } from 'os'
+import { fileURLToPath } from 'url'
 
 // 读取 package.json 版本号，构建时注入前端
 const pkg = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
+const projectRoot = fs.realpathSync(fileURLToPath(new URL('.', import.meta.url)))
 
 // 读取 Gateway 端口（启动时读取一次）
 // 注意：Gateway 默认端口是 18789，不是 18790
@@ -70,6 +72,7 @@ function ignoredWatchPath(file) {
 }
 
 export default defineConfig({
+  root: projectRoot,
   plugins: [devApiPlugin()],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),

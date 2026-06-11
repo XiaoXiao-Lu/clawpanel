@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import viteConfig from '../vite.config.js'
 
@@ -7,6 +9,11 @@ const config = typeof viteConfig === 'function'
   : viteConfig
 
 const manualChunks = config?.build?.rollupOptions?.output?.manualChunks
+
+test('Vite root resolves to the real project directory for stable HTML output names', () => {
+  const expectedRoot = fs.realpathSync(fileURLToPath(new URL('..', import.meta.url)))
+  assert.equal(config.root, expectedRoot)
+})
 
 test('Vite build splits heavy runtime and locale modules into stable chunks', () => {
   assert.equal(typeof manualChunks, 'function')
