@@ -106,6 +106,35 @@ async function readResponse(urlPath, baseUrl, { method = 'GET', headers = {} } =
   })
 }
 
+async function readBinaryResponse(urlPath, baseUrl, { method = 'GET', headers = {} } = {}) {
+  const target = new URL(baseUrl)
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      hostname: target.hostname,
+      port: target.port,
+      path: urlPath,
+      method,
+      headers,
+    }, (res) => {
+      const chunks = []
+      res.on('data', chunk => { chunks.push(Buffer.from(chunk)) })
+      res.on('end', () => {
+        resolve({
+          status: res.statusCode,
+          acceptRanges: res.headers['accept-ranges'] || null,
+          cacheControl: res.headers['cache-control'] || null,
+          contentLength: res.headers['content-length'] || null,
+          contentRange: res.headers['content-range'] || null,
+          contentType: res.headers['content-type'] || null,
+          body: Buffer.concat(chunks),
+        })
+      })
+    })
+    req.on('error', reject)
+    req.end()
+  })
+}
+
 test('headless static server serves assets with immutable cache headers', async (t) => {
   const baseUrl = await withStaticServer(t, {
     'index.html': '<main>shell</main>',
@@ -226,6 +255,24 @@ test('headless static server supports single-range asset requests', async (t) =>
       text: '789',
     },
   )
+})
+
+test('headless static server preserves binary bytes for range asset requests', async (t) => {
+  const binary = Buffer.from([0x00, 0x7f, 0x80, 0xff, 0x42, 0x43])
+  const baseUrl = await withStaticServer(t, {
+    'index.html': '<main>shell</main>',
+    'assets/clip.webm': binary,
+  })
+
+  const res = await readBinaryResponse('/assets/clip.webm', baseUrl, { headers: { Range: 'bytes=2-4' } })
+
+  assert.equal(res.status, 206)
+  assert.equal(res.acceptRanges, 'bytes')
+  assert.equal(res.cacheControl, 'public, max-age=31536000, immutable')
+  assert.equal(res.contentLength, '3')
+  assert.equal(res.contentRange, 'bytes 2-4/6')
+  assert.equal(res.contentType, 'video/webm')
+  assert.deepEqual([...res.body], [0x80, 0xff, 0x42])
 })
 
 test('headless static server handles HEAD and invalid range requests', async (t) => {
