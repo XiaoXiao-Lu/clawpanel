@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { chromium } from 'playwright'
+import { withDistLock } from './lib/dist-lock.js'
 
 const root = path.resolve(import.meta.dirname, '..')
 const distDir = path.join(root, 'dist')
@@ -1385,77 +1386,79 @@ async function main() {
     },
   }, null, 2))
   await fs.mkdir(artifactsDir, { recursive: true })
-  await waitForDistReady()
-  const server = startServer()
-  let browser
-  try {
-    await waitForServer(`${baseUrl}/`)
-    browser = await launchBrowser()
-    const page = await browser.newPage()
-    const consoleErrors = []
-    page.on('console', message => {
-      if (message.type() !== 'error') return
-      const text = message.text()
-      if (!isIgnoredConsoleError(text)) consoleErrors.push(text)
-    })
-    page.on('pageerror', error => {
-      if (!isIgnoredConsoleError(error.message)) consoleErrors.push(error.message)
-    })
+  await withDistLock(root, 'expert-teams-ui-smoke', async () => {
+    await waitForDistReady()
+    const server = startServer()
+    let browser
+    try {
+      await waitForServer(`${baseUrl}/`)
+      browser = await launchBrowser()
+      const page = await browser.newPage()
+      const consoleErrors = []
+      page.on('console', message => {
+        if (message.type() !== 'error') return
+        const text = message.text()
+        if (!isIgnoredConsoleError(text)) consoleErrors.push(text)
+      })
+      page.on('pageerror', error => {
+        if (!isIgnoredConsoleError(error.message)) consoleErrors.push(error.message)
+      })
 
-    const desktop = await checkExpertTeamsPage(page, { width: 1366, height: 900 }, 'desktop')
-    const templateCancel = await checkGroupTemplatePickerCancelKeepsDraft(page)
-    const templateDraft = await checkGroupTemplatePickerAppliesDraft(page)
-    const persistence = await createPersistedTeam(page)
-    const templatePersistence = await checkTemplateTeamSavePersists(page)
-    const moderatorMemberSync = await checkModeratorClearsWhenMemberRemoved(page)
-    const memberOrderDrag = await checkMemberDragOrderPersists(page)
-    const emptyTeamValidation = await checkEmptyTeamSaveIsBlocked(page)
-    const invalidTeamIdValidation = await checkInvalidTeamIdSaveIsBlocked(page)
-    const invalidExpertModelValidation = await checkInvalidExpertModelSaveIsBlocked(page)
-    const invalidExpertIdValidation = await checkInvalidExpertIdSaveIsBlocked(page)
-    const expertSaveFailureDraft = await checkExpertSaveFailurePreservesDraft(page, consoleErrors)
-    const teamSaveFailureDraft = await checkTeamSaveFailurePreservesDraft(page, consoleErrors)
-    const delayedSkillsRefresh = await checkDelayedSkillsRefreshPreservesDirtyEditor(page)
-    const expertDeleteFailureState = await checkExpertDeleteFailurePreservesState(page, consoleErrors)
-    const teamDeleteFailureState = await checkTeamDeleteFailurePreservesState(page, consoleErrors)
-    const deletionPrune = await checkDeletedExpertPrunesPersistedTeam(page)
-    const mobile = await checkExpertTeamsPage(page, { width: 390, height: 844 }, 'mobile')
-    if (consoleErrors.length) {
-      throw new Error(`Console errors found:\n${consoleErrors.join('\n')}`)
-    }
+      const desktop = await checkExpertTeamsPage(page, { width: 1366, height: 900 }, 'desktop')
+      const templateCancel = await checkGroupTemplatePickerCancelKeepsDraft(page)
+      const templateDraft = await checkGroupTemplatePickerAppliesDraft(page)
+      const persistence = await createPersistedTeam(page)
+      const templatePersistence = await checkTemplateTeamSavePersists(page)
+      const moderatorMemberSync = await checkModeratorClearsWhenMemberRemoved(page)
+      const memberOrderDrag = await checkMemberDragOrderPersists(page)
+      const emptyTeamValidation = await checkEmptyTeamSaveIsBlocked(page)
+      const invalidTeamIdValidation = await checkInvalidTeamIdSaveIsBlocked(page)
+      const invalidExpertModelValidation = await checkInvalidExpertModelSaveIsBlocked(page)
+      const invalidExpertIdValidation = await checkInvalidExpertIdSaveIsBlocked(page)
+      const expertSaveFailureDraft = await checkExpertSaveFailurePreservesDraft(page, consoleErrors)
+      const teamSaveFailureDraft = await checkTeamSaveFailurePreservesDraft(page, consoleErrors)
+      const delayedSkillsRefresh = await checkDelayedSkillsRefreshPreservesDirtyEditor(page)
+      const expertDeleteFailureState = await checkExpertDeleteFailurePreservesState(page, consoleErrors)
+      const teamDeleteFailureState = await checkTeamDeleteFailurePreservesState(page, consoleErrors)
+      const deletionPrune = await checkDeletedExpertPrunesPersistedTeam(page)
+      const mobile = await checkExpertTeamsPage(page, { width: 390, height: 844 }, 'mobile')
+      if (consoleErrors.length) {
+        throw new Error(`Console errors found:\n${consoleErrors.join('\n')}`)
+      }
 
-    const result = {
-      ok: true,
-      url,
-      desktop,
-      templateCancel,
-      templateDraft,
-      persistence,
-      templatePersistence,
-      moderatorMemberSync,
-      memberOrderDrag,
-      emptyTeamValidation,
-      invalidTeamIdValidation,
-      invalidExpertModelValidation,
-      invalidExpertIdValidation,
-      expertSaveFailureDraft,
-      teamSaveFailureDraft,
-      delayedSkillsRefresh,
-      expertDeleteFailureState,
-      teamDeleteFailureState,
-      deletionPrune,
-      mobile,
-      checkedAt: new Date().toISOString(),
+      const result = {
+        ok: true,
+        url,
+        desktop,
+        templateCancel,
+        templateDraft,
+        persistence,
+        templatePersistence,
+        moderatorMemberSync,
+        memberOrderDrag,
+        emptyTeamValidation,
+        invalidTeamIdValidation,
+        invalidExpertModelValidation,
+        invalidExpertIdValidation,
+        expertSaveFailureDraft,
+        teamSaveFailureDraft,
+        delayedSkillsRefresh,
+        expertDeleteFailureState,
+        teamDeleteFailureState,
+        deletionPrune,
+        mobile,
+        checkedAt: new Date().toISOString(),
+      }
+      await fs.writeFile(path.join(artifactsDir, 'expert-teams-smoke.json'), JSON.stringify(result, null, 2))
+      console.log(JSON.stringify(result, null, 2))
+    } catch (error) {
+      console.error(server.getOutput())
+      throw error
+    } finally {
+      if (browser) await browser.close()
+      await stopServer(server.child)
     }
-    await fs.writeFile(path.join(artifactsDir, 'expert-teams-smoke.json'), JSON.stringify(result, null, 2))
-    console.log(JSON.stringify(result, null, 2))
-  } catch (error) {
-    console.error(server.getOutput())
-    throw error
-  } finally {
-    if (browser) await browser.close()
-    await stopServer(server.child)
-  }
+  })
 }
 
 main().catch(error => {

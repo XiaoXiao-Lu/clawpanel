@@ -4,6 +4,10 @@ import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import viteConfig from '../vite.config.js'
 
+const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+const buildWithLock = fs.readFileSync(new URL('../scripts/build-with-dist-lock.mjs', import.meta.url), 'utf8')
+const expertTeamsSmoke = fs.readFileSync(new URL('../scripts/expert-teams-ui-smoke.mjs', import.meta.url), 'utf8')
+
 const config = typeof viteConfig === 'function'
   ? viteConfig({ command: 'build', mode: 'production' })
   : viteConfig
@@ -74,5 +78,19 @@ test('Vite dev server ignores locked Tauri build outputs on Windows paths', () =
   assert.equal(
     ignored('E:/Code/codex/ChatCraw/src/main.js'),
     false,
+  )
+})
+
+test('build and expert team smoke share the dist lock contract', () => {
+  assert.equal(pkg.scripts.build, 'node scripts/build-with-dist-lock.mjs')
+  assert.match(buildWithLock, /withDistLock\(root,\s*'vite-build'/)
+  assert.match(buildWithLock, /node_modules['"],\s*['"]vite['"],\s*['"]bin['"],\s*['"]vite\.js['"]/)
+  assert.match(buildWithLock, /run\(process\.execPath,\s*\[viteCli,\s*'build'\]\)/)
+  assert.doesNotMatch(buildWithLock, /shell:\s*true/)
+  assert.match(expertTeamsSmoke, /import\s+\{\s*withDistLock\s*\}\s+from\s+['"]\.\/lib\/dist-lock\.js['"]/)
+  assert.match(expertTeamsSmoke, /withDistLock\(root,\s*'expert-teams-ui-smoke'/)
+  assert.ok(
+    expertTeamsSmoke.indexOf("withDistLock(root, 'expert-teams-ui-smoke'") < expertTeamsSmoke.indexOf('const server = startServer()'),
+    'expert team smoke should acquire the dist lock before starting the static server',
   )
 })
