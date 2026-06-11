@@ -7,6 +7,7 @@ import viteConfig from '../vite.config.js'
 const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 const buildWithLock = fs.readFileSync(new URL('../scripts/build-with-dist-lock.mjs', import.meta.url), 'utf8')
 const expertTeamsSmoke = fs.readFileSync(new URL('../scripts/expert-teams-ui-smoke.mjs', import.meta.url), 'utf8')
+const linuxDeploy = fs.readFileSync(new URL('../scripts/linux-deploy.sh', import.meta.url), 'utf8')
 const contributing = fs.readFileSync(new URL('../CONTRIBUTING.md', import.meta.url), 'utf8')
 
 const config = typeof viteConfig === 'function'
@@ -97,4 +98,7 @@ test('build and expert team smoke share the dist lock contract', () => {
   assert.match(contributing, /scripts\/build-with-dist-lock\.mjs/)
   assert.match(contributing, /不要直接执行 `vite build` 或 `npx vite build`/)
   assert.match(contributing, /`npm run expert-teams:ui` 共用 `\.tmp\/dist\.lock`/)
+  assert.match(linuxDeploy, /npm run build/)
+  assert.doesNotMatch(linuxDeploy, /\bnpx\s+vite\s+build\b/)
+  assert.doesNotMatch(linuxDeploy, /(^|\s)vite\s+build\b/)
 })

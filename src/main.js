@@ -7,7 +7,7 @@ window._jsLoaded = true
 
 import { registerRoute, initRouter, navigate, setDefaultRoute, reloadCurrentRoute } from './router.js'
 import { renderSidebar, openMobileSidebar } from './components/sidebar.js'
-import { initTheme } from './lib/theme.js'
+import { initTheme, toggleTheme } from './lib/theme.js'
 import { initDesktopWindowChrome } from './lib/window-chrome.js'
 import { detectOpenclawStatus, isOpenclawReady, isUpgrading, isGatewayRunning, isGatewayForeign, onGatewayChange, startGatewayPoll, onGuardianGiveUp, resetAutoRestart, loadActiveInstance, getActiveInstance, onInstanceChange, refreshGatewayStatus } from './lib/app-state.js'
 import { wsClient } from './lib/ws-client.js'
@@ -17,7 +17,7 @@ import { statusIcon } from './lib/icons.js'
 import { isForeignGatewayError, showGatewayConflictGuidance } from './lib/gateway-ownership.js'
 import { tryShowEngagement } from './components/engagement.js'
 import { toast } from './components/toast.js'
-import { initI18n, t, getLang, setLang, getAvailableLangs } from './lib/i18n.js'
+import { initI18n, t, getLang, setLang, getAvailableLangs, onLangChange } from './lib/i18n.js'
 import { escapeHtml } from './lib/utils.js'
 import { renderMarkdown } from './lib/markdown.js'
 import { initFeatureGates } from './lib/feature-gates.js'
@@ -676,6 +676,79 @@ function initCommandPaletteShortcut() {
   })
 }
 
+function _addRouteCommand(commands, seenRoutes, item, options = {}) {
+  if (!item?.route || seenRoutes.has(item.route)) return
+  seenRoutes.add(item.route)
+  commands.push({
+    id: `nav:${item.route}`,
+    category: options.category || 'navigation',
+    label: item.label,
+    hint: item.route,
+    icon: item.icon || '📄',
+    execute: () => navigate(item.route),
+    keywords: [item.route, ...(options.keywords || [])],
+  })
+}
+
+function updateCommandPaletteCommands() {
+  const navCommands = []
+  const seenRoutes = new Set()
+  const activeEngine = getActiveEngine()
+  const activeEngineId = getActiveEngineId()
+
+  if (activeEngine?.getNavItems) {
+    activeEngine.getNavItems().forEach(section => {
+      ;(section.items || []).forEach(item => _addRouteCommand(navCommands, seenRoutes, item))
+    })
+  }
+
+  const supplementalRoutes = [
+    { route: '/engine-select', label: t('engine.choiceNav'), icon: 'setup', keywords: ['engine', 'setup'] },
+  ]
+  if (activeEngineId === 'openclaw') {
+    supplementalRoutes.push(
+      { route: '/notifications', label: t('sidebar.notifications'), icon: 'channels', keywords: ['push', 'notification'] },
+      { route: '/diagnose', label: t('sidebar.checkRepair'), icon: 'diagnose', keywords: ['repair', 'diagnose'] },
+    )
+  } else if (activeEngineId === 'hermes') {
+    supplementalRoutes.push(
+      { route: '/h/setup', label: t('sidebar.setup'), icon: 'setup', keywords: ['hermes', 'install'] },
+      { route: '/h/services', label: t('engine.hermesServicesTitle'), icon: 'services', keywords: ['hermes', 'maintenance'] },
+      { route: '/h/config', label: t('engine.hermesConfigTitle'), icon: 'settings', keywords: ['hermes', 'yaml'] },
+      { route: '/h/env', label: t('engine.servicesOpenEnv'), icon: 'settings', keywords: ['hermes', 'env'] },
+    )
+  } else if (activeEngineId === 'xintian') {
+    supplementalRoutes.push(
+      { route: '/x/landing', label: t('engine.xintianNavHome'), icon: 'assistant', keywords: ['xintian', 'home'] },
+    )
+  }
+  supplementalRoutes.forEach(item => _addRouteCommand(navCommands, seenRoutes, item))
+
+  const engines = listEngines()
+  const engineCommands = engines.filter(e => e.id !== activeEngineId).map(engine => ({
+    id: `engine:switch:${engine.id}`,
+    category: 'engine',
+    label: t('engine.switchCommandLabel', { name: engine.name }),
+    hint: engine.id,
+    icon: '🔄',
+    keywords: ['engine', engine.id, engine.name],
+    execute: () => switchEngine(engine.id)
+  }))
+
+  setCommandPaletteCommands([
+    ...navCommands,
+    ...engineCommands,
+    {
+      id: 'action:toggle-theme',
+      category: 'settings',
+      label: t('commandPalette.toggleTheme'),
+      icon: '🌓',
+      keywords: ['theme', 'dark', 'light'],
+      execute: () => toggleTheme(() => renderSidebar(sidebar)),
+    },
+  ])
+}
+
 async function boot() {
   // 注册引擎
   registerEngine(openclawEngine)
@@ -688,43 +761,8 @@ async function boot() {
 
   // 初始化 Command Palette 快捷键；面板主体首次打开时再加载，避免进入首屏静态图。
   initCommandPaletteShortcut()
-  // 注册导航命令（从引擎的 getNavItems 动态生成）
-  const navCommands = []
-  const engines = listEngines()
-  engines.forEach(engine => {
-    if (engine.getNavItems) {
-      const items = engine.getNavItems()
-      items.forEach(section => {
-        (section.items || []).forEach(item => {
-          navCommands.push({
-            id: `nav:${item.route}`,
-            category: 'navigation',
-            label: item.label,
-            hint: item.route,
-            icon: item.icon || '📄',
-            execute: () => navigate(item.route),
-            keywords: [item.route]
-          })
-        })
-      })
-    }
-  })
-
-  // 引擎切换命令
-  const engineCommands = engines.filter(e => e.id !== getActiveEngineId()).map(engine => ({
-    id: `engine:switch:${engine.id}`,
-    category: 'engine',
-    label: `切换到 ${engine.name}`,
-    hint: engine.id,
-    icon: '🔄',
-    execute: () => switchEngine(engine.id)
-  }))
-
-  setCommandPaletteCommands([
-    ...navCommands,
-    ...engineCommands,
-    { id: 'action:toggle-theme', category: 'settings', label: t('settings.theme') || '切换主题', icon: '🌓', execute: () => { /* theme toggle logic */ } },
-  ])
+  updateCommandPaletteCommands()
+  onLangChange(updateCommandPaletteCommands)
 
   // 用户尚未做过明确的引擎选择（无 engineSetupChoice）→ 立即把默认路由
   // 指向 /engine-select，避免初始化期间先闪到 /dashboard 或 /setup 再被
@@ -838,16 +876,23 @@ async function boot() {
     if (_engineReadyUnsub) { _engineReadyUnsub(); _engineReadyUnsub = null }
     // 注册新监听
     if (engine.onStateChange) {
-      _engineStateUnsub = engine.onStateChange(() => renderSidebar(sidebar))
+      _engineStateUnsub = engine.onStateChange(() => {
+        updateCommandPaletteCommands()
+        renderSidebar(sidebar)
+      })
     }
     if (engine.onReadyChange) {
-      _engineReadyUnsub = engine.onReadyChange(() => renderSidebar(sidebar))
+      _engineReadyUnsub = engine.onReadyChange(() => {
+        updateCommandPaletteCommands()
+        renderSidebar(sidebar)
+      })
     }
   }
 
   // 引擎切换时：重新绑定状态监听 + 刷新侧边栏
   onEngineChange((engine) => {
     bindEngineListeners(engine)
+    updateCommandPaletteCommands()
     renderSidebar(sidebar)
   })
 
@@ -870,6 +915,7 @@ async function boot() {
     await engine.boot()
 
     // 重新渲染侧边栏（引擎检测完成后状态已更新）
+    updateCommandPaletteCommands()
     renderSidebar(sidebar)
 
     // 监听引擎状态变化（如 setup 完成后 ready 变为 true），自动刷新侧边栏

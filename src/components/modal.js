@@ -325,26 +325,27 @@ export function showContentModal({ title, content, buttons = [], width = 480 }) 
  */
 export function showUpgradeModal(title) {
   const overlay = document.createElement('div')
-  overlay.className = 'modal-overlay'
+  overlay.className = 'modal-overlay upgrade-modal-overlay'
+  const modalId = 'modal-' + Date.now()
   overlay.innerHTML = `
-    <div class="modal" style="max-width:520px">
-      <div class="modal-title">${title || t('common.upgradeOpenClaw')}</div>
+    <div class="modal upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="${modalId}-title" style="max-width:520px">
+      <div class="modal-title" id="${modalId}-title">${escapeAttr(title || t('common.upgradeOpenClaw'))}</div>
       <div class="upgrade-progress-wrap">
-        <div class="upgrade-progress-bar"><div class="upgrade-progress-fill" style="width:0%"></div></div>
-        <div class="upgrade-progress-text">${t('common.preparing')}</div>
+        <div class="upgrade-progress-bar" aria-hidden="true"><div class="upgrade-progress-fill" style="width:0%"></div></div>
+        <div class="upgrade-progress-text" role="status" aria-live="polite">${t('common.preparing')}</div>
       </div>
-      <div class="upgrade-log-box"></div>
+      <div class="upgrade-log-box" role="log" aria-live="polite" aria-relevant="additions text"></div>
       <div class="modal-actions">
-        <button class="btn btn-secondary btn-sm" data-action="close">${t('common.close')}</button>
+        <button class="btn btn-secondary btn-sm" type="button" data-action="close">${t('common.close')}</button>
       </div>
     </div>
   `
-  document.body.appendChild(overlay)
 
   const fill = overlay.querySelector('.upgrade-progress-fill')
   const text = overlay.querySelector('.upgrade-progress-text')
   const logBox = overlay.querySelector('.upgrade-log-box')
   const closeBtn = overlay.querySelector('[data-action="close"]')
+  const modalEl = overlay.querySelector('.modal')
   const _logLines = []
 
   let _onClose = null
@@ -352,42 +353,69 @@ export function showUpgradeModal(title) {
   let _taskBar = null
   let _progressLabels = null
   let _closed = false
+  let _removing = false
+  let _modalSessionActive = false
+
+  function beginModalSession() {
+    pushFocus()
+    lockBodyScroll()
+    _modalSessionActive = true
+  }
+
+  function endModalSession() {
+    if (!_modalSessionActive) return
+    unlockBodyScroll()
+    popFocus()
+    _modalSessionActive = false
+  }
+
+  beginModalSession()
+  document.body.appendChild(overlay)
+  trapFocus(overlay, modalEl)
+  bindOverlayClose(overlay, () => closeModal())
+  requestAnimationFrame(() => closeBtn?.focus())
 
   // 重新打开弹窗（从任务状态栏点击时）
   function reopenModal() {
+    if (!_closed) return
     _closed = false
+    _removing = false
+    overlay.style.opacity = ''
+    overlay.style.transform = ''
+    overlay.style.transition = ''
     if (_taskBar) { _taskBar.remove(); _taskBar = null }
+    beginModalSession()
     document.body.appendChild(overlay)
+    requestAnimationFrame(() => closeBtn?.focus())
   }
 
   // 关闭弹窗：未完成时显示任务状态栏
   function closeModal() {
-    if (_closed) return
-    _closed = true
-    // Fade-out animation before removal
+    if (_closed || _removing) return
+    _removing = true
     overlay.style.opacity = '0'
     overlay.style.transform = 'translateY(8px)'
     overlay.style.transition = 'opacity 200ms ease, transform 250ms var(--ease-out)'
-    const onTransitionEnd = () => {
-      overlay.removeEventListener('transitionend', onTransitionEnd)
+
+    const finishClose = () => {
+      if (!_removing) return
+      _removing = false
+      _closed = true
+      overlay.removeEventListener('transitionend', finishClose)
       overlay.remove()
+      endModalSession()
       if (!_finished) {
         showTaskBar()
+        _taskBar?.querySelector('.upgrade-task-bar-open')?.focus?.()
       } else {
         if (_taskBar) { _taskBar.remove(); _taskBar = null }
         setTimeout(() => _onClose?.(), 0)
       }
     }
-    overlay.addEventListener('transitionend', onTransitionEnd)
+
+    overlay.addEventListener('transitionend', finishClose, { once: true })
     // Fallback: force remove after 350ms if transitionend doesn't fire
-    setTimeout(() => {
-      if (overlay.parentNode) {
-        overlay.removeEventListener('transitionend', onTransitionEnd)
-        overlay.remove()
-        if (!_finished) { showTaskBar() }
-        else { if (_taskBar) { _taskBar.remove(); _taskBar = null }; setTimeout(() => _onClose?.(), 0) }
-      }
-    }, 400)
+    setTimeout(finishClose, 400)
   }
 
   // 全局任务状态栏：关闭弹窗后显示在页面顶部
@@ -395,10 +423,12 @@ export function showUpgradeModal(title) {
     if (_taskBar) return
     _taskBar = document.createElement('div')
     _taskBar.className = 'upgrade-task-bar'
+    _taskBar.setAttribute('role', 'status')
+    _taskBar.setAttribute('aria-live', 'polite')
     _taskBar.innerHTML = `
       <span class="upgrade-task-bar-text">${text.textContent}</span>
-      <button class="btn btn-sm upgrade-task-bar-open">${t('common.viewDetails')}</button>
-      <button class="btn btn-sm btn-ghost upgrade-task-bar-dismiss" aria-label="${t('common.close')}">×</button>
+      <button class="btn btn-sm upgrade-task-bar-open" type="button">${t('common.viewDetails')}</button>
+      <button class="btn btn-sm btn-ghost upgrade-task-bar-dismiss" type="button" aria-label="${t('common.close')}">×</button>
     `
     _taskBar.querySelector('.upgrade-task-bar-open').onclick = reopenModal
     _taskBar.querySelector('.upgrade-task-bar-dismiss').onclick = () => { _taskBar.remove(); _taskBar = null }
@@ -471,6 +501,13 @@ export function showUpgradeModal(title) {
       if (label) closeBtn.textContent = label
     },
     onClose(fn) { _onClose = fn },
-    destroy() { overlay.remove(); if (_taskBar) { _taskBar.remove(); _taskBar = null } _onClose?.() },
+    destroy() {
+      _removing = false
+      overlay.remove()
+      if (_modalSessionActive) endModalSession()
+      _closed = true
+      if (_taskBar) { _taskBar.remove(); _taskBar = null }
+      _onClose?.()
+    },
   }
 }

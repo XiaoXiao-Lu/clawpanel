@@ -32,6 +32,35 @@ let _kernelPolicyLoading = false
 
 let _delegated = false
 let _sidebarRendered = false  // 首次渲染标记
+let _lastSidebarSignature = ''
+
+function _getVisibleNavItems(engine) {
+  const raw = needsInitialEngineChoice() || isEngineSetupDeferred()
+    ? NAV_ITEMS_ENGINE_SELECT()
+    : (engine ? engine.getNavItems() : (isOpenclawReady() ? NAV_ITEMS_FULL() : NAV_ITEMS_SETUP()))
+
+  return raw.map(section => ({
+    ...section,
+    items: (section.items || []).filter(item => {
+      if (item.gate && engine && !engine.isFeatureAvailable(item.gate)) return false
+      if (item.gate && !engine && !isFeatureAvailable(item.gate)) return false
+      return true
+    }),
+  })).filter(section => section.items.length > 0)
+}
+
+function _navSignature(navItems) {
+  return JSON.stringify({
+    lang: getLang(),
+    engine: getActiveEngineId(),
+    initialChoice: needsInitialEngineChoice(),
+    setupDeferred: isEngineSetupDeferred(),
+    items: navItems.map(section => ({
+      section: section.section || '',
+      items: section.items.map(item => ({ route: item.route, label: item.label, icon: item.icon || '' })),
+    })),
+  })
+}
 
 
 function _closeEngineDropdown() {
@@ -67,18 +96,26 @@ function _setDesktopSidebarCollapsed(collapsed) {
     sidebar.classList.toggle('sidebar-collapsed', !!collapsed)
   }
   const btn = document.getElementById('btn-sidebar-collapse')
-  if (btn) btn.textContent = collapsed ? '»' : '«'
+  if (btn) {
+    btn.textContent = collapsed ? '»' : '«'
+    btn.setAttribute('aria-pressed', collapsed ? 'true' : 'false')
+    btn.setAttribute('aria-label', t('sidebar.collapse'))
+  }
 }
 
 export function renderSidebar(el) {
-  const current = getCurrentRoute()
+  const current = (getCurrentRoute() || '').split('?')[0]
+  const engine = getActiveEngine()
+  const navItems = _getVisibleNavItems(engine)
+  const signature = _navSignature(navItems)
 
-  // 增量更新路径：非首次渲染时，只更新变化的部分
-  if (_sidebarRendered) {
+  // 增量更新路径：菜单结构未变化时只更新 active、徽章、主题等动态状态。
+  if (_sidebarRendered && _lastSidebarSignature === signature && el.querySelector('.sidebar-nav')) {
     _updateSidebarIncremental(el, current)
     return
   }
   _sidebarRendered = true
+  _lastSidebarSignature = signature
 
   const collapsed = _isDesktopSidebarCollapsed()
   let html = `
@@ -87,43 +124,40 @@ export function renderSidebar(el) {
         <img src="/images/logo.png" alt="ClawPanel">
       </div>
       <span class="sidebar-title">ClawPanel</span>
-      <button class="sidebar-collapse-btn" id="btn-sidebar-collapse" title="${t('sidebar.collapse')}">${collapsed ? '»' : '«'}</button>
-      <button class="sidebar-close-btn" id="btn-sidebar-close" title="${t('sidebar.closeMenu')}">&times;</button>
+      <button type="button" class="sidebar-collapse-btn" id="btn-sidebar-collapse" title="${t('sidebar.collapse')}" aria-label="${t('sidebar.collapse')}" aria-pressed="${collapsed ? 'true' : 'false'}">${collapsed ? '»' : '«'}</button>
+      <button type="button" class="sidebar-close-btn" id="btn-sidebar-close" title="${t('sidebar.closeMenu')}" aria-label="${t('sidebar.closeMenu')}">&times;</button>
     </div>
     ${renderEngineSwitcher()}
     <div class="sidebar-search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input class="sidebar-search-input" id="sidebar-search" type="text" placeholder="搜索..." autocomplete="off" aria-label="${t('sidebar.search')}">
+      <input class="sidebar-search-input" id="sidebar-search" type="search" placeholder="${t('sidebar.searchPlaceholder')}" autocomplete="off" aria-label="${t('sidebar.search')}">
     </div>
     <nav class="sidebar-nav" aria-label="${t('sidebar.navLabel')}">
   `
-
-  // 从当前引擎获取菜单（回退到原有逻辑）
-  const engine = getActiveEngine()
-  const navItems = needsInitialEngineChoice() || isEngineSetupDeferred()
-    ? NAV_ITEMS_ENGINE_SELECT()
-    : (engine ? engine.getNavItems() : (isOpenclawReady() ? NAV_ITEMS_FULL() : NAV_ITEMS_SETUP()))
 
   let sectionIndex = 0
   for (const section of navItems) {
     const hasTitle = section.section && section.section.trim()
     const sectionId = `nav-section-${sectionIndex++}`
     html += `<div class="nav-section" data-section-id="${sectionId}">
-      ${hasTitle ? `<button type="button" class="nav-section-title" data-toggle="${sectionId}" aria-expanded="true">
-        <span>${section.section}</span>
+      ${hasTitle ? `<button type="button" class="nav-section-title" data-toggle="${sectionId}" aria-expanded="true" aria-controls="${sectionId}">
+        <span>${_escSidebar(section.section)}</span>
         <svg class="nav-section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
       </button>` : ''}
       <div class="nav-section-items" id="${sectionId}">`
 
     for (const item of section.items) {
-      if (item.gate && engine && !engine.isFeatureAvailable(item.gate)) continue
-      if (item.gate && !engine && !isFeatureAvailable(item.gate)) continue
       const active = current === item.route ? ' active' : ''
-      html += `<div class="nav-item${active}" data-route="${item.route}" data-nav-icon="${item.icon || ''}" data-nav-label="${item.label.toLowerCase()}">
+      const ariaCurrent = current === item.route ? ' aria-current="page"' : ''
+      const label = _escSidebar(item.label)
+      const route = _escSidebar(item.route)
+      const icon = _escSidebar(item.icon || '')
+      const searchText = _escSidebar(`${item.label} ${item.route}`.toLowerCase())
+      html += `<button type="button" class="nav-item${active}" data-route="${route}" data-nav-icon="${icon}" data-nav-label="${searchText}" aria-label="${label}" title="${label}"${ariaCurrent}>
         ${ICONS[item.icon] || ''}
-        <span>${item.label}</span>
+        <span>${label}</span>
         <span class="nav-badge" aria-hidden="true"></span>
-      </div>`
+      </button>`
     }
     html += `</div></div>`
   }
@@ -178,7 +212,7 @@ export function renderSidebar(el) {
         <span class="sidebar-version">v${APP_VERSION}</span>
       </div>
       <div class="sidebar-shortcut-hint">
-        <span class="sidebar-shortcut-key" tabindex="0" role="button" aria-label="打开命令面板" title="打开命令面板 (Ctrl+K)" id="sidebar-cmdk-hint">Ctrl+K</span>
+        <span class="sidebar-shortcut-key" tabindex="0" role="button" aria-label="${t('commandPalette.open')}" title="${t('commandPalette.open')} (Ctrl+K)" id="sidebar-cmdk-hint">Ctrl+K</span>
       </div>
     </div>
   `
@@ -303,11 +337,12 @@ export function renderSidebar(el) {
           // 确认弹窗
           const engines = listEngines()
           const targetEngine = engines.find(e => e.id === eid)
+          const targetName = targetEngine?.name || eid
           const confirmed = await showConfirm({
-            message: `确定切换到 ${targetEngine?.name || eid} 引擎吗？`,
-            title: '切换引擎',
-            confirmText: '确定',
-            cancelText: '取消',
+            message: t('engine.switchConfirmMessage', { name: targetName }),
+            title: t('engine.switchConfirmTitle'),
+            confirmText: t('engine.switchConfirmAction'),
+            cancelText: t('common.cancel'),
             variant: 'primary',
           })
           if (!confirmed) return
@@ -342,7 +377,7 @@ export function renderSidebar(el) {
               if (hash) {
                 reloadCurrentRoute()
               } else {
-                contentEl.innerHTML = `<div class="page" style="padding:32px;color:var(--error)">加载失败，请刷新页面重试</div>`
+                contentEl.innerHTML = `<div class="page"><div class="state-card state-card--error state-card--compact">${_escSidebar(t('common.pageLoadFailed'))}</div></div>`
               }
             }
           })
@@ -358,28 +393,11 @@ export function renderSidebar(el) {
       }
     })
 
-    // 搜索功能
-    const searchInput = el.querySelector('#sidebar-search')
-    if (searchInput) {
-      searchInput.addEventListener('input', () => {
-        const q = (searchInput.value || '').toLowerCase()
-        el.querySelectorAll('.nav-item[data-nav-label]').forEach(item => {
-          const label = (item.dataset.navLabel || '')
-          item.style.display = q && !label.includes(q) ? 'none' : ''
-        })
-        // 展开所有包含匹配项的分区
-        el.querySelectorAll('.nav-section').forEach(sec => {
-          if (!q) { sec.classList.add('section-collapsed'); return }
-          const hasVisible = sec.querySelector('.nav-item[data-nav-label][style*="display: none"]')
-          if (!hasVisible) {
-            const items = sec.querySelector('.nav-section-items')
-            const section = sec
-            if (items) items.classList.remove('collapsed')
-            if (section) section.classList.remove('section-collapsed')
-          }
-        })
-      })
-    }
+    // 搜索功能（事件委托，侧边栏重渲染后仍然生效）
+    el.addEventListener('input', (e) => {
+      if (!e.target.closest('#sidebar-search')) return
+      _applySidebarSearch(el, e.target.value || '')
+    })
 
     // 分区折叠键盘支持 (Enter/Space)
     el.addEventListener('keydown', (e) => {
@@ -395,6 +413,44 @@ export function renderSidebar(el) {
   }
 }
 
+function _setSectionCollapsed(section, collapsed) {
+  const items = section?.querySelector('.nav-section-items')
+  const toggle = section?.querySelector('[data-toggle]')
+  if (!section || !items) return
+  items.classList.toggle('collapsed', !!collapsed)
+  section.classList.toggle('section-collapsed', !!collapsed)
+  if (toggle) toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true')
+}
+
+function _applySidebarSearch(el, query) {
+  const q = String(query || '').trim().toLowerCase()
+  el.querySelectorAll('.nav-section').forEach(section => {
+    const items = [...section.querySelectorAll('.nav-item[data-nav-label]')]
+    if (!q) {
+      section.hidden = false
+      items.forEach(item => { item.hidden = false })
+      const wasCollapsed = section.dataset.preSearchCollapsed === '1'
+      if (section.dataset.preSearchCollapsed != null) {
+        _setSectionCollapsed(section, wasCollapsed)
+        delete section.dataset.preSearchCollapsed
+      }
+      return
+    }
+
+    if (section.dataset.preSearchCollapsed == null) {
+      section.dataset.preSearchCollapsed = section.classList.contains('section-collapsed') ? '1' : '0'
+    }
+
+    let visible = 0
+    items.forEach(item => {
+      const match = (item.dataset.navLabel || '').includes(q)
+      item.hidden = !match
+      if (match) visible++
+    })
+    section.hidden = visible === 0
+    if (visible > 0) _setSectionCollapsed(section, false)
+  })
+}
 
 
 // === 移动端侧边栏 ===
@@ -424,7 +480,10 @@ function _updateSidebarIncremental(el, current) {
   // 1. 更新导航激活状态
   const navItems = el.querySelectorAll('.nav-item[data-route]')
   navItems.forEach(item => {
-    item.classList.toggle('active', item.dataset.route === current)
+    const active = item.dataset.route === current
+    item.classList.toggle('active', active)
+    if (active) item.setAttribute('aria-current', 'page')
+    else item.removeAttribute('aria-current')
   })
 
   // 1b. 恢复导航徽章状态（增量渲染后需重新挂载 DOM）

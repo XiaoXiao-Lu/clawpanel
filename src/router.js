@@ -13,34 +13,66 @@ let _initialized = false
 
 let _defaultRoute = '/dashboard'
 
-// Route → section + label mapping (for context bar)
+// Route → section + label mapping (for context bar). Values may be full i18n keys.
 const _routeContext = {
-  '/dashboard':     ['sectionMonitor',    'dashboard'],
-  '/assistant':     ['sectionMonitor',    'assistant'],
-  '/chat':          ['sectionMonitor',    'chat'],
-  '/route-map':     ['sectionMonitor',    'routeMap'],
-  '/services':      ['sectionMonitor',    'services'],
-  '/logs':          ['sectionMonitor',    'logs'],
-  '/models':        ['sectionConfig',     'models'],
-  '/agents':        ['sectionConfig',     'agents'],
-  '/expert-teams':  ['sectionConfig',     'expertTeams'],
-  '/gateway':       ['sectionConfig',     'gateway'],
-  '/channels':      ['sectionConfig',     'channels'],
-  '/communication': ['sectionConfig',     'communication'],
-  '/security':      ['sectionConfig',     'security'],
-  '/memory':        ['sectionData',       'memory'],
-  '/dreaming':      ['sectionData',       'dreaming'],
-  '/cron':          ['sectionData',       'cron'],
-  '/usage':         ['sectionData',       'usage'],
-  '/skills':        ['sectionExtension',  'skills'],
-  '/connectors':    ['sectionExtension',  'connectors'],
-  '/plugin-hub':    ['sectionExtension',  'pluginHub'],
-  '/settings':      ['sectionSystem',     'settings'],
-  '/chat-debug':    ['sectionSystem',     'checkRepair'],
-  '/diagnose':      ['sectionSystem',     'checkRepair'],
-  '/about':         ['sectionSystem',     'about'],
-  '/setup':         ['',                  'setup'],
-  '/glossary':      ['',                  'glossary'],
+  '/engine-select': ['engine.choiceNav', 'engine.choiceNav'],
+  '/dashboard':     ['sidebar.sectionMonitor',    'sidebar.dashboard'],
+  '/assistant':     ['sidebar.sectionMonitor',    'sidebar.assistant'],
+  '/chat':          ['sidebar.sectionMonitor',    'sidebar.chat'],
+  '/route-map':     ['sidebar.sectionMonitor',    'sidebar.routeMap'],
+  '/services':      ['sidebar.sectionMonitor',    'sidebar.services'],
+  '/logs':          ['sidebar.sectionMonitor',    'sidebar.logs'],
+  '/models':        ['sidebar.sectionConfig',     'sidebar.models'],
+  '/agents':        ['sidebar.sectionConfig',     'sidebar.agents'],
+  '/agent-detail':  ['sidebar.sectionConfig',     'sidebar.agents'],
+  '/expert-teams':  ['sidebar.sectionConfig',     'sidebar.expertTeams'],
+  '/gateway':       ['sidebar.sectionConfig',     'sidebar.gateway'],
+  '/channels':      ['sidebar.sectionConfig',     'sidebar.channels'],
+  '/communication': ['sidebar.sectionConfig',     'sidebar.communication'],
+  '/notifications': ['sidebar.sectionConfig',     'sidebar.notifications'],
+  '/security':      ['sidebar.sectionConfig',     'sidebar.security'],
+  '/memory':        ['sidebar.sectionData',       'sidebar.memory'],
+  '/dreaming':      ['sidebar.sectionData',       'sidebar.dreaming'],
+  '/cron':          ['sidebar.sectionData',       'sidebar.cron'],
+  '/usage':         ['sidebar.sectionData',       'sidebar.usage'],
+  '/skills':        ['sidebar.sectionExtension',  'sidebar.skills'],
+  '/connectors':    ['sidebar.sectionExtension',  'sidebar.connectors'],
+  '/plugin-hub':    ['sidebar.sectionExtension',  'sidebar.pluginHub'],
+  '/settings':      ['sidebar.sectionSystem',     'sidebar.settings'],
+  '/chat-debug':    ['sidebar.sectionSystem',     'sidebar.checkRepair'],
+  '/diagnose':      ['sidebar.sectionSystem',     'sidebar.checkRepair'],
+  '/about':         ['sidebar.sectionSystem',     'sidebar.about'],
+  '/setup':         ['',                          'sidebar.setup'],
+  '/glossary':      ['',                          'sidebar.glossary'],
+
+  '/h/setup':       ['',                          'sidebar.setup'],
+  '/h/dashboard':   ['sidebar.sectionMonitor',    'sidebar.dashboard'],
+  '/h/chat':        ['sidebar.sectionMonitor',    'sidebar.chat'],
+  '/h/group-chat':  ['sidebar.sectionMonitor',    'engine.hermesGroupChatTitle'],
+  '/h/sessions':    ['sidebar.sectionMonitor',    'sidebar.sessions'],
+  '/h/logs':        ['sidebar.sectionMonitor',    'sidebar.logs'],
+  '/h/usage':       ['sidebar.sectionMonitor',    'sidebar.usage'],
+  '/h/skills':      ['sidebar.sectionManage',     'sidebar.skills'],
+  '/h/memory':      ['sidebar.sectionManage',     'sidebar.memory'],
+  '/h/cron':        ['sidebar.sectionManage',     'sidebar.cron'],
+  '/h/profiles':    ['sidebar.sectionManage',     'engine.hermesProfilesTitle'],
+  '/h/gateways':    ['sidebar.sectionManage',     'engine.hermesGatewaysTitle'],
+  '/h/channels':    ['sidebar.sectionManage',     'engine.hermesChannelsTitle'],
+  '/h/kanban':      ['sidebar.sectionManage',     'engine.hermesKanbanTitle'],
+  '/h/oauth':       ['sidebar.sectionManage',     'engine.hermesOAuthTitle'],
+  '/h/files':       ['sidebar.sectionManage',     'engine.hermesFilesTitle'],
+  '/h/lazy-deps':   ['sidebar.sectionManage',     'hermesLazyDeps.title'],
+  '/h/extensions':  ['sidebar.sectionManage',     'sidebar.extensions'],
+  '/h/services':    ['sidebar.sectionManage',     'engine.hermesServicesTitle'],
+  '/h/config':      ['sidebar.sectionManage',     'engine.hermesConfigTitle'],
+  '/h/env':         ['sidebar.sectionManage',     'engine.servicesOpenEnv'],
+
+  '/x/landing':     ['',                          'engine.xintianNavHome'],
+}
+
+function _contextLabel(key) {
+  if (!key) return ''
+  return t(key.includes('.') ? key : `sidebar.${key}`)
 }
 
 function updateContextBar(routePath) {
@@ -49,8 +81,8 @@ function updateContextBar(routePath) {
   const ctx = _routeContext[routePath]
   if (!ctx) { bar.innerHTML = ''; return }
   const [sectionKey, labelKey] = ctx
-  const sectionLabel = sectionKey ? t('sidebar.' + sectionKey) : ''
-  const pageLabel = t('sidebar.' + labelKey)
+  const sectionLabel = _contextLabel(sectionKey)
+  const pageLabel = _contextLabel(labelKey)
   bar.innerHTML = sectionLabel
     ? `<span class="context-bar-path">${escHtml(sectionLabel)}</span><span class="context-bar-sep">/</span><span class="context-bar-title">${escHtml(pageLabel)}</span>`
     : `<span class="context-bar-title">${escHtml(pageLabel)}</span>`
@@ -169,7 +201,10 @@ async function loadRoute() {
 
   // 更新侧边栏激活状态
   document.querySelectorAll('.nav-item').forEach(item => {
-    item.classList.toggle('active', item.dataset.route === routePath)
+    const active = item.dataset.route === routePath
+    item.classList.toggle('active', active)
+    if (active) item.setAttribute('aria-current', 'page')
+    else item.removeAttribute('aria-current')
   })
 
   // 更新上下文栏
@@ -203,35 +238,50 @@ function withTimeout(promise, ms, msg) {
 }
 
 function showLoadError(container, hash, error) {
-  const name = hash.replace('/', '') || 'unknown'
   container.innerHTML = `
-    <div class="page-loader">
-      <div style="color:var(--error,#ef4444);margin-bottom:12px">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+    <div class="page-loader page-loader--state">
+      <div class="state-card state-card--error" role="alert">
+        <div class="state-card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        </div>
+        <div class="state-card-title">${escHtml(t('common.pageLoadFailed'))}</div>
+        <div class="state-card-desc">${escHtml(String(error?.message || error))}</div>
+        <div class="state-card-actions">
+          <button type="button" class="btn btn-secondary btn-sm" data-router-action="reload">${escHtml(t('common.reloadRetry'))}</button>
+        </div>
       </div>
-      <div class="page-loader-text" style="color:var(--text-primary)">${escHtml(t('common.pageLoadFailed'))}</div>
-      <div style="color:var(--text-tertiary);font-size:12px;margin:8px 0 16px;max-width:400px;word-break:break-all">${escHtml(String(error?.message || error))}</div>
-      <button onclick="location.hash='${hash}';location.reload()" style="padding:6px 20px;border-radius:6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;font-size:13px">${escHtml(t('common.reloadRetry'))}</button>
     </div>
   `
+  container.querySelector('[data-router-action="reload"]')?.addEventListener('click', () => {
+    window.location.hash = hash
+    window.location.reload()
+  })
 }
 
 function showNotFound(container, routePath) {
+  updateContextBar(routePath)
   container.innerHTML = `
-    <div class="page-loader" style="text-align:center;padding:60px 20px">
-      <div style="color:var(--text-3);margin-bottom:16px">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="56" height="56">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M16 16s-1.5-2-4-2-4 2-4 2"/>
-          <line x1="9" y1="9" x2="9.01" y2="9"/>
-          <line x1="15" y1="9" x2="15.01" y2="9"/>
-        </svg>
+    <div class="page-loader page-loader--state">
+      <div class="state-card" role="status">
+        <div class="state-card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="56" height="56">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M16 16s-1.5-2-4-2-4 2-4 2"/>
+            <line x1="9" y1="9" x2="9.01" y2="9"/>
+            <line x1="15" y1="9" x2="15.01" y2="9"/>
+          </svg>
+        </div>
+        <div class="state-card-title">${escHtml(t('common.pageNotFound'))}</div>
+        <div class="state-card-desc">${escHtml(t('common.pageNotFoundDesc'))}: <code class="state-card-code">${escHtml(routePath)}</code></div>
+        <div class="state-card-actions">
+          <button type="button" class="btn btn-primary btn-sm" data-router-action="home">${escHtml(t('common.backToHome'))}</button>
+        </div>
       </div>
-      <div class="page-loader-text" style="color:var(--text-1);font-size:18px;margin-bottom:8px">${escHtml(t('common.pageNotFound') || '页面未找到')}</div>
-      <div style="color:var(--text-3);font-size:13px;margin-bottom:24px">${escHtml(t('common.pageNotFoundDesc') || '该路由未注册')}: <code style="background:var(--bg-hover);padding:2px 8px;border-radius:4px;font-size:12px">${escHtml(routePath)}</code></div>
-      <button onclick="location.hash='${escHtml(_defaultRoute)}'" style="padding:8px 24px;border-radius:var(--radius-lg);border:1px solid var(--brand-muted);background:var(--brand-faint);color:var(--brand);cursor:pointer;font-size:14px;font-weight:500;transition:background var(--ease-fast)">${escHtml(t('common.backToHome') || '返回首页')}</button>
     </div>
   `
+  container.querySelector('[data-router-action="home"]')?.addEventListener('click', () => {
+    window.location.hash = _defaultRoute
+  })
 }
 
 

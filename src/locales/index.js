@@ -44,13 +44,14 @@ import hermesLazyDeps from './modules/hermesLazyDeps.js'
 import notifications from './modules/notifications.js'
 import kernel from './modules/kernel.js'
 import siteMessages from './modules/siteMessages.js'
+import commandPalette from './modules/commandPalette.js'
 
 const MODULES = {
   common, sidebar, instance, dashboard, services, settings,
   models, agents, agentDetail, expertTeams, gateway, security, communication, channels,
   memory, dreaming, cron, usage, skills, connectors, chat, chatDebug, setup, about,
   ext, logs, assistant, toast, modal, engagement, diagnose, routeMap, extensions,
-  engine, ciaoBug, cliConflict, glossary, hermesLazyDeps, notifications, kernel, siteMessages,
+  engine, ciaoBug, cliConflict, glossary, hermesLazyDeps, notifications, kernel, siteMessages, commandPalette,
 }
 
 /** 判断是否是 _() 调用产生的翻译对象（有 'zh-CN' 字符串字段） */

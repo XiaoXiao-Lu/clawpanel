@@ -3,6 +3,10 @@ import { _ } from '../helper.js'
 export default {
   switchedTo: _('已切换到 {name} 模式', 'Switched to {name} mode', '已切換到 {name} 模式', '{name} モードに切り替えました', '{name} 모드로 전환됨'),
   switchFailed: _('引擎切换失败，请稍后重试', 'Engine switch failed, please try again later', '引擎切換失敗，請稍後重試', 'エンジンの切り替えに失敗しました。後でもう一度お試しください', '엔진 전환에 실패했습니다. 잠시 후 다시 시도해 주세요'),
+  switchConfirmTitle: _('切换引擎', 'Switch engine', '切換引擎', 'エンジンを切り替え', '엔진 전환', 'Switch engine', 'Switch engine', 'Switch engine', 'Switch engine', 'Switch engine', 'Switch engine'),
+  switchConfirmMessage: _('确定切换到 {name} 引擎吗？', 'Switch to the {name} engine?', '確定切換到 {name} 引擎嗎？', '{name} エンジンに切り替えますか？', '{name} 엔진으로 전환할까요?', 'Switch to the {name} engine?', 'Switch to the {name} engine?', 'Switch to the {name} engine?', 'Switch to the {name} engine?', 'Switch to the {name} engine?', 'Switch to the {name} engine?'),
+  switchConfirmAction: _('切换', 'Switch', '切換', '切り替え', '전환', 'Switch', 'Switch', 'Switch', 'Switch', 'Switch', 'Switch'),
+  switchCommandLabel: _('切换到 {name}', 'Switch to {name}', '切換到 {name}', '{name} に切り替え', '{name}로 전환', 'Switch to {name}', 'Switch to {name}', 'Switch to {name}', 'Switch to {name}', 'Switch to {name}', 'Switch to {name}'),
   switcherSectionLabel: _('引擎', 'Engine', '引擎', 'エンジン', '엔진', 'Động cơ', 'Motor', 'Motor', 'Движок', 'Moteur', 'Engine'),
   switcherTooltip: _('点击切换引擎', 'Click to switch engine', '點擊切換引擎', 'クリックしてエンジンを切り替え', '엔진 전환하려면 클릭', 'Nhấp để chuyển đổi engine', 'Haga clic para cambiar de motor', 'Clique para alternar o motor', 'Нажмите, чтобы переключить движок', 'Cliquez pour changer de moteur', 'Klicken, um die Engine zu wechseln'),
   choiceNav: _('选择引擎', 'Choose Engine', '選擇引擎', 'エンジンを選択', '엔진 선택', 'Choose Engine', 'Choose Engine', 'Choose Engine', 'Choose Engine', 'Choose Engine', 'Choose Engine'),

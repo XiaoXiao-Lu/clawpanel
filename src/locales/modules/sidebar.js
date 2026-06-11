@@ -1,6 +1,10 @@
 import { _ } from '../helper.js'
 
 export default {
+  search: _('搜索导航', 'Search navigation', '搜尋導航', 'ナビゲーションを検索', '탐색 검색', 'Search navigation', 'Search navigation', 'Search navigation', 'Search navigation', 'Search navigation', 'Search navigation'),
+  searchPlaceholder: _('搜索导航...', 'Search navigation...', '搜尋導航...', 'ナビゲーションを検索...', '탐색 검색...', 'Search navigation...', 'Search navigation...', 'Search navigation...', 'Search navigation...', 'Search navigation...', 'Search navigation...'),
+  navLabel: _('主导航', 'Main navigation', '主導航', 'メインナビゲーション', '기본 탐색', 'Main navigation', 'Main navigation', 'Main navigation', 'Main navigation', 'Main navigation', 'Main navigation'),
+  tools: _('快捷工具', 'Quick tools', '快捷工具', 'クイックツール', '빠른 도구', 'Quick tools', 'Quick tools', 'Quick tools', 'Quick tools', 'Quick tools', 'Quick tools'),
   collapse: _('折叠/展开', 'Collapse / Expand', '摺疊/展開', '折りたたみ/展開', '접기/펼치기', 'Thu gọn', 'Colapsar', 'Recolher', 'Свернуть', 'Réduire', 'Einklappen'),
   closeMenu: _('关闭菜单', 'Close menu', '關閉菜單', 'メニューを閉じる', '메뉴 닫기', 'Đóng menu', 'Cerrar menú', 'Fechar menu', 'Закрыть меню', 'Fermer le menu', 'Menü schließen'),
   themeLight: _('日间模式', 'Light Mode', '日間模式', 'ライトモード', '라이트 모드', 'Sáng', 'Claro', 'Claro', 'Светлая', 'Clair', 'Hell'),
