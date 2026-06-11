@@ -832,7 +832,7 @@
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 16px;
+  font-size: var(--font-size-lg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -957,7 +957,7 @@
   justify-content: space-between;
   padding: 14px 18px;
   border-bottom: 1px solid var(--border-subtle);
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
 }
 
@@ -1063,7 +1063,7 @@
 }
 
 .expert-onboarding-head strong {
-  font-size: 15px;
+  font-size: var(--font-size-md);
   color: var(--text-primary);
 }
 

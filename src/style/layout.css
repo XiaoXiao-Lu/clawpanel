@@ -1222,7 +1222,7 @@ body.has-desktop-chrome #main-col {
   background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   line-height: 1;
 }
 .password-change-close:hover { background: var(--aether-glass-hover); color: var(--text-primary); }

@@ -742,7 +742,7 @@ body.has-desktop-chrome .toast-container {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 18px;
+  font-size: var(--font-size-lg);
   line-height: 1;
   color: var(--text-tertiary);
   padding: 2px 4px;

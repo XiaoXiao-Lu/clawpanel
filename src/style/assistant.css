@@ -3803,7 +3803,7 @@
 .ast-expert-final-preview h2,
 .ast-expert-final-preview h3 {
   margin-top: 0;
-  font-size: 15px;
+  font-size: var(--font-size-md);
   line-height: 1.35;
 }
 
@@ -4126,7 +4126,7 @@
 
 .ast-expert-item-body h2,
 .ast-expert-final-body h2 {
-  font-size: 15px;
+  font-size: var(--font-size-md);
 }
 
 .ast-expert-item-body h3,
@@ -4351,7 +4351,7 @@
   padding-bottom: 10px;
   border-bottom: 1px solid var(--aether-border-subtle);
 }
-.ex-head-title { font-size: 15px; font-weight: 600; color: var(--text-primary); letter-spacing: 0; }
+.ex-head-title { font-size: var(--font-size-md); font-weight: 600; color: var(--text-primary); letter-spacing: 0; }
 .ex-head-badge {
   font-size: var(--font-size-xs); padding: 3px 10px; border-radius: var(--radius-full);
   font-weight: 600; letter-spacing: 0;
@@ -5122,7 +5122,7 @@
   }
 
   .ex-head-title {
-    font-size: 14px;
+    font-size: var(--font-size-sm);
   }
 
   .ex-overview {
