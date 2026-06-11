@@ -48,7 +48,7 @@
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--brand) 13%, var(--bg-tertiary));
   color: var(--brand);
 }
@@ -197,7 +197,7 @@
   height: 36px;
   display: inline-grid;
   place-items: center;
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--brand) 10%, var(--bg-tertiary));
   color: var(--brand);
 }
@@ -285,9 +285,9 @@
   min-width: 0;
   padding: 12px 14px;
   border: 1px solid var(--border-secondary);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   background: var(--bg-card);
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+  box-shadow: 0 1px 0 var(--shadow-slate-008);
 }
 .site-message-item-top {
   display: flex;
@@ -361,7 +361,7 @@
     linear-gradient(135deg, color-mix(in srgb, var(--brand) 5%, transparent), transparent 58%),
     var(--bg-card);
   overflow: hidden;
-  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+  box-shadow: 0 1px 0 var(--shadow-slate-004);
 }
 .site-message-announcement::before {
   content: '';
@@ -469,7 +469,7 @@
   .site-message-title-icon {
     width: 34px;
     height: 34px;
-    border-radius: 10px;
+    border-radius: var(--radius-card);
   }
   .site-message-tabs {
     grid-column: 1 / -1;
