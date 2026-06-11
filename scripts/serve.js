@@ -129,7 +129,11 @@ function serveStatic(req, res, { distDir = DIST_DIR } = {}) {
   // 尝试读取文件
   fs.stat(filePath, (err, stats) => {
     if (!err && stats.isFile()) {
-      sendFile(res, filePath, { headOnly: req.method === 'HEAD' })
+      sendFile(res, filePath, {
+        headOnly: req.method === 'HEAD',
+        fileSize: stats.size,
+        rangeHeader: req.headers?.range,
+      })
       return
     }
 
@@ -144,9 +148,48 @@ function serveStatic(req, res, { distDir = DIST_DIR } = {}) {
   })
 }
 
-function sendFile(res, filePath, { headOnly = false } = {}) {
+function parseRangeHeader(rangeHeader, fileSize) {
+  if (!rangeHeader) return { ok: true, range: null }
+  if (!Number.isFinite(fileSize) || fileSize < 0) return { ok: false }
+
+  const match = /^bytes=(\d*)-(\d*)$/.exec(String(rangeHeader).trim())
+  if (!match) return { ok: false }
+
+  const [, startText, endText] = match
+  if (!startText && !endText) return { ok: false }
+
+  let start
+  let end
+  if (!startText) {
+    const suffixLength = Number.parseInt(endText, 10)
+    if (!Number.isFinite(suffixLength) || suffixLength <= 0) return { ok: false }
+    start = Math.max(fileSize - suffixLength, 0)
+    end = fileSize - 1
+  } else {
+    start = Number.parseInt(startText, 10)
+    end = endText ? Number.parseInt(endText, 10) : fileSize - 1
+  }
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start || start >= fileSize) {
+    return { ok: false }
+  }
+
+  return { ok: true, range: { start, end: Math.min(end, fileSize - 1) } }
+}
+
+function sendFile(res, filePath, { headOnly = false, fileSize = null, rangeHeader = '' } = {}) {
   const ext = path.extname(filePath)
   const contentType = MIME_TYPES[ext] || 'application/octet-stream'
+  const rangeResult = parseRangeHeader(rangeHeader, fileSize)
+
+  if (!rangeResult.ok) {
+    res.statusCode = 416
+    if (Number.isFinite(fileSize)) res.setHeader('Content-Range', `bytes */${fileSize}`)
+    res.setHeader('Accept-Ranges', 'bytes')
+    res.end(headOnly ? '' : 'Range Not Satisfiable')
+    return
+  }
+  const range = rangeResult.range
 
   // 缓存策略：资源文件长缓存，HTML 不缓存
   if (ext === '.html') {
@@ -156,11 +199,19 @@ function sendFile(res, filePath, { headOnly = false } = {}) {
   }
 
   res.setHeader('Content-Type', contentType)
+  if (Number.isFinite(fileSize)) {
+    res.setHeader('Accept-Ranges', 'bytes')
+    res.setHeader('Content-Length', range ? range.end - range.start + 1 : fileSize)
+  }
+  if (range) {
+    res.statusCode = 206
+    res.setHeader('Content-Range', `bytes ${range.start}-${range.end}/${fileSize}`)
+  }
   if (headOnly) {
     res.end()
     return
   }
-  const stream = fs.createReadStream(filePath)
+  const stream = fs.createReadStream(filePath, range ? { start: range.start, end: range.end } : undefined)
   stream.on('error', () => {
     if (res.headersSent) {
       res.destroy()
@@ -169,6 +220,9 @@ function sendFile(res, filePath, { headOnly = false } = {}) {
 
     res.statusCode = 500
     res.removeHeader('Cache-Control')
+    res.removeHeader('Accept-Ranges')
+    res.removeHeader('Content-Length')
+    res.removeHeader('Content-Range')
     res.setHeader('Content-Type', 'text/plain; charset=utf-8')
     res.end('Internal Server Error')
   })
@@ -257,4 +311,4 @@ if (path.resolve(process.argv[1] || '') === SERVE_ENTRY) {
   main().catch(e => { console.error('启动失败:', e); process.exit(1) })
 }
 
-export { DIST_DIR, isPathInsideDirectory, resolveStaticFilePath, serveStatic }
+export { DIST_DIR, isPathInsideDirectory, parseRangeHeader, resolveStaticFilePath, serveStatic }
