@@ -17,6 +17,7 @@ let _selectedIndex = 0
 let _filteredItems = []
 let _previousFocus = null
 let _hydratedGlobalCommands = null
+let _globalCommandIds = new Set()
 let _currentQuery = ''
 
 /** 读取命令使用频率 */
@@ -41,10 +42,18 @@ function hydrateGlobalCommands() {
   if (typeof window === 'undefined') return
   const commands = window[COMMAND_PALETTE_COMMANDS_KEY]
   if (!Array.isArray(commands) || commands === _hydratedGlobalCommands) return
+
+  if (_globalCommandIds.size) {
+    for (let i = _commandIndex.length - 1; i >= 0; i--) {
+      if (_globalCommandIds.has(_commandIndex[i]?.id)) _commandIndex.splice(i, 1)
+    }
+  }
+
   _hydratedGlobalCommands = commands
-  if (Array.isArray(commands) && commands.length) {
+  _globalCommandIds = new Set(commands.map(cmd => cmd?.id).filter(Boolean))
+  if (commands.length) {
     const existingIds = new Set(_commandIndex.map(cmd => cmd?.id).filter(Boolean))
-    registerCommands(commands.filter(cmd => !cmd?.id || !existingIds.has(cmd.id)))
+    _commandIndex.push(...commands.filter(cmd => !cmd?.id || !existingIds.has(cmd.id)))
   }
 }
 
@@ -129,6 +138,7 @@ export function openPalette() {
   _input.setAttribute('role', 'combobox')
   _input.setAttribute('aria-expanded', 'false')
   _input.setAttribute('aria-autocomplete', 'list')
+  _input.setAttribute('aria-controls', 'command-palette-results')
   _input.addEventListener('input', () => {
     _selectedIndex = 0
     renderResults(searchCommands(_input.value))
@@ -138,6 +148,7 @@ export function openPalette() {
 
   // 结果列表
   _resultsEl = document.createElement('div')
+  _resultsEl.id = 'command-palette-results'
   _resultsEl.className = 'command-palette-results'
   _resultsEl.setAttribute('role', 'listbox')
   palette.appendChild(_resultsEl)
@@ -146,9 +157,9 @@ export function openPalette() {
   const footer = document.createElement('div')
   footer.className = 'command-palette-footer'
   footer.innerHTML = `
-    <span class="cp-footer-hint"><kbd>↑↓</kbd> 导航</span>
-    <span class="cp-footer-hint"><kbd>↵</kbd> 选择</span>
-    <span class="cp-footer-hint"><kbd>Esc</kbd> 关闭</span>
+    <span class="cp-footer-hint"><kbd>↑↓</kbd> ${escapeHtml(t('commandPalette.footerNavigate'))}</span>
+    <span class="cp-footer-hint"><kbd>↵</kbd> ${escapeHtml(t('commandPalette.footerSelect'))}</span>
+    <span class="cp-footer-hint"><kbd>Esc</kbd> ${escapeHtml(t('commandPalette.footerClose'))}</span>
   `
   palette.appendChild(footer)
 
@@ -254,15 +265,16 @@ function renderResults(items) {
   if (items.length === 0) {
     const empty = document.createElement('div')
     empty.className = 'command-palette-empty'
-    empty.textContent = t('commandPalette.noResults') || '无匹配命令'
+    empty.textContent = t('commandPalette.noResults')
     _resultsEl.appendChild(empty)
+    if (_input) _input.removeAttribute('aria-activedescendant')
     // 播报空结果
-    if (_liveRegion) _liveRegion.textContent = '无匹配命令'
+    if (_liveRegion) _liveRegion.textContent = t('commandPalette.noResults')
     return
   }
 
   // 播报结果数量
-  if (_liveRegion) _liveRegion.textContent = `${items.length} 个命令可用`
+  if (_liveRegion) _liveRegion.textContent = t('commandPalette.resultCount', { count: items.length })
 
   // 按 category 分组
   const groups = {}
@@ -273,10 +285,10 @@ function renderResults(items) {
   })
 
   const categoryLabels = {
-    navigation: t('commandPalette.categoryNavigation') || '导航',
-    engine: t('commandPalette.categoryEngine') || '引擎',
-    action: t('commandPalette.categoryAction') || '操作',
-    settings: t('commandPalette.categorySettings') || '设置',
+    navigation: t('commandPalette.categoryNavigation'),
+    engine: t('commandPalette.categoryEngine'),
+    action: t('commandPalette.categoryAction'),
+    settings: t('commandPalette.categorySettings'),
     other: ''
   }
 
@@ -325,6 +337,8 @@ function renderResults(items) {
       _resultsEl.appendChild(row)
     })
   }
+
+  if (_input) _input.setAttribute('aria-activedescendant', `cp-option-${_selectedIndex}`)
 }
 
 function updateSelection() {

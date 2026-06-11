@@ -44,6 +44,9 @@
   color: var(--text-primary);
   border-bottom: 1px solid var(--border-secondary);
 }
+.command-palette-input:focus-visible {
+  box-shadow: inset 0 -2px 0 var(--brand);
+}
 
 .command-palette-input::placeholder {
   color: var(--text-tertiary);
