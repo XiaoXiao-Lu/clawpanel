@@ -319,9 +319,14 @@ ClawPanel 面板自身的配置文件，独立于 OpenClaw：
 |------|------|
 | `scripts/dev.sh` | macOS/Linux 开发启动（清理旧进程 → 启动 Vite 或 Tauri） |
 | `scripts/dev-api.js` | Vite 插件，Web 模式的 Node.js 后端（API + 认证中间件） |
+| `scripts/build-with-dist-lock.mjs` | 前端构建入口，持有 `dist` 锁后再调用 Vite，避免与 UI smoke 同时读写构建产物 |
 | `scripts/build.sh` | macOS/Linux 构建脚本（支持 `check` / `release` 模式） |
 | `scripts/linux-deploy.sh` | Linux 服务器一键部署（安装依赖 → 克隆仓库 → systemd 服务） |
 | `scripts/sync-version.js` | 版本号同步（`package.json` → 其他 4 个文件） |
+
+### 构建产物锁
+
+本地自动化、CI 和维护脚本都应通过 `npm run build` 生成 `dist`，不要直接执行 `vite build` 或 `npx vite build`。`npm run build` 会进入 `scripts/build-with-dist-lock.mjs`，和 `npm run expert-teams:ui` 共用 `.tmp/dist.lock`，避免构建过程中专家团 UI smoke 读取到半更新的 chunk。
 
 ---
 
