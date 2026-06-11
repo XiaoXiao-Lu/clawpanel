@@ -294,7 +294,7 @@ async function loadData(page) {
     const aheadOfRecommended = isInstalled && hasRecommended && !!version.ahead_of_recommended
     const driftFromRecommended = isInstalled && hasRecommended && !version.is_recommended && !aheadOfRecommended
     const policyRiskHint = aheadOfRecommended
-      ? t('about.policyAhead', { current: version.current, recommended: version.recommended })
+      ? t('about.policyAhead', { current: escapeHtml(version.current), recommended: escapeHtml(version.recommended) })
       : t('about.policyDefault')
 
     cards.innerHTML = `
@@ -305,18 +305,18 @@ async function loadData(page) {
       </div>
       <div class="stat-card">
         <div class="stat-card-header"><span class="stat-card-label">OpenClaw · ${sourceLabel}</span></div>
-        <div class="stat-card-value">${version.current || t('about.notInstalled')}</div>
+        <div class="stat-card-value">${version.current ? escapeHtml(version.current) : t('about.notInstalled')}</div>
         <div class="stat-card-meta stat-card-meta-row">
           ${isInstalled && hasRecommended
             ? (aheadOfRecommended
-              ? `<span style="color:var(--warning,#f59e0b)">${t('about.aheadOfRecommended', { ver: version.recommended })}</span>
+              ? `<span style="color:var(--warning,#f59e0b)">${t('about.aheadOfRecommended', { ver: escapeHtml(version.recommended) })}</span>
                  <button class="btn btn-primary btn-sm" id="btn-apply-recommended" style="${btnSm}">${t('about.rollbackToRecommended')}</button>`
               : driftFromRecommended
-              ? `<span style="color:var(--accent)">${t('about.recommendedStable', { ver: version.recommended })}</span>
+              ? `<span style="color:var(--accent)">${t('about.recommendedStable', { ver: escapeHtml(version.recommended) })}</span>
                  <button class="btn btn-primary btn-sm" id="btn-apply-recommended" style="${btnSm}">${t('about.switchToRecommended')}</button>`
               : `<span style="color:var(--success)">${t('about.isRecommended')}</span>`)
             : ''}
-          ${version.latest_update_available && version.latest ? `<span style="color:var(--text-tertiary)">${t('about.latestUpstream', { ver: version.latest })}</span>
+          ${version.latest_update_available && version.latest ? `<span style="color:var(--text-tertiary)">${t('about.latestUpstream', { ver: escapeHtml(version.latest) })}</span>
              <button class="btn btn-primary btn-sm" id="btn-apply-latest" style="${btnSm}">${t('about.switchToLatest')}</button>` : ''}
           <button class="btn btn-${isInstalled ? 'secondary' : 'primary'} btn-sm" id="btn-version-mgmt" style="${btnSm}">
             ${isInstalled ? t('about.switchVersion') : t('about.installOpenclaw')}
@@ -513,7 +513,7 @@ async function showVersionPicker(page, currentVersion) {
 
     if (!sameSource) {
       confirmBtn.textContent = t('about.btnSwitch')
-      hintEl.innerHTML = `${t('about.hintCurrent')}: <strong>${currentVersion.source === 'official' ? t('about.official') : currentVersion.source === 'chinese' ? t('about.chinese') : t('about.unknownSource')} ${currentVersion.current}</strong> → <strong>${targetSource === 'official' ? t('about.official') : targetSource === 'chinese' ? t('about.chinese') : t('about.unknownSource')} ${targetVer}</strong>${targetTag}`
+      hintEl.innerHTML = `${t('about.hintCurrent')}: <strong>${currentVersion.source === 'official' ? t('about.official') : currentVersion.source === 'chinese' ? t('about.chinese') : t('about.unknownSource')} ${escapeHtml(currentVersion.current)}</strong> → <strong>${targetSource === 'official' ? t('about.official') : targetSource === 'chinese' ? t('about.chinese') : t('about.unknownSource')} ${escapeHtml(targetVer)}</strong>${targetTag}`
       confirmBtn.disabled = false
       return
     }
@@ -534,11 +534,11 @@ async function showVersionPicker(page, currentVersion) {
       confirmBtn.disabled = false
     } else if (cmp > 0) {
       confirmBtn.textContent = t('about.btnUpgrade')
-      hintEl.innerHTML = `<span style="color:var(--accent)">${currentVersion.current} → ${targetVer}${targetTag}</span>`
+      hintEl.innerHTML = `<span style="color:var(--accent)">${escapeHtml(currentVersion.current)} → ${escapeHtml(targetVer)}${targetTag}</span>`
       confirmBtn.disabled = false
     } else {
       confirmBtn.textContent = t('about.btnDowngrade')
-      hintEl.innerHTML = `<span style="color:var(--warning,#f59e0b)">${currentVersion.current} → ${targetVer}${targetTag}</span>`
+      hintEl.innerHTML = `<span style="color:var(--warning,#f59e0b)">${escapeHtml(currentVersion.current)} → ${escapeHtml(targetVer)}${targetTag}</span>`
       confirmBtn.disabled = false
     }
   }
@@ -563,7 +563,7 @@ async function showVersionPicker(page, currentVersion) {
       const nightlyCount = allVersions.length - stable.length
       select.innerHTML = versions.map((v, idx) => {
         const isCurrent = isInstalled && v === currentVersion.current && source === currentVersion.source
-        return `<option value="${v}">${v}${idx === 0 ? ` (${t('about.recommended')})` : ''}${isCurrent ? ` (${t('about.current')})` : ''}</option>`
+        return `<option value="${escapeAttr(v)}">${escapeHtml(v)}${idx === 0 ? ` (${t('about.recommended')})` : ''}${isCurrent ? ` (${t('about.current')})` : ''}</option>`
       }).join('')
       // nightly 切换提示
       const toggleEl = overlay.querySelector('#nightly-toggle')
@@ -773,7 +773,7 @@ async function checkNewVersion(cards, panelVersion) {
       bindPanelUpdateDetails(meta, { panelInfo: info, latest, installedVersion: binaryVersion })
     } else if (latest && latest !== effectiveVersion && compareVersions(latest, effectiveVersion) > 0) {
       meta.innerHTML = renderPanelUpdateMeta({
-        statusHtml: `<span class="panel-update-new">${t('about.newVersionAvailable', { version: latest })}</span>`,
+        statusHtml: `<span class="panel-update-new">${t('about.newVersionAvailable', { version: escapeHtml(latest) })}</span>`,
         installerSummary,
         websiteDownloadUrl,
         githubFallbackUrl,
