@@ -4440,7 +4440,7 @@
 .ex-pipe-arrow { opacity: 0.35; font-weight: 300; }
 
 .ex-progress { height: 3px; background: var(--aether-elevated); margin-bottom: 14px; border-radius: 2px; overflow: hidden; }
-.ex-progress-bar { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--aether-primary), color-mix(in srgb, var(--aether-primary) 70%, var(--brand-warm))); transition: width 0.3s ease; }
+.ex-progress-bar { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--aether-primary), color-mix(in srgb, var(--aether-primary) 70%, var(--aether-secondary))); transition: width 0.3s ease; }
 
 .ex-panel {
   margin-top: 10px;

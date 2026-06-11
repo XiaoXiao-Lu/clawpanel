@@ -1159,45 +1159,6 @@
 }
 
 /* ══════════════════════════════════════════════════════════
-   CHAT SCROLL BUTTON
-   ══════════════════════════════════════════════════════════ */
-
-.chat-scroll-btn {
-  position: absolute;
-  bottom: var(--space-4);
-  right: var(--space-4);
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-full);
-  background: var(--aether-elevated);
-  border: 1px solid var(--aether-border);
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  box-shadow: var(--shadow-md);
-  transition: all var(--ease-fast);
-  opacity: 0;
-  pointer-events: none;
-}
-
-.chat-scroll-btn.visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.chat-scroll-btn:hover {
-  background: var(--aether-raised);
-  color: var(--aether-primary);
-  transform: translateY(-2px);
-}
-
-.chat-scroll-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-/* ══════════════════════════════════════════════════════════
    MESSAGE CODE BLOCKS
    ══════════════════════════════════════════════════════════ */
 
