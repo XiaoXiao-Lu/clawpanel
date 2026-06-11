@@ -65,6 +65,8 @@ export default {
   fallbackNone: _('无', 'None', '無'),
   fallbackHint: _('主模型不可用时，系统会自动切换到备选模型', 'When the primary model is unavailable, the system auto-switches to fallbacks', '主模型不可用時，系統會自動切換到備選模型'),
   manageFallbacks: _('管理备选链', 'Manage fallbacks', '管理備選鏈'),
+  fallbackChain: _('备选链', 'Fallback chain', '備選鏈'),
+  removeFallback: _('从备选链移除', 'Remove from fallback chain', '從備選鏈移除'),
   collapseFallbacks: _('收起备选链', 'Collapse fallbacks', '收起備選鏈'),
   testPrimary: _('测试主模型', 'Test primary', '測試主模型'),
   locateModel: _('定位模型', 'Locate model', '定位模型'),

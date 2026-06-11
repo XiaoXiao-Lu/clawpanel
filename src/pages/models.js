@@ -129,9 +129,17 @@ export async function render() {
     </div>
     
     <div class="models-workbench">
-      <div id="models-console-container"></div>
-      <div id="fallback-waterfall-container" style="display:none;margin-bottom:20px"></div>
-      <section class="models-provider-workbench">
+      <!-- 区域1：Hero — 主模型 + 备选链 -->
+      <div id="models-hero-container"></div>
+
+      <!-- 区域2：概览条 — 统计 + 快捷操作 -->
+      <div id="models-overview-bar-container"></div>
+
+      <!-- 备选瀑布流编辑器（默认折叠） -->
+      <div id="fallback-waterfall-container" style="display:none"></div>
+
+      <!-- 区域3：服务商 & 模型 -->
+      <section class="models-provider-section">
         <div class="models-toolbar">
           <div class="models-search-wrap">
             ${icon('search', 15)}
@@ -233,7 +241,8 @@ async function loadConfig(page, state) {
     }
 
     renderProviders(page, state)
-    renderConsole(page, state)
+    renderHero(page, state)
+    renderOverviewBar(page, state)
     renderWaterfall(page, state)
   } catch (e) {
     console.error('[models] loadConfig failed:', e)
@@ -568,20 +577,18 @@ function renderFallbackWaterfall(state) {
   `
 }
 
-function renderConsole(page, state) {
-  const container = page.querySelector('#models-console-container')
+function renderHero(page, state) {
+  const container = page.querySelector('#models-hero-container')
   if (!container) return
   const primary = getCurrentPrimary(state.config)
   const modelConfig = ensureDefaultModelConfig(state)
   const fallbacks = modelConfig.fallbacks || []
   const entry = getModelObject(state.config, primary)
   const reasoning = !!entry?.model?.reasoning
-  const maxConcurrent = state.config?.agents?.defaults?.maxConcurrent ?? 4
 
-  // 如果控制台已存在，走增量更新路径（避免 Combobox 销毁重建）
-  const existing = container.querySelector('.models-control-console')
+  // 增量更新路径
+  const existing = container.querySelector('.models-hero')
   if (existing) {
-    // 增量更新：只更新变化的文本/属性
     const nameEl = existing.querySelector('.models-primary-name')
     if (nameEl) { nameEl.textContent = primary || t('models.notConfigured'); nameEl.title = primary || '' }
     const metaEl = existing.querySelector('.models-primary-meta')
@@ -592,17 +599,14 @@ function renderConsole(page, state) {
     if (badges[0]) badges[0].textContent = `${fallbacks.length} ${t('models.fallbackCount')}`
     if (badges[1]) badges[1].textContent = `${collectAllModels(state.config).length} ${t('models.totalModels')}`
 
-    // 更新推理开关
-    const cb = page.querySelector('.models-switch-left [data-action="toggle-reasoning"] input')
-    if (cb && cb.checked !== reasoning) cb.checked = reasoning
+    // 更新备选链药丸
+    renderFallbackChips(existing, fallbacks, primary)
 
-    // 更新并发数
-    const maxConcurrentInput = page.querySelector('#models-max-concurrent')
-    if (maxConcurrentInput && document.activeElement !== maxConcurrentInput && maxConcurrentInput.value !== String(maxConcurrent)) {
-      maxConcurrentInput.value = String(maxConcurrent)
-    }
+    // 更新 toggle 按钮文案
+    const toggleBtn = existing.querySelector('#models-toggle-fallbacks')
+    updateToggleFallbackBtn(toggleBtn, state._fallbacks_expanded)
 
-    // 更新 Combobox 值（不销毁重建）
+    // 更新 Combobox 值
     if (_globalPrimaryCombo) {
       const providers = state.config?.models?.providers || {}
       const items = []
@@ -620,63 +624,55 @@ function renderConsole(page, state) {
     return
   }
 
-  // 首次渲染：创建完整 DOM
+  // 首次渲染：Hero 区 = 主模型卡片（左）+ 备选链（右）
   container.innerHTML = `
-    <div class="models-control-console">
-      <div class="models-console-main">
-        <div class="models-primary-icon">${icon('cpu', 24)}</div>
-        <div class="models-primary-copy">
-          <div class="models-primary-name" title="${escapeHtml(primary)}">${escapeHtml(primary || t('models.notConfigured'))}</div>
-          <div class="models-primary-meta">${escapeHtml(modelMetaLine(entry))}</div>
-        </div>
-        <div class="models-console-badges">
-          ${primary ? '<span class="models-cb-badge models-cb-badge--primary">' + t('models.primaryModel') + '</span>' : ''}
-          ${reasoning ? '<span class="models-cb-badge models-cb-badge--reasoning">' + t('models.reasoning') + '</span>' : ''}
-          <span class="models-cb-badge models-cb-badge--count">${fallbacks.length} ${t('models.fallbackCount')}</span>
-          <span class="models-cb-badge models-cb-badge--count">${collectAllModels(state.config).length} ${t('models.totalModels')}</span>
-        </div>
-      </div>
-      <div class="models-console-actions">
-        <div id="models-primary-combobox-container" class="form-input-container" style="min-width:220px"></div>
-        <button class="btn btn-sm btn-secondary" id="models-test-primary" title="${t('models.testPrimary')}">${icon('activity', 14)} ${t('models.testPrimary')}</button>
-        <button class="btn btn-sm btn-secondary" id="models-locate-primary" title="${t('models.locateModel')}">${icon('map-pin', 14)} ${t('models.locateModel')}</button>
-        <button class="btn btn-sm btn-secondary" id="models-toggle-fallbacks" title="${t('models.manageFallbacks')}">${icon('shuffle', 14)} ${t('models.manageFallbacks')}</button>
-        <button class="btn btn-sm btn-primary" id="models-apply-gateway" title="${t('models.applyGatewayHint')}">${icon('refresh-cw', 14)} ${t('models.applyGateway')}</button>
-      </div>
-    </div>
-    <div class="models-switch-row">
-      <label class="model-reasoning-toggle" data-action="toggle-reasoning" title="${t('models.reasoningHint')}">
-        <input type="checkbox" ${reasoning ? 'checked' : ''}>
-        <span>${t('models.isReasoningLabel')}</span>
-      </label>
-      <div class="models-console-meta">
-        <div class="models-concurrency-inline" title="${t('models.maxConcurrentHint')}">
-          <span class="models-concurrency-label">${t('models.maxConcurrent')}</span>
-          <input type="number" id="models-max-concurrent" class="models-concurrency-input" min="1" max="100" step="1" value="${escapeHtml(String(maxConcurrent))}">
-        </div>
-        <details class="models-route-presets-details">
-          <summary class="models-route-presets-toggle">${t('models.routePresetTitle')}</summary>
-          <div class="models-route-presets">
-            <button class="models-preset-btn" data-preset="fast">${t('models.routeFast')}</button>
-            <button class="models-preset-btn" data-preset="stable">${t('models.routeStable')}</button>
-            <button class="models-preset-btn" data-preset="context">${t('models.routeContext')}</button>
-            <button class="models-preset-btn" data-preset="reasoning">${t('models.routeReasoning')}</button>
+    <div class="models-hero">
+      <div class="models-hero-primary">
+        <div class="models-hero-primary__card">
+          <div class="models-primary-icon">${icon('cpu', 24)}</div>
+          <div class="models-primary-copy">
+            <div class="models-primary-name" title="${escapeHtml(primary)}">${escapeHtml(primary || t('models.notConfigured'))}</div>
+            <div class="models-primary-meta">${escapeHtml(modelMetaLine(entry))}</div>
           </div>
-        </details>
+          <div class="models-console-badges">
+            ${primary ? '<span class="models-cb-badge models-cb-badge--primary">' + t('models.primaryModel') + '</span>' : ''}
+            ${reasoning ? '<span class="models-cb-badge models-cb-badge--reasoning">' + t('models.reasoning') + '</span>' : ''}
+            <span class="models-cb-badge models-cb-badge--count">${fallbacks.length} ${t('models.fallbackCount')}</span>
+            <span class="models-cb-badge models-cb-badge--count">${collectAllModels(state.config).length} ${t('models.totalModels')}</span>
+          </div>
+        </div>
+        <div class="models-hero-primary__actions">
+          <div id="models-primary-combobox-container" class="form-input-container" style="min-width:220px"></div>
+          <button class="btn btn-sm btn-secondary" id="models-test-primary" title="${t('models.testPrimary')}">${icon('activity', 14)} ${t('models.testPrimary')}</button>
+          <button class="btn btn-sm btn-secondary" id="models-locate-primary" title="${t('models.locateModel')}">${icon('map-pin', 14)} ${t('models.locateModel')}</button>
+          <button class="btn btn-sm btn-primary" id="models-apply-gateway" title="${t('models.applyGatewayHint')}">${icon('refresh-cw', 14)} ${t('models.applyGateway')}</button>
+        </div>
+      </div>
+      <div class="models-hero-fallback">
+        <div class="models-hero-fallback__header">
+          <span class="models-hero-fallback__label">${t('models.fallbackChain')}</span>
+          <button class="models-ghost-btn" id="models-toggle-fallbacks">${icon('shuffle', 12)} ${t(state._fallbacks_expanded ? 'models.collapseFallbacks' : 'models.manageFallbacks')}</button>
+        </div>
+        <div class="models-hero-fallback__chips" id="models-fallback-chips">
+          ${fallbacks.length > 0 ? fallbacks.map((f, i) => `
+            <span class="models-fallback-chain__chip" data-action="toggle-fallback" data-full="${escapeHtml(f)}" title="${escapeHtml(f)}">
+              <span class="fallback-priority">${i + 1}</span>
+              ${escapeHtml(f.split('/').pop())}
+              <span class="models-fallback-chain__chip-remove" data-action="toggle-fallback" data-full="${escapeHtml(f)}">×</span>
+            </span>
+          `).join('') : `<span class="models-fallback-chain__empty">${t('models.noFallbackSelected')}</span>`}
+        </div>
       </div>
     </div>
   `
 
-  // 初始化 Combobox 主模型选择器
+  // 初始化 Combobox
   const comboContainer = container.querySelector('#models-primary-combobox-container')
   if (comboContainer) {
-    // 销毁旧的实例
     if (_globalPrimaryCombo) {
       _globalPrimaryCombo.destroy()
       _globalPrimaryCombo = null
     }
-
-    // 构建 ComboboxItem 列表（按服务商分组）
     const providers = state.config?.models?.providers || {}
     const items = []
     Object.entries(providers).forEach(([providerKey, provider]) => {
@@ -684,14 +680,9 @@ function renderConsole(page, state) {
         const modelId = typeof model === 'string' ? model : model.id
         const name = typeof model === 'string' ? model : (model.name || model.id)
         const full = `${providerKey}/${modelId}`
-        items.push({
-          value: full,
-          label: name && name !== modelId ? `${name} · ${modelId}` : modelId,
-          group: providerKey,
-        })
+        items.push({ value: full, label: name && name !== modelId ? `${name} · ${modelId}` : modelId, group: providerKey })
       })
     })
-
     _globalPrimaryCombo = createModelCombobox(comboContainer, {
       placeholder: t('models.choosePrimary'),
       initialValue: primary,
@@ -701,34 +692,26 @@ function renderConsole(page, state) {
         setPrimary(state, value)
         renderDefaultBar(page, state)
         renderProviders(page, state)
-        renderConsole(page, state)
+        renderHero(page, state)
+        renderOverviewBar(page, state)
         renderWaterfall(page, state)
         updateUndoBtn(page, state)
         autoSave(state)
       },
     })
-
     _globalPrimaryCombo.setModels(items)
     if (primary) _globalPrimaryCombo.setValue(primary)
   }
 
-  container.querySelectorAll('.models-preset-btn').forEach(btn => {
-    btn.onclick = () => {
-      const mode = btn.dataset.preset
-      if (!mode) return
-      pushUndo(state)
-      const ok = applyRoutePreset(state, mode)
-      if (ok) {
-        renderDefaultBar(page, state)
-        renderProviders(page, state)
-        renderConsole(page, state)
-        renderWaterfall(page, state)
-        updateUndoBtn(page, state)
-        autoSave(state)
-        toast(t('models.routePresetApplied', { mode }), 'success')
-      }
+  // 主模型卡片点击 → 展开 Combobox
+  const primaryCard = container.querySelector('.models-hero-primary__card')
+  if (primaryCard && _globalPrimaryCombo) {
+    primaryCard.onclick = (e) => {
+      // 如果点击的是 badge 或按钮，不触发
+      if (e.target.closest('.models-cb-badge')) return
+      _globalPrimaryCombo.focus()
     }
-  })
+  }
 
   const testBtn = container.querySelector('#models-test-primary')
   if (testBtn) {
@@ -756,24 +739,199 @@ function renderConsole(page, state) {
     toggleFbBtn.onclick = () => {
       state._fallbacks_expanded = !state._fallbacks_expanded
       renderWaterfall(page, state)
+      // 更新按钮文案
+      updateToggleFallbackBtn(toggleFbBtn, state._fallbacks_expanded)
     }
   }
 
-  container.querySelectorAll('[data-action="toggle-fallback"]').forEach(pill => {
-    pill.onclick = () => {
-      const full = pill.dataset.full
-      if (!full) return
+  // 药丸点击事件委托（绑定在容器上，增量更新后无需重新绑定）
+  container.addEventListener('click', (e) => {
+    const pill = e.target.closest('[data-action="toggle-fallback"]')
+    if (!pill) return
+    const full = pill.dataset.full
+    if (!full) return
+    // 如果点击的是 × 移除按钮，直接移除
+    if (e.target.closest('.models-fallback-chain__chip-remove')) {
       pushUndo(state)
       toggleFallbackModel(state, full)
       renderDefaultBar(page, state)
       renderProviders(page, state)
-      renderConsole(page, state)
+      renderHero(page, state)
+      renderOverviewBar(page, state)
       renderWaterfall(page, state)
       updateUndoBtn(page, state)
       autoSave(state)
+      return
+    }
+    // 否则弹出上下文菜单
+    showFallbackChipMenu(pill, full, page, state)
+  })
+}
+
+/** 增量更新备选链药丸 */
+/** 更新备选链 toggle 按钮文案 */
+function updateToggleFallbackBtn(btn, expanded) {
+  if (!btn) return
+  btn.innerHTML = `${icon('shuffle', 12)} ${t(expanded ? 'models.collapseFallbacks' : 'models.manageFallbacks')}`
+}
+
+function renderFallbackChips(heroEl, fallbacks, primary) {
+  const chipsEl = heroEl.querySelector('#models-fallback-chips')
+  if (!chipsEl) return
+  if (fallbacks.length > 0) {
+    chipsEl.innerHTML = fallbacks.map((f, i) => `
+      <span class="models-fallback-chain__chip" data-action="toggle-fallback" data-full="${escapeHtml(f)}" title="${escapeHtml(f)}">
+        <span class="fallback-priority">${i + 1}</span>
+        ${escapeHtml(f.split('/').pop())}
+        <span class="models-fallback-chain__chip-remove" data-action="toggle-fallback" data-full="${escapeHtml(f)}">×</span>
+      </span>
+    `).join('')
+  } else {
+    chipsEl.innerHTML = `<span class="models-fallback-chain__empty">${t('models.noFallbackSelected')}</span>`
+  }
+}
+
+/** 备选链药丸上下文菜单 */
+function showFallbackChipMenu(anchor, full, page, state) {
+  // 关闭已有菜单
+  document.querySelectorAll('.models-chip-menu').forEach(m => m.remove())
+
+  const menu = document.createElement('div')
+  menu.className = 'models-chip-menu'
+  menu.innerHTML = `
+    <button class="models-chip-menu__item" data-chip-action="remove">
+      ${icon('trash', 12)} ${t('models.removeFallback')}
+    </button>
+    <button class="models-chip-menu__item" data-chip-action="test">
+      ${icon('activity', 12)} ${t('models.testBtn')}
+    </button>
+    <button class="models-chip-menu__item" data-chip-action="locate">
+      ${icon('map-pin', 12)} ${t('models.locateModel')}
+    </button>
+    <button class="models-chip-menu__item" data-chip-action="edit-chain">
+      ${icon('shuffle', 12)} ${t('models.manageFallbacks')}
+    </button>
+  `
+
+  // 定位：在药丸下方
+  const rect = anchor.getBoundingClientRect()
+  menu.style.position = 'fixed'
+  menu.style.left = `${rect.left}px`
+  menu.style.top = `${rect.bottom + 4}px`
+  menu.style.zIndex = 'var(--z-dropdown, 100)'
+
+  document.body.appendChild(menu)
+
+  // 点击外部关闭
+  const closeHandler = (e) => {
+    if (!menu.contains(e.target)) {
+      menu.remove()
+      document.removeEventListener('click', closeHandler, true)
+    }
+  }
+  // 延迟绑定防止立即触发
+  setTimeout(() => document.addEventListener('click', closeHandler, true), 0)
+
+  // 菜单项事件
+  menu.querySelectorAll('[data-chip-action]').forEach(btn => {
+    btn.onclick = () => {
+      const action = btn.dataset.chipAction
+      menu.remove()
+      document.removeEventListener('click', closeHandler, true)
+
+      if (action === 'remove') {
+        pushUndo(state)
+        toggleFallbackModel(state, full)
+        renderDefaultBar(page, state)
+        renderProviders(page, state)
+        renderHero(page, state)
+        renderOverviewBar(page, state)
+        renderWaterfall(page, state)
+        updateUndoBtn(page, state)
+        autoSave(state)
+      } else if (action === 'test') {
+        const btnEl = page.querySelector(`.models-card[data-full="${full}"] [data-action="test-model"]`)
+        if (btnEl) testFullModel(btnEl, state, full)
+      } else if (action === 'locate') {
+        locateModel(page, full)
+      } else if (action === 'edit-chain') {
+        state._fallbacks_expanded = true
+        renderWaterfall(page, state)
+        const wf = page.querySelector('#fallback-waterfall-container')
+        if (wf) wf.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    }
+  })
+}
+
+function renderOverviewBar(page, state) {
+  const container = page.querySelector('#models-overview-bar-container')
+  if (!container) return
+  const primary = getCurrentPrimary(state.config)
+  const entry = getModelObject(state.config, primary)
+  const reasoning = !!entry?.model?.reasoning
+  const maxConcurrent = state.config?.agents?.defaults?.maxConcurrent ?? 4
+
+  // 增量更新路径
+  const existing = container.querySelector('.models-overview-bar')
+  if (existing) {
+    const cb = existing.querySelector('[data-action="toggle-reasoning"] input')
+    if (cb && cb.checked !== reasoning) cb.checked = reasoning
+    const maxConcurrentInput = existing.querySelector('#models-max-concurrent')
+    if (maxConcurrentInput && document.activeElement !== maxConcurrentInput && maxConcurrentInput.value !== String(maxConcurrent)) {
+      maxConcurrentInput.value = String(maxConcurrent)
+    }
+    return
+  }
+
+  // 首次渲染
+  container.innerHTML = `
+    <div class="models-overview-bar">
+      <div class="models-overview-bar__left">
+        <label class="model-reasoning-toggle" data-action="toggle-reasoning" title="${t('models.reasoningHint')}">
+          <input type="checkbox" ${reasoning ? 'checked' : ''}>
+          <span>${t('models.isReasoningLabel')}</span>
+        </label>
+        <div class="models-concurrency-inline" title="${t('models.maxConcurrentHint')}">
+          <span class="models-concurrency-label">${t('models.maxConcurrent')}</span>
+          <input type="number" id="models-max-concurrent" class="models-concurrency-input" min="1" max="100" step="1" value="${escapeHtml(String(maxConcurrent))}">
+        </div>
+      </div>
+      <div class="models-overview-bar__right">
+        <details class="models-route-presets-details">
+          <summary class="models-route-presets-toggle">${t('models.routePresetTitle')}</summary>
+          <div class="models-route-presets">
+            <button class="models-preset-btn" data-preset="fast">${t('models.routeFast')}</button>
+            <button class="models-preset-btn" data-preset="stable">${t('models.routeStable')}</button>
+            <button class="models-preset-btn" data-preset="context">${t('models.routeContext')}</button>
+            <button class="models-preset-btn" data-preset="reasoning">${t('models.routeReasoning')}</button>
+          </div>
+        </details>
+      </div>
+    </div>
+  `
+
+  // 路由预设按钮
+  container.querySelectorAll('.models-preset-btn').forEach(btn => {
+    btn.onclick = () => {
+      const mode = btn.dataset.preset
+      if (!mode) return
+      pushUndo(state)
+      const ok = applyRoutePreset(state, mode)
+      if (ok) {
+        renderDefaultBar(page, state)
+        renderProviders(page, state)
+        renderHero(page, state)
+        renderOverviewBar(page, state)
+        renderWaterfall(page, state)
+        updateUndoBtn(page, state)
+        autoSave(state)
+        toast(t('models.routePresetApplied', { mode }), 'success')
+      }
     }
   })
 
+  // 推理开关
   const reasoningToggle = container.querySelector('[data-action="toggle-reasoning"]')
   if (reasoningToggle) {
     reasoningToggle.onclick = (e) => {
@@ -792,14 +950,15 @@ function renderConsole(page, state) {
         model.reasoning = !!cb?.checked
         renderDefaultBar(page, state)
         renderProviders(page, state)
-        renderConsole(page, state)
+        renderHero(page, state)
+        renderOverviewBar(page, state)
         updateUndoBtn(page, state)
         autoSave(state)
       }
     }
   }
 
-  // Max concurrent input handler
+  // 并发数
   const maxConcurrentInput = container.querySelector('#models-max-concurrent')
   if (maxConcurrentInput) {
     maxConcurrentInput.onchange = () => {
@@ -815,7 +974,6 @@ function renderConsole(page, state) {
     }
   }
 }
-
 function renderWaterfall(page, state) {
   const container = page.querySelector('#fallback-waterfall-container')
   if (!container) return

@@ -12,7 +12,7 @@ function cssBlock(selector) {
 }
 
 test('OpenClaw models page exposes a primary model control console', () => {
-  assert.match(modelsPage, /models-control-console/)
+  assert.match(modelsPage, /models-hero/)
   assert.match(modelsPage, /id="models-primary-combobox-container"/)
   assert.match(modelsPage, /createModelCombobox\(comboContainer/)
   assert.match(modelsPage, /id="models-test-primary"/)
@@ -44,8 +44,7 @@ test('Provider tab switching preserves scroll position instead of feeling like a
 })
 
 test('Model console styling preserves responsive commercial layout', () => {
-  assert.match(cssBlock('.models-control-console'), /display:\s*flex/)
-  assert.match(cssBlock('.models-control-console'), /flex-direction:\s*column/)
+  assert.match(cssBlock('.models-hero'), /display:\s*grid/)
   assert.match(cssBlock('.models-console-footer'), /border-top:\s*1px solid var\(--border-secondary\)/)
   assert.match(cssBlock('.models-preset-btn'), /min-height:\s*30px/)
   assert.match(modelsCss, /(?:^|\n)\.models-status\s*\{[^}]*flex-shrink:\s*0/s)
@@ -53,7 +52,7 @@ test('Model console styling preserves responsive commercial layout', () => {
   assert.match(cssBlock('.fallback-workbench'), /grid-template-columns:\s*minmax\(0,\s*1fr\)\s*minmax\(320px,\s*0\.92fr\)/)
   assert.match(cssBlock('.model-reasoning-toggle'), /display:\s*inline-flex/)
   assert.match(modelsCss, /@media \(max-width:\s*(?:980|1024)px\)[\s\S]*\.fallback-workbench\s*\{[\s\S]*grid-template-columns:\s*1fr/)
-  assert.match(modelsCss, /@media \(max-width:\s*(?:640|768)px\)[\s\S]*\.models-control-console\s*\{[\s\S]*padding:\s*var\(--space-lg\)/)
+  assert.match(modelsCss, /@media \(max-width:\s*(?:640|768)px\)[\s\S]*\.models-hero\s*\{[\s\S]*padding:\s*var\(--space-lg\)/)
 })
 
 test('Model console locale keys are present', () => {

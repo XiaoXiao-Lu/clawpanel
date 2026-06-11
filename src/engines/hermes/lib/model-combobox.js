@@ -322,6 +322,17 @@ export function createModelCombobox(container, options = {}) {
       }
     },
 
+    /** Focus the input and open the dropdown. */
+    focus() {
+      input.focus()
+      input.select()
+      if (!open && models.length) {
+        renderDropdown(input.value)
+        dropdown.style.display = 'block'
+        open = true
+      }
+    },
+
     /** Remove the combobox from the DOM and clean up. */
     destroy() {
       if (blurTimer) {
