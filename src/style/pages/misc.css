@@ -336,7 +336,7 @@
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
-  z-index: 100;
+  z-index: var(--z-dropdown);
   box-shadow: var(--shadow-md);
   margin-top: 4px;
   padding: var(--space-1);

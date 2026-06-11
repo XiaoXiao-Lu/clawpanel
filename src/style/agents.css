@@ -1166,7 +1166,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  font-size: var(--text-2xl);
   border-radius: var(--radius-md);
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
@@ -1352,7 +1352,7 @@
     overflow-x: visible;
   }
   .agent-office-summary-item strong {
-    font-size: 20px;
+    font-size: var(--text-xl);
   }
   .agent-office-panel {
     border-radius: 0;

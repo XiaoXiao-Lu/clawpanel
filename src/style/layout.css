@@ -529,7 +529,7 @@ body.has-desktop-chrome #main-col {
   min-width: 16px;
   height: 16px;
   padding: 0 3px;
-  font-size: 9px;
+  font-size: var(--text-xxs);
 }
 
 /* Navigation Icon Colors */
@@ -678,7 +678,7 @@ body.has-desktop-chrome #main-col {
   border: 2px solid var(--aether-elevated);
   background: var(--status-error);
   color: white;
-  font-size: 9px;
+  font-size: var(--text-xxs);
   font-weight: 700;
   line-height: 1;
 }

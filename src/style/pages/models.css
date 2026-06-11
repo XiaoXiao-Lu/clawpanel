@@ -116,7 +116,7 @@
 }
 
 .models-stat__value {
-  font-family: var(--font-mono); font-size: 22px; font-weight: 600;
+  font-family: var(--font-mono); font-size: var(--text-2xl); font-weight: 600;
   color: var(--text-primary); margin-top: 2px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   max-width: 180px;
@@ -228,7 +228,7 @@
 }
 .models-primary-copy { flex: 1; min-width: 0; }
 .models-primary-name {
-  font-family: var(--font-mono); font-size: 20px; font-weight: 600;
+  font-family: var(--font-mono); font-size: var(--text-xl); font-weight: 600;
   color: var(--text-primary);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -460,7 +460,7 @@
   margin-bottom: 2px;
 }
 .models-card__name {
-  font-family: var(--font-mono); font-size: 14px; font-weight: 700;
+  font-family: var(--font-mono); font-size: var(--text-base); font-weight: 700;
   color: var(--text-primary);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -471,7 +471,7 @@
 /* Tags */
 .model-tag {
   display: inline-flex; align-items: center;
-  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  font-family: var(--font-mono); font-size: var(--text-xxs); font-weight: 700;
   padding: 2px 8px; border-radius: var(--radius-sm);
   text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
 }
@@ -938,7 +938,7 @@
 .hm-combo__input:focus { border-color: var(--aether-primary); box-shadow: 0 0 0 2px var(--aether-primary-muted); }
 .hm-combo__input:disabled { background: var(--aether-void); color: var(--text-tertiary); cursor: not-allowed; }
 .hm-combo__dropdown {
-  position: absolute; top: calc(100% + 6px); left: 0; right: auto; z-index: 1000;
+  position: absolute; top: calc(100% + 6px); left: 0; right: auto; z-index: var(--z-dropdown);
   width: max(100%, min(420px, calc(100vw - 48px)));
   max-height: 260px; overflow-y: auto;
   border: 1px solid var(--aether-border-soft); border-radius: var(--radius-md);
