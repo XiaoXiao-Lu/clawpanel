@@ -1291,7 +1291,7 @@
     font-size: var(--font-size-md);
   }
   .agent-office-eyebrow {
-    font-size: 10px;
+    font-size: var(--font-size-xs);
   }
   .agent-office-body {
     min-height: auto;

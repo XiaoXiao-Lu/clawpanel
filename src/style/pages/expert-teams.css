@@ -365,7 +365,7 @@
 }
 
 .form-label-note {
-  font-size: 10px;
+  font-size: var(--font-size-xxs);
   font-weight: 400;
   color: var(--text-muted);
   opacity: 0.7;
@@ -909,7 +909,7 @@
 .expert-tag-modal-option small {
   display: block;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: var(--font-size-xxs);
   margin-top: 1px;
 }
 
@@ -962,7 +962,7 @@
 }
 
 .expert-template-picker-head button {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   padding: 4px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -1023,20 +1023,20 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 13px;
+  font-size: var(--font-size-base);
   color: var(--text-primary);
   margin-bottom: 4px;
 }
 
 .expert-template-item small {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--text-muted);
   line-height: 1.45;
   margin-bottom: 5px;
 }
 
 .expert-template-item .expert-template-meta {
-  font-size: 10px;
+  font-size: var(--font-size-xxs);
   color: var(--text-muted);
   font-weight: 500;
   background: var(--bg-secondary);
@@ -1068,7 +1068,7 @@
 }
 
 .expert-onboarding-head span {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--text-muted);
   max-width: 240px;
   line-height: 1.5;
@@ -1105,7 +1105,7 @@
   border-radius: 50%;
   background: color-mix(in srgb, var(--brand) 12%, var(--bg-secondary));
   color: var(--brand);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
 }
 
@@ -1113,14 +1113,14 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 2px;
 }
 
 .expert-onboarding-step span {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--text-muted);
   line-height: 1.4;
 }

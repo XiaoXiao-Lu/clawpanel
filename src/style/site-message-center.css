@@ -130,7 +130,7 @@
   border-radius: 999px;
   background: var(--bg-tertiary);
   color: var(--text-tertiary);
-  font-size: 10px;
+  font-size: var(--font-size-xxs);
   font-weight: 700;
   line-height: 1;
 }
@@ -309,7 +309,7 @@
   border-radius: 999px;
   background: var(--bg-tertiary);
   color: var(--text-tertiary);
-  font-size: 10px;
+  font-size: var(--font-size-xxs);
   line-height: 1;
   font-weight: 700;
 }
@@ -405,15 +405,15 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--bg-tertiary) 82%, transparent);
   color: var(--text-tertiary);
-  font-size: 10px;
+  font-size: var(--font-size-xxs);
   line-height: 1;
   font-weight: 700;
 }
 .site-message-announcement h3 {
   margin: 0;
   color: var(--text-primary);
-  font-size: 15px;
-  font-weight: 740;
+  font-size: var(--text-lg);
+  font-weight: 700;
   line-height: 1.35;
 }
 .site-message-announcement p {
