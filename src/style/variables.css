@@ -333,6 +333,16 @@
   --border:           var(--aether-border);
   --danger:           var(--status-error);
 
+  /* ─── Brand Aliases ─── */
+  --brand:            var(--aether-primary);
+  --brand-light:      var(--aether-primary-light);
+  --brand-dark:       var(--aether-primary-dark);
+  --brand-muted:      var(--aether-primary-muted);
+  --brand-faint:      var(--aether-primary-faint);
+  --brand-glow:       var(--aether-primary-glow);
+  --brand-overlay:    rgba(124, 111, 255, 0.18);
+  --brand-warm:       var(--aether-secondary);
+
   /* ─── Semantic Aliases ─── */
   --success:          var(--status-online);
   --warning:         var(--status-busy);
