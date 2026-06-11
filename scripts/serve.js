@@ -20,6 +20,7 @@ import { _initApi, _apiMiddleware } from './dev-api.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DIST_DIR = path.resolve(__dirname, '..', 'dist')
+const SERVE_ENTRY = fileURLToPath(import.meta.url)
 
 // === 解析命令行参数 ===
 function parseArgs() {
@@ -79,17 +80,44 @@ const MIME_TYPES = {
 }
 
 // === 静态文件服务 ===
-function serveStatic(req, res) {
-  // URL 去掉 query string
-  const urlPath = req.url.split('?')[0]
-  let filePath = path.join(DIST_DIR, urlPath === '/' ? 'index.html' : urlPath)
+function isPathInsideDirectory(parentDir, candidatePath) {
+  const relativePath = path.relative(parentDir, candidatePath)
+  return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath))
+}
 
-  // 安全检查：不允许目录遍历
-  if (!filePath.startsWith(DIST_DIR)) {
-    res.statusCode = 403
-    res.end('Forbidden')
+function resolveStaticFilePath(rawUrl = '/') {
+  const rawPath = String(rawUrl || '/').split('?')[0] || '/'
+  let urlPath
+  try {
+    urlPath = decodeURIComponent(rawPath).replace(/\\/g, '/')
+  } catch {
+    return { ok: false, statusCode: 400, message: 'Bad Request' }
+  }
+
+  if (urlPath.includes('\0')) {
+    return { ok: false, statusCode: 400, message: 'Bad Request' }
+  }
+
+  const relativePath = urlPath === '/'
+    ? 'index.html'
+    : urlPath.replace(/^\/+/, '')
+  const filePath = path.resolve(DIST_DIR, relativePath)
+
+  if (!isPathInsideDirectory(DIST_DIR, filePath)) {
+    return { ok: false, statusCode: 403, message: 'Forbidden' }
+  }
+
+  return { ok: true, filePath, urlPath }
+}
+
+function serveStatic(req, res) {
+  const resolved = resolveStaticFilePath(req.url)
+  if (!resolved.ok) {
+    res.statusCode = resolved.statusCode
+    res.end(resolved.message)
     return
   }
+  const { filePath, urlPath } = resolved
 
   // 尝试读取文件
   fs.stat(filePath, (err, stats) => {
@@ -202,4 +230,8 @@ async function main() {
   process.on('SIGTERM', () => { console.log('\n  👋 服务已停止'); process.exit(0) })
 }
 
-main().catch(e => { console.error('启动失败:', e); process.exit(1) })
+if (path.resolve(process.argv[1] || '') === SERVE_ENTRY) {
+  main().catch(e => { console.error('启动失败:', e); process.exit(1) })
+}
+
+export { DIST_DIR, isPathInsideDirectory, resolveStaticFilePath }
