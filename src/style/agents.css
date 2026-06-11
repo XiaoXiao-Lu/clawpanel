@@ -1,6 +1,7 @@
-/* Agent 管理页面样式 */
+/* ══════════════════════════════════════════════════════════
+   Agent Office — Aether Enhanced Design
+   ══════════════════════════════════════════════════════════ */
 
-/* ===== Agent Office ===== */
 .agents-page {
   padding-top: var(--space-4);
 }
@@ -8,7 +9,18 @@
 .agents-page .page-header {
   margin-bottom: var(--space-5);
   padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--border-2);
+  border-bottom: 1px solid var(--aether-border-soft);
+  position: relative;
+}
+
+.agents-page .page-header::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 80px;
+  height: 2px;
+  background: var(--aether-primary);
 }
 
 .agents-page .page-title {
@@ -17,6 +29,7 @@
 
 .agents-page .page-desc {
   line-height: 1.4;
+  color: var(--text-secondary);
 }
 
 .agents-page--office-focus .page-header,
@@ -41,14 +54,26 @@
 }
 
 .agent-office-shell {
-  background: var(--surface-raised);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
+  background: var(--aether-elevated);
+  border: 1px solid var(--aether-border-soft);
+  border-radius: var(--radius-xl);
   margin-bottom: var(--space-lg);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
   min-height: min(76vh, 820px);
   position: relative;
+}
+
+/* Top accent gradient */
+.agent-office-shell::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--aether-primary), var(--aether-secondary), var(--aether-primary));
+  z-index: 1;
 }
 
 .agent-office-head {
@@ -58,8 +83,8 @@
   gap: var(--space-md);
   flex-wrap: wrap;
   padding: 14px 16px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-primary) 75%, transparent);
-  background: color-mix(in srgb, var(--surface-raised) 92%, transparent);
+  border-bottom: 1px solid var(--aether-border-subtle);
+  background: var(--aether-elevated);
   position: relative;
   z-index: 4;
 }
@@ -79,19 +104,24 @@
   align-items: center;
   gap: 6px;
   padding: 0 8px;
-  border: 1px solid var(--border-secondary);
+  border: 1px solid var(--aether-border-soft);
   border-radius: var(--radius-md);
-  background: var(--bg-primary);
+  background: var(--aether-void);
   color: var(--text-tertiary);
   font-size: var(--font-size-xs);
+  transition: all var(--ease-fast);
+}
+
+.agent-office-stress-control:hover {
+  border-color: var(--aether-primary);
 }
 
 .agent-office-stress-control select {
   height: 22px;
   min-width: 58px;
-  border: 1px solid var(--border-secondary);
+  border: 1px solid var(--aether-border-soft);
   border-radius: var(--radius-sm);
-  background: var(--surface-raised);
+  background: var(--aether-elevated);
   color: var(--text-primary);
   font-size: var(--font-size-xs);
 }
@@ -101,9 +131,9 @@
   align-items: center;
   gap: 3px;
   padding: 3px;
-  border: 1px solid var(--border-secondary);
+  border: 1px solid var(--aether-border-soft);
   border-radius: var(--radius-md);
-  background: var(--bg-primary);
+  background: var(--aether-void);
 }
 
 .agent-office-view-tabs .btn {
@@ -113,9 +143,9 @@
 }
 
 .agent-office-view-tabs .btn.is-active {
-  color: var(--brand);
-  border-color: var(--border-focus);
-  background: var(--brand-muted);
+  color: var(--aether-primary);
+  border-color: var(--aether-primary);
+  background: var(--aether-primary-faint);
 }
 
 .agent-office-eyebrow {
@@ -154,20 +184,26 @@
   height: 9px;
   display: inline-block;
   border-radius: 50%;
+  box-shadow: 0 0 6px currentColor;
 }
 
-.agent-office-legend .is-idle { background: var(--agent-idle); }
-.agent-office-legend .is-working { background: var(--agent-working); }
-.agent-office-legend .is-blocked { background: var(--agent-blocked); }
-.agent-office-legend .is-error { background: var(--agent-error); }
+.agent-office-legend .is-idle { background: var(--agent-idle); color: var(--agent-idle); }
+.agent-office-legend .is-working { background: var(--agent-working); color: var(--agent-working); animation: pulse-glow 1.5s ease-in-out infinite; }
+.agent-office-legend .is-blocked { background: var(--agent-blocked); color: var(--agent-blocked); }
+.agent-office-legend .is-error { background: var(--agent-error); color: var(--agent-error); }
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 4px currentColor; }
+  50% { box-shadow: 0 0 10px currentColor; }
+}
 
 .agent-office-summary {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 10px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--border-1);
-  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--aether-border-subtle);
+  background: var(--aether-base);
 }
 
 .agent-office-summary-item {
@@ -175,10 +211,17 @@
   display: grid;
   gap: 4px;
   padding: 10px 12px;
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-md);
-  background: var(--bg-card);
-  box-shadow: var(--shadow-1);
+  border: 1px solid var(--aether-border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--aether-elevated);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--ease-fast);
+}
+
+.agent-office-summary-item:hover {
+  border-color: var(--aether-border);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .agent-office-summary-item span {

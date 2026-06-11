@@ -2,7 +2,7 @@
    Runtime imports page CSS by domain from src/style/pages/*.css. */
 
 .dashboard-health-card {
-  background: var(--surface-raised);
+  background: var(--aether-elevated);
   box-shadow: var(--shadow-md);
 }
 
@@ -33,7 +33,7 @@
 }
 
 .skills-store-searchbar {
-  background: var(--surface-raised);
+  background: var(--aether-elevated);
 }
 
 .skills-store-results {

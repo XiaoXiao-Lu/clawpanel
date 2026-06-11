@@ -1,4 +1,4 @@
-/* === About Page === */
+/* === About Page — Enhanced Aether Design === */
 
 /* ─── Header ─── */
 .about-header {
@@ -6,12 +6,30 @@
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--aether-border-soft);
+  position: relative;
 }
+
+.about-header::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 120px;
+  height: 2px;
+  background: var(--aether-primary);
+  box-shadow: 0 0 12px var(--aether-primary-glow);
+}
+
 .about-logo {
   height: 48px;
   width: auto;
   flex-shrink: 0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
 }
+
 .about-header .page-title,
 .about-header .page-desc {
   margin: 0;
@@ -19,9 +37,12 @@
 
 /* ─── Footer ─── */
 .about-footer {
-  color: var(--text-3);
+  color: var(--text-tertiary);
   font-size: var(--text-xs);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--aether-border-subtle);
 }
+
 .about-footer p + p {
   margin-top: 8px;
 }
@@ -58,14 +79,24 @@
 .community-qr img {
   width: 140px;
   height: 140px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-1);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--aether-border-soft);
   object-fit: contain;
+  background: var(--aether-elevated);
+  padding: 8px;
+  transition: all var(--ease-fast);
 }
+
+.community-qr img:hover {
+  border-color: var(--aether-primary);
+  box-shadow: var(--shadow-glow);
+  transform: scale(1.02);
+}
+
 .community-qr-name {
   font-size: var(--text-sm);
   margin-top: 8px;
-  color: var(--text-2);
+  color: var(--text-secondary);
 }
 .community-qr--white-bg img {
   background: var(--bg-elevated);
@@ -127,17 +158,32 @@
 }
 .company-card {
   padding: 12px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-1);
-  background: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--aether-border-soft);
+  background: var(--aether-elevated);
+  transition: all var(--ease-fast);
 }
+
+.company-card:hover {
+  border-color: var(--aether-border);
+  box-shadow: var(--shadow-md);
+}
+
 .company-card-label {
-  color: var(--text-3);
+  color: var(--text-tertiary);
   font-size: var(--text-xs);
   margin-bottom: 4px;
 }
+
 .company-card a {
-  color: var(--brand);
+  color: var(--aether-primary);
+  text-decoration: none;
+  transition: color var(--ease-fast);
+}
+
+.company-card a:hover {
+  color: var(--aether-primary-light);
+  text-decoration: underline;
 }
 .company-desc {
   font-size: var(--text-xs);

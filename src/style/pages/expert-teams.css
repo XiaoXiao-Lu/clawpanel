@@ -1,3 +1,7 @@
+/* ══════════════════════════════════════════════════════════
+   Expert Teams Page — Enhanced Aether Design
+   ══════════════════════════════════════════════════════════ */
+
 .expert-teams-page {
   max-width: 1400px;
 }
@@ -5,6 +9,18 @@
 .expert-teams-header {
   align-items: flex-start;
   gap: var(--space-4);
+  position: relative;
+  padding-bottom: var(--space-4);
+}
+
+.expert-teams-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--aether-primary-glow), transparent 50%);
 }
 
 .expert-teams-actions {
@@ -40,15 +56,17 @@
   height: 20px;
   padding: 0 6px;
   border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
-  color: var(--text-3);
+  background: var(--aether-glass);
+  color: var(--text-tertiary);
   font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
+  transition: all var(--ease-fast);
 }
 
 .expert-teams-tabs .tab.active span {
-  background: var(--brand-faint);
-  color: var(--brand);
+  background: var(--aether-primary-faint);
+  color: var(--aether-primary);
+  box-shadow: 0 0 8px var(--aether-primary-glow);
 }
 
 .expert-teams-summary {
@@ -75,16 +93,39 @@
 
 .expert-teams-list,
 .expert-teams-editor {
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-md);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-1);
+  border: 1px solid var(--aether-border-soft);
+  border-radius: var(--radius-xl);
+  background: var(--aether-elevated);
+  box-shadow: var(--shadow-md);
+  transition: all var(--ease-fast);
+  position: relative;
+  overflow: hidden;
 }
 
 .expert-teams-list {
   position: sticky;
   top: var(--space-4);
   overflow: hidden;
+}
+
+/* Top gradient accent */
+.expert-teams-list::before,
+.expert-teams-editor::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--aether-primary), var(--aether-secondary));
+  opacity: 0.7;
+  z-index: 1;
+}
+
+.expert-teams-list:hover,
+.expert-teams-editor:hover {
+  box-shadow: var(--shadow-lg);
+  border-color: var(--aether-border);
 }
 
 .expert-teams-search {
@@ -125,29 +166,51 @@
   min-height: 68px;
   padding: var(--space-3);
   border: 0;
-  border-bottom: 1px solid var(--border-2);
+  border-bottom: 1px solid var(--aether-border-subtle);
   background: transparent;
-  color: var(--text-1);
+  color: var(--text-primary);
   text-align: left;
   cursor: pointer;
-  transition: background var(--ease-fast), box-shadow var(--ease-fast);
+  transition: all var(--ease-fast);
+  position: relative;
+}
+
+.expert-list-item::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--aether-primary);
+  opacity: 0;
+  transition: opacity var(--ease-fast);
 }
 
 .expert-list-item:hover {
-  background: var(--bg-hover);
+  background: var(--aether-glass);
+}
+
+.expert-list-item:hover::after {
+  opacity: 0.5;
 }
 
 .expert-list-item:focus-visible,
 .expert-member-drag:focus-visible,
 .expert-tag-picker-trigger:focus-visible,
 .expert-tag-modal-close:focus-visible {
-  outline: 2px solid var(--border-focus);
-  outline-offset: 2px;
+  outline: 2px solid var(--aether-primary);
+  outline-offset: -2px;
+  box-shadow: var(--shadow-glow);
 }
 
 .expert-list-item.is-active {
-  background: var(--brand-faint);
-  box-shadow: inset 3px 0 0 var(--brand);
+  background: var(--aether-primary-faint);
+  box-shadow: inset 3px 0 0 var(--aether-primary);
+}
+
+.expert-list-item.is-active::after {
+  opacity: 1;
 }
 
 .expert-list-main {
@@ -195,21 +258,27 @@
   min-height: 22px;
   padding: 2px 7px;
   border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
-  color: var(--text-3);
+  background: var(--aether-glass);
+  color: var(--text-tertiary);
   font-size: var(--font-size-xs);
   font-weight: 700;
   white-space: nowrap;
+  transition: all var(--ease-fast);
 }
 
 .expert-status.is-enabled {
-  background: var(--success-muted);
+  background: var(--success-surface);
   color: var(--success);
+  box-shadow: 0 0 8px var(--success-border);
 }
 
 .expert-status.is-disabled {
-  background: var(--border-2);
-  color: var(--text-3);
+  background: var(--aether-glass);
+  color: var(--text-tertiary);
+}
+
+.expert-status.is-enabled:hover {
+  box-shadow: 0 0 12px var(--success-border);
 }
 
 .expert-editor-head {

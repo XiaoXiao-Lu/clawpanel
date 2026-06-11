@@ -1,49 +1,72 @@
-/* ── 全局 AI 助手浮动按钮 ── */
+/* ── 全局 AI 助手浮动按钮 ── Modern Enhanced */
 
 .ai-fab {
   position: fixed;
   bottom: var(--space-6);
   right: var(--space-6);
   z-index: var(--z-drawer);
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
-  background: var(--brand);
-  color: var(--text-inverse);
+  background: var(--brand-gradient);
+  color: white;
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow-md);
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-  touch-action: none; /* 拖动时禁止浏览器默认手势 */
+  box-shadow: 0 4px 16px rgba(124, 111, 255, 0.4), 0 0 0 1px rgba(124, 111, 255, 0.2);
+  transition: all var(--transition-fast);
+  touch-action: none;
   user-select: none;
+  position: fixed;
 }
+
+/* Glow ring effect on hover */
+.ai-fab::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: var(--brand-gradient);
+  opacity: 0;
+  filter: blur(12px);
+  z-index: -1;
+  transition: opacity var(--transition-fast);
+}
+
+.ai-fab:hover::before {
+  opacity: 0.4;
+}
+
 .ai-fab:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
-  box-shadow: var(--shadow-glow);
+  outline: 2px solid var(--aether-primary);
+  outline-offset: 4px;
+  box-shadow: 0 0 24px var(--aether-primary-glow);
 }
+
 .ai-fab:hover {
-  transform: scale(1.08);
-  box-shadow: var(--shadow-md);
+  transform: scale(1.1) translateY(-2px);
+  box-shadow: 0 8px 24px rgba(124, 111, 255, 0.5), 0 0 0 1px rgba(124, 111, 255, 0.3);
 }
+
 .ai-fab.dragging {
   opacity: 0.85;
-  transform: scale(1.12);
-  box-shadow: var(--shadow-lg);
+  transform: scale(1.15);
+  box-shadow: 0 12px 32px rgba(124, 111, 255, 0.6);
   cursor: grabbing;
 }
+
 .ai-fab svg {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  pointer-events: none; /* 防止 SVG 吃掉 pointer 事件 */
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
 }
 
 /* FAB 红点：有待处理的错误上下文 */
