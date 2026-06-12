@@ -432,7 +432,7 @@
   padding: 11px 12px;
   cursor: pointer;
   box-shadow: var(--shadow-sm);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+  transition: border-color var(--ease-fast), box-shadow var(--ease-fast), transform var(--ease-fast);
 }
 
 .agent-office-fallback-card:hover,
@@ -785,7 +785,7 @@
   background: var(--surface-slate-062);
   padding: 9px 10px;
   cursor: pointer;
-  transition: border-color var(--transition-fast), background var(--transition-fast);
+  transition: border-color var(--ease-fast), background var(--ease-fast);
 }
 
 .agent-office-activity-item:hover {
@@ -886,7 +886,7 @@
   background: var(--surface-slate-058);
   padding: 8px 9px;
   cursor: pointer;
-  transition: border-color var(--transition-fast), background var(--transition-fast);
+  transition: border-color var(--ease-fast), background var(--ease-fast);
 }
 
 .agent-office-audit-item:hover {
@@ -962,7 +962,7 @@
   pointer-events: none;
   opacity: 0;
   transform: translateY(4px);
-  transition: opacity var(--transition-fast), transform var(--transition-fast);
+  transition: opacity var(--ease-fast), transform var(--ease-fast);
   box-shadow: var(--shadow-md);
 }
 
@@ -1124,7 +1124,7 @@
   margin-bottom: 14px;
   cursor: pointer;
   position: relative;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: border-color var(--ease-fast), box-shadow var(--ease-fast);
   box-shadow: 0 1px 3px var(--agent-shadow-subtle);
 }
 
@@ -1199,7 +1199,7 @@
   font-size: var(--text-xxs);
   color: var(--text-tertiary);
   opacity: 0;
-  transition: opacity var(--transition-fast);
+  transition: opacity var(--ease-fast);
   text-align: right;
   margin-top: 4px;
 }
@@ -1465,7 +1465,7 @@
   color: var(--brand);
   text-decoration: none;
   margin-bottom: 4px;
-  transition: color var(--transition-fast);
+  transition: color var(--ease-fast);
 }
 .agent-back-link:hover {
   color: var(--brand-light);
@@ -1530,7 +1530,7 @@
   border-radius: var(--radius-md);
   padding: 14px 16px;
   margin-bottom: 10px;
-  transition: border-color var(--transition-fast);
+  transition: border-color var(--ease-fast);
 }
 .agent-file-card:hover {
   border-color: var(--border-focus);
@@ -1708,7 +1708,7 @@
   border-radius: var(--radius-md);
   padding: 12px 14px;
   cursor: pointer;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: border-color var(--ease-fast), box-shadow var(--ease-fast);
 }
 
 .agent-skill-card:hover:not(.is-muted) {

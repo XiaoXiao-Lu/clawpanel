@@ -1345,7 +1345,7 @@
   height: 120px;
   pointer-events: none;
   z-index: var(--z-base);
-  transition: opacity var(--transition-slow);
+  transition: opacity var(--ease-slow);
   opacity: 0;
 }
 .ast-main[data-mode="plan"] .ast-messages::before {
@@ -2536,7 +2536,7 @@
   height: 100%;
   border-radius: 0 var(--radius-full) var(--radius-full) 0;
   background: linear-gradient(90deg, var(--aether-primary), var(--success, #22c55e));
-  transition: width var(--transition-normal);
+  transition: width var(--ease-normal);
 }
 .ast-expert-progress-bar--running {
   background: linear-gradient(90deg, var(--aether-primary), color-mix(in srgb, var(--aether-primary) 60%, var(--success, #22c55e)));

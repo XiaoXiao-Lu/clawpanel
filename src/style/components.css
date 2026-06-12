@@ -34,7 +34,7 @@
   border-color: transparent;
   color: white;
   box-shadow: var(--shadow-btn-primary);
-  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+  transition: box-shadow var(--ease-fast), transform var(--ease-fast);
 }
 .btn-primary:hover {
   transform: translateY(-2px);
@@ -49,7 +49,7 @@
   background: var(--aether-elevated);
   border-color: var(--aether-border);
   color: var(--text-secondary);
-  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: background var(--ease-fast), border-color var(--ease-fast), color var(--ease-fast), box-shadow var(--ease-fast);
 }
 .btn-secondary:hover {
   background: var(--aether-raised);
@@ -63,7 +63,7 @@
   background: transparent;
   border-color: transparent;
   color: var(--text-secondary);
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--ease-fast), color var(--ease-fast);
 }
 .btn-ghost:hover {
   background: var(--aether-glass);
@@ -75,7 +75,7 @@
   background: var(--error-surface);
   border-color: var(--error-border);
   color: var(--status-error);
-  transition: background var(--transition-fast), border-color var(--transition-fast);
+  transition: background var(--ease-fast), border-color var(--ease-fast);
 }
 .btn-danger:hover {
   background: rgba(255, 107, 138, 0.15);

@@ -16,7 +16,7 @@
   align-items: center;
   justify-content: center;
   box-shadow: var(--brand-shadow-hover), 0 0 0 1px var(--aether-border-focus);
-  transition: all var(--transition-fast);
+  transition: all var(--ease-fast);
   touch-action: none;
   user-select: none;
   position: fixed;
@@ -32,7 +32,7 @@
   opacity: 0;
   filter: blur(12px);
   z-index: -1;
-  transition: opacity var(--transition-fast);
+  transition: opacity var(--ease-fast);
 }
 
 .ai-fab:hover::before {
@@ -126,7 +126,7 @@
   border: 1px solid transparent;
   font-size: var(--font-size-xs);
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background var(--ease-fast);
 }
 .ast-error-banner .btn-analyze {
   background: var(--error);
@@ -151,7 +151,7 @@
   margin-top: 8px;
   max-height: 0;
   overflow: hidden;
-  transition: max-height var(--transition-normal);
+  transition: max-height var(--ease-normal);
 }
 .ast-error-banner-detail.expanded {
   max-height: 300px;

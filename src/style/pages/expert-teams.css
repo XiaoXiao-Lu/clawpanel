@@ -757,7 +757,7 @@
   cursor: pointer;
   font-size: var(--font-size-sm);
   text-align: left;
-  transition: border-color var(--transition-fast);
+  transition: border-color var(--ease-fast);
 }
 
 .expert-tag-picker-trigger:hover {
@@ -836,7 +836,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background var(--transition-fast), border-color var(--transition-fast);
+  transition: background var(--ease-fast), border-color var(--ease-fast);
 }
 
 .expert-tag-modal-close:hover {
@@ -881,7 +881,7 @@
   padding: 6px 8px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background var(--ease-fast);
   font-size: var(--font-size-xs);
   line-height: 1.4;
 }

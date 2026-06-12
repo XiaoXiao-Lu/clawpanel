@@ -12,7 +12,7 @@
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-md);
   box-shadow: var(--shadow-sm);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: border-color var(--ease-fast), box-shadow var(--ease-fast);
 }
 
 .service-card:hover {
@@ -90,7 +90,7 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   padding: 2px 8px;
-  transition: color var(--transition-fast);
+  transition: color var(--ease-fast);
 }
 .service-cancel-btn:hover {
   color: var(--error);
@@ -257,7 +257,7 @@
   border: 1px solid var(--border-secondary);
   border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--ease-fast), color var(--ease-fast);
   user-select: none;
 }
 
@@ -283,7 +283,7 @@
   background: var(--surface-sunken);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--ease-fast), color var(--ease-fast);
 }
 
 .gw-option-card.selected .gw-option-icon {
@@ -328,7 +328,7 @@
   color: var(--text-tertiary);
   cursor: pointer;
   user-select: none;
-  transition: color var(--transition-fast);
+  transition: color var(--ease-fast);
 }
 
 .gw-advanced-toggle:hover {
@@ -338,7 +338,7 @@
 }
 
 .gw-advanced-toggle svg {
-  transition: transform var(--transition-fast);
+  transition: transform var(--ease-fast);
 }
 
 .gw-advanced-toggle.open svg {
@@ -384,7 +384,7 @@
   font-size: var(--font-size-sm);
   line-height: 1;
   color: inherit;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--ease-fast), color var(--ease-fast);
 }
 .services-page .btn-icon:hover,
 .service-card .btn-icon:hover {
@@ -468,7 +468,7 @@
   color: var(--text-secondary);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--ease-fast), color var(--ease-fast);
 }
 
 .tab-nav-btn:hover {
