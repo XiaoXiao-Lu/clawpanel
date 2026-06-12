@@ -1,3 +1,7 @@
+/* ══════════════════════════════════════════════════════════
+   Reset & Base — Aether Interface v2.0
+   ══════════════════════════════════════════════════════════ */
+
 *, *::before, *::after {
   margin: 0;
   padding: 0;
@@ -10,7 +14,7 @@ html, body {
   font-family: var(--font-sans);
   font-size: var(--text-base);
   color: var(--text-primary);
-  background: var(--bg-root);
+  background: var(--aether-root);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -19,8 +23,8 @@ html, body {
 
 /* Selection color */
 ::selection {
-  background: var(--brand-faint);
-  color: var(--text-1);
+  background: var(--aether-primary-muted);
+  color: var(--text-primary);
 }
 
 /* Subtle grain texture overlay */
@@ -42,21 +46,28 @@ body::after {
   width: 100vw;
 }
 
-a { color: var(--brand); text-decoration: none; }
-a:hover { color: var(--brand-light); }
+a {
+  color: var(--aether-primary);
+  text-decoration: none;
+  transition: color var(--ease-fast);
+}
+a:hover {
+  color: var(--aether-primary-light);
+  text-decoration: underline;
+}
 a:focus-visible,
 button:focus-visible,
 [role="button"]:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--aether-primary);
   outline-offset: 2px;
   box-shadow: var(--shadow-glow);
 }
 
 [tabindex]:focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--aether-primary);
   outline-offset: 2px;
   box-shadow: var(--shadow-glow);
 }
@@ -73,18 +84,18 @@ input, textarea, select {
   font-family: inherit;
   font-size: inherit;
   color: var(--text-primary);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-primary);
+  background: var(--aether-void);
+  border: 1px solid var(--aether-border);
   border-radius: var(--radius-md);
   padding: var(--space-sm) var(--space-md);
   min-height: 38px;
-  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+  transition: border-color var(--ease-fast), background var(--ease-fast), box-shadow var(--ease-fast);
 }
 
 input:focus, textarea:focus, select:focus {
-  border-color: var(--border-focus);
-  background: var(--bg-secondary);
-  box-shadow: var(--shadow-glow);
+  border-color: var(--aether-primary);
+  background: var(--aether-base);
+  box-shadow: 0 0 0 3px var(--aether-primary-glow);
 }
 
 input::placeholder,
@@ -96,7 +107,7 @@ textarea::placeholder {
 /* 暗色主题 placeholder 对比度增强 */
 [data-theme="dark"] input::placeholder,
 [data-theme="dark"] textarea::placeholder {
-  color: color-mix(in srgb, var(--text-tertiary) 70%, var(--text-secondary));
+  color: var(--aether-border-soft);
 }
 
 /* Screen-reader-only utility */
@@ -115,12 +126,12 @@ textarea::placeholder {
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text-tertiary) 38%, transparent);
+  background: var(--aether-border);
   border: 2px solid transparent;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-full);
   background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--text-tertiary) 62%, transparent);
+  background: var(--aether-border-soft);
   background-clip: content-box;
 }

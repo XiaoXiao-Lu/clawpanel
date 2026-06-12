@@ -1,4 +1,7 @@
-/* 官网消息中心：通知流 + 固定系统公告 */
+/* ══════════════════════════════════════════════════════════
+   官网消息中心 — Aether Interface v2.0
+   ══════════════════════════════════════════════════════════ */
+
 .site-message-overlay {
   position: fixed;
   inset: 0;
@@ -7,31 +10,50 @@
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: rgba(17, 24, 39, 0.50);
-  backdrop-filter: blur(3px);
+  background: var(--overlay-heavy);
+  backdrop-filter: blur(8px);
 }
 .site-message-modal {
   width: min(640px, calc(100vw - 28px));
   max-height: min(560px, calc(100vh - 40px));
   display: flex;
   flex-direction: column;
-  border: 1px solid color-mix(in srgb, var(--border-primary) 82%, transparent);
-  border-radius: var(--radius-lg);
-  background: var(--bg-secondary);
+  border: 1px solid var(--aether-border);
+  border-radius: var(--radius-xl);
+  background: var(--aether-elevated);
   color: var(--text-primary);
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.28);
+  box-shadow: var(--shadow-xl), 0 0 40px rgba(124, 111, 255, 0.08);
   overflow: hidden;
+  animation: modalIn 200ms var(--ease-out);
 }
+
+/* Top gradient accent */
+.site-message-modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--aether-primary), var(--aether-secondary));
+  z-index: 1;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.97) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
 .site-message-header {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) auto auto;
   align-items: center;
   gap: 10px;
   padding: 14px 16px 12px;
-  border-bottom: 1px solid var(--border-secondary);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--brand) 5%, transparent), transparent 72%),
-    var(--bg-secondary);
+  border-bottom: 1px solid var(--aether-border-subtle);
+  background: var(--aether-elevated);
+  position: relative;
+  z-index: 2;
 }
 .site-message-title {
   min-width: 0;
@@ -45,9 +67,9 @@
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
-  border-radius: var(--radius-card);
-  background: color-mix(in srgb, var(--brand) 13%, var(--bg-tertiary));
-  color: var(--brand);
+  border-radius: var(--radius-lg);
+  background: var(--aether-primary-faint);
+  color: var(--aether-primary);
 }
 .site-message-title-icon svg {
   width: 17px;
@@ -76,9 +98,9 @@
   align-items: center;
   gap: 4px;
   padding: 3px;
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-card);
-  background: color-mix(in srgb, var(--bg-primary) 86%, var(--bg-secondary));
+  border: 1px solid var(--aether-border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--aether-void);
 }
 .site-message-tab {
   min-height: 34px;
@@ -88,23 +110,24 @@
   gap: 6px;
   padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   font-weight: 700;
   cursor: pointer;
   touch-action: manipulation;
-  transition: background 150ms ease, color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  transition: all var(--ease-fast);
 }
 .site-message-tab:hover {
-  background: var(--bg-glass-hover);
+  background: var(--aether-glass-hover);
   color: var(--text-primary);
 }
 .site-message-tab:focus-visible,
 .site-message-close:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--brand) 58%, transparent);
+  outline: 2px solid var(--aether-primary);
   outline-offset: 2px;
+  box-shadow: var(--shadow-glow);
 }
 .site-message-tab svg,
 .site-message-close svg,
@@ -124,22 +147,21 @@
   align-items: center;
   justify-content: center;
   padding: 0 5px;
-  border-radius: 999px;
-  background: var(--bg-tertiary);
+  border-radius: var(--radius-pill);
+  background: var(--aether-glass);
   color: var(--text-tertiary);
   font-size: var(--font-size-xxs);
   font-weight: 700;
   line-height: 1;
 }
 .site-message-tab.active {
-  background: color-mix(in srgb, var(--brand) 12%, var(--bg-secondary));
-  color: var(--brand);
-  border-color: color-mix(in srgb, var(--brand) 28%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 9%, transparent);
+  background: var(--aether-primary-faint);
+  color: var(--aether-primary);
+  border-color: var(--aether-primary-muted);
 }
 .site-message-tab.active small {
-  background: var(--brand);
-  color: var(--text-inverse);
+  background: var(--aether-primary);
+  color: white;
 }
 .site-message-close {
   width: 34px;
@@ -152,9 +174,10 @@
   color: var(--text-secondary);
   cursor: pointer;
   touch-action: manipulation;
+  transition: all var(--ease-fast);
 }
 .site-message-close:hover {
-  background: var(--bg-glass-hover);
+  background: var(--aether-glass-hover);
   color: var(--text-primary);
 }
 .site-message-body {
@@ -162,14 +185,15 @@
   min-height: 0;
   overflow: auto;
   padding: 14px 16px 16px;
+  scrollbar-gutter: stable;
 }
 .site-message-footer {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   padding: 10px 16px 14px;
-  border-top: 1px solid var(--border-secondary);
-  background: color-mix(in srgb, var(--bg-secondary) 95%, var(--bg-primary));
+  border-top: 1px solid var(--aether-border-subtle);
+  background: var(--aether-base);
 }
 .site-message-footer .btn {
   min-height: 36px;
@@ -183,9 +207,9 @@
   align-content: center;
   gap: 7px;
   padding: 22px;
-  border: 1px dashed var(--border-primary);
-  border-radius: var(--radius-card);
-  background: color-mix(in srgb, var(--bg-card) 84%, var(--bg-primary));
+  border: 1px dashed var(--aether-border-soft);
+  border-radius: var(--radius-xl);
+  background: var(--aether-glass);
   color: var(--text-tertiary);
   text-align: center;
 }
@@ -194,14 +218,14 @@
   height: 36px;
   display: inline-grid;
   place-items: center;
-  border-radius: var(--radius-card);
-  background: color-mix(in srgb, var(--brand) 10%, var(--bg-tertiary));
-  color: var(--brand);
+  border-radius: var(--radius-lg);
+  background: var(--aether-primary-faint);
+  color: var(--aether-primary);
 }
 .site-message-empty strong {
   color: var(--text-primary);
   font-size: var(--font-size-sm);
-  font-weight: 720;
+  font-weight: 700;
 }
 .site-message-empty p {
   max-width: 320px;
@@ -212,7 +236,7 @@
 }
 .site-message-dismissed-empty {
   border-style: solid;
-  background: color-mix(in srgb, var(--brand) 4%, var(--bg-card));
+  background: var(--aether-elevated);
 }
 .site-message-dismissed-empty .btn {
   margin-top: 4px;
@@ -254,8 +278,8 @@
   height: 9px;
   margin-top: 16px;
   border-radius: 50%;
-  background: var(--text-quaternary, #c7ccd4);
-  box-shadow: 0 0 0 4px var(--bg-secondary);
+  background: var(--text-tertiary);
+  box-shadow: 0 0 6px currentColor;
 }
 .site-message-line {
   position: absolute;
@@ -263,28 +287,36 @@
   top: 30px;
   bottom: -1px;
   width: 1px;
-  background: var(--border-secondary);
+  background: var(--aether-border-subtle);
 }
 .site-message-timeline-item:last-child .site-message-line {
   display: none;
 }
 .site-message-timeline-item.level-success .site-message-dot,
 .site-message-timeline-item.level-info .site-message-dot {
-  background: var(--success);
+  background: var(--status-online);
+  box-shadow: 0 0 8px var(--status-online);
 }
 .site-message-timeline-item.level-warning .site-message-dot {
-  background: var(--warning);
+  background: var(--status-busy);
+  box-shadow: 0 0 8px var(--status-busy);
 }
 .site-message-timeline-item.level-critical .site-message-dot {
-  background: var(--error);
+  background: var(--status-error);
+  box-shadow: 0 0 8px var(--status-error);
 }
 .site-message-timeline-content {
   min-width: 0;
   padding: 12px 14px;
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-card);
-  background: var(--bg-card);
-  box-shadow: 0 1px 0 var(--shadow-slate-008);
+  border: 1px solid var(--aether-border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--aether-elevated);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--ease-fast);
+}
+.site-message-timeline-content:hover {
+  border-color: var(--aether-border);
+  box-shadow: var(--shadow-md);
 }
 .site-message-item-top {
   display: flex;
@@ -303,8 +335,8 @@
 .site-message-item-top span {
   flex: 0 0 auto;
   padding: 3px 7px;
-  border-radius: 999px;
-  background: var(--bg-tertiary);
+  border-radius: var(--radius-pill);
+  background: var(--aether-glass);
   color: var(--text-tertiary);
   font-size: var(--font-size-xxs);
   line-height: 1;
@@ -328,16 +360,18 @@
   align-items: center;
   justify-content: center;
   min-height: 32px;
-  color: var(--brand);
+  color: var(--aether-primary);
   font-size: var(--font-size-sm);
   font-weight: 700;
   text-decoration: none;
+  transition: all var(--ease-fast);
 }
 .site-message-inline-cta {
   margin-top: 8px;
 }
 .site-message-inline-cta:hover,
 .site-message-card-cta:hover {
+  color: var(--aether-primary-light);
   text-decoration: underline;
 }
 
@@ -352,37 +386,40 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px;
   padding: 13px 14px 13px 16px;
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-card);
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--brand) 5%, transparent), transparent 58%),
-    var(--bg-card);
+  border: 1px solid var(--aether-border-soft);
+  border-radius: var(--radius-xl);
+  background: var(--aether-elevated);
   overflow: hidden;
-  box-shadow: 0 1px 0 var(--shadow-slate-004);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--ease-fast);
+}
+.site-message-announcement:hover {
+  border-color: var(--aether-border);
+  box-shadow: var(--shadow-md);
 }
 .site-message-announcement::before {
   content: '';
   position: absolute;
   inset: 0 auto 0 0;
   width: 3px;
-  background: var(--brand);
+  background: var(--aether-primary);
 }
 .site-message-announcement.level-critical {
-  border-color: color-mix(in srgb, var(--error) 30%, var(--border-primary));
-  background: color-mix(in srgb, var(--error) 7%, var(--bg-card));
+  border-color: rgba(255, 107, 138, 0.30);
+  background: rgba(255, 107, 138, 0.05);
 }
 .site-message-announcement.level-critical::before {
-  background: var(--error);
+  background: var(--status-error);
 }
 .site-message-announcement.level-warning {
-  border-color: color-mix(in srgb, var(--warning) 34%, var(--border-primary));
-  background: color-mix(in srgb, var(--warning) 8%, var(--bg-card));
+  border-color: rgba(255, 200, 55, 0.34);
+  background: rgba(255, 200, 55, 0.05);
 }
 .site-message-announcement.level-warning::before {
-  background: var(--warning);
+  background: var(--status-busy);
 }
 .site-message-announcement.level-success::before {
-  background: var(--success);
+  background: var(--status-online);
 }
 .site-message-announcement-main {
   min-width: 0;
@@ -393,14 +430,14 @@
   align-items: center;
   gap: 7px;
   margin-bottom: 8px;
-  color: var(--brand);
+  color: var(--aether-primary);
   font-size: var(--font-size-xs);
   font-weight: 700;
 }
 .site-message-announcement-kicker small {
   padding: 3px 7px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-tertiary) 82%, transparent);
+  border-radius: var(--radius-pill);
+  background: var(--aether-glass);
   color: var(--text-tertiary);
   font-size: var(--font-size-xxs);
   line-height: 1;
@@ -435,13 +472,13 @@
 .site-message-card-cta {
   min-height: 32px;
   padding: 0 11px;
-  border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
+  border: 1px solid var(--aether-primary-muted);
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--brand) 9%, transparent);
+  background: var(--aether-primary-faint);
   text-decoration: none;
 }
 .site-message-card-cta:hover {
-  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  background: var(--aether-primary-muted);
   text-decoration: none;
 }
 
@@ -466,7 +503,7 @@
   .site-message-title-icon {
     width: 34px;
     height: 34px;
-    border-radius: var(--radius-card);
+    border-radius: var(--radius-lg);
   }
   .site-message-tabs {
     grid-column: 1 / -1;

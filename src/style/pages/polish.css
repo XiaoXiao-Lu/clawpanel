@@ -1,10 +1,10 @@
-/* ============================================================
-   Polish — Precision Noir visual refinements
-   ============================================================ */
+/* ══════════════════════════════════════════════════════════
+   Polish — Aether Interface Visual Refinements
+   ══════════════════════════════════════════════════════════ */
 
 /* ─── Content area ambient gradient ─── */
 #content {
-  background: var(--bg-base);
+  background: var(--aether-base);
 }
 
 /* ─── Page max-width ─── */
@@ -36,9 +36,9 @@
 .clawhub-item:hover,
 .skill-card-item:hover,
 .gw-option-card:hover {
-  border-color: var(--border-1);
-  box-shadow: var(--shadow-2);
-  transform: translateY(-1px);
+  border-color: var(--aether-border);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 /* ─── Primary buttons ─── */
@@ -49,15 +49,15 @@
 .hm-chat-send,
 .hm-chat-send-btn,
 .hm-gc-msg--user .hm-gc-msg-bubble {
-  background: var(--brand);
-  color: var(--text-inverse);
-  box-shadow: none;
+  background: var(--brand-gradient);
+  color: white;
+  box-shadow: 0 2px 8px rgba(124, 111, 255, 0.3);
 }
 .btn-primary:hover,
 .dashboard-next-action:hover {
-  background: var(--brand-light);
-  transform: translateY(-1px);
-  box-shadow: var(--brand-shadow-base);
+  background: var(--aether-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(124, 111, 255, 0.4);
 }
 
 /* ─── Secondary buttons ─── */
@@ -77,8 +77,8 @@
 .hm-chat-new-btn,
 .hm-chat-toggle-sidebar,
 .hm-btn:not(.hm-btn--cta) {
-  border-color: var(--border-1);
-  background: var(--bg-elevated);
+  border-color: var(--aether-border);
+  background: var(--aether-elevated);
 }
 
 /* ─── 输入框统一样式 ─── */
@@ -97,8 +97,24 @@ select,
 .hm-textarea,
 .hm-chat-input,
 .hm-gc-input {
-  border-color: var(--border-1);
-  background: var(--bg-base);
+  border-color: var(--aether-border);
+  background: var(--aether-void);
+}
+.input:hover,
+.form-input:hover,
+input:hover,
+textarea:hover,
+select:hover {
+  border-color: var(--aether-primary);
+  background: var(--aether-base);
+}
+.input:focus,
+.form-input:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--aether-primary);
+  box-shadow: 0 0 0 3px var(--aether-primary-glow);
 }
 
 /* ─── Badge 统一 ─── */
@@ -126,8 +142,8 @@ select,
 .hm-chat-msg-bubble pre,
 .hm-skills-markdown pre,
 .hm-services-json {
-  background: var(--bg-base);
-  border: 1px solid var(--border-1);
+  background: var(--aether-void);
+  border: 1px solid var(--aether-border);
   border-radius: var(--radius-md);
 }
 
@@ -139,58 +155,59 @@ select,
   display: grid;
   place-items: center;
   border-radius: var(--radius-lg);
-  background: var(--brand);
-  color: var(--text-inverse);
+  background: var(--brand-gradient);
+  color: white;
+  box-shadow: 0 4px 16px rgba(124, 111, 255, 0.3);
 }
 
 .ast-skill-card {
-  background: var(--bg-elevated);
-  border-color: var(--border-1);
+  background: var(--aether-elevated);
+  border-color: var(--aether-border);
 }
 
 .ast-skill-icon {
-  background: var(--brand-muted);
-  color: var(--brand);
+  background: var(--aether-primary-faint);
+  color: var(--aether-primary);
 }
 
 .ast-mode-selector,
 .ast-settings-tabs {
   padding: 3px;
-  border: 1px solid var(--border-1);
-  background: var(--bg-base);
+  border: 1px solid var(--aether-border-soft);
+  background: var(--aether-void);
   border-radius: var(--radius-md);
 }
 
 .ast-tab.active,
 .ast-mode-btn.active {
-  color: var(--text-inverse);
-  background: var(--brand);
+  color: white;
+  background: var(--brand-gradient);
   border-radius: var(--radius-sm);
 }
 
 /* ─── FAB ─── */
 .ai-fab {
   border-radius: var(--radius-lg);
-  background: var(--brand);
-  box-shadow: var(--shadow-2);
+  background: var(--brand-gradient);
+  box-shadow: var(--shadow-lg);
 }
 .ai-fab:hover {
-  transform: scale(1.02);
-  box-shadow: var(--shadow-3);
+  transform: scale(1.05);
+  box-shadow: 0 8px 24px rgba(124, 111, 255, 0.4);
 }
 
 /* ─── Error banner ─── */
 .ast-error-banner {
-  border-color: rgba(220, 38, 38, 0.2);
-  background: var(--error-muted);
+  border-color: rgba(255, 107, 138, 0.3);
+  background: rgba(255, 107, 138, 0.08);
 }
 
 /* ─── 控制台/ hero 区域 ─── */
 .connectors-console,
 .skills-hero {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-lg);
+  background: var(--aether-elevated);
+  border: 1px solid var(--aether-border-soft);
+  border-radius: var(--radius-xl);
 }
 
 .connectors-console-icon,
@@ -201,29 +218,29 @@ select,
 .gw-option-icon,
 .skills-card-icon,
 .skills-store-card-icon {
-  border: 1px solid var(--brand-muted);
-  background: var(--brand-faint);
-  color: var(--brand);
+  border: 1px solid var(--aether-primary-muted);
+  background: var(--aether-primary-faint);
+  color: var(--aether-primary);
 }
 
 /* ─── 选中状态 ─── */
 .model-card--primary,
 .platform-card.active,
 .plugin-card:not(.plugin-card-inactive) {
-  border-color: var(--success);
+  border-color: var(--status-online);
 }
 
 .model-card--fallback,
 .gw-option-card.selected,
 .connectors-card.active {
-  border-color: var(--brand);
-  background: var(--brand-faint);
+  border-color: var(--aether-primary);
+  background: var(--aether-primary-faint);
 }
 
 .skills-tab-btn.active,
 .connectors-segment button.active {
-  background: var(--brand);
-  color: var(--text-inverse);
+  background: var(--brand-gradient);
+  color: white;
   box-shadow: none;
 }
 
@@ -244,7 +261,7 @@ select,
 [data-engine="hermes"].hm-services-page,
 [data-engine="hermes"].hm-channels-page,
 [data-engine="hermes"].hermes-skills-page {
-  background: var(--bg-base);
+  background: var(--aether-base);
 }
 
 [data-engine="hermes"] .hm-panel,
@@ -266,23 +283,23 @@ select,
 [data-engine="hermes"] .hm-channel-tab,
 [data-engine="hermes"] .hm-gc-side,
 [data-engine="hermes"] .hm-gc-main {
-  border-color: var(--border-1);
-  box-shadow: var(--shadow-1);
+  border-color: var(--aether-border-soft);
+  box-shadow: var(--shadow-sm);
 }
 
 [data-engine="hermes"] .hm-btn--cta,
 [data-engine="hermes"] .hm-chat-send-btn,
 [data-engine="hermes"] .hm-gc-msg--user .hm-gc-msg-bubble {
-  background: var(--brand);
+  background: var(--brand-gradient);
   border-color: transparent;
-  color: var(--text-inverse);
+  color: white;
   box-shadow: none;
 }
 
 [data-engine="hermes"] .hm-chat-header,
 [data-engine="hermes"] .hm-skills-header,
 [data-engine="hermes"] .hm-logs-header {
-  background: var(--bg-elevated);
+  background: var(--aether-elevated);
 }
 
 /* ─── Services / Models 工作台 ─── */
@@ -310,6 +327,7 @@ select,
   max-height: calc(100vh - 140px);
   overflow-y: auto;
   padding-right: 4px;
+  scrollbar-gutter: stable;
 }
 
 .services-workbench #version-bar .stat-cards,
@@ -360,18 +378,18 @@ select,
 .chat-sidebar.open {
   width: 288px;
   min-width: 288px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-1);
-  box-shadow: var(--shadow-1);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--aether-border);
+  box-shadow: var(--shadow-md);
 }
 .chat-main {
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--aether-border);
+  border-radius: var(--radius-xl);
   overflow: hidden;
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-1);
+  background: var(--aether-elevated);
+  box-shadow: var(--shadow-md);
 }
-.chat-header { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.chat-header { border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
 
 .ast-page {
   display: grid;
@@ -385,18 +403,18 @@ select,
 .ast-sidebar.open {
   width: auto;
   min-width: 0;
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
+  border: 1px solid var(--aether-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
 }
 .ast-main {
   min-width: 0;
   min-height: 0;
-  border: 1px solid var(--border-1);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--aether-border);
+  border-radius: var(--radius-xl);
   overflow: hidden;
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-1);
+  background: var(--aether-elevated);
+  box-shadow: var(--shadow-md);
 }
 
 /* ─── Responsive ─── */
@@ -423,7 +441,7 @@ select,
     width: min(320px, calc(100vw - 72px));
     min-width: 0;
     height: auto;
-    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
   }
   .ast-main {
     flex: 1 1 auto;

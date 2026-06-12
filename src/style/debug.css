@@ -10,7 +10,7 @@
 
 .debug-table td {
   padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--aether-border-subtle);
   font-size: var(--font-size-xs);
 }
 
@@ -32,10 +32,18 @@
 /* 状态概览卡片 */
 .debug-page .config-section,
 .diagnose-page .config-section {
-  background: var(--bg-secondary);
-  border-radius: var(--radius-sm);
+  background: var(--aether-elevated);
+  border: 1px solid var(--aether-border-soft);
+  border-radius: var(--radius-lg);
   padding: 12px;
   margin-bottom: 12px;
+  transition: all var(--ease-fast);
+}
+
+.debug-page .config-section:hover,
+.diagnose-page .config-section:hover {
+  border-color: var(--aether-border);
+  box-shadow: var(--shadow-md);
 }
 
 .debug-page .config-section-title,

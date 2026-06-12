@@ -446,7 +446,7 @@
 .agent-office-fallback-card span {
   width: fit-content;
   padding: 2px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--agent-idle-text);
   background: var(--agent-idle-badge);
   font-size: var(--font-size-xs);
@@ -605,7 +605,7 @@
   align-items: center;
   height: 24px;
   padding: 0 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: color-mix(in srgb, var(--agent-color) 72%, var(--text-1));
   background: color-mix(in srgb, var(--agent-color) 13%, var(--bg-card));
   border: 1px solid color-mix(in srgb, var(--agent-color) 22%, var(--border-gray-030));
@@ -796,7 +796,7 @@
 .agent-office-activity-dot {
   width: 8px;
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--agent-idle);
   box-shadow: 0 0 0 4px var(--agent-idle-dot-shadow);
 }
