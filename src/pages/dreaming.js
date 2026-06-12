@@ -504,32 +504,33 @@ function renderSceneView(status, enabled, heroText, disabledAttr, nextRun) {
       @keyframes dream-twinkle { 0%,100% { opacity:.3; transform:scale(1) } 50% { opacity:1; transform:scale(1.6) } }
       @keyframes dream-float { 0%,100% { transform:translateY(0) } 50% { transform:translateY(-6px) } }
       @keyframes dream-z { 0% { opacity:0; transform:translate(0,0) scale(.6) } 30% { opacity:.7 } 100% { opacity:0; transform:translate(18px,-32px) scale(1.1) } }
-      .dream-hero { position:relative; overflow:hidden; border-radius:22px; padding:28px 24px 24px; background:radial-gradient(circle at 20% 10%, rgba(139,92,246,0.42), rgba(15,23,42,0.94) 52%), linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #312e81 100%); color:var(--text-primary); box-shadow:0 24px 64px rgba(15,23,42,0.35); margin-bottom:var(--space-lg) }
+      .dream-hero { position:relative; overflow:hidden; border-radius:22px; min-height:280px; padding:28px 24px 24px; background:radial-gradient(circle at 20% 10%, rgba(139,92,246,0.42), rgba(15,23,42,0.94) 52%), linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #312e81 100%); color:#f8fafc; box-shadow:0 24px 64px rgba(15,23,42,0.35); margin-bottom:var(--space-lg); display:flex; flex-direction:column; justify-content:space-between }
       .dream-star { position:absolute; border-radius:999px; background:rgba(255,255,255,0.85); box-shadow:0 0 12px rgba(255,255,255,0.35); animation:dream-twinkle 3s ease-in-out infinite }
-      .dream-moon { position:absolute; top:22px; right:28px; width:100px; height:100px; border-radius:999px; background:radial-gradient(circle at 35% 35%, rgba(255,255,255,0.98), rgba(224,231,255,0.92) 38%, rgba(196,181,253,0.56) 62%, rgba(99,102,241,0.16) 100%); box-shadow:0 0 32px rgba(196,181,253,0.45), 0 0 88px rgba(99,102,241,0.18); animation:dream-float 6s ease-in-out infinite }
+      .dream-moon { position:absolute; z-index:0; top:22px; right:28px; width:100px; height:100px; border-radius:999px; background:radial-gradient(circle at 35% 35%, rgba(255,255,255,0.98), rgba(224,231,255,0.92) 38%, rgba(196,181,253,0.56) 62%, rgba(99,102,241,0.16) 100%); box-shadow:0 0 32px rgba(196,181,253,0.45), 0 0 88px rgba(99,102,241,0.18); animation:dream-float 6s ease-in-out infinite }
       .dream-z { position:absolute; top:28px; right:140px; font-size:16px; font-weight:700; color:var(--text-tertiary); animation:dream-z 2.5s ease-out infinite }
       .dream-z:nth-child(2) { animation-delay:.8s; font-size:13px; right:148px; top:22px }
       .dream-z:nth-child(3) { animation-delay:1.6s; font-size:20px; right:132px; top:16px }
-      .dream-hero .badge { background:rgba(255,255,255,0.1); color:var(--text-primary); border-color:rgba(255,255,255,0.15) }
+      .dream-hero .badge { background:rgba(255,255,255,0.1); color:#f8fafc; border-color:rgba(255,255,255,0.15) }
       .dream-hero .badge-success { background:rgba(74,222,128,0.15); color:var(--success); border-color:rgba(74,222,128,0.25) }
       .dream-hero .btn-primary { background:rgba(99,102,241,0.85) }
-      .dream-hero .btn-secondary { background:rgba(255,255,255,0.08); color:var(--text-primary); border-color:rgba(255,255,255,0.15) }
+      .dream-hero .btn-secondary { background:rgba(255,255,255,0.08); color:#f8fafc; border-color:rgba(255,255,255,0.15) }
       .dream-hero .btn-secondary:hover { background:rgba(255,255,255,0.14) }
       .dream-hero .btn-secondary:disabled { opacity:.4 }
       .dream-hero .btn-warning { background:rgba(251,191,36,0.2); color:var(--warning); border-color:rgba(251,191,36,0.3) }
-      .dream-hero .form-hint { color:var(--text-tertiary) }
-      .dream-stats-row { position:relative; display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-top:22px }
+      .dream-hero .form-hint { color:rgba(226,232,240,0.72) }
+      .dream-stats-row { position:relative; z-index:1; display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-top:22px }
       .dream-stat-glass { padding:14px 16px; border-radius:16px; background:rgba(255,255,255,0.06); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.08) }
-      .dream-stat-glass .ds-label { font-size:12px; color:var(--text-tertiary) }
-      .dream-stat-glass .ds-value { font-size:22px; font-weight:700; margin-top:4px; color:var(--text-primary) }
-      .dream-hero-body { position:relative; display:flex; justify-content:space-between; gap:18px; align-items:flex-start; flex-wrap:wrap }
-      .dream-hero-main { max-width:600px }
+      .dream-stat-glass .ds-label { font-size:12px; color:rgba(226,232,240,0.72) }
+      .dream-stat-glass .ds-value { font-size:22px; font-weight:700; margin-top:4px; color:#f8fafc }
+      .dream-hero-body { position:relative; z-index:1; display:flex; justify-content:space-between; gap:18px; align-items:flex-start; flex-wrap:wrap }
+      .dream-hero-main { max-width:600px; min-width:min(100%,320px) }
       .dream-hero-badge { margin-bottom:10px }
-      .dream-hero-title { font-size:26px; font-weight:700; letter-spacing:-0.02em; margin-bottom:10px }
-      .dream-hero-desc { font-size:13px; line-height:1.8; color:var(--text-secondary); max-width:540px }
-      .dream-hero-text { margin-top:12px; font-size:13px; line-height:1.8; color:var(--text-inverse) }
+      .dream-hero-title { font-size:26px; font-weight:700; letter-spacing:-0.02em; margin-bottom:10px; color:#ffffff }
+      .dream-hero-desc { font-size:13px; line-height:1.8; color:rgba(226,232,240,0.82); max-width:540px }
+      .dream-hero-text { margin-top:12px; font-size:13px; line-height:1.8; color:#f8fafc }
       .dream-hero-tags { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px }
       .dream-hero-actions { position:relative; z-index:1; display:flex; flex-direction:column; gap:10px; align-items:flex-end; max-width:420px }
+      @media (max-width:900px) { .dream-hero { min-height:320px } .dream-hero-actions { width:100%; align-items:flex-start } .dream-actions { width:100% } }
       .dream-stat-cards { margin-bottom:var(--space-lg) }
       .dream-phase-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:var(--space-md); margin-bottom:var(--space-lg) }
       .dream-lane-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:var(--space-md) }

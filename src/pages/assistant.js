@@ -2361,7 +2361,7 @@ function refreshStreamingBubble() {
   const bubbles = _messagesEl.querySelectorAll('.ast-msg-bubble-ai')
   const lastBubble = bubbles[bubbles.length - 1]
   if (lastBubble && lastMsg.content) {
-    lastBubble.innerHTML = renderMarkdown(lastMsg.content) + '<span class="ast-cursor">▊</span>'
+    lastBubble.innerHTML = renderMarkdown(lastMsg.content) + '<span class="ast-cursor"></span>'
     _messagesEl.scrollTop = _messagesEl.scrollHeight
   }
 }
@@ -6670,37 +6670,37 @@ function showSettings() {
           </div>
           <div class="form-hint" id="ast-api-hint" style="margin-top:-4px">${apiHintText(c.apiType)}</div>
 
-          <div id="ast-qtcool-promo" style="margin-top:14px;border-radius:var(--radius-lg);border:1px solid var(--border-primary);border-left:3px solid var(--primary);background:var(--bg-secondary);overflow:hidden">
-            <div style="padding:14px 16px 12px">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px">
+          <div id="ast-qtcool-promo" style="margin-top:10px;border-radius:var(--radius-md);border:1px solid var(--border-primary);border-left:3px solid var(--primary);background:var(--bg-secondary);overflow:hidden">
+            <div style="padding:10px 12px 8px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
                 <div>
                   <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
                     <span style="font-weight:700;font-size:var(--font-size-sm)">${icon('zap', 14)} ${t('assistant.qtcoolName')}</span>
                     <span style="font-size:10px;background:var(--primary);color:#fff;padding:1px 7px;border-radius:8px">${t('assistant.qtcoolRecommend')}</span>
                   </div>
-                  <div style="font-size:11px;color:var(--text-tertiary);line-height:1.4">
+                  <div style="font-size:11px;color:var(--text-tertiary);line-height:1.35">
                     ${t('assistant.qtcoolDesc')}
                   </div>
                 </div>
                 <a href="${QTCOOL.checkinUrl}" target="_blank" class="btn btn-primary btn-xs" style="flex-shrink:0">${icon('gift', 11)} ${t('assistant.qtcoolCheckin')}</a>
               </div>
-              <div style="font-size:var(--font-size-xs);color:var(--text-secondary);margin-bottom:8px">
+              <div style="font-size:var(--font-size-xs);color:var(--text-secondary);margin-bottom:6px">
                 ${t('assistant.qtcoolInstructions')}
               </div>
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
                 <input class="form-input" id="ast-qtcool-key" placeholder="${t('assistant.qtcoolKeyPlaceholder')}" style="font-size:12px;padding:5px 10px;flex:1;min-width:120px">
                 <input type="checkbox" id="ast-qtcool-customkey" style="display:none">
               </div>
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                <select id="ast-qtcool-model" class="form-input" style="font-size:12px;padding:5px 10px;min-width:130px;flex:1">
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <select id="ast-qtcool-model" class="form-input" style="font-size:12px;padding:4px 8px;min-width:120px;flex:1">
                   <option value="" disabled selected>${t('assistant.qtcoolLoadingModels')}</option>
                 </select>
                 <button class="btn btn-sm btn-secondary" id="ast-qtcool-test">${icon('search', 12)} ${t('assistant.testBtn')}</button>
                 <button class="btn btn-sm btn-primary" id="ast-qtcool-apply">${icon('zap', 12)} ${t('assistant.qtcoolApply')}</button>
               </div>
-              <div id="ast-qtcool-status" style="margin-top:8px;font-size:11px;min-height:16px;line-height:1.5"></div>
+              <div id="ast-qtcool-status" style="margin-top:4px;font-size:11px;min-height:14px;line-height:1.4"></div>
             </div>
-            <div style="border-top:1px solid var(--border-primary);padding:6px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;background:var(--bg-tertiary)">
+            <div style="border-top:1px solid var(--border-primary);padding:5px 12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;background:var(--bg-tertiary)">
               ${!isHermes ? `<div style="display:flex;gap:8px;align-items:center">
                 <button class="btn btn-xs btn-secondary" id="ast-qtcool-sync-to" title="${t('assistant.qtcoolSyncToTitle')}">${icon('upload', 11)} ${t('assistant.qtcoolSyncTo')}</button>
                 <button class="btn btn-xs btn-secondary" id="ast-qtcool-sync-from" title="${t('assistant.qtcoolSyncFromTitle')}">${icon('download', 11)} ${t('assistant.qtcoolSyncFrom')}</button>
@@ -6710,15 +6710,15 @@ function showSettings() {
           </div>
 
           <!-- #Compat-3: 备用模型组（重设计：极简一行 + 厂商预设快捷添加） -->
-          <details class="ast-fallback-section" id="ast-fallback-section" ${(c.fallbackModels || []).length ? 'open' : ''} style="margin-top:14px">
-            <summary style="cursor:pointer;padding:10px 14px;border-radius:var(--radius-md);background:var(--bg-secondary);border:1px solid var(--border-primary);display:flex;justify-content:space-between;align-items:center;gap:8px;list-style:none;user-select:none">
+          <details class="ast-fallback-section" id="ast-fallback-section" ${(c.fallbackModels || []).length ? 'open' : ''} style="margin-top:10px">
+            <summary style="cursor:pointer;padding:8px 12px;border-radius:var(--radius-md);background:var(--bg-secondary);border:1px solid var(--border-primary);display:flex;justify-content:space-between;align-items:center;gap:6px;list-style:none;user-select:none">
               <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
                 <span style="font-weight:600;font-size:var(--font-size-sm)">${icon('shield', 13)} ${t('assistant.fallbackModelsTitle')}</span>
                 <span style="font-size:11px;color:var(--text-tertiary);white-space:nowrap" id="ast-fallback-count">${(c.fallbackModels || []).filter(f => f && f.enabled !== false).length} ${t('assistant.fallbackEnabledSuffix')}</span>
               </div>
               <span class="ast-fallback-chevron" style="color:var(--text-tertiary);font-size:12px;transition:transform 0.2s">▼</span>
             </summary>
-            <div style="padding:10px 4px 4px">
+            <div style="padding:8px 4px 4px">
               <div class="form-hint" style="margin-bottom:10px">${t('assistant.fallbackModelsDesc')}</div>
               <!-- 主模型只读行（让用户看到完整调用链） -->
               <div id="ast-fallback-primary-row" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-tertiary);border:1px dashed var(--border-primary);border-radius:var(--radius-md);margin-bottom:6px;font-size:12px">
@@ -8652,7 +8652,7 @@ async function sendMessageDirect(text) {
           if (bubble) {
             const now = Date.now()
             if (now - _lastRenderTime > 50) {
-              bubble.innerHTML = renderMarkdown(aiMsg.content) + '<span class="ast-cursor">▊</span>'
+              bubble.innerHTML = renderMarkdown(aiMsg.content) + '<span class="ast-cursor"></span>'
               if (_messagesEl) _messagesEl.scrollTop = _messagesEl.scrollHeight
               _lastRenderTime = now
             }
@@ -8677,7 +8677,7 @@ async function sendMessageDirect(text) {
         if (lastBubble) {
           const now = Date.now()
           if (now - _lastRenderTime > 50) {
-            lastBubble.innerHTML = renderMarkdown(aiMsg.content) + '<span class="ast-cursor">▊</span>'
+            lastBubble.innerHTML = renderMarkdown(aiMsg.content) + '<span class="ast-cursor"></span>'
             if (_messagesEl) _messagesEl.scrollTop = _messagesEl.scrollHeight
             _lastRenderTime = now
           }
@@ -8785,7 +8785,7 @@ async function retryAIResponse(session) {
           if (bubble) {
             const now = Date.now()
             if (now - _lastRenderTime > 50) {
-              bubble.innerHTML = renderMarkdown(aiMsg.content) + '<span class="ast-cursor">▊</span>'
+              bubble.innerHTML = renderMarkdown(aiMsg.content) + '<span class="ast-cursor"></span>'
               if (_messagesEl) _messagesEl.scrollTop = _messagesEl.scrollHeight
               _lastRenderTime = now
             }
@@ -8804,7 +8804,7 @@ async function retryAIResponse(session) {
         if (lastBubble) {
           const now = Date.now()
           if (now - _lastRenderTime > 50) {
-            lastBubble.innerHTML = renderMarkdown(aiMsg.content) + '<span class="ast-cursor">▊</span>'
+            lastBubble.innerHTML = renderMarkdown(aiMsg.content) + '<span class="ast-cursor"></span>'
             if (_messagesEl) _messagesEl.scrollTop = _messagesEl.scrollHeight
             _lastRenderTime = now
           }

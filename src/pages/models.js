@@ -1359,15 +1359,17 @@ function renderProviders(page, state) {
                   <span class="models-card__provider">${escapeHtml(key)}</span>
                 </div>
               </div>
-              <div class="models-card__info">
-                <span class="models-card-status models-card-status--${statusClass}">${statusHtml}</span>
-                <span class="models-card__latency">${latencyHtml}</span>
-              </div>
-              <div class="models-card__actions">
-                ${!isPrimary ? `<button class="btn-icon" data-action="set-primary" title="${t('models.setPrimary')}" aria-label="${t('models.setPrimary')}">${icon('star', 14)}</button>` : ''}
-                <button class="btn-icon" data-action="test-model" title="${t('models.testBtn')}" aria-label="${t('models.testBtn')}">${icon('activity', 14)}</button>
-                <button class="btn-icon" data-action="edit-model" title="${t('models.editModel')}" aria-label="${t('models.editModel')}">${icon('edit', 14)}</button>
-                <button class="btn-icon btn-icon--danger" data-action="delete-model" title="${t('models.deleteModel')}" aria-label="${t('models.deleteModel')}">${icon('trash', 14)}</button>
+              <div class="models-card__footer">
+                <div class="models-card__status-pair">
+                  <span class="models-card-status models-card-status--${statusClass}">${statusHtml}</span>
+                  <span class="models-card__latency">${latencyHtml}</span>
+                </div>
+                <div class="models-card__actions">
+                  ${!isPrimary ? `<button class="btn-icon" data-action="set-primary" title="${t('models.setPrimary')}" aria-label="${t('models.setPrimary')}">${icon('star', 14)}</button>` : ''}
+                  <button class="btn-icon" data-action="test-model" title="${t('models.testBtn')}" aria-label="${t('models.testBtn')}">${icon('activity', 14)}</button>
+                  <button class="btn-icon" data-action="edit-model" title="${t('models.editModel')}" aria-label="${t('models.editModel')}">${icon('edit', 14)}</button>
+                  <button class="btn-icon btn-icon--danger" data-action="delete-model" title="${t('models.deleteModel')}" aria-label="${t('models.deleteModel')}">${icon('trash', 14)}</button>
+                </div>
               </div>
             </div>
           `
@@ -1564,7 +1566,22 @@ function updateUndoBtn(page, state) {
 
 // 渲染完成后,直接给每个 [data-action] 按钮绑定 onclick
 function bindProviderButtons(listEl, page, state) {
-  // 绑定表格行内按钮
+  // 绑定卡片内按钮（.models-card 是当前 UI 结构）
+  listEl.querySelectorAll('.models-card button[data-action]').forEach(btn => {
+    const action = btn.dataset.action
+    const card = btn.closest('.models-card')
+    if (!card) return
+    const providerKey = card.dataset.provider
+    const provider = state.config?.models?.providers?.[providerKey]
+    if (!provider) return
+
+    btn.onclick = (e) => {
+      e.stopPropagation()
+      handleAction(action, btn, card, listEl, providerKey, provider, page, state)
+    }
+  })
+
+  // 绑定表格行内按钮（旧 UI 兼容）
   listEl.querySelectorAll('.models-table-row button[data-action]').forEach(btn => {
     const action = btn.dataset.action
     const row = btn.closest('.models-table-row')

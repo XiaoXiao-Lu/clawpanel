@@ -945,6 +945,7 @@ body.has-desktop-chrome #main-col {
   display: flex;
   flex-direction: column;
   min-height: 0; /* Allow content to shrink when overflowing */
+  overflow-y: auto;
   padding: var(--space-8) clamp(var(--space-6), 3vw, var(--space-12));
   width: 100%;
   max-width: 1400px;

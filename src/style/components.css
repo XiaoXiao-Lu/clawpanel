@@ -635,6 +635,7 @@ select.form-input:disabled {
   max-height: calc(100vh - 60px);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   box-shadow: var(--shadow-xl), 0 0 60px rgba(124, 111, 255, 0.1);
   animation: modalIn 200ms var(--ease-out);
 }

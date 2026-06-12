@@ -4,7 +4,7 @@
 
 /* ─── Content area ambient gradient ─── */
 #content {
-  background: var(--aether-base);
+  background: var(--bg-base);
 }
 
 /* ─── Page max-width ─── */
@@ -78,7 +78,7 @@
 .hm-chat-toggle-sidebar,
 .hm-btn:not(.hm-btn--cta) {
   border-color: var(--aether-border);
-  background: var(--aether-elevated);
+  background: var(--bg-elevated);
 }
 
 /* ─── 输入框统一样式 ─── */
@@ -90,7 +90,6 @@ select,
 .connectors-textarea,
 .agent-file-editor,
 .chat-input-wrapper textarea,
-.ast-textarea,
 .ast-settings-form .form-input,
 .hm-input,
 .hm-select,
@@ -98,7 +97,15 @@ select,
 .hm-chat-input,
 .hm-gc-input {
   border-color: var(--aether-border);
-  background: var(--aether-void);
+  background: var(--bg-elevated);
+}
+
+/* Chat input area — use semantic variables to follow theme */
+.ast-input-wrap {
+  background: var(--bg-elevated) !important;
+}
+.ast-textarea {
+  color: var(--text-primary) !important;
 }
 .input:hover,
 .form-input:hover,
@@ -185,6 +192,27 @@ select:focus {
   border-radius: var(--radius-sm);
 }
 
+.ast-settings-tabs .ast-tab {
+  min-width: 86px;
+  height: 34px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  overflow: visible;
+  border-bottom: 0;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.ast-settings-tabs .ast-tab.active {
+  color: var(--aether-primary);
+  background: var(--aether-primary-muted);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--aether-primary) 28%, transparent);
+  border-bottom-color: transparent;
+}
+
 /* ─── FAB ─── */
 .ai-fab {
   border-radius: var(--radius-lg);
@@ -261,7 +289,7 @@ select:focus {
 [data-engine="hermes"].hm-services-page,
 [data-engine="hermes"].hm-channels-page,
 [data-engine="hermes"].hermes-skills-page {
-  background: var(--aether-base);
+  background: var(--bg-base);
 }
 
 [data-engine="hermes"] .hm-panel,
@@ -285,6 +313,12 @@ select:focus {
 [data-engine="hermes"] .hm-gc-main {
   border-color: var(--aether-border-soft);
   box-shadow: var(--shadow-sm);
+}
+
+[data-engine="hermes"] .hm-chat-shell,
+[data-engine="hermes"] .hm-chat-sidebar,
+[data-engine="hermes"] .hm-chat-main {
+  background: var(--bg-elevated);
 }
 
 [data-engine="hermes"] .hm-btn--cta,
@@ -386,7 +420,7 @@ select:focus {
   border: 1px solid var(--aether-border);
   border-radius: var(--radius-xl);
   overflow: hidden;
-  background: var(--aether-elevated);
+  background: var(--bg-elevated);
   box-shadow: var(--shadow-md);
 }
 .chat-header { border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
@@ -413,7 +447,7 @@ select:focus {
   border: 1px solid var(--aether-border);
   border-radius: var(--radius-xl);
   overflow: hidden;
-  background: var(--aether-elevated);
+  background: var(--bg-elevated);
   box-shadow: var(--shadow-md);
 }
 

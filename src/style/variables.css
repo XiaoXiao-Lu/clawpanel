@@ -313,9 +313,23 @@
   --border-gray-022:      rgba(148, 163, 184, 0.22);
 
   /* ─── Agent Shadow Colors ─── */
+  --shadow-slate:          var(--aether-primary-muted);
   --shadow-slate-004:     rgba(15, 23, 42, 0.04);
   --shadow-slate-006:     rgba(15, 23, 42, 0.06);
+  --shadow-slate-008:     rgba(15, 23, 42, 0.08);
   --shadow-slate-090:     rgba(15, 23, 42, 0.9);
+
+  /* ─── Background Aliases ─── */
+  --bg-glass:             var(--aether-glass);
+
+  /* ─── Root Alias ─── */
+  --aether-root:          var(--aether-void);
+
+  /* ─── Shadow Aliases ─── */
+  --shadow-1:             var(--shadow-sm);
+
+  /* ─── Font Size Alias ─── */
+  --font-size-base:       var(--text-base);
 
   /* ─── Agent State Surface/Border Colors ─── */
   --agent-idle-border:      rgba(45, 212, 191, 0.22);
@@ -439,6 +453,19 @@
   --border-focus:     var(--aether-border-focus);
   --border-subtle:    var(--aether-border-subtle);
 
+  /* ─── Chat bubble (needs stronger visibility than --aether-border) ─── */
+  --chat-bubble-border: rgba(255, 255, 255, 0.14);
+  --chat-bubble-bg:    #1E1E32;          /* assistant bubble — slight lift with indigo tint */
+  --chat-tool-bg:      rgba(124, 111, 255, 0.08);
+
+  /* ─── Tool call execution (distinct from chat bubbles) ─── */
+  --tool-surface:      rgba(124, 111, 255, 0.12);
+  --tool-surface-hover: rgba(124, 111, 255, 0.18);
+  --tool-border:       rgba(124, 111, 255, 0.25);
+  --tool-accent:       #7C6FFF;
+  --tool-text:         #B8B0FF;
+  --tool-code-bg:      rgba(0, 0, 0, 0.25);
+
   /* ─── Accent RGB (for rgba() usage) ─── */
   --accent-rgb:       124, 111, 255;
 }
@@ -507,6 +534,20 @@
     --accent-rgb:            91, 78, 232;
 
     --noise-opacity:          0.012;
+
+    /* Chat bubble — must be clearly visible on light bg */
+    --chat-bubble-border:    rgba(17, 24, 39, 0.10);
+    --chat-bubble-bg:        #FFFFFF;        /* assistant bubble — neutral card on light chat bg */
+    --chat-tool-bg:          rgba(91, 78, 232, 0.06);
+
+    /* Tool call execution (distinct from chat bubbles) */
+    --tool-surface:          rgba(91, 78, 232, 0.06);
+    --tool-surface-hover:    rgba(91, 78, 232, 0.10);
+    --tool-border:           rgba(91, 78, 232, 0.15);
+    --tool-accent:           #7C6FFF;
+    --tool-text:             #6B5FD4;
+    --tool-text-muted:       #9B91E0;
+    --tool-code-bg:          rgba(91, 78, 232, 0.04);
 
     --engage-star-bg:         #FFFBEB;
     --engage-star-border:     rgba(245, 158, 11, 0.20);
@@ -608,6 +649,19 @@
   --agent-blocked-text:     #92400E;
   --agent-error-text:       #B91C1C;
   --agent-offline:         #9CA3AF;
+
+  --chat-bubble-border:    rgba(255, 255, 255, 0.14);
+  --chat-bubble-bg:        #1E1E32;
+  --chat-tool-bg:          rgba(124, 111, 255, 0.08);
+
+  /* Tool call execution (distinct from chat bubbles) */
+  --tool-surface:          rgba(124, 111, 255, 0.08);
+  --tool-surface-hover:    rgba(124, 111, 255, 0.14);
+  --tool-border:           rgba(124, 111, 255, 0.18);
+  --tool-accent:           #9B91FF;
+  --tool-text:             #B8B0FF;
+  --tool-text-muted:       #8B85C8;
+  --tool-code-bg:          rgba(0, 0, 0, 0.20);
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -627,4 +681,10 @@
 @keyframes themeCircleReveal {
   from { clip-path: circle(0% at var(--theme-reveal-x, 0%) var(--theme-reveal-y, 100%)); }
   to   { clip-path: circle(150% at var(--theme-reveal-x, 0%) var(--theme-reveal-y, 100%)); }
+}
+
+/* ═══ Shared Animations ═══ */
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.97) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }

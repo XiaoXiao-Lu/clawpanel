@@ -98,7 +98,7 @@
 
 /* 状态点：加载中脉冲动画 */
 .status-dot.loading {
-  background: var(--warning, #f59e0b);
+  background: var(--warning);
   animation: dot-pulse 1s ease-in-out infinite;
 }
 
@@ -421,8 +421,8 @@
   box-shadow: var(--shadow-lg);
 }
 [data-theme="dark"] .docker-dialog {
-  background: var(--bg-card, #1e1e2e);
-  border: 1px solid var(--border-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
 }
 .docker-dialog-wide {
   max-width: 720px;

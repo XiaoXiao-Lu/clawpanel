@@ -716,7 +716,7 @@
   padding: 12px 32px 20px;
   border-top: 1px solid var(--aether-border-soft);
   flex-shrink: 0;
-  background: var(--aether-void);
+  background: var(--bg-base);
 }
 .hm-chat-input-wrap {
   display: flex;
@@ -733,7 +733,7 @@
   line-height: 1.5;
   border-radius: var(--radius-xl);
   border: 1px solid var(--aether-border);
-  background: var(--aether-elevated);
+  background: var(--bg-elevated);
   color: var(--text-primary);
   transition: border-color var(--ease-fast), box-shadow var(--ease-fast);
 }
@@ -1146,7 +1146,7 @@
 .es-content-claude-code {
   top: 11%;
   left: 6.5%;
-  color: #fafafa;
+  color: var(--text-primary);
   text-align: left;
   max-width: 44vw;
 }

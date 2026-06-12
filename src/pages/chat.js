@@ -252,19 +252,21 @@ export async function render() {
       <div class="chat-attachments-preview" id="chat-attachments-preview" style="display:none"></div>
       <div class="chat-input-area">
         <input type="file" id="chat-file-input" accept="image/*" multiple style="display:none">
-        <button class="chat-attach-btn" id="chat-attach-btn" title="${t('chat.uploadImage')}" aria-label="${t('chat.uploadImage')}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
-        </button>
-        <div class="chat-input-wrapper">
-          <textarea id="chat-input" rows="1" placeholder="${t('chat.inputPlaceholder')}"></textarea>
+        <div class="chat-input-container">
+          <button class="chat-attach-btn" id="chat-attach-btn" title="${t('chat.uploadImage')}" aria-label="${t('chat.uploadImage')}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+          </button>
+          <div class="chat-input-wrapper">
+            <textarea id="chat-input" class="chat-input" rows="1" placeholder="${t('chat.inputPlaceholder')}"></textarea>
+          </div>
+          <button class="chat-send-btn" id="chat-send-btn" type="button" disabled aria-label="${t('chat.send')}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+          <button class="chat-hosted-btn btn btn-ghost" id="chat-hosted-btn" title="${t('chat.hostedAgent')}" aria-label="${t('chat.hostedAgent')}">
+            <span class="chat-hosted-label">⊕</span>
+            <span class="chat-hosted-badge idle" id="chat-hosted-badge">${t('chat.hostedBadge')}</span>
+          </button>
         </div>
-        <button class="chat-send-btn" id="chat-send-btn" type="button" disabled aria-label="${t('chat.send')}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        </button>
-        <button class="chat-hosted-btn btn btn-sm btn-ghost" id="chat-hosted-btn" title="${t('chat.hostedAgent')}" aria-label="${t('chat.hostedAgent')}">
-          <span class="chat-hosted-label">⊕</span>
-          <span class="chat-hosted-badge idle" id="chat-hosted-badge">${t('chat.hostedBadge')}</span>
-        </button>
       </div>
       <div class="hosted-agent-panel" id="hosted-agent-panel" style="display:none">
         <div class="hosted-agent-header">
@@ -718,13 +720,16 @@ function renderModelSelect(errorText = '') {
     return `<option value="${value}" ${full === _selectedModel ? 'selected' : ''}>${escapeAttr(label)}${escapeAttr(suffix)}</option>`
   }).join('')
   const selectedLabel = formatChatModelLabel(_selectedModel)
-  const status = _isApplyingModel
+  const statusTitle = _isApplyingModel
     ? `正在切换：${selectedLabel}`
     : (_selectedModel ? `当前会话模型：${selectedLabel}` : '')
+  const status = _isApplyingModel
+    ? '切换中'
+    : (_selectedModel ? '当前' : '')
   _modelSelectEl.title = _selectedModel || ''
   if (statusEl) {
     statusEl.textContent = status
-    statusEl.title = status
+    statusEl.title = statusTitle
   }
 }
 
@@ -3267,9 +3272,10 @@ function appendToolsToEl(el, tools) {
     details.className = 'msg-tool-item'
     const summary = document.createElement('summary')
     const status = tool.status === 'error' ? t('chat.toolFailed') : t('chat.toolSuccess')
+    const statusClass = tool.status === 'error' ? 'error' : ''
     const timeValue = getToolTime(tool) || resolveToolTime(tool.id || tool.tool_call_id, tool.messageTimestamp)
     const timeText = timeValue ? formatTime(new Date(timeValue)) : ''
-    summary.innerHTML = `${escapeHtml(tool.name || 'tool')} · ${status}${timeText ? ' · ' + timeText : ''}`
+    summary.innerHTML = `<span class="tool-status ${statusClass}"></span><span class="tool-name">${escapeHtml(tool.name || 'tool')}</span><span class="tool-meta">${status}${timeText ? ' · ' + timeText : ''}</span>`
     const body = document.createElement('div')
     body.className = 'msg-tool-body'
     const inputJson = stripAnsi(safeStringify(tool.input))

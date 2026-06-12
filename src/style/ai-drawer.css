@@ -78,7 +78,7 @@
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: var(--error, #ef4444);
+  background: var(--error);
   border: 2px solid var(--text-inverse);
   animation: fab-pulse 1.5s ease-in-out infinite;
 }
