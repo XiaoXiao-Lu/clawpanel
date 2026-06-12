@@ -395,7 +395,7 @@
 
 .expert-check-row input,
 .expert-member-row input[type="checkbox"] {
-  accent-color: var(--brand);
+  accent-color: var(--aether-primary);
 }
 
 .expert-communication-note {

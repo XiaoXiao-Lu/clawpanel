@@ -174,6 +174,30 @@ function bindEvents(page, state) {
   })
 
   page.addEventListener('keydown', (e) => {
+    // 键盘可访问性：Tab 切换 + 成员排序
+    const drag = e.target.closest('[data-member-drag]')
+    if (drag && !drag.disabled && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault()
+      const picker = page.querySelector('#expert-member-picker')
+      if (!picker) return
+      const row = drag.closest('[data-member-row].is-selected')
+      if (!row) return
+      const selectedRows = [...picker.querySelectorAll('[data-member-row].is-selected')]
+      const currentIndex = selectedRows.indexOf(row)
+      if (currentIndex < 0) return
+      let targetIndex = e.key === 'ArrowUp' ? currentIndex - 1 : currentIndex + 1
+      if (targetIndex < 0 || targetIndex >= selectedRows.length) return
+      const targetRow = selectedRows[targetIndex]
+      const refNode = e.key === 'ArrowUp' ? row.nextSibling : targetRow.nextSibling
+      picker.insertBefore(targetRow, refNode)
+      renumberSelectedMembers(picker)
+      drag.classList.add('is-keyboard-moving')
+      setTimeout(() => drag.classList.remove('is-keyboard-moving'), 500)
+      targetRow.querySelector('[data-member-drag]')?.focus()
+      return
+    }
+
+    // Tab 导航
     const tab = e.target.closest('[data-expert-tab]')
     if (!tab) return
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
@@ -234,33 +258,6 @@ function bindEvents(page, state) {
     row?.classList.remove('is-dragging')
     const picker = page.querySelector('#expert-member-picker')
     if (picker) renumberSelectedMembers(picker)
-  })
-
-  // 键盘可访问性：上下箭头移动选中成员顺序
-  page.addEventListener('keydown', (e) => {
-    const drag = e.target.closest('[data-member-drag]')
-    if (!drag || drag.disabled) return
-    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
-    e.preventDefault()
-    const picker = page.querySelector('#expert-member-picker')
-    if (!picker) return
-    const row = drag.closest('[data-member-row].is-selected')
-    if (!row) return
-    const selectedRows = [...picker.querySelectorAll('[data-member-row].is-selected')]
-    const currentIndex = selectedRows.indexOf(row)
-    if (currentIndex < 0) return
-    let targetIndex = e.key === 'ArrowUp' ? currentIndex - 1 : currentIndex + 1
-    if (targetIndex < 0 || targetIndex >= selectedRows.length) return
-    // 交换位置
-    const targetRow = selectedRows[targetIndex]
-    const refNode = e.key === 'ArrowUp' ? row.nextSibling : targetRow.nextSibling
-    picker.insertBefore(targetRow, refNode)
-    renumberSelectedMembers(picker)
-    // 添加键盘移动视觉反馈
-    drag.classList.add('is-keyboard-moving')
-    setTimeout(() => drag.classList.remove('is-keyboard-moving'), 500)
-    // 交换位置后，焦点跟随被移动到新位置的元素
-    targetRow.querySelector('[data-member-drag]')?.focus()
   })
 }
 
