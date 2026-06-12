@@ -99,15 +99,18 @@
   --shadow-glow:           0 0 0 2px var(--aether-primary-glow);
   --shadow-glow-md:        0 0 20px -4px var(--aether-primary-glow);
   --shadow-glow-lg:        0 0 40px -8px var(--aether-primary-glow);
-  --shadow-brand:          rgba(124, 111, 255, 0.24);
+  --shadow-brand:          var(--aether-primary-muted);
+  --brand-shadow-base:     0 4px 16px -4px var(--aether-primary-glow);
+  --brand-shadow-hover:    0 8px 24px -4px var(--aether-primary-glow);
+  --brand-shadow-strong:   0 12px 32px -4px var(--aether-primary-glow);
 
   /* ═══ Ripple / Hover Effects ═══ */
   --ripple-color:        rgba(255, 255, 255, 0.3);
   --ripple-opacity:      0.3;
 
   /* ═══ Button Shadows ═══ */
-  --shadow-btn-primary:  0 2px 8px rgba(124, 111, 255, 0.3);
-  --shadow-btn-primary-hover: 0 6px 20px rgba(124, 111, 255, 0.4);
+  --shadow-btn-primary:        var(--brand-shadow-base);
+  --shadow-btn-primary-hover: var(--brand-shadow-hover);
 
   /* ═══ Focus Outline ═══ */
   --outline-width:       2px;

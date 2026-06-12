@@ -55,12 +55,12 @@
 
 /* Subtle glow on hover */
 .msg-ai:hover .msg-bubble {
-  box-shadow: 0 4px 20px -4px rgba(124, 111, 255, 0.15);
-  border-color: rgba(124, 111, 255, 0.2);
+  box-shadow: var(--brand-shadow-hover);
+  border-color: var(--aether-border-focus);
 }
 
 .msg.user:hover .msg-bubble {
-  box-shadow: 0 4px 20px -4px rgba(124, 111, 255, 0.25);
+  box-shadow: var(--brand-shadow-hover);
 }
 
 /* Message entrance animation enhancement */
@@ -715,7 +715,7 @@
   background: var(--brand-gradient);
   color: white;
   border-bottom-right-radius: var(--radius-sm);
-  box-shadow: 0 4px 12px rgba(124, 111, 255, 0.2);
+  box-shadow: var(--brand-shadow-base);
 }
 
 .msg.assistant .msg-bubble {
@@ -905,9 +905,7 @@
 
 .chat-send-btn:hover {
   transform: scale(1.08);
-  box-shadow:
-    0 6px 20px rgba(124, 111, 255, 0.4),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+  box-shadow: var(--brand-shadow-hover), inset 0 0 0 1px rgba(255, 255, 255, 0.15);
 }
 
 .chat-send-btn:active {
