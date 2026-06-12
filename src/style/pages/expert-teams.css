@@ -73,7 +73,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  color: var(--text-3);
+  color: var(--text-tertiary);
   font-size: var(--font-size-sm);
   white-space: nowrap;
 }
@@ -131,7 +131,7 @@
 .expert-teams-search {
   position: relative;
   padding: var(--space-3);
-  border-bottom: 1px solid var(--border-2);
+  border-bottom: 1px solid var(--aether-border-subtle);
 }
 
 .expert-teams-search svg {
@@ -139,7 +139,7 @@
   left: 24px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--text-3);
+  color: var(--text-tertiary);
   pointer-events: none;
 }
 
@@ -228,13 +228,13 @@
 .expert-list-main strong {
   font-size: var(--font-size-sm);
   font-weight: 700;
-  color: var(--text-1);
+  color: var(--text-primary);
 }
 
 .expert-list-main small {
   margin-top: 3px;
   font-size: var(--font-size-xs);
-  color: var(--text-3);
+  color: var(--text-tertiary);
 }
 
 .expert-avatar {
@@ -287,12 +287,12 @@
   justify-content: space-between;
   gap: var(--space-4);
   padding: var(--space-4);
-  border-bottom: 1px solid var(--border-2);
+  border-bottom: 1px solid var(--aether-border-subtle);
 }
 
 .expert-editor-kicker {
   margin-bottom: 4px;
-  color: var(--text-3);
+  color: var(--text-tertiary);
   font-size: var(--font-size-xs);
   font-weight: 700;
   letter-spacing: 0;
@@ -301,7 +301,7 @@
 
 .expert-editor-head h2 {
   margin: 0;
-  color: var(--text-1);
+  color: var(--text-primary);
   font-size: var(--font-size-xl);
   line-height: 1.25;
 }
@@ -319,7 +319,7 @@
 
 .expert-form-section {
   padding: var(--space-4) 0;
-  border-bottom: 1px solid var(--border-2);
+  border-bottom: 1px solid var(--aether-border-subtle);
 }
 
 .expert-form-section:first-child {
@@ -333,7 +333,7 @@
 
 .expert-form-section h3 {
   margin: 0 0 var(--space-3);
-  color: var(--text-1);
+  color: var(--text-primary);
   font-size: var(--font-size-md);
   font-weight: 700;
 }
@@ -360,7 +360,7 @@
 .expert-form-section .form-group.is-muted .form-label::after {
   content: attr(data-muted-note);
   margin-left: 4px;
-  color: var(--text-3);
+  color: var(--text-tertiary);
   font-weight: 500;
 }
 
@@ -388,7 +388,7 @@
   align-items: center;
   gap: 8px;
   margin-top: 2px;
-  color: var(--text-2);
+  color: var(--text-secondary);
   font-size: var(--font-size-sm);
   cursor: pointer;
 }
@@ -404,10 +404,10 @@
   gap: var(--space-3);
   margin: var(--space-4) var(--space-4) 0;
   padding: var(--space-3);
-  border: 1px solid var(--border-2);
+  border: 1px solid var(--aether-border);
   border-radius: var(--radius-md);
   background: var(--bg-sunken);
-  color: var(--text-2);
+  color: var(--text-secondary);
 }
 
 .expert-communication-note svg {
@@ -417,7 +417,7 @@
 .expert-communication-note strong {
   display: block;
   margin-bottom: 3px;
-  color: var(--text-1);
+  color: var(--text-primary);
   font-size: var(--font-size-sm);
 }
 
@@ -429,7 +429,7 @@
 
 .expert-workflow-guide {
   margin-top: var(--space-2);
-  border: 1px solid var(--border-1);
+  border: 1px solid var(--aether-border);
   border-radius: var(--radius-md);
   background: var(--bg-base);
   overflow: hidden;
@@ -441,7 +441,7 @@
   gap: var(--space-3);
   align-items: start;
   padding: var(--space-3);
-  border-bottom: 1px solid var(--border-2);
+  border-bottom: 1px solid var(--aether-border-subtle);
   background: var(--brand-faint);
 }
 
@@ -456,13 +456,13 @@
 }
 
 .expert-workflow-guide-head strong {
-  color: var(--text-1);
+  color: var(--text-primary);
   font-size: var(--font-size-sm);
 }
 
 .expert-workflow-guide-head span {
   margin-top: 3px;
-  color: var(--text-2);
+  color: var(--text-secondary);
   font-size: var(--font-size-sm);
   line-height: 1.5;
 }
@@ -477,8 +477,8 @@
   gap: 4px;
   min-width: 0;
   padding: var(--space-3);
-  border-left: 1px solid var(--border-2);
-  border-top: 1px solid var(--border-2);
+  border-left: 1px solid var(--aether-border-soft);
+  border-top: 1px solid var(--aether-border-soft);
 }
 
 .expert-workflow-grid > span:nth-child(1),
@@ -496,13 +496,13 @@
 }
 
 .expert-workflow-grid small {
-  color: var(--text-3);
+  color: var(--text-tertiary);
   font-size: var(--font-size-xs);
   font-weight: 700;
 }
 
 .expert-workflow-grid strong {
-  color: var(--text-1);
+  color: var(--text-primary);
   font-size: var(--font-size-sm);
   font-weight: 600;
   line-height: 1.55;
@@ -520,7 +520,7 @@
   display: inline-flex;
   align-items: center;
   min-height: 36px;
-  color: var(--text-3);
+  color: var(--text-tertiary);
   font-size: var(--font-size-sm);
   font-weight: 700;
 }
@@ -538,7 +538,7 @@
 
 .expert-member-help {
   margin: -2px 0 var(--space-3);
-  color: var(--text-3);
+  color: var(--text-tertiary);
   font-size: var(--font-size-xs);
   line-height: 1.5;
 }
@@ -550,7 +550,7 @@
   gap: var(--space-2);
   min-height: 72px;
   padding: var(--space-3);
-  border: 1px solid var(--border-1);
+  border: 1px solid var(--aether-border);
   border-radius: var(--radius-md);
   background: var(--bg-base);
   cursor: pointer;
@@ -558,11 +558,11 @@
 }
 
 .expert-member-row:hover {
-  border-color: var(--border-focus);
+  border-color: var(--aether-border-focus);
 }
 
 .expert-member-row.is-selected {
-  border-color: color-mix(in srgb, var(--brand) 38%, var(--border-1));
+  border-color: var(--aether-border-focus);
   background: var(--brand-faint);
 }
 
@@ -584,13 +584,13 @@
 }
 
 .expert-member-main strong {
-  color: var(--text-1);
+  color: var(--text-primary);
   font-size: var(--font-size-sm);
 }
 
 .expert-member-main small {
   margin-top: 3px;
-  color: var(--text-3);
+  color: var(--text-tertiary);
   font-size: var(--font-size-xs);
 }
 
@@ -606,7 +606,7 @@
   align-items: center;
   min-height: 30px;
   padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--brand) 30%, var(--border-1));
+  border: 1px solid var(--aether-border);
   border-radius: var(--radius-full);
   background: var(--brand-faint);
   color: var(--brand);
@@ -625,16 +625,16 @@
   justify-content: center;
   width: 30px;
   height: 30px;
-  border: 1px solid var(--border-1);
+  border: 1px solid var(--aether-border);
   border-radius: var(--radius-sm);
   background: var(--bg-base);
-  color: var(--text-3);
+  color: var(--text-tertiary);
   cursor: grab;
 }
 
 .expert-member-drag:hover {
-  border-color: var(--border-focus);
-  color: var(--text-1);
+  border-color: var(--aether-border-focus);
+  color: var(--text-primary);
 }
 
 .expert-member-drag:active {
@@ -645,6 +645,16 @@
   display: none;
 }
 
+/* 键盘移动时的视觉反馈 */
+.expert-member-drag:focus-visible,
+.expert-member-drag.is-keyboard-moving {
+  outline: 2px solid var(--aether-primary);
+  outline-offset: 2px;
+  box-shadow: var(--shadow-glow);
+  border-color: var(--aether-primary);
+  color: var(--aether-primary);
+}
+
 .expert-teams-empty {
   display: flex;
   flex-direction: column;
@@ -653,20 +663,20 @@
   gap: 6px;
   min-height: 180px;
   padding: var(--space-6) var(--space-4);
-  color: var(--text-3);
+  color: var(--text-tertiary);
   text-align: center;
   font-size: var(--font-size-sm);
   line-height: 1.6;
 }
 
 .expert-teams-empty strong {
-  color: var(--text-1);
+  color: var(--text-primary);
   font-size: var(--font-size-md);
 }
 
 .expert-list-skeleton {
   height: 68px;
-  border-bottom: 1px solid var(--border-2);
+  border-bottom: 1px solid var(--aether-border-subtle);
   background: linear-gradient(90deg, var(--bg-sunken), var(--bg-elevated), var(--bg-sunken));
   background-size: 220% 100%;
   animation: expertSkeleton 1.2s ease-in-out infinite;
@@ -726,7 +736,7 @@
   .expert-workflow-grid > span,
   .expert-workflow-grid > span:nth-child(2) {
     border-left: 0;
-    border-top: 1px solid var(--border-2);
+    border-top: 1px solid var(--aether-border-soft);
   }
 
   .expert-workflow-grid > span:first-child {

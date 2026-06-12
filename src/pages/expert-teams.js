@@ -235,6 +235,33 @@ function bindEvents(page, state) {
     const picker = page.querySelector('#expert-member-picker')
     if (picker) renumberSelectedMembers(picker)
   })
+
+  // 键盘可访问性：上下箭头移动选中成员顺序
+  page.addEventListener('keydown', (e) => {
+    const drag = e.target.closest('[data-member-drag]')
+    if (!drag || drag.disabled) return
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return
+    e.preventDefault()
+    const picker = page.querySelector('#expert-member-picker')
+    if (!picker) return
+    const row = drag.closest('[data-member-row].is-selected')
+    if (!row) return
+    const selectedRows = [...picker.querySelectorAll('[data-member-row].is-selected')]
+    const currentIndex = selectedRows.indexOf(row)
+    if (currentIndex < 0) return
+    let targetIndex = e.key === 'ArrowUp' ? currentIndex - 1 : currentIndex + 1
+    if (targetIndex < 0 || targetIndex >= selectedRows.length) return
+    // 交换位置
+    const targetRow = selectedRows[targetIndex]
+    const refNode = e.key === 'ArrowUp' ? row.nextSibling : targetRow.nextSibling
+    picker.insertBefore(targetRow, refNode)
+    renumberSelectedMembers(picker)
+    // 添加键盘移动视觉反馈
+    drag.classList.add('is-keyboard-moving')
+    setTimeout(() => drag.classList.remove('is-keyboard-moving'), 500)
+    // 交换位置后，焦点跟随被移动到新位置的元素
+    targetRow.querySelector('[data-member-drag]')?.focus()
+  })
 }
 
 async function loadData(page, state, opts = {}) {
@@ -718,7 +745,10 @@ function currentGroupFromForm(page) {
 
 function renderMemberPicker(group, experts) {
   if (!experts.length) {
-    return `<div class="expert-teams-empty">${t('expertTeams.emptyExpertsHint')}</div>`
+    return `<div class="expert-teams-empty">
+      <strong>${t('expertTeams.noExpertsInLibrary')}</strong>
+      <span>${t('expertTeams.noExpertsInLibraryHint')}</span>
+    </div>`
   }
   const memberMap = new Map((Array.isArray(group.members) ? group.members : []).map(member => [member.expertId, member]))
   const orderedExperts = [...experts].sort((a, b) => {
@@ -785,7 +815,7 @@ function updateGroupMemberControls(page, state) {
   const selectedSet = new Set(selected)
   moderator.innerHTML = `<option value="">${t('expertTeams.noModerator')}</option>` + state.experts
     .filter(expert => selectedSet.has(expert.id))
-    .map(expert => option(expert.id, expert.name || expert.id, current))
+    .map(expert => option(expert.id, escapeHtml(expert.name || expert.id), current))
     .join('')
   if (!selectedSet.has(current)) moderator.value = ''
   updateGroupWorkflowGuide(page)
@@ -1224,7 +1254,7 @@ function moderatorOptions(group, experts) {
   const selected = new Set((Array.isArray(group.members) ? group.members : []).map(member => member.expertId))
   return `<option value="">${t('expertTeams.noModerator')}</option>` + experts
     .filter(expert => selected.has(expert.id))
-    .map(expert => option(expert.id, expert.name || expert.id, group.moderatorExpertId || ''))
+    .map(expert => option(expert.id, escapeHtml(expert.name || expert.id), group.moderatorExpertId || ''))
     .join('')
 }
 
