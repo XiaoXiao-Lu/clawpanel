@@ -21,7 +21,7 @@
   color: var(--text-primary);
 }
 .hermes-detect-row.warn {
-  color: var(--warning, #f59e0b);
+  color: var(--warning);
 }
 .hermes-detect-row svg {
   flex-shrink: 0;
@@ -66,7 +66,7 @@
   transition: width var(--ease-slow);
 }
 .hermes-progress-bar.error {
-  background: var(--error, #ef4444);
+  background: var(--error);
 }
 
 /* === Hermes Setup — Log Panel === */
@@ -428,7 +428,7 @@
   animation: none;
 }
 .hm-tool-card.err {
-  border-left-color: var(--error, #ef4444);
+  border-left-color: var(--error);
   animation: none;
 }
 .hm-tool-card-header {
@@ -457,7 +457,7 @@
   white-space: nowrap;
 }
 .hm-tool-card.err .hm-tool-status {
-  color: var(--error, #ef4444);
+  color: var(--error);
 }
 .hm-tool-card.done .hm-tool-status {
   color: var(--success, #22c55e);
@@ -493,7 +493,7 @@
   margin-bottom: 4px;
 }
 .hm-tool-section-err .hm-tool-section-label {
-  color: var(--error, #ef4444);
+  color: var(--error);
 }
 .hm-tool-pre {
   margin: 0;
@@ -513,7 +513,7 @@
 .hm-tool-section-err .hm-tool-pre {
   background: rgba(239, 68, 68, 0.06);
   border-color: rgba(239, 68, 68, 0.15);
-  color: var(--error, #ef4444);
+  color: var(--error);
 }
 
 /* CLI commands grid */
@@ -816,8 +816,8 @@
   border-left: 2px solid transparent; transition: background var(--ease-fast);
 }
 .hm-log-entry:hover { background: rgba(0,0,0,0.02); }
-.hm-log-entry.error { border-left-color: var(--error, #ef4444); }
-.hm-log-entry.warn { border-left-color: var(--warning, #f59e0b); }
+.hm-log-entry.error { border-left-color: var(--error); }
+.hm-log-entry.warn { border-left-color: var(--warning); }
 .hm-log-time { color: var(--text-tertiary); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .hm-log-level {
   flex-shrink: 0; font-weight: 600; text-transform: uppercase; font-size: var(--font-size-xs);
@@ -827,9 +827,9 @@
 .hm-log-level.info { background: var(--brand-faint); color: var(--brand); }
 .hm-log-level.debug { background: rgba(0,0,0,0.04); color: var(--text-tertiary); }
 .hm-log-level.warn { background: var(--warning-muted); color: var(--warning); }
-.hm-log-level.error { background: rgba(239,68,68,0.1); color: var(--error, #ef4444); }
+.hm-log-level.error { background: rgba(239,68,68,0.1); color: var(--error); }
 .hm-log-msg { color: var(--text-secondary); white-space: pre-wrap; word-break: break-all; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.hm-log-entry.error .hm-log-msg { color: var(--error, #ef4444); }
+.hm-log-entry.error .hm-log-msg { color: var(--error); }
 .hm-log-entry.warn .hm-log-msg { color: var(--warning); }
 .hm-log-entry.raw .hm-log-msg { color: var(--text-tertiary); }
 
@@ -930,7 +930,7 @@
   margin: 16px 0;
   padding: 16px 18px;
   border: 1px solid var(--border-primary);
-  border-left: 3px solid var(--error, #ef4444);
+  border-left: 3px solid var(--error);
   border-radius: var(--radius-lg);
   background: var(--bg-glass);
   color: var(--text-primary);
@@ -943,7 +943,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--error, #ef4444);
+  color: var(--error);
 }
 .page-inline-error-icon svg {
   width: 20px;
@@ -957,7 +957,7 @@
   gap: 6px;
 }
 .page-inline-error-message {
-  color: var(--error, #ef4444);
+  color: var(--error);
   font-size: var(--font-size-sm);
   font-weight: 700;
   line-height: 1.5;
