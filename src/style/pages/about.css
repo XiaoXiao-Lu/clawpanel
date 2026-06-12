@@ -1,4 +1,6 @@
-/* === About Page — Enhanced Aether Design === */
+/* ══════════════════════════════════════════════════════════
+   About Page — Aether Interface v2.0
+   ══════════════════════════════════════════════════════════ */
 
 /* ─── Header ─── */
 .about-header {
@@ -99,7 +101,7 @@
   color: var(--text-secondary);
 }
 .community-qr--white-bg img {
-  background: var(--bg-elevated);
+  background: var(--aether-elevated);
 }
 .community-side {
   flex: 1;
@@ -111,7 +113,7 @@
 }
 .community-side p {
   font-size: var(--text-sm);
-  color: var(--text-2);
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 .community-side .community-desc-intl {
@@ -125,7 +127,7 @@
 }
 .community-note {
   font-size: var(--text-xs);
-  color: var(--text-3);
+  color: var(--text-tertiary);
   margin-top: 8px;
 }
 
@@ -148,7 +150,7 @@
 }
 .company-subtitle {
   font-size: var(--text-sm);
-  color: var(--text-2);
+  color: var(--text-secondary);
 }
 .company-grid {
   display: grid;
@@ -187,7 +189,7 @@
 }
 .company-desc {
   font-size: var(--text-xs);
-  color: var(--text-3);
+  color: var(--text-tertiary);
   line-height: 1.6;
 }
 
@@ -195,11 +197,11 @@
 .sponsor-box {
   margin-top: 12px;
   padding: 12px 14px;
-  border-radius: var(--radius-md);
-  border: 1px dashed var(--border-1);
-  background: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--aether-border);
+  background: var(--aether-elevated);
   font-size: var(--text-xs);
-  color: var(--text-3);
+  color: var(--text-tertiary);
 }
 .sponsor-inner {
   display: flex;
@@ -211,7 +213,7 @@
   height: 64px;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
-  background: var(--bg-elevated);
+  background: var(--aether-elevated);
   padding: 2px;
   cursor: pointer;
 }
@@ -220,7 +222,7 @@
 }
 .sponsor-title {
   font-weight: 600;
-  color: var(--text-2);
+  color: var(--text-secondary);
   margin-bottom: 4px;
 }
 .sponsor-title .sponsor-chain {
@@ -228,7 +230,7 @@
 }
 .sponsor-address {
   font-size: var(--text-xxs);
-  background: var(--bg-sunken);
+  background: var(--aether-void);
   padding: 2px 6px;
   border-radius: var(--radius-xs);
   user-select: all;
@@ -259,27 +261,27 @@
   gap: 6px;
   cursor: pointer;
   padding: 6px 12px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--aether-border);
   font-size: var(--text-sm);
   flex: 1;
   justify-content: center;
-  transition: background 150ms ease, border-color 150ms ease;
+  transition: all var(--ease-fast);
 }
 .version-radio-label--active {
-  border-color: var(--brand);
-  background: var(--brand-faint);
+  border-color: var(--aether-primary);
+  background: var(--aether-primary-faint);
 }
 .version-radio-label input[type="radio"] {
-  accent-color: var(--brand);
+  accent-color: var(--aether-primary);
 }
 .version-hint-box {
   font-size: var(--text-xs);
-  color: var(--text-3);
+  color: var(--text-tertiary);
   line-height: 1.6;
   padding: 10px 12px;
-  border-radius: var(--radius-md);
-  background: var(--bg-sunken);
+  border-radius: var(--radius-lg);
+  background: var(--aether-void);
 }
 .version-actions-row {
   display: flex;
@@ -291,7 +293,7 @@
 /* ─── Contribute Section ─── */
 .contribute-desc {
   font-size: var(--text-sm);
-  color: var(--text-2);
+  color: var(--text-secondary);
   margin-bottom: 12px;
 }
 .contribute-actions {
@@ -302,7 +304,7 @@
 .contribute-domestic-hint {
   margin-top: 8px;
   font-size: var(--text-xs);
-  color: var(--text-3);
+  color: var(--text-tertiary);
 }
 
 /* ─── Links Section ─── */
@@ -320,18 +322,18 @@
 .qr-preview-img {
   width: 240px;
   height: 240px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   margin: 12px auto;
   display: block;
 }
 .qr-preview-chain {
   font-size: var(--text-sm);
-  color: var(--text-2);
+  color: var(--text-secondary);
   margin: 8px 0;
 }
 .qr-preview-address {
   font-size: var(--text-xs);
-  background: var(--bg-sunken);
+  background: var(--aether-void);
   padding: 4px 8px;
   border-radius: var(--radius-xs);
   user-select: all;
@@ -342,7 +344,7 @@
 }
 .qr-preview-desc {
   font-size: var(--text-xs);
-  color: var(--text-3);
+  color: var(--text-tertiary);
   margin-top: 8px;
 }
 
@@ -358,7 +360,7 @@
   gap: 8px;
 }
 .hermes-config-label {
-  color: var(--text-3);
+  color: var(--text-tertiary);
   min-width: 90px;
 }
 
