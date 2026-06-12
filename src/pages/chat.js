@@ -1337,7 +1337,7 @@ function renderAttachments() {
   _attachPreviewEl.style.display = 'flex'
   _attachPreviewEl.innerHTML = _attachments.map((att, idx) => `
     <div class="chat-attachment-item">
-      <img src="data:${att.mimeType};base64,${att.content}" alt="${att.fileName}">
+      <img src="data:${att.mimeType};base64,${att.content}" alt="${escapeHtml(att.fileName)}">
       <button class="chat-attachment-del" data-idx="${idx}">×</button>
     </div>
   `).join('')
@@ -2860,7 +2860,7 @@ async function loadHistory() {
     }))
     scrollToBottom()
   } catch (e) {
-    console.error('[chat] loadHistory error:', e)
+    console.error('[chat] loadHistory error:', e?.message ?? e)
     if (_messagesEl && !_messagesEl.querySelector('.msg')) appendSystemMessage(`${t('common.loadFailed')}: ${e.message}`)
   } finally {
     _isLoadingHistory = false

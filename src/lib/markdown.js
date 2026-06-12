@@ -3,6 +3,16 @@
  * 从 clawapp 移植，去掉 MEDIA 路径处理
  */
 import { escapeHtml } from './utils.js'
+// 浏览器环境检查：同时检查 window 和 document 存在
+// 避免在 SSR/测试环境中触发 document.addEventListener
+const _IS_BROWSER = typeof window !== 'undefined' && typeof document !== 'undefined' && typeof document.addEventListener === 'function'
+
+// DOMPurify 仅在浏览器环境懒加载（需要 window/document）
+let DOMPurify = null
+let _purifyReady = false
+if (_IS_BROWSER) {
+  import('dompurify').then(m => { DOMPurify = m.default; _purifyReady = true }).catch(() => {})
+}
 
 const KEYWORDS = new Set([
   'const','let','var','function','return','if','else','for','while','do',
@@ -99,7 +109,7 @@ export function renderMarkdown(text) {
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
     const highlighted = highlightCode(code.trimEnd(), lang)
     const langLabel = lang ? `<span class="code-lang">${escapeHtml(lang)}</span>` : ''
-    const block = `<pre data-lang="${escapeAttr(lang)}">${langLabel}<button class="code-copy-btn" onclick="window.__copyCode(this)">Copy</button><code>${highlighted}</code></pre>`
+    const block = `<pre data-lang="${escapeAttr(lang)}">${langLabel}<button class="code-copy-btn" data-copy-btn>Copy</button><code>${highlighted}</code></pre>`
     return `\x00MDBLOCK${codeBlocks.push(block) - 1}\x00`
   })
 
@@ -243,7 +253,16 @@ export function renderMarkdown(text) {
   closeList()
   // 处理剩余的表格
   flushTable()
-  return result.join('\n')
+  let raw = result.join('\n')
+  // DOMPurify 消毒，防止 XSS（仅浏览器环境，已预加载）
+  if (_IS_BROWSER && DOMPurify?.sanitize && _purifyReady) {
+    raw = DOMPurify.sanitize(raw, {
+      ALLOWED_TAGS: ['p','br','strong','em','code','pre','button','span','h1','h2','h3','h4','h5','h6','hr','blockquote','ul','ol','li','table','tr','th','td','a','img','input','div'],
+      ALLOWED_ATTR: ['class','type','disabled','checked','data-lang','href','target','rel','src','alt','loading','hidden','data-copy-btn'],
+      ALLOW_DATA_ATTR: false,
+    })
+  }
+  return raw
 }
 
 function getListDepthClass(indent = '') {
@@ -345,8 +364,8 @@ function inlineFormat(text) {
       }
       const escapedSrc = escapeAttr(safeSrc).replace(/\\/g, '&#x5c;')
       const escapedRawSrc = escapeHtml(src)
-      const fallback = `<span class="msg-img-fallback" hidden>[图片无法加载: ${escapedRawSrc}]</span>`
-      return saveToken(`<img src="${escapedSrc}" alt="${escapeAttr(alt)}" class="msg-img" loading="lazy" onerror="this.onerror=null;this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.hidden=false" />${fallback}`)
+      const fallback = `<span class="msg-img-fallback img-error-target" hidden>[图片无法加载: ${escapedRawSrc}]</span>`
+      return saveToken(`<img src="${escapedSrc}" alt="${escapeAttr(alt)}" class="msg-img" loading="lazy" />${fallback}`)
     })
     .replace(/\[([^\]]+)\]\(((?:[^()\s]|\\[()]|\([^()\s]*\))+)\)/g, (_, label, url) => {
       const safe = safeLinkUrl(url)
@@ -363,10 +382,40 @@ function inlineFormat(text) {
   return html.replace(/\x00MD(\d+)\x00/g, (_, index) => tokens[Number(index)] || '')
 }
 
-if (typeof window !== 'undefined') {
-  window.__copyCode = function(btn) {
+if (_IS_BROWSER) {
+  // 图片加载失败处理（使用事件委托替代内联 onerror）
+  document.addEventListener('error', (e) => {
+    const img = e.target.closest('img.msg-img')
+    if (!img) {
+      // 处理 skills 图标的多图兜底
+      const iconImg = e.target.closest('[data-icon-fallback-icon]')
+      if (iconImg) {
+        const fallbacks = JSON.parse(iconImg.dataset.iconFallbacks || '[]')
+        const next = fallbacks.shift()
+        if (next) {
+          iconImg.dataset.iconFallbacks = JSON.stringify(fallbacks)
+          iconImg.src = next
+        } else {
+          iconImg.style.display = 'none'
+        }
+        return
+      }
+      return
+    }
+    img.style.display = 'none'
+    const fallback = img.nextElementSibling
+    if (fallback?.classList.contains('img-error-target')) {
+      fallback.hidden = false
+    }
+  }, true) // 捕获阶段
+
+  // 复制按钮（使用事件委托）
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-copy-btn]')
+    if (!btn) return
     const pre = btn.closest('pre')
-    const code = pre.querySelector('code')
+    const code = pre?.querySelector('code')
+    if (!code) return
     navigator.clipboard.writeText(code.innerText).then(() => {
       btn.textContent = '✓'
       setTimeout(() => { btn.textContent = 'Copy' }, 1500)
@@ -374,5 +423,5 @@ if (typeof window !== 'undefined') {
       btn.textContent = '✗'
       setTimeout(() => { btn.textContent = 'Copy' }, 1500)
     })
-  }
+  })
 }
