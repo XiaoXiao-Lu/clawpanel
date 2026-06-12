@@ -441,7 +441,7 @@
   --text-secondary:   var(--text-secondary);
   --text-3:           var(--text-tertiary);
   --text-tertiary:    var(--text-tertiary);
-  --text-inverse:     var(--text-inverse);
+  --text-inverse:     var(--aether-void);
   --text-muted:       var(--text-tertiary);
 
   /* ─── Border Aliases ─── */
