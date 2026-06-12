@@ -73,7 +73,7 @@
   right: 0;
   height: 2px;
   background: linear-gradient(90deg, var(--aether-primary), var(--aether-secondary), var(--aether-primary));
-  z-index: 1;
+  z-index: var(--z-layer-1);
 }
 
 .agent-office-head {
@@ -86,7 +86,7 @@
   border-bottom: 1px solid var(--aether-border-subtle);
   background: var(--aether-elevated);
   position: relative;
-  z-index: 4;
+  z-index: var(--z-layer-4);
 }
 
 .agent-office-actions {
@@ -441,7 +441,6 @@
   border-color: var(--border-focus);
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
-  outline: none;
 }
 
 .agent-office-fallback-card span {
@@ -523,7 +522,7 @@
 
 .agent-office-panel {
   position: relative;
-  z-index: 2;
+  z-index: var(--z-layer-2);
   width: auto;
   max-height: none;
   border: 1px solid var(--border-gray-024);
@@ -703,7 +702,7 @@
 .agent-office-activity,
 .agent-office-audit {
   position: relative;
-  z-index: 2;
+  z-index: var(--z-layer-2);
   display: grid;
   gap: 14px;
   margin: 0;
@@ -951,7 +950,7 @@
 
 .agent-office-tooltip {
   position: absolute;
-  z-index: 3;
+  z-index: var(--z-layer-3);
   display: grid;
   gap: 2px;
   min-width: 140px;
@@ -1608,7 +1607,6 @@
   tab-size: 2;
 }
 .agent-file-editor:focus {
-  outline: none;
   border-color: var(--border-focus);
 }
 

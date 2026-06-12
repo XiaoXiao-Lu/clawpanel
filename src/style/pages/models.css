@@ -162,7 +162,7 @@
 }
 .models-hero-primary__actions {
   display: flex; gap: 8px; flex-shrink: 0; align-items: center; flex-wrap: wrap;
-  position: relative; z-index: 1;
+  position: relative; z-index: var(--z-layer-1);
   padding: var(--space-md) var(--space-xl);
   border: 1px solid var(--aether-border-soft);
   border-radius: var(--radius-lg);
@@ -258,7 +258,7 @@
 /* Hero actions (buttons inside console) */
 .models-console-actions {
   display: flex; gap: 8px; flex-shrink: 0; align-items: center; flex-wrap: wrap;
-  position: relative; z-index: 1;
+  position: relative; z-index: var(--z-layer-1);
   padding: var(--space-md) var(--space-xl);
   border: 1px solid var(--aether-border-soft);
   border-radius: var(--radius-lg);
@@ -932,7 +932,7 @@
   width: 100%; padding: var(--space-sm) var(--space-md);
   font-size: var(--font-size-sm);
   border: 1px solid var(--aether-border-soft); border-radius: var(--radius-md);
-  background: var(--bg-elevated); color: var(--text-primary); outline: none;
+  background: var(--bg-elevated); color: var(--text-primary);
   transition: border-color var(--ease-fast), box-shadow var(--ease-fast);
 }
 .hm-combo__input:focus { border-color: var(--aether-primary); box-shadow: 0 0 0 2px var(--aether-primary-muted); }

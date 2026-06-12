@@ -22,9 +22,6 @@
   box-shadow: 0 18px 48px rgba(15, 23, 42, 0.28);
   overflow: hidden;
 }
-.site-message-modal:focus {
-  outline: none;
-}
 .site-message-header {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) auto auto;

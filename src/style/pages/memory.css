@@ -239,7 +239,7 @@
   width: 1px;
   background: var(--border-secondary);
   pointer-events: none;
-  z-index: 1;
+  z-index: var(--z-layer-1);
 }
 
 .memory-editor-split .editor-area {
@@ -251,7 +251,6 @@
   color: var(--text-primary);
   background: var(--bg-primary);
   resize: none;
-  outline: none;
   overflow-y: auto;
 }
 
@@ -406,7 +405,6 @@
   background: transparent;
   border: none;
   resize: none;
-  outline: none;
   color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);

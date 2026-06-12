@@ -296,8 +296,9 @@
 .status-dot.warning {
   background: var(--status-busy);
 }
-.status-dot:focus {
-  outline: none;
+.status-dot:focus-visible {
+  outline: 2px solid var(--aether-primary);
+  outline-offset: 2px;
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -334,7 +335,11 @@
   font-size: var(--text-base);
   font-family: var(--font-sans);
   transition: all var(--ease-fast);
-  outline: none;
+}
+.input:focus-visible,
+.form-input:focus-visible {
+  border-color: var(--aether-primary);
+  box-shadow: var(--shadow-glow);
 }
 .input:hover,
 .form-input:hover {
@@ -423,9 +428,6 @@ select.form-input:disabled {
   margin-top: var(--space-1);
   line-height: 1.5;
 }
-.form-hint:focus {
-  outline: none;
-}
 .form-error {
   font-size: var(--text-xs);
   color: var(--status-error);
@@ -435,8 +437,6 @@ select.form-input:disabled {
   align-items: center;
   gap: var(--space-1);
 }
-.form-error:focus {
-  outline: none;
 }
 .form-error svg {
   flex-shrink: 0;
@@ -639,9 +639,6 @@ select.form-input:disabled {
   box-shadow: var(--shadow-xl), 0 0 60px rgba(124, 111, 255, 0.1);
   animation: modalIn 200ms var(--ease-out);
 }
-.modal:focus {
-  outline: none;
-}
 
 .modal-body,
 .modal-content-body {
@@ -742,7 +739,7 @@ body.has-desktop-chrome .toast-container {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: var(--font-size-lg);
+  font-size: var(--text-lg);
   line-height: 1;
   color: var(--text-tertiary);
   padding: 2px 4px;
@@ -787,7 +784,7 @@ body.has-desktop-chrome .toast-container {
   color: var(--text-secondary);
 }
 .empty-state .empty-icon {
-  font-size: var(--font-size-2xl);
+  font-size: var(--text-2xl);
   line-height: 1;
   margin-bottom: var(--space-3);
   opacity: 0.5;
@@ -798,14 +795,12 @@ body.has-desktop-chrome .toast-container {
   color: var(--text-tertiary);
 }
 .empty-state .empty-icon svg { width: 1em; height: 1em; stroke: currentColor; fill: none; }
-.empty-state .empty-icon:focus { outline: none; }
 .empty-state .empty-title {
   font-size: var(--text-base);
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 6px;
 }
-.empty-state .empty-title:focus { outline: none; }
 .empty-state .empty-desc {
   font-size: var(--text-sm);
   color: var(--text-secondary);
@@ -813,9 +808,7 @@ body.has-desktop-chrome .toast-container {
   max-width: 360px;
   margin-bottom: var(--space-4);
 }
-.empty-state .empty-desc:focus { outline: none; }
 .empty-state .empty-cta { margin-top: var(--space-2); }
-.empty-state .empty-cta:focus { outline: none; }
 
 /* ══════════════════════════════════════════════════════════
    SKELETON LOADING
@@ -828,11 +821,6 @@ body.has-desktop-chrome .toast-container {
   background-size: 200% 100%;
   animation: skeleton-shine 1.8s ease-in-out infinite;
   border-radius: var(--radius-sm);
-}
-.skeleton:focus,
-.skeleton-line:focus,
-.loading-placeholder:focus {
-  outline: none;
 }
 .skeleton-line { height: 12px; display: block; }
 .loading-placeholder {
@@ -850,7 +838,6 @@ body.has-desktop-chrome .toast-container {
   text-align: center;
   animation: pulse 1.5s ease-in-out infinite;
 }
-.loading-text:focus { outline: none; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 /* Stat card skeleton */
@@ -875,7 +862,6 @@ body.has-desktop-chrome .toast-container {
   gap: var(--space-3);
   animation: fadeInLoader 0.3s ease;
 }
-.page-loader:focus { outline: none; }
 .page-loader-spinner {
   width: 32px;
   height: 32px;
@@ -974,12 +960,10 @@ body.has-desktop-chrome .toast-container {
   color: var(--text-primary);
   margin-bottom: 2px;
 }
-.onboarding-title:focus { outline: none; }
 .onboarding-desc {
   font-size: var(--text-sm);
   color: var(--text-secondary);
 }
-.onboarding-desc:focus { outline: none; }
 .onboarding-steps {
   display: flex;
   flex-direction: column;
@@ -1034,20 +1018,16 @@ body.has-desktop-chrome .toast-container {
   color: var(--text-primary);
   margin-bottom: 2px;
 }
-.onboarding-step-title:focus { outline: none; }
 .onboarding-step-desc {
   font-size: var(--text-xs);
   color: var(--text-tertiary);
   line-height: 1.5;
 }
-.onboarding-step-desc:focus { outline: none; }
 .onboarding-step.done .onboarding-step-title {
   text-decoration: line-through;
   color: var(--text-tertiary);
 }
-.onboarding-step.done .onboarding-step-title:focus { outline: none; }
 .onboarding-step-action { flex-shrink: 0; }
-.onboarding-step-action:focus { outline: none; }
 
 /* ══════════════════════════════════════════════════════════
    SEARCH HIGHLIGHT

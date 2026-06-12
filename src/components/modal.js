@@ -130,7 +130,7 @@ export function showConfirm(message, options = {}) {
     overlay.innerHTML = `
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="${modalId}-title" style="max-width:420px">
         <div class="modal-title" id="${modalId}-title">${escapeAttr(title)}</div>
-        <div class="modal-body" style="font-size:var(--font-size-sm);color:var(--text-secondary);white-space:pre-wrap;line-height:1.6">${escapeAttr(actualMessage)}</div>
+        <div class="modal-body" style="font-size:var(--text-sm);color:var(--text-secondary);white-space:pre-wrap;line-height:1.6">${escapeAttr(actualMessage)}</div>
         ${impactHtml}
         <div class="modal-actions">
           <button class="btn btn-secondary btn-sm" data-action="cancel">${escapeAttr(cancelText)}</button>

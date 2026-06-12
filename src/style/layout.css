@@ -380,7 +380,6 @@ body.has-desktop-chrome #main-col {
   background: none;
   color: var(--text-secondary);
   font-size: var(--text-sm);
-  outline: none;
   font-family: inherit;
   transition: color var(--ease-fast);
 }
@@ -848,7 +847,6 @@ body.has-desktop-chrome #main-col {
   background: var(--aether-void);
   color: var(--text-primary);
   font-size: var(--text-xs);
-  outline: none;
 }
 .lang-search:focus { border-color: var(--aether-primary); }
 .lang-options { padding: var(--space-1); }

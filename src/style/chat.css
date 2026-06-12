@@ -244,7 +244,7 @@
   fill: none;
   stroke-width: 2;
   position: relative;
-  z-index: 1;
+  z-index: var(--z-layer-1);
 }
 
 /* Enhanced search with focus glow */
@@ -295,7 +295,6 @@
   background: none;
   color: var(--text-primary);
   font-size: var(--text-xs);
-  outline: none;
   padding-left: 24px;
   transition: color var(--ease-fast);
 }
@@ -520,7 +519,7 @@
   width: 16px;
   height: 16px;
   position: relative;
-  z-index: 1;
+  z-index: var(--z-layer-1);
 }
 
 .chat-header-info {
@@ -606,7 +605,7 @@
   width: 18px;
   height: 18px;
   position: relative;
-  z-index: 1;
+  z-index: var(--z-layer-1);
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -846,7 +845,6 @@
   resize: none;
   line-height: 1.5;
   transition: all var(--ease-fast);
-  outline: none;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
@@ -935,7 +933,7 @@
   fill: none;
   stroke-width: 2;
   position: relative;
-  z-index: 1;
+  z-index: var(--z-layer-1);
 }
 
 /* Send button loading animation */
@@ -1037,7 +1035,7 @@
   width: 14px;
   height: 14px;
   position: relative;
-  z-index: 1;
+  z-index: var(--z-layer-1);
 }
 
 /* Copy button success state */

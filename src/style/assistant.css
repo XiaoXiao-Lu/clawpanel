@@ -522,7 +522,6 @@
   font-family: var(--font-sans);
   color: var(--text-primary);
   line-height: 1.6;
-  outline: none;
   min-height: 38px;
   max-height: 220px;
 }
@@ -1092,7 +1091,6 @@
   color: var(--text-primary);
   font-size: var(--font-size-sm);
   font-family: var(--font-mono);
-  outline: none;
   transition: border-color var(--ease-fast);
 }
 
@@ -1481,7 +1479,6 @@
   background: transparent;
   color: var(--text-primary);
   font-size: var(--font-size-sm);
-  outline: none;
   transition: border-color var(--ease-fast);
 }
 .ast-ask-custom-input:focus {
@@ -1497,7 +1494,6 @@
   color: var(--text-primary);
   font-size: var(--font-size-sm);
   resize: vertical;
-  outline: none;
   margin-bottom: 10px;
   font-family: inherit;
 }
@@ -1673,7 +1669,6 @@
   font-size: var(--font-size-sm);
   padding: 4px 8px;
   resize: none;
-  outline: none;
   font-family: inherit;
 }
 .ast-queue-item.editing {
