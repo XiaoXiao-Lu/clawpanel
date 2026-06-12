@@ -227,7 +227,6 @@ async function loadConfig(page, state) {
     const oldPrimary = getCurrentPrimary(state.config)
     const normalizedModel = normalizeDefaultModelSelection(state.config)
     if (before !== after || normalizedModel.changed) {
-      console.log('[models] 自动修复了模型配置,正在保存...')
       await api.writeOpenclawConfig(state.config, { noReload: true })
       if (oldPrimary !== normalizedModel.primary) toast(t('models.primaryAutoSwitch', { model: normalizedModel.primary || t('models.notConfigured') }), 'info')
       else if (before !== after) toast(t('models.autoFixUrl'), 'info')
@@ -245,7 +244,7 @@ async function loadConfig(page, state) {
     renderOverviewBar(page, state)
     renderWaterfall(page, state)
   } catch (e) {
-    console.error('[models] loadConfig failed:', e)
+    console.error('[models] loadConfig failed:', e?.message ?? e)
     const detail = escapeHtml(e?.stack || e?.message || String(e))
     const shortMsg = escapeHtml(e?.message || String(e))
     listEl.innerHTML = `
