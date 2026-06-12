@@ -9,6 +9,99 @@
   color: var(--text-primary);
 }
 
+/* Message text content styling */
+.msg-text {
+  display: block;
+  color: var(--text-primary);
+  line-height: 1.7;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* User message text */
+.msg-user .msg-text {
+  color: white;
+}
+
+/* Markdown content in messages */
+.msg-bubble p {
+  margin: var(--space-2) 0;
+}
+
+.msg-bubble p:first-child {
+  margin-top: 0;
+}
+
+.msg-bubble p:last-child {
+  margin-bottom: 0;
+}
+
+/* ══════════════════════════════════════════════════════════
+   MESSAGE ACTIONS
+   Smooth reveal with slide-in animation
+   ══════════════════════════════════════════════════════════ */
+
+.msg-actions {
+  display: flex;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: all var(--ease-fast);
+}
+
+.msg:hover .msg-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.msg.user .msg-actions {
+  flex-direction: row-reverse;
+}
+
+.msg-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all var(--ease-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.msg-copy-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--aether-primary);
+  opacity: 0;
+  transition: opacity var(--ease-fast);
+  border-radius: inherit;
+}
+
+.msg-copy-btn:hover {
+  background: var(--aether-glass);
+  color: var(--aether-primary);
+}
+
+.msg-copy-btn:hover::before {
+  opacity: 0.1;
+}
+
+.msg-copy-btn:active {
+  transform: scale(0.9);
+}
+
+.msg-copy-btn.copied {
+  color: var(--status-online);
+}
+
 /* ══════════════════════════════════════════════════════════
    ENHANCED MESSAGE STYLES
    Improved bubbles with subtle depth and better interaction
@@ -66,30 +159,6 @@
 /* Message entrance animation enhancement */
 .msg {
   --msg-enter-delay: 0ms;
-}
-
-.msg:hover {
-  transform: translateX(2px);
-}
-
-.msg.user:hover {
-  transform: translateX(-2px);
-}
-
-/* Enhanced meta info */
-.msg-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-1);
-  font-size: var(--text-xxs);
-  color: var(--text-tertiary);
-  opacity: 0.6;
-  transition: opacity var(--ease-fast);
-}
-
-.msg:hover .msg-meta {
-  opacity: 1;
 }
 
 /* Status indicators with pulse */
@@ -311,6 +380,220 @@
   scrollbar-width: thin;
 }
 
+/* Session card styles (used by chat.js renderSessionList) */
+.chat-session-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: all var(--ease-fast);
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+}
+
+.chat-session-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--aether-primary-faint), transparent);
+  opacity: 0;
+  transition: opacity var(--ease-fast);
+  pointer-events: none;
+}
+
+.chat-session-card:hover {
+  background: var(--aether-glass);
+}
+
+.chat-session-card:hover::before {
+  opacity: 1;
+}
+
+.chat-session-card:hover .chat-session-del {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.chat-session-card.active {
+  background: var(--aether-primary-faint);
+  border-left-color: var(--aether-primary);
+}
+
+.chat-session-card.active::before {
+  opacity: 1;
+}
+
+.chat-session-card.pinned .chat-session-pin {
+  color: var(--status-busy);
+}
+
+.chat-session-card.selected {
+  background: var(--aether-glass);
+  border-left-color: var(--aether-secondary);
+}
+
+/* Session card header */
+.chat-session-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.chat-session-select {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 2px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  transition: all var(--ease-fast);
+  flex-shrink: 0;
+}
+
+.chat-session-select:hover {
+  color: var(--aether-primary);
+  background: var(--aether-glass);
+}
+
+.chat-session-label {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--ease-fast);
+}
+
+.chat-session-card:hover .chat-session-label {
+  color: var(--aether-primary);
+}
+
+.chat-session-card.active .chat-session-label {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Session card actions */
+.chat-session-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.chat-session-del,
+.chat-session-pin {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateX(8px);
+  transition: all var(--ease-fast);
+  flex-shrink: 0;
+}
+
+.chat-session-card:hover .chat-session-del,
+.chat-session-card:hover .chat-session-pin,
+.chat-session-del:focus,
+.chat-session-pin:focus {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.chat-session-del:hover {
+  background: var(--error-surface);
+  color: var(--status-error);
+  transform: scale(1.1);
+}
+
+.chat-session-pin:hover {
+  background: var(--warning-surface);
+  color: var(--status-busy);
+}
+
+.chat-session-del svg,
+.chat-session-pin svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Session card meta */
+.chat-session-card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: 26px;
+  font-size: var(--text-xxs);
+  color: var(--text-tertiary);
+}
+
+.chat-session-card-meta span {
+  white-space: nowrap;
+}
+
+.chat-session-agent {
+  color: var(--aether-primary);
+  font-weight: 500;
+}
+
+/* Empty state */
+.chat-session-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl);
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  text-align: center;
+  gap: var(--space-2);
+}
+
+/* Session bulk bar */
+.chat-session-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--aether-primary-faint);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-2);
+}
+
+.chat-session-bulk-bar span {
+  flex: 1;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+/* Session rename input */
+.chat-session-rename-input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--aether-primary);
+  border-radius: var(--radius-sm);
+  background: var(--aether-elevated);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+/* Legacy session item styles (for backward compatibility) */
 .chat-session-item {
   display: flex;
   align-items: center;
@@ -354,99 +637,6 @@
 
 .chat-session-item.active::before {
   opacity: 1;
-}
-
-.chat-session-item.pinned .chat-session-pin {
-  color: var(--status-busy);
-}
-
-/* Enhanced session icon */
-.chat-session-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  background: var(--aether-glass);
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  color: var(--text-tertiary);
-  transition: all var(--ease-fast);
-}
-
-.chat-session-icon svg {
-  width: 16px;
-  height: 16px;
-}
-
-.chat-session-item:hover .chat-session-icon {
-  transform: scale(1.05);
-  color: var(--aether-primary);
-}
-
-.chat-session-item.active .chat-session-icon {
-  background: var(--aether-primary-muted);
-  color: var(--aether-primary);
-}
-
-/* Enhanced session info */
-.chat-session-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.chat-session-title {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color var(--ease-fast);
-}
-
-.chat-session-item:hover .chat-session-title {
-  color: var(--aether-primary);
-}
-
-.chat-session-meta {
-  font-size: var(--text-xxs);
-  color: var(--text-tertiary);
-  margin-top: 2px;
-}
-
-/* Enhanced action buttons */
-.chat-session-del,
-.chat-session-pin {
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  opacity: 0;
-  transform: translateX(8px);
-  transition: all var(--ease-fast);
-  flex-shrink: 0;
-}
-
-.chat-session-del:hover {
-  background: var(--error-surface);
-  color: var(--status-error);
-  transform: scale(1.1);
-}
-
-.chat-session-pin:hover {
-  background: var(--warning-surface);
-  color: var(--status-busy);
-}
-
-.chat-session-del svg,
-.chat-session-pin svg {
-  width: 14px;
-  height: 14px;
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -760,23 +950,19 @@
 .msg-status.sent { color: var(--status-online); }
 .msg-status.error { color: var(--status-error); }
 
-.msg-actions {
-  display: flex;
-  gap: var(--space-1);
-  margin-top: var(--space-1);
-  opacity: 0;
-  transition: opacity var(--ease-fast);
+/* Message feedback controls */
+.msg-feedback {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: var(--space-2);
 }
 
-.msg:hover .msg-actions {
-  opacity: 1;
-}
-
-.msg-action-btn {
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
+.msg-fb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -785,14 +971,14 @@
   transition: all var(--ease-fast);
 }
 
-.msg-action-btn:hover {
-  background: var(--aether-glass-hover);
-  color: var(--text-primary);
+.msg-fb-btn:hover {
+  background: var(--aether-glass);
+  color: var(--aether-primary);
 }
 
-.msg-action-btn svg {
-  width: 14px;
-  height: 14px;
+.msg-fb-btn.active {
+  color: var(--aether-primary);
+  background: var(--aether-primary-faint);
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -976,21 +1162,30 @@
 .msg-status.sent { color: var(--status-online); }
 .msg-status.error { color: var(--status-error); }
 
-/* Enhanced action buttons with slide-in effect */
-.msg-actions {
-  display: flex;
-  gap: var(--space-1);
-  margin-top: var(--space-2);
-  opacity: 0;
-  transform: translateY(4px);
-  transition: all var(--ease-fast);
-}
-
-.msg:hover .msg-actions {
+/* Enhanced message metadata */
+.msg:hover .msg-meta {
   opacity: 1;
-  transform: translateY(0);
 }
 
+.msg.user .msg-meta {
+  flex-direction: row-reverse;
+}
+
+.msg-time {
+  opacity: 0.7;
+}
+
+.msg-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.msg-status.sending { color: var(--status-busy); }
+.msg-status.sent { color: var(--status-online); }
+.msg-status.error { color: var(--status-error); }
+
+/* Enhanced action buttons */
 .msg-action-btn {
   width: 28px;
   height: 28px;
@@ -1036,7 +1231,6 @@
   z-index: var(--z-layer-1);
 }
 
-/* Copy button success state */
 .msg-action-btn.copied {
   color: var(--status-online);
 }
