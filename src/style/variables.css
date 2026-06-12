@@ -52,7 +52,24 @@
   --info-surface:          rgba(78, 205, 196, 0.08);
   --info-border:           rgba(78, 205, 196, 0.20);
 
-  /* ═══ Text Hierarchy ═══ */
+  /* ═══ Hover State Colors ═══ */
+--error-hover:          rgba(255, 107, 138, 0.15);
+--error-hover-border:   rgba(255, 107, 138, 0.30);
+--warning-hover:        rgba(255, 179, 71, 0.15);
+--warning-hover-border: rgba(255, 179, 71, 0.30);
+--success-hover:        rgba(16, 227, 160, 0.15);
+--success-hover-border: rgba(16, 227, 160, 0.30);
+
+/* ═══ Overlay & Banner ═══ */
+--update-banner-btn-bg:    rgba(255, 255, 255, 0.15);
+--update-banner-btn-border: rgba(255, 255, 255, 0.25);
+--update-banner-btn-hover: rgba(255, 255, 255, 0.25);
+--update-banner-close:     rgba(255, 255, 255, 0.70);
+
+/* ═══ Selection ═══ */
+--selection-bg:        rgba(124, 111, 255, 0.35);
+
+/* ═══ Text Hierarchy ═══ */
   --text-primary:          #F0F0F8;
   --text-secondary:        #9090B0;
   --text-tertiary:         #606080;

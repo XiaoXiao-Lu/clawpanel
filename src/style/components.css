@@ -78,8 +78,8 @@
   transition: background var(--ease-fast), border-color var(--ease-fast);
 }
 .btn-danger:hover {
-  background: rgba(255, 107, 138, 0.15);
-  border-color: rgba(255, 107, 138, 0.30);
+  background: var(--error-hover);
+  border-color: var(--error-hover-border);
 }
 
 /* Button Sizes */
@@ -900,8 +900,8 @@ body.has-desktop-chrome .toast-container {
   text-align: left;
 }
 .state-card--error {
-  border-color: rgba(255, 107, 138, 0.34);
-  background: rgba(255, 107, 138, 0.08);
+  border-color: var(--error-hover-border);
+  background: var(--error-surface);
 }
 .state-card-icon { color: var(--text-tertiary); }
 .state-card--error .state-card-icon { color: var(--status-error); }
@@ -1161,7 +1161,7 @@ mark:focus {
    ══════════════════════════════════════════════════════════ */
 
 [data-theme="dark"] ::selection {
-  background: rgba(124, 111, 255, 0.35);
+  background: var(--selection-bg);
   color: var(--text-primary);
 }
 
