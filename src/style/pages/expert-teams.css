@@ -1009,9 +1009,10 @@
 
 .expert-template-item:focus-visible,
 .expert-template-picker-head button:focus-visible {
-  outline: none;
+  outline: 2px solid var(--aether-primary);
+  outline-offset: 2px;
   border-color: var(--brand);
-  box-shadow: 0 0 0 2px var(--aether-primary);
+  box-shadow: var(--shadow-glow);
 }
 
 .expert-template-item strong {
