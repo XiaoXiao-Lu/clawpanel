@@ -420,7 +420,7 @@ function renderList(page, state) {
 function renderExpertListItem(expert, active) {
   return `
     <button class="expert-list-item ${active ? 'is-active' : ''}" type="button" data-select-id="${escapeAttr(expert.id)}" ${active ? 'aria-current="true"' : ''}>
-      <span class="expert-avatar" style="--expert-color:${escapeAttr(expert.color || 'var(--brand, #4f46e5)')}"></span>
+      <span class="expert-avatar" style="--expert-color:${escapeAttr(expert.color || 'var(--aether-primary, #4f46e5)')}"></span>
       <span class="expert-list-main">
         <strong>${escapeHtml(expert.name || expert.id)}</strong>
         <small>${escapeHtml(expert.title || expert.description || expert.id)}</small>
@@ -764,7 +764,7 @@ function renderMemberPicker(group, experts) {
     return `
       <label class="expert-member-row ${checked ? 'is-selected' : ''}" data-member-row="${escapeAttr(expert.id)}">
         <input type="checkbox" data-member-toggle value="${escapeAttr(expert.id)}" ${checked ? 'checked' : ''}>
-        <span class="expert-avatar" style="--expert-color:${escapeAttr(expert.color || 'var(--brand, #4f46e5)')}"></span>
+        <span class="expert-avatar" style="--expert-color:${escapeAttr(expert.color || 'var(--aether-primary, #4f46e5)')}"></span>
         <span class="expert-member-main">
           <strong>${escapeHtml(expert.name || expert.id)}</strong>
           <small>${escapeHtml(expert.title || expert.description || expert.id)}</small>
