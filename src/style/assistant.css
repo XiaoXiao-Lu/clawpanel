@@ -1356,7 +1356,7 @@
 }
 
 .ast-main[data-mode="chat"] .ast-mode-slider {
-  background: var(--text-3, var(--aether-text-tertiary));
+  background: var(--aether-elevated);
 }
 .ast-main[data-mode="plan"] .ast-mode-slider {
   background: var(--info, var(--aether-info));
@@ -3849,7 +3849,7 @@
 }
 
 .ast-expert-item--final {
-  background: var(--brand-faint);
+  background: var(--aether-primary-faint);
   border-left-color: var(--aether-primary);
   border-left-width: 3px;
   box-shadow: inset 0 0 20px -8px var(--aether-primary-muted);
@@ -5657,14 +5657,14 @@
    ═══════════════════════════════════════════ */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) .ast-page {
-    background: #F5F5FA;
+    background: var(--light-bg-elevated);
   }
   :root:not([data-theme="dark"]) .ast-header {
-    background: #FFFFFF;
+    background: var(--light-bg-white);
     border-bottom-color: rgba(0, 0, 0, 0.08);
   }
   :root:not([data-theme="dark"]) .ast-sidebar.open {
-    background: #FFFFFF;
+    background: var(--light-bg-white);
     border-right-color: rgba(0, 0, 0, 0.08);
   }
   :root:not([data-theme="dark"]) .ast-session-item {

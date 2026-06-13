@@ -181,7 +181,7 @@ function bindClick(page) {
         toast(t('engine.choiceSaved'), 'success')
         navigate(option.targetRoute)
       } catch (error) {
-        console.error('[engine-select] secondary choose failed:', error)
+        console.error('[engine-select] secondary choose failed:', error?.message ?? error)
         toast(humanizeError(error, t('engine.choiceSaveFailed')), 'error')
         _busy = false
         btn.classList.remove('loading')
@@ -227,7 +227,7 @@ async function chooseWithAnimation(page, panel, option, engine) {
         }
       }, 280))
     } catch (error) {
-      console.error('[engine-select] choose failed:', error)
+      console.error('[engine-select] choose failed:', error?.message ?? error)
       toast(humanizeError(error, t('engine.choiceSaveFailed')), 'error')
       // 失败回退：移除动画层 + 解除 busy
       removeRevealNodes()
