@@ -90,7 +90,7 @@ const MODE_ICONS = {
 const MODES = {
   chat:     { label: t('assistant.modeChat'), desc: t('assistant.modeChatDesc'), tools: false, readOnly: false, confirmDanger: true, accent: 'var(--text-secondary)' },
   plan:     { label: t('assistant.modePlan'), desc: t('assistant.modePlanDesc'), tools: true, readOnly: true, confirmDanger: true, accent: 'var(--info)' },
-  execute:  { label: t('assistant.modeExecute'), desc: t('assistant.modeExecuteDesc'), tools: true, readOnly: false, confirmDanger: true, accent: 'var(--accent)' },
+  execute:  { label: t('assistant.modeExecute'), desc: t('assistant.modeExecuteDesc'), tools: true, readOnly: false, confirmDanger: true, accent: 'var(--aether-primary)' },
   unlimited:{ label: t('assistant.modeUnlimited'), desc: t('assistant.modeUnlimitedDesc'), tools: true, readOnly: false, confirmDanger: false, accent: 'var(--warning)' },
 }
 const DEFAULT_MODE = 'execute'

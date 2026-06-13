@@ -549,6 +549,11 @@ select.form-input:disabled {
   background: var(--info-surface);
   color: var(--status-idle);
 }
+.badge-api-type {
+  font-size: var(--font-size-xs); font-weight: 500;
+  padding: 2px 8px; border-radius: var(--radius-pill);
+  background: var(--aether-primary-faint); color: var(--aether-primary); white-space: nowrap;
+}
 .badge:disabled,
 .badge[disabled] {
   opacity: 0.45;

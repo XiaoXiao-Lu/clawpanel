@@ -667,13 +667,6 @@
 .chevron { flex-shrink: 0; width: 16px; height: 16px; display: grid; place-items: center; color: var(--text-3); transition: transform 200ms var(--ease-out); }
 .chevron--open { transform: rotate(90deg); }
 
-/* ═══ BADGE API TYPE ═══ */
-.badge-api-type {
-  font-size: var(--font-size-xs); font-weight: 500;
-  padding: 2px 8px; border-radius: var(--radius-pill);
-  background: var(--aether-primary-faint); color: var(--aether-primary); white-space: nowrap;
-}
-
 /* ═══ BATCH BAR ═══ */
 .models-batch-bar {
   display: flex; gap: var(--space-sm); margin-bottom: var(--space-sm);
