@@ -3,16 +3,7 @@
  * 从 clawapp 移植，去掉 MEDIA 路径处理
  */
 import { escapeHtml } from './utils.js'
-// 浏览器环境检查：同时检查 window 和 document 存在
-// 避免在 SSR/测试环境中触发 document.addEventListener
-const _IS_BROWSER = typeof window !== 'undefined' && typeof document !== 'undefined' && typeof document.addEventListener === 'function'
-
-// DOMPurify 仅在浏览器环境懒加载（需要 window/document）
-let DOMPurify = null
-let _purifyReady = false
-if (_IS_BROWSER) {
-  import('dompurify').then(m => { DOMPurify = m.default; _purifyReady = true }).catch(() => {})
-}
+import { DOMPurify, purifyReady } from './sanitize.js'
 
 const KEYWORDS = new Set([
   'const','let','var','function','return','if','else','for','while','do',
@@ -254,8 +245,8 @@ export function renderMarkdown(text) {
   // 处理剩余的表格
   flushTable()
   let raw = result.join('\n')
-  // DOMPurify 消毒，防止 XSS（仅浏览器环境，已预加载）
-  if (_IS_BROWSER && DOMPurify?.sanitize && _purifyReady) {
+  // DOMPurify 消毒，防止 XSS（仅浏览器环境，已就绪）
+  if (typeof window !== 'undefined' && DOMPurify && purifyReady) {
     raw = DOMPurify.sanitize(raw, {
       ALLOWED_TAGS: ['p','br','strong','em','code','pre','button','span','h1','h2','h3','h4','h5','h6','hr','blockquote','ul','ol','li','table','tr','th','td','a','img','input','div'],
       ALLOWED_ATTR: ['class','type','disabled','checked','data-lang','href','target','rel','src','alt','loading','hidden','data-copy-btn'],
@@ -382,7 +373,7 @@ function inlineFormat(text) {
   return html.replace(/\x00MD(\d+)\x00/g, (_, index) => tokens[Number(index)] || '')
 }
 
-if (_IS_BROWSER) {
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   // 图片加载失败处理（使用事件委托替代内联 onerror）
   document.addEventListener('error', (e) => {
     const img = e.target.closest('img.msg-img')

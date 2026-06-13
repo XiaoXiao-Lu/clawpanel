@@ -4,13 +4,7 @@
 
 import { t } from '../lib/i18n.js'
 import { escapeAttr } from '../lib/utils.js'
-
-/** DOMPurify — 异步加载，safely sanitize HTML 内容防止 XSS */
-let DOMPurify = null
-let _purifyReady = false
-if (typeof window !== 'undefined') {
-  import('dompurify').then(m => { DOMPurify = m.default; _purifyReady = true }).catch(() => {})
-}
+import { DOMPurify, purifyReady } from '../lib/sanitize.js'
 
 /** 焦点栈 — 支持嵌套 modal 时正确恢复焦点 */
 const _focusStack = []
@@ -470,7 +464,7 @@ export function showUpgradeModal(title) {
       _logLines.push(line)
       const div = document.createElement('div')
       // Sanitize with DOMPurify if loaded; fall back to text-only if not yet ready
-      if (DOMPurify?.sanitize && _purifyReady) {
+      if (DOMPurify && purifyReady) {
         div.innerHTML = DOMPurify.sanitize(line, { USE_CLOSES: false })
       } else {
         div.textContent = line
