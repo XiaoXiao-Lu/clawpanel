@@ -2260,7 +2260,7 @@ async function openConfigDialog(pid, page, state, accountId) {
           </ol>
           ${reg.guideFooter || ''}
         </details>` : ''}
-      <div style="background:rgba(var(--brand-amber-rgb, 245,158,11), 0.12);color:#b45309;padding:12px 14px;border-radius:var(--radius-md);font-size:var(--font-size-sm);line-height:1.7">
+      <div style="background:rgba(var(--brand-amber-rgb, 245,158,11), 0.12);color:var(--warning,#b45309);padding:12px 14px;border-radius:var(--radius-md);font-size:var(--font-size-sm);line-height:1.7">
         <div style="font-weight:700;margin-bottom:6px">${t('channels.docsOnlyTitle')}</div>
         <div>${reg.supportNote || t('channels.docsOnlyDefault')}</div>
       </div>
