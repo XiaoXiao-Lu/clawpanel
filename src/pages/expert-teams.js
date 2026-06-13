@@ -870,8 +870,8 @@ function showGroupTemplatePicker(page, state) {
   overlay.innerHTML = `
     <div class="expert-template-picker" role="dialog" aria-modal="true" aria-labelledby="${titleId}">
       <div class="expert-template-picker-head">
-        <span id="${titleId}">${t('expertTeams.createFromTemplate')}</span>
-        <button type="button" data-action="template-blank">${t('expertTeams.createBlank')}</button>
+        <span id="${titleId}">${escapeHtml(t('expertTeams.createFromTemplate'))}</span>
+        <button type="button" data-action="template-blank">${escapeHtml(t('expertTeams.createBlank'))}</button>
       </div>
       <div class="expert-template-picker-body">${items}</div>
     </div>
@@ -1251,7 +1251,7 @@ function moderatorOptions(group, experts) {
   const selected = new Set((Array.isArray(group.members) ? group.members : []).map(member => member.expertId))
   return `<option value="">${t('expertTeams.noModerator')}</option>` + experts
     .filter(expert => selected.has(expert.id))
-    .map(expert => option(expert.id, escapeHtml(expert.name || expert.id), group.moderatorExpertId || ''))
+    .map(expert => option(expert.id, expert.name || expert.id, group.moderatorExpertId || ''))
     .join('')
 }
 
@@ -1473,10 +1473,25 @@ function bindTagPickerEvents(root, id, options) {
   modal.addEventListener('click', (e) => {
     if (e.target === modal) closeModal({ restoreFocus: true })
   })
+  // 键盘处理: Escape 关闭, Tab focus trap
   modal.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return
-    e.preventDefault()
-    closeModal({ restoreFocus: true })
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      closeModal({ restoreFocus: true })
+      return
+    }
+    if (e.key !== 'Tab') return
+    const focusable = modal.querySelectorAll(
+      'input:not([disabled]), button:not([disabled]), [tabindex]:not([disabled]):not([hidden])'
+    )
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (!first || !last) return
+    if (e.shiftKey ? document.activeElement === first : document.activeElement === last) {
+      e.preventDefault()
+      if (e.shiftKey) last.focus()
+      else first.focus()
+    }
   })
 
   // 搜索
