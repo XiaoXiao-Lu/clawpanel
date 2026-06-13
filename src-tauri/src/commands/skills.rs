@@ -565,12 +565,6 @@ fn custom_skill_roots_for_agent(
         roots.push((super::openclaw_dir().join("skills"), "OpenClaw 自定义"));
     }
 
-    if let Some(home) = dirs::home_dir() {
-        let claude_skills = home.join(".claude").join("skills");
-        if !roots.iter().any(|(dir, _)| dir == &claude_skills) {
-            roots.push((claude_skills, "Claude 自定义"));
-        }
-    }
     // 从已解析的 CLI 路径推导 npm 包内的 bundled skills 目录
     if let Some(cli_path) = crate::utils::resolve_openclaw_cli_path() {
         let cli = std::path::PathBuf::from(&cli_path);
@@ -588,13 +582,29 @@ fn custom_skill_roots_for_agent(
     }
     #[cfg(target_os = "windows")]
     if let Some(prefix) = super::windows_npm_global_prefix() {
-        for pkg in ["openclaw", "@qingchencloud/openclaw-zh"] {
-            let bundled = std::path::PathBuf::from(&prefix)
-                .join("node_modules")
-                .join(pkg)
-                .join("skills");
+        let active_source = crate::utils::resolve_openclaw_cli_path()
+            .map(|path| crate::utils::classify_cli_source(&path))
+            .unwrap_or_else(|| "unknown".to_string());
+        let packages: Vec<(&[&str], &'static str)> = if active_source == "npm-zh" {
+            vec![
+                (&["@qingchencloud", "openclaw-zh"], "OpenClaw 内置"),
+                (&["openclaw"], "OpenClaw 内置"),
+            ]
+        } else {
+            vec![
+                (&["openclaw"], "OpenClaw 内置"),
+                (&["@qingchencloud", "openclaw-zh"], "OpenClaw 内置"),
+            ]
+        };
+
+        for (pkg_parts, label) in packages {
+            let mut bundled = std::path::PathBuf::from(&prefix).join("node_modules");
+            for part in pkg_parts {
+                bundled = bundled.join(part);
+            }
+            bundled = bundled.join("skills");
             if bundled.is_dir() && !roots.iter().any(|(dir, _)| dir == &bundled) {
-                roots.push((bundled, "OpenClaw 内置"));
+                roots.push((bundled, label));
             }
         }
     }
@@ -615,6 +625,7 @@ fn scan_custom_skill_detail(
     name: &str,
     agent_skills_dir: Option<&std::path::Path>,
 ) -> Option<Value> {
+    let mut best: Option<Value> = None;
     for (root, source_label) in custom_skill_roots_for_agent(agent_skills_dir) {
         let skill_path = root.join(name);
         if !skill_path.exists() {
@@ -664,15 +675,19 @@ fn scan_custom_skill_detail(
         }
         copy_skill_visual_fields(&mut detail, &base);
 
-        return Some(detail);
+        // roots 已按优先级排列，第一个匹配的就是最优版本
+        if best.is_none() {
+            best = Some(detail);
+        }
     }
-    None
+    best
 }
 
 fn scan_local_skill_entries_for_agent(
     agent_skills_dir: Option<&std::path::Path>,
 ) -> Result<Vec<Value>, String> {
     let mut skills = Vec::new();
+    let mut seen = std::collections::HashSet::new();
 
     for (skills_dir, source_label) in custom_skill_roots_for_agent(agent_skills_dir) {
         if !skills_dir.exists() {
@@ -703,12 +718,24 @@ fn scan_local_skill_entries_for_agent(
                 .filter(|s| !s.is_empty())
                 .map(|s| s.to_string())
                 .unwrap_or(dir_name);
-            let sk_source = base
-                .get("custom")
-                .and_then(|v| v.as_bool())
-                .filter(|&c| c)
-                .map(|_| "自定义")
-                .unwrap_or(source_label);
+
+            // roots 已按优先级排列（用户目录 > npm 内置），同名取第一个
+            let key = display_name.trim().to_ascii_lowercase();
+            if key.is_empty() || !seen.insert(key) {
+                continue;
+            }
+
+            let is_user_root = source_label.contains("自定义");
+            let sk_source = if is_user_root
+                && base
+                    .get("custom")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+            {
+                "自定义"
+            } else {
+                source_label
+            };
             let eligible = base.get("ready").and_then(|v| v.as_bool()).unwrap_or(false);
             let mut item = serde_json::json!({
                 "name": display_name,

@@ -1184,7 +1184,7 @@
     "summary": "{total} Skills: {detail}",
     "summaryDetail": "{eligible} available / {missing} missing deps / {disabled} disabled",
     "noSkills": "Keine Skills",
-    "noSkillsHint": "Please confirm OpenClaw is properly installed. Skills are bundled with OpenClaw; custom Skills may be in <code>~/.openclaw/skills/</code> or <code>~/.claude/skills/</code>.",
+    "noSkillsHint": "Please confirm OpenClaw is properly installed. Skills are bundled with OpenClaw; custom Skills may be in <code>~/.openclaw/skills/</code>.",
     "bundled": "Bundled",
     "custom": "Custom",
     "missingCmd": "Missing commands",

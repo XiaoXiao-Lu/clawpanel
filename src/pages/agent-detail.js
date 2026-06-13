@@ -29,12 +29,12 @@ export async function render() {
   page.className = 'page agent-detail-page'
 
   page.innerHTML = `
-    <div class="page-header">
-      <div>
+    <div class="page-header agent-detail-header">
+      <div class="agent-detail-heading">
         <a class="agent-back-link" href="#/agents">${t('agentDetail.back')}</a>
         <h1 class="page-title" id="agent-detail-title">Agent: ${esc(agentId)}</h1>
       </div>
-      <div class="agent-detail-actions" style="display:flex;gap:8px;align-items:center">
+      <div class="agent-detail-actions">
         <button class="btn btn-sm btn-secondary" id="btn-backup-agent">${t('agents.backup') || '备份'}</button>
       </div>
     </div>
@@ -468,29 +468,103 @@ function renderSkills(container, state) {
   })
 }
 
+function _buildSkillPreviewBody(body, detail, allMissing, allReqs) {
+  body.style.cssText = 'padding:16px 20px'
+  const description = normalizeSkillDescription(detail) || '暂无描述'
+  body.replaceChildren(
+    Object.assign(document.createElement('div'), { className: 'skill-preview-desc', textContent: description }),
+  )
+  if (allReqs.length) {
+    const section = document.createElement('div')
+    section.className = 'skill-preview-section'
+    section.appendChild(Object.assign(document.createElement('h4'), { textContent: '所需工具' }))
+    const tags = document.createElement('div')
+    tags.className = 'skill-preview-tags'
+    for (const r of allReqs) {
+      tags.appendChild(Object.assign(document.createElement('span'), { className: 'badge badge-api-type', textContent: r }))
+    }
+    section.appendChild(tags)
+    body.appendChild(section)
+  }
+  if (allMissing.length) {
+    const section = document.createElement('div')
+    section.className = 'skill-preview-section'
+    const heading = document.createElement('h4')
+    heading.appendChild(statusIcon('warn', 14))
+    heading.appendChild(document.createTextNode(' 缺少依赖'))
+    section.appendChild(heading)
+    const tags = document.createElement('div')
+    tags.className = 'skill-preview-tags'
+    for (const m of allMissing) {
+      tags.appendChild(Object.assign(document.createElement('span'), {
+        className: 'badge',
+        style: 'background:var(--error-muted);color:var(--error)',
+        textContent: String(m),
+      }))
+    }
+    section.appendChild(tags)
+    body.appendChild(section)
+  }
+  if (detail?.homepage) {
+    const section = document.createElement('div')
+    section.className = 'skill-preview-section'
+    const link = Object.assign(document.createElement('a'), {
+      href: detail.homepage,
+      target: '_blank',
+      rel: 'noopener',
+      textContent: '',
+    })
+    link.style.cssText = 'color:var(--accent);display:inline-flex;align-items:center;gap:4px'
+    link.appendChild(icon('link', 14))
+    link.appendChild(document.createTextNode(' 查看主页'))
+    section.appendChild(link)
+    body.appendChild(section)
+  }
+  if (detail?.source) {
+    const section = document.createElement('div')
+    section.className = 'skill-preview-section'
+    section.style.cssText = 'color:var(--text-tertiary);font-size:12px'
+    const sourceText = '来源: ' + detail.source + (detail?.version ? ' · v' + detail.version : '') + (detail?.author ? ' · ' + detail.author : '')
+    section.textContent = sourceText
+    body.appendChild(section)
+  }
+}
+
 function showSkillPreview(name, agentId) {
   // 显示加载中弹窗
   const overlay = document.createElement('div')
   overlay.className = 'modal-overlay'
-  overlay.innerHTML = `
-    <div class="modal agent-skill-preview-modal">
-      <div class="modal-title">${icon('puzzle', 14)} ${esc(name)}</div>
-      <div class="modal-body" style="padding:40px;text-align:center;color:var(--text-tertiary)">加载中...</div>
-      <div class="modal-actions">
-        <button class="btn btn-secondary btn-sm" data-action="cancel">${t('common.close') || '关闭'}</button>
-      </div>
-    </div>
-  `
+  const modal = document.createElement('div')
+  modal.className = 'modal agent-skill-preview-modal'
+  const titleEl = document.createElement('div')
+  titleEl.className = 'modal-title'
+  titleEl.appendChild(icon('puzzle', 14))
+  titleEl.appendChild(document.createTextNode(' ' + name))
+  const bodyEl = document.createElement('div')
+  bodyEl.className = 'modal-body'
+  bodyEl.style.cssText = 'padding:40px;text-align:center;color:var(--text-tertiary)'
+  bodyEl.textContent = '加载中...'
+  const actionsEl = document.createElement('div')
+  actionsEl.className = 'modal-actions'
+  const cancelBtn = Object.assign(document.createElement('button'), {
+    className: 'btn btn-secondary btn-sm',
+    dataset: { action: 'cancel' },
+    textContent: t('common.close') || '关闭',
+  })
+  actionsEl.appendChild(cancelBtn)
+  modal.appendChild(titleEl)
+  modal.appendChild(bodyEl)
+  modal.appendChild(actionsEl)
+  overlay.appendChild(modal)
   document.body.appendChild(overlay)
   _trackOverlay(overlay)
 
   const close = () => overlay.remove()
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close() })
-  overlay.querySelector('[data-action="cancel"]').onclick = close
+  cancelBtn.addEventListener('click', close)
 
   // 异步加载详情
   api.skillsInfo(name, agentId).then(detail => {
-    const deps = (detail?.dependencies || []).length
     const missingInfo = detail?.missing || {}
     const reqs = detail?.requirements || {}
     const allMissing = [
@@ -503,39 +577,47 @@ function showSkillPreview(name, agentId) {
       ...(reqs.bins || []).map(b => typeof b === 'string' ? b : b.name || JSON.stringify(b)),
       ...(reqs.env || []).map(e => typeof e === 'string' ? e : e.name || JSON.stringify(e)),
     ]
-
-    const body = overlay.querySelector('.modal-body')
-    if (!body) return
-    body.style.cssText = 'padding:16px 20px'
-    body.innerHTML = '<div class="skill-preview-desc">' + esc(detail?.description || '暂无描述') + '</div>' +
-      (allReqs.length ? '<div class="skill-preview-section"><h4>所需工具</h4><div class="skill-preview-tags">' + allReqs.map(r => '<span class="badge badge-api-type">' + esc(r) + '</span>').join('') + '</div></div>' : '') +
-      (allMissing.length ? '<div class="skill-preview-section"><h4>' + statusIcon('warn', 14) + ' 缺少依赖</h4><div class="skill-preview-tags">' + allMissing.map(m => '<span class="badge" style="background:var(--error-muted);color:var(--error)">' + esc(String(m)) + '</span>').join('') + '</div></div>' : '') +
-      (detail?.homepage ? '<div class="skill-preview-section"><a href="' + esc(detail.homepage) + '" target="_blank" rel="noopener" style="color:var(--accent)">' + icon('link', 14) + ' 查看主页</a></div>' : '') +
-      (detail?.source ? '<div class="skill-preview-section" style="color:var(--text-tertiary);font-size:12px">来源: ' + esc(detail.source) + (detail?.version ? ' · v' + esc(detail.version) : '') + (detail?.author ? ' · ' + esc(detail.author) : '') + '</div>' : '')
+    _buildSkillPreviewBody(bodyEl, detail, allMissing, allReqs)
   }).catch(e => {
-    const body = overlay.querySelector('.modal-body')
-    if (body) body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--error)">加载失败: ' + esc(String(e)) + '</div>'
+    bodyEl.style.cssText = 'padding:40px;text-align:center;color:var(--error)'
+    bodyEl.textContent = '加载失败: ' + esc(String(e))
   })
 }
 
 function renderSkillCard(skill, checked) {
   const emoji = skill.emoji || '🧩'
-  const desc = skill.description || ''
+  const desc = normalizeSkillDescription(skill)
+  const displayDesc = desc || '暂无描述'
   const eligible = skill.eligible !== false
   const disabled = skill.disabled === true
   return `
-    <label class="agent-skill-card ${!eligible || disabled ? 'is-muted' : ''}" data-name="${esc(skill.name)}" data-desc="${esc(desc)}">
+    <label class="agent-skill-card ${!eligible || disabled ? 'is-muted' : ''}" data-name="${esc(skill.name)}" data-desc="${esc(desc || skill.name || '')}">
       <input type="checkbox" class="agent-skill-checkbox" data-skill-name="${esc(skill.name)}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
       <div class="agent-skill-main">
         <div class="agent-skill-head">
-          <span class="agent-skill-name">${emoji} ${esc(skill.name)}</span>
+          <span class="agent-skill-name">${esc(emoji)} ${esc(skill.name)}</span>
           ${disabled ? `<span class="agent-skill-badge">${t('agentDetail.skillDisabled')}</span>` : ''}
           ${!eligible && !disabled ? `<span class="agent-skill-badge">${t('agentDetail.skillUnavailable')}</span>` : ''}
         </div>
-        <div class="agent-skill-desc">${esc(desc)}</div>
+        <div class="agent-skill-desc ${desc ? '' : 'is-empty'}">${esc(displayDesc)}</div>
       </div>
     </label>
   `
+}
+
+function normalizeSkillDescription(skill) {
+  const raw = [skill?.description, skill?.desc, skill?.summary]
+    .find(value => typeof value === 'string' && value.trim())
+  const text = String(raw || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!text) return ''
+
+  const markdownResidue = /^[>|\\\-_*`~\s]+$/.test(text)
+  const hasReadableText = /[A-Za-z0-9\u4e00-\u9fff]/.test(text)
+  if (markdownResidue || (text.length <= 2 && !hasReadableText)) return ''
+  return text
 }
 
 async function saveSkills(container, state) {
@@ -545,10 +627,33 @@ async function saveSkills(container, state) {
   try {
     const selected = []
     container.querySelectorAll('.agent-skill-checkbox:checked').forEach((el) => selected.push(el.dataset.skillName))
+
+    // 校验技能名是否真实存在
+    const catalog = state.skillsCatalog || []
+    const validNames = new Set(catalog.map(s => s.name))
+    const invalid = selected.filter(name => !validNames.has(name))
+    if (invalid.length) {
+      toast(t('agentDetail.skillNameInvalid') + ': ' + invalid.join(', '), 'warning')
+      btn.disabled = false
+      btn.textContent = t('agentDetail.saveSkills')
+      return
+    }
+
     await api.updateAgentConfig(state.agentId, { skills: selected })
     invalidate('get_agent_detail')
     state.detail = await api.getAgentDetail(state.agentId)
     toast(t('agentDetail.skillsSaved'), 'success')
+
+    // 检查 Gateway 运行状态
+    try {
+      const services = await api.getServicesStatus()
+      const gatewayRunning = Array.isArray(services) && services.some(s => s.label === 'ai.openclaw.gateway' && s.running)
+      if (!gatewayRunning) {
+        toast(t('agentDetail.gatewayNotRunning'), 'warning')
+      }
+    } catch {
+      // services 状态不可用时不阻塞主流程
+    }
   } catch (e) {
     toast(humanizeError(e, t('agentDetail.saveFailed')), 'error')
   } finally {

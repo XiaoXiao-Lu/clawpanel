@@ -23,7 +23,7 @@ export default {
   summary: _('共 {total} 个 Skills: {detail}', '{total} Skills: {detail}', '共 {total} 個 Skills: {detail}'),
   summaryDetail: _('{eligible} 可用 / {missing} 缺依赖 / {disabled} 已禁用', '{eligible} available / {missing} missing deps / {disabled} disabled', '{eligible} 可用 / {missing} 缺依赖 / {disabled} 已停用'),
   noSkills: _('未检测到任何 Skills', 'No Skills detected', '未檢測到任何 Skills', 'Skills なし', 'Skills 없음', 'Không có Skills', 'Sin Skills', 'Sem Skills', 'Нет навыков', 'Aucun Skill', 'Keine Skills'),
-  noSkillsHint: _('请确认 OpenClaw 已正确安装。Skills 随 OpenClaw 捆绑提供；自定义 Skills 可能位于 <code>~/.openclaw/skills/</code> 或 <code>~/.claude/skills/</code>。', 'Please confirm OpenClaw is properly installed. Skills are bundled with OpenClaw; custom Skills may be in <code>~/.openclaw/skills/</code> or <code>~/.claude/skills/</code>.', '請確認 OpenClaw 已正確安裝。Skills 隨 OpenClaw 捆綁提供；自定義 Skills 可能位於 <code>~/.openclaw/skills/</code> 或 <code>~/.claude/skills/</code>。'),
+  noSkillsHint: _('请确认 OpenClaw 已正确安装。Skills 随 OpenClaw 捆绑提供；自定义 Skills 位于 <code>~/.openclaw/skills/</code>。', 'Please confirm OpenClaw is properly installed. Skills are bundled with OpenClaw; custom Skills are located in <code>~/.openclaw/skills/</code>.', '請確認 OpenClaw 已正確安裝。Skills 隨 OpenClaw 捆綁提供；自定義 Skills 位於 <code>~/.openclaw/skills/</code>。'),
   bundled: _('捆绑', 'Bundled', '捆綁'),
   custom: _('自定义', 'Custom', '自定義'),
   missingCmd: _('缺少命令', 'Missing commands'),
@@ -85,5 +85,5 @@ export default {
   uninstallFailed: _('卸载失败', 'Uninstall failed', '卸載失敗', 'アンインストール失敗', '제거 실패'),
   skillInstalled: _('Skill {name} 安装成功', 'Skill {name} installed', 'Skill {name} 安裝成功'),
   agentLabel: _('Agent:', 'Agent:'),
-  allAgents: _('默认 (main)', 'Default (main)', '預設 (main)'),
+  allAgents: _('默认', 'Default', '預設'),
 }

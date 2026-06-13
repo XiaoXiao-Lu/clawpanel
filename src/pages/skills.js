@@ -532,10 +532,11 @@ export async function render() {
           ${agents.map(a => {
             const id = a.id || 'main'
             const name = a.name || a.id || 'main'
-            const isDefault = a.default ? ` (${t('skills.allAgents').split('(')[0].trim()})` : ''
+            const isDefault = a.default ? ` (${t('skills.allAgents')})` : ''
             return `<option value="${esc(id)}"${id === (_selectedAgentId || 'main') ? ' selected' : ''}>${esc(name)}${isDefault}</option>`
           }).join('')}
         </select>
+        <span class="skills-agent-hint" style="font-size:11px;color:var(--text-tertiary);margin-left:6px;white-space:nowrap">${t('skills.globalSkillHint')}</span>
       </div>`
     : ''
 
@@ -947,7 +948,7 @@ async function loadStore(page) {
     if (meta) meta.innerHTML = `<span class="meta-dot"></span>${t('skills.featuredMeta', { count: _storeItems.length })}`
     renderStoreItems(results, _storeIndex)
   } catch (e) {
-    results.innerHTML = `<div class="skills-empty-state"><div class="skills-empty-icon">${icon('globe', 14)}</div><div class="skills-empty-title">${t('skills.storeLoadFailed')}</div><div class="skills-empty-desc">${esc(e?.message || e)}</div></div>`
+    results.innerHTML = `<div class="skills-empty-state"><div class="skills-empty-icon">${icon('globe', 14)}</div><div class="skills-empty-title">${t('skills.storeLoadFailed')}</div><div class="skills-empty-desc">${esc(e?.message || e)}</div><button class="btn btn-primary btn-sm" data-action="store-retry" style="margin-top:12px">${icon('refresh-cw', 14)} ${t('skills.retry')}</button></div>`
   }
 }
 
@@ -1220,6 +1221,9 @@ function bindEvents(page) {
         page.querySelectorAll('.skills-chip').forEach(chip => chip.classList.toggle('active', chip === btn))
         page.querySelector('#skill-store-search').value = btn.dataset.query || ''
         await handleStoreSearch(page)
+        break
+      case 'store-retry':
+        await loadStore(page)
         break
       case 'store-install':
         await handleStoreInstall(page, btn)
