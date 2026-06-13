@@ -773,7 +773,7 @@ function startActivityStream(page, state) {
       renderOfficeDiagnostics(page, state)
       renderActivityRail(page, state)
       renderAuditRail(page, state)
-      console.warn('[agents] activity stream failed:', e)
+      console.warn('[agents] activity stream failed:', e?.message ?? e)
     }
   })
 }
@@ -1106,7 +1106,7 @@ async function showAddAgentDialog(page, state) {
           try {
             await api.updateAgentIdentity(id, name || null, emoji || null)
           } catch (identityErr) {
-            console.warn('[Agent] 身份信息更新失败（Agent 已创建）:', identityErr)
+            console.warn('[Agent] 身份信息更新失败（Agent 已创建）:', identityErr?.message ?? identityErr)
             toast(t('agents.createdNameFailed'), 'warning')
           }
         }
@@ -1141,7 +1141,7 @@ async function showEditAgentDialog(page, state, id) {
     }
     devLog('[Agent编辑] 获取到模型列表:', models.length, '个')
   } catch (e) {
-    console.error('[Agent编辑] 获取模型列表失败:', e)
+    console.error('[Agent编辑] 获取模型列表失败:', e?.message ?? e)
   }
 
   const fields = [
@@ -1197,7 +1197,7 @@ async function showEditAgentDialog(page, state, id) {
 
         toast(t('agents.updated'), 'success')
       } catch (e) {
-        console.error('[Agent编辑] 保存失败:', e)
+        console.error('[Agent编辑] 保存失败:', e?.message ?? e)
         toast(humanizeError(e, t('agents.updateFailed')), 'error')
       }
     }

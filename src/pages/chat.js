@@ -1169,7 +1169,7 @@ async function saveWorkspaceCurrentFile() {
     try {
       await loadWorkspacePanelData(true)
     } catch (refreshError) {
-      console.warn('[chat] workspace refresh after save failed:', refreshError)
+      console.warn('[chat] workspace refresh after save failed:', refreshError?.message ?? refreshError)
     }
     toast(wasExisting ? t('common.saveSuccess') : t('chat.workspaceFileCreated'), 'success')
   } catch (e) {
@@ -1471,7 +1471,7 @@ async function refreshSessionList() {
     const sessions = result?.sessions || result || []
     renderSessionList(sessions)
   } catch (e) {
-    console.error('[chat] refreshSessionList error:', e)
+    console.error('[chat] refreshSessionList error:', e?.message ?? e)
   }
 }
 
@@ -1769,7 +1769,7 @@ async function showNewSessionDialog() {
       ).join('')
     }
   } catch (e) {
-    console.warn('[chat] 加载 Agent 列表失败:', e)
+    console.warn('[chat] 加载 Agent 列表失败:', e?.message ?? e)
   }
 }
 

@@ -81,10 +81,10 @@ export async function render() {
 
   // 异步加载数据
   loadDashboardData(page).catch(e => {
-    console.error('[dashboard] loadDashboardData 异常:', e)
+    console.error('[dashboard] loadDashboardData 异常:', e?.message ?? e)
     const cardsEl = page.querySelector('#stat-cards')
     if (cardsEl && cardsEl.querySelector('.loading-placeholder')) {
-      cardsEl.innerHTML = `<div class="stat-card dashboard-error-card"><div>${t('common.loadFailed')}: ${escapeHtml(String(e?.message || e))}</div><button class="btn btn-sm btn-secondary" onclick="this.closest('.page')&&this.closest('.page').__retryLoad?.()">${t('dashboard.retry')}</button></div>`
+      cardsEl.innerHTML = `<div class="stat-card dashboard-error-card"><div>${t('common.loadFailed')}: ${escapeHtml(String(e?.message || e))}</div><button class="btn btn-sm btn-secondary" data-dashboard-retry>${t('dashboard.retry')}</button></div>`
     }
   })
   setTimeout(() => {
@@ -307,11 +307,11 @@ async function _loadDashboardDataInner(page, fullRefresh, loadSeq) {
     _dashboardStatusSummaryCache = null
   }
   if (servicesRes.status === 'rejected') {
-    console.warn('[dashboard] getServicesStatus slow/failed:', servicesRes.reason)
+    console.warn('[dashboard] getServicesStatus slow/failed:', servicesRes.reason?.message ?? servicesRes.reason)
     toast(t('dashboard.servicesLoadFail'), 'error')
   }
-  if (configRes.status === 'rejected') console.warn('[dashboard] readOpenclawConfig slow/failed:', configRes.reason)
-  if (panelConfigRes.status === 'rejected') console.warn('[dashboard] readPanelConfig slow/failed:', panelConfigRes.reason)
+  if (configRes.status === 'rejected') console.warn('[dashboard] readOpenclawConfig slow/failed:', configRes.reason?.message ?? configRes.reason)
+  if (panelConfigRes.status === 'rejected') console.warn('[dashboard] readPanelConfig slow/failed:', panelConfigRes.reason?.message ?? panelConfigRes.reason)
 
   // 自愈：补全关键默认值（先重新读取最新配置再 patch，避免用缓存覆盖其他页面的写入）
   if (config) {
@@ -366,7 +366,7 @@ async function _loadDashboardDataInner(page, fullRefresh, loadSeq) {
         return _dashboardVersionCache || {}
       })
       .catch(e => {
-        console.warn('[dashboard] getVersionInfo slow/failed:', e)
+        console.warn('[dashboard] getVersionInfo slow/failed:', e?.message || e)
         return _dashboardVersionCache || {}
       })
     : Promise.resolve(_dashboardVersionCache || {})
@@ -383,7 +383,7 @@ async function _loadDashboardDataInner(page, fullRefresh, loadSeq) {
     withTimeout(api.listConfiguredPlatforms(), 5000).catch(() => []),
   ])
   const logsP = withTimeout(api.readLogTail('gateway', 20), 5000).catch(e => {
-    console.warn('[dashboard] readLogTail slow/failed:', e)
+    console.warn('[dashboard] readLogTail slow/failed:', e?.message ?? e)
     return ''
   })
 
@@ -870,9 +870,8 @@ function bindActions(page) {
   // Control UI 卡片点击 → 打开 OpenClaw 原生面板（用事件委托，因为卡片是动态渲染的）
   page.addEventListener('click', async (e) => {
     const card = e.target.closest('#card-control-ui')
-    if (!card) return
-    if (e.target.closest('button')) return
-    try {
+    if (card && !e.target.closest('button')) {
+      try {
       const config = await api.readOpenclawConfig()
       const port = config?.gateway?.port || 18789
       // 远程部署时使用当前浏览器域名/IP，桌面版用 127.0.0.1
@@ -895,6 +894,16 @@ function bindActions(page) {
       }
     } catch (e2) {
       toast(t('dashboard.openControlUIFail') + ': ' + (e2.message || e2), 'error')
+      }
+      return
+    }
+
+    // 重试按钮（避免内联 onclick）
+    const retryBtn = e.target.closest('[data-dashboard-retry]')
+    if (retryBtn) {
+      retryBtn.disabled = true
+      page.__retryLoad?.()
+      return
     }
   })
 
