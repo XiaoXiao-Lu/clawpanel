@@ -409,15 +409,15 @@
   --error-rgb:       255, 107, 138;
   --info-rgb:        78, 205, 196;
 
+  /* ─── Brand Color RGB Aliases (for rgba() usage) ─── */
+  --brand-green-rgb:  16, 227, 160;   /* success green */
+  --brand-amber-rgb:  255, 179, 71;   /* warning amber */
+  --brand-primary-rgb: 124, 111, 255; /* aether primary */
+
   --success-muted:    var(--success-surface);
   --warning-muted:    var(--warning-surface);
   --error-muted:      var(--error-surface);
   --info-muted:       var(--info-surface);
-
-  --success-border:   var(--success-border);
-  --warning-border:   var(--warning-border);
-  --error-border:     var(--error-border);
-  --info-border:      var(--info-border);
 
   /* ─── Background Aliases ─── */
   --bg-root:          var(--aether-void);
@@ -425,7 +425,8 @@
   --bg-primary:       var(--aether-base);
   --bg-elevated:      var(--aether-elevated);
   --bg-secondary:     var(--aether-elevated);
-  --bg-sunken:        #0A0A14;
+  --aether-sunken:      #0A0A14;
+  --bg-sunken:          var(--aether-sunken);
   --bg-tertiary:      var(--aether-raised);
   --bg-card:          var(--aether-card);
   --bg-card-hover:    var(--aether-card-hover);
@@ -481,6 +482,13 @@
     --aether-raised:        #F4F4F8;
     --aether-card:          #FFFFFF;
     --aether-card-hover:    #F6F7FA;
+
+    /* Chat/page light theme shared surfaces */
+    --light-bg-surface:     #F6F6FA;   /* panels, sidebars, headers */
+    --light-bg-content:     #EEEEF3;   /* message area, input area */
+    --light-bg-elevated:    #F0F0F5;   /* session tools, workspace headers */
+    --light-bg-white:       #FFFFFF;   /* editor panes, overlays */
+    --light-bg-subtle:      #F8F8FC;   /* editor meta, connect overlay */
 
     --aether-glass:          rgba(0, 0, 0, 0.02);
     --aether-glass-hover:    rgba(0, 0, 0, 0.05);
