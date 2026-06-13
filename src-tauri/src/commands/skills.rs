@@ -14,9 +14,13 @@ pub async fn skills_list(agent_id: Option<String>) -> Result<Value, String> {
 
 /// 查看单个 Skill 详情（纯本地文件解析，不依赖 CLI）
 #[tauri::command]
-pub async fn skills_info(name: String, agent_id: Option<String>) -> Result<Value, String> {
+pub async fn skills_info(
+    name: String,
+    agent_id: Option<String>,
+    file_path: Option<String>,
+) -> Result<Value, String> {
     let agent_ws = resolve_agent_skills_dir(agent_id.as_deref());
-    scan_custom_skill_detail(&name, agent_ws.as_deref())
+    scan_custom_skill_detail(&name, agent_ws.as_deref(), file_path.as_deref())
         .ok_or_else(|| format!("Skill「{name}」不存在"))
 }
 
@@ -624,56 +628,27 @@ fn resolve_custom_skill_dir_with_agent(
 fn scan_custom_skill_detail(
     name: &str,
     agent_skills_dir: Option<&std::path::Path>,
+    file_path: Option<&str>,
 ) -> Option<Value> {
     let mut best: Option<Value> = None;
+    if let Some(path) = file_path
+        .map(str::trim)
+        .filter(|path| !path.is_empty())
+        .map(std::path::PathBuf::from)
+    {
+        if path.is_dir() && path.join("SKILL.md").is_file() {
+            let source_label = skill_source_label_for_path(&path, agent_skills_dir);
+            return Some(build_skill_detail(&path, name, source_label));
+        }
+    }
+
     for (root, source_label) in custom_skill_roots_for_agent(agent_skills_dir) {
         let skill_path = root.join(name);
         if !skill_path.exists() {
             continue;
         }
 
-        let base = scan_single_skill(&skill_path, name);
-        let missing_deps = base
-            .get("missingDeps")
-            .and_then(|v| v.as_array())
-            .cloned()
-            .unwrap_or_default();
-        let eligible = base.get("ready").and_then(|v| v.as_bool()).unwrap_or(false);
-
-        let mut detail = serde_json::json!({
-            "name": name,
-            "description": base.get("description").cloned().unwrap_or(Value::String(String::new())),
-            "emoji": base.get("emoji").cloned().unwrap_or(Value::String("🧩".to_string())),
-            "eligible": eligible,
-            "disabled": false,
-            "blockedByAllowlist": false,
-            "source": source_label,
-            "bundled": false,
-            "filePath": skill_path.to_string_lossy().to_string(),
-            "homepage": base.get("homepage").cloned().unwrap_or(Value::Null),
-            "version": base.get("version").cloned().unwrap_or(Value::Null),
-            "author": base.get("author").cloned().unwrap_or(Value::Null),
-            "dependencies": base.get("dependencies").cloned().unwrap_or(Value::Array(vec![])),
-            "missingDeps": Value::Array(missing_deps.clone()),
-            "missing": {
-                "bins": [],
-                "anyBins": [],
-                "env": [],
-                "config": [],
-                "os": []
-            },
-            "requirements": {
-                "bins": [],
-                "env": [],
-                "config": []
-            },
-            "install": []
-        });
-
-        if let Some(full_path) = base.get("fullPath").cloned() {
-            detail["fullPath"] = full_path;
-        }
-        copy_skill_visual_fields(&mut detail, &base);
+        let detail = build_skill_detail(&skill_path, name, source_label);
 
         // roots 已按优先级排列，第一个匹配的就是最优版本
         if best.is_none() {
@@ -681,6 +656,73 @@ fn scan_custom_skill_detail(
         }
     }
     best
+}
+
+fn build_skill_detail(
+    skill_path: &std::path::Path,
+    fallback_name: &str,
+    source_label: &'static str,
+) -> Value {
+    let base = scan_single_skill(skill_path, fallback_name);
+    let missing_deps = base
+        .get("missingDeps")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let eligible = base.get("ready").and_then(|v| v.as_bool()).unwrap_or(false);
+    let name = base
+        .get("name")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .unwrap_or(fallback_name);
+
+    let mut detail = serde_json::json!({
+        "name": name,
+        "description": base.get("description").cloned().unwrap_or(Value::String(String::new())),
+        "emoji": base.get("emoji").cloned().unwrap_or(Value::String("🧩".to_string())),
+        "eligible": eligible,
+        "disabled": false,
+        "blockedByAllowlist": false,
+        "source": source_label,
+        "bundled": false,
+        "filePath": skill_path.to_string_lossy().to_string(),
+        "homepage": base.get("homepage").cloned().unwrap_or(Value::Null),
+        "version": base.get("version").cloned().unwrap_or(Value::Null),
+        "author": base.get("author").cloned().unwrap_or(Value::Null),
+        "dependencies": base.get("dependencies").cloned().unwrap_or(Value::Array(vec![])),
+        "missingDeps": Value::Array(missing_deps.clone()),
+        "missing": {
+            "bins": [],
+            "anyBins": [],
+            "env": [],
+            "config": [],
+            "os": []
+        },
+        "requirements": {
+            "bins": [],
+            "env": [],
+            "config": []
+        },
+        "install": []
+    });
+
+    if let Some(full_path) = base.get("fullPath").cloned() {
+        detail["fullPath"] = full_path;
+    }
+    copy_skill_visual_fields(&mut detail, &base);
+    detail
+}
+
+fn skill_source_label_for_path(
+    path: &std::path::Path,
+    agent_skills_dir: Option<&std::path::Path>,
+) -> &'static str {
+    for (root, label) in custom_skill_roots_for_agent(agent_skills_dir) {
+        if path.starts_with(root) {
+            return label;
+        }
+    }
+    "自定义"
 }
 
 fn scan_local_skill_entries_for_agent(
@@ -778,7 +820,17 @@ fn scan_local_skill_entries_for_agent(
 }
 
 fn copy_skill_visual_fields(target: &mut Value, source: &Value) {
-    for key in ["homepage", "icon", "logo", "avatar", "avatar_url", "image", "version", "author"] {
+    for key in [
+        "homepage",
+        "sourceUrl",
+        "icon",
+        "logo",
+        "avatar",
+        "avatar_url",
+        "image",
+        "version",
+        "author",
+    ] {
         if let Some(value) = source.get(key).cloned() {
             target[key] = value;
         }
@@ -899,6 +951,9 @@ fn scan_single_skill(skill_path: &std::path::Path, name: &str) -> Value {
                 if let Some(homepage) = pkg.get("homepage").and_then(|v| v.as_str()) {
                     result["homepage"] = Value::String(homepage.to_string());
                 }
+                if let Some(source_url) = package_source_url(&pkg) {
+                    result["sourceUrl"] = Value::String(source_url);
+                }
                 for key in ["icon", "logo", "avatar", "avatar_url", "image"] {
                     if let Some(value) = pkg.get(key).and_then(|v| v.as_str()) {
                         result[key] = Value::String(value.to_string());
@@ -956,28 +1011,85 @@ fn scan_single_skill(skill_path: &std::path::Path, name: &str) -> Value {
             if let Some(full_path) = frontmatter.get("fullPath").and_then(|v| v.as_str()) {
                 result["fullPath"] = Value::String(full_path.to_string());
             }
+            for key in ["sourceUrl", "source_url", "url", "repository"] {
+                if let Some(value) = frontmatter.get(key).and_then(|v| v.as_str()) {
+                    if is_http_url(value) {
+                        result["sourceUrl"] = Value::String(value.to_string());
+                        break;
+                    }
+                }
+            }
             for key in ["homepage", "icon", "logo", "avatar", "avatar_url", "image"] {
                 if let Some(value) = frontmatter.get(key).and_then(|v| v.as_str()) {
                     result[key] = Value::String(value.to_string());
                 }
             }
         }
+        if result.get("sourceUrl").and_then(|v| v.as_str()).is_none() {
+            if let Some(source_url) = extract_first_external_url_from_file(&skill_md) {
+                result["sourceUrl"] = Value::String(source_url);
+            }
+        }
     }
 
     // 4. 判断 ready 状态
-    // Skill ready 需要：1) 有 SKILL.md  2) 没有缺少依赖  3) 依赖已安装
-    let has_all_deps = result["missingDeps"]
-        .as_array()
-        .map(|a| a.is_empty())
-        .unwrap_or(true);
+    // 这里和 Web dev-api 对齐：本地 Skill 只要有 SKILL.md 就可被选择/预览。
+    // package.json dependencies 是运行时提示信息，不能作为 Agent 白名单页的硬性不可用条件；
+    // 否则打包版会因为每个 Skill 目录没有独立 node_modules，把大量正常 Skill 误判为缺依赖。
     let has_essential_files = has_skill_md;
-    result["ready"] = Value::Bool(has_essential_files && has_all_deps);
+    result["ready"] = Value::Bool(has_essential_files);
 
     // 5. 检测是否有 node_modules（npm 包已安装）
     let node_modules = skill_path.join("node_modules");
     result["nodeModulesInstalled"] = Value::Bool(node_modules.exists());
 
     result
+}
+
+fn is_http_url(value: &str) -> bool {
+    let trimmed = value.trim();
+    trimmed.starts_with("https://") || trimmed.starts_with("http://")
+}
+
+fn package_source_url(pkg: &Value) -> Option<String> {
+    if let Some(repo) = pkg.get("repository") {
+        if let Some(url) = repo.as_str().or_else(|| repo.get("url").and_then(|v| v.as_str())) {
+            if is_http_url(url) {
+                return Some(url.to_string());
+            }
+        }
+    }
+    if let Some(url) = pkg
+        .get("bugs")
+        .and_then(|v| v.get("url"))
+        .and_then(|v| v.as_str())
+    {
+        if is_http_url(url) {
+            return Some(url.to_string());
+        }
+    }
+    None
+}
+
+fn extract_first_external_url_from_file(path: &std::path::Path) -> Option<String> {
+    let content = std::fs::read_to_string(path).ok()?;
+    extract_first_external_url(&content)
+}
+
+fn extract_first_external_url(content: &str) -> Option<String> {
+    let start = content.find("https://").or_else(|| content.find("http://"))?;
+    let rest = &content[start..];
+    let end = rest
+        .find(|c: char| c.is_whitespace() || matches!(c, ')' | ']' | '"' | '\'' | '<' | '>'))
+        .unwrap_or(rest.len());
+    let url = rest[..end]
+        .trim_end_matches(|c: char| matches!(c, '.' | ',' | ';' | ':'))
+        .to_string();
+    if is_http_url(&url) {
+        Some(url)
+    } else {
+        None
+    }
 }
 
 /// 检测缺少的依赖

@@ -1742,6 +1742,32 @@ function parseSkillFrontmatterFile(skillMdPath) {
   }
 }
 
+function safeHttpUrl(value) {
+  if (!value || typeof value !== 'string') return ''
+  try {
+    const url = new URL(value.trim())
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : ''
+  } catch {
+    return ''
+  }
+}
+
+function packageSourceUrl(pkg) {
+  const repo = pkg?.repository
+  const repoUrl = typeof repo === 'string' ? repo : repo?.url
+  return safeHttpUrl(repoUrl) || safeHttpUrl(pkg?.bugs?.url)
+}
+
+function extractFirstExternalUrlFromFile(filePath) {
+  try {
+    const raw = fs.readFileSync(filePath, 'utf8')
+    const match = raw.match(/https?:\/\/[^\s)\]'"<>]+/i)
+    return safeHttpUrl(match?.[0]?.replace(/[.,;:]+$/, ''))
+  } catch {
+    return ''
+  }
+}
+
 function resolveAgentSkillsDir(agentId) {
   const id = (agentId || '').trim()
   if (!id || id === 'main') return null
@@ -1771,7 +1797,6 @@ function collectLocalSkillRoots(agentSkillsDir) {
   } else {
     pushRoot(path.join(OPENCLAW_DIR, 'skills'), 'OpenClaw 自定义', false)
   }
-  pushRoot(path.join(homedir(), '.claude', 'skills'), 'Claude 自定义', false)
 
   const cliPath = resolveOpenclawCliPath()
   if (cliPath) {
@@ -1825,6 +1850,8 @@ function scanSingleSkill(root, name) {
       const pkg = JSON.parse(fs.readFileSync(packageJson, 'utf8'))
       if (pkg.description) result.description = pkg.description
       if (pkg.homepage) result.homepage = pkg.homepage
+      const sourceUrl = packageSourceUrl(pkg)
+      if (sourceUrl) result.sourceUrl = sourceUrl
       if (pkg.version) result.version = pkg.version
       if (pkg.author) result.author = typeof pkg.author === 'string' ? pkg.author : (pkg.author?.name || '')
     }
@@ -1834,6 +1861,9 @@ function scanSingleSkill(root, name) {
   if (frontmatter.description) result.description = frontmatter.description
   if (frontmatter.fullPath) result.fullPath = frontmatter.fullPath
   if (frontmatter.emoji) result.emoji = frontmatter.emoji
+  const frontmatterSourceUrl = safeHttpUrl(frontmatter.sourceUrl || frontmatter.source_url || frontmatter.url || frontmatter.repository)
+  if (frontmatterSourceUrl) result.sourceUrl = frontmatterSourceUrl
+  if (!result.sourceUrl && fs.existsSync(skillMd)) result.sourceUrl = extractFirstExternalUrlFromFile(skillMd)
 
   return result
 }
@@ -12163,10 +12193,12 @@ const handlers = {
     const agentDir = resolveAgentSkillsDir(agent_id)
     return scanLocalSkillsFallback(agentDir)
   },
-  skills_info({ name, agent_id } = {}) {
+  skills_info({ name, agent_id, file_path } = {}) {
     const n = String(name || '').trim()
+    const fp = String(file_path || '').trim()
     const agentDir = resolveAgentSkillsDir(agent_id)
-    const fallback = scanLocalSkillsFallback(agentDir).skills.find(skill => skill.name === n)
+    const skills = scanLocalSkillsFallback(agentDir).skills
+    const fallback = skills.find(skill => fp && skill.filePath === fp) || skills.find(skill => skill.name === n)
     if (fallback) return fallback
     throw new Error(`Skill「${n}」不存在`)
   },

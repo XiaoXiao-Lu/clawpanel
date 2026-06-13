@@ -2605,11 +2605,11 @@
 .ast-expert-progress-bar {
   height: 100%;
   border-radius: 0 var(--radius-full) var(--radius-full) 0;
-  background: linear-gradient(90deg, var(--aether-primary), var(--success, #22c55e));
+  background: linear-gradient(90deg, var(--aether-primary), var(--status-online));
   transition: width var(--ease-normal);
 }
 .ast-expert-progress-bar--running {
-  background: linear-gradient(90deg, var(--aether-primary), color-mix(in srgb, var(--aether-primary) 60%, var(--success, #22c55e)));
+  background: linear-gradient(90deg, var(--aether-primary), color-mix(in srgb, var(--aether-primary) 60%, var(--status-online)));
   animation: expert-progress-shimmer 2s ease-in-out infinite;
   background-size: 200% 100%;
 }
@@ -2746,12 +2746,12 @@
 }
 
 .ast-expert-focus--done {
-  border-color: color-mix(in srgb, var(--success, #22c55e) 30%, var(--border));
-  background: linear-gradient(180deg, color-mix(in srgb, var(--success, #22c55e) 9%, var(--aether-card)), var(--aether-base));
+  border-color: color-mix(in srgb, var(--status-online) 30%, var(--border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--status-online) 9%, var(--aether-card)), var(--aether-base));
 }
 
 .ast-expert-focus--done .ast-expert-focus-icon {
-  background: var(--success, #22c55e);
+  background: var(--status-online);
 }
 
 .ast-expert-focus--degraded,
@@ -2987,8 +2987,8 @@
 }
 
 .ast-expert-activity-row--done .ast-expert-activity-icon {
-  background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
-  color: var(--success, #22c55e);
+  background: color-mix(in srgb, var(--status-online) 12%, transparent);
+  color: var(--status-online);
 }
 
 .ast-expert-activity-row--warning .ast-expert-activity-icon {
@@ -3094,8 +3094,8 @@
 }
 
 .ast-expert-trace-row--done .ast-expert-trace-icon {
-  background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
-  color: var(--success, #22c55e);
+  background: color-mix(in srgb, var(--status-online) 12%, transparent);
+  color: var(--status-online);
 }
 
 .ast-expert-trace-row--running .ast-expert-trace-icon {
@@ -3278,7 +3278,7 @@
 }
 
 .ast-expert-checkpoint--done {
-  border-left-color: var(--success, #22c55e);
+  border-left-color: var(--status-online);
 }
 
 .ast-expert-checkpoint--error {
@@ -3434,8 +3434,8 @@
 }
 
 .ast-expert-stage-row--done .ast-expert-stage-index {
-  background: color-mix(in srgb, var(--success, #22c55e) 12%, transparent);
-  color: var(--success, #22c55e);
+  background: color-mix(in srgb, var(--status-online) 12%, transparent);
+  color: var(--status-online);
 }
 
 .ast-expert-stage-row--running .ast-expert-stage-index {
@@ -3455,7 +3455,7 @@
 }
 
 .ast-expert-stage-row--done .ast-expert-stage-status {
-  color: var(--success, #22c55e);
+  color: var(--status-online);
 }
 
 .ast-expert-stage-row--running .ast-expert-stage-status {
@@ -3589,7 +3589,7 @@
 }
 
 .ast-expert-closeout--done .ast-expert-closeout-head span {
-  color: var(--success, #22c55e);
+  color: var(--status-online);
 }
 
 .ast-expert-closeout--degraded .ast-expert-closeout-head span {
@@ -3845,7 +3845,7 @@
 
 .ast-expert-item--done {
   background: var(--aether-base);
-  border-left-color: var(--expert-color, var(--success, #22c55e));
+  border-left-color: var(--expert-color, var(--status-online));
 }
 
 .ast-expert-item--final {
@@ -4080,7 +4080,7 @@
 }
 
 .ast-expert-item--done .ast-expert-status-icon {
-  color: var(--success, #22c55e);
+  color: var(--status-online);
 }
 
 .ast-expert-item--final .ast-expert-status-icon {

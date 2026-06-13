@@ -463,7 +463,7 @@ function renderSkills(container, state) {
       if (e.target.tagName === 'INPUT') return // 不拦截 checkbox
       const name = card.querySelector('.agent-skill-checkbox')?.dataset.skillName
       if (!name) return
-      showSkillPreview(name, state.agentId)
+      showSkillPreview(name, state.agentId, card.dataset.filePath || '')
     })
   })
 }
@@ -490,7 +490,7 @@ function _buildSkillPreviewBody(body, detail, allMissing, allReqs) {
     const section = document.createElement('div')
     section.className = 'skill-preview-section'
     const heading = document.createElement('h4')
-    heading.appendChild(statusIcon('warn', 14))
+    heading.insertAdjacentHTML('beforeend', statusIcon('warn', 14))
     heading.appendChild(document.createTextNode(' 缺少依赖'))
     section.appendChild(heading)
     const tags = document.createElement('div')
@@ -515,7 +515,7 @@ function _buildSkillPreviewBody(body, detail, allMissing, allReqs) {
       textContent: '',
     })
     link.style.cssText = 'color:var(--accent);display:inline-flex;align-items:center;gap:4px'
-    link.appendChild(icon('link', 14))
+    link.insertAdjacentHTML('beforeend', icon('link', 14))
     link.appendChild(document.createTextNode(' 查看主页'))
     section.appendChild(link)
     body.appendChild(section)
@@ -530,7 +530,7 @@ function _buildSkillPreviewBody(body, detail, allMissing, allReqs) {
   }
 }
 
-function showSkillPreview(name, agentId) {
+function showSkillPreview(name, agentId, filePath) {
   // 显示加载中弹窗
   const overlay = document.createElement('div')
   overlay.className = 'modal-overlay'
@@ -538,7 +538,7 @@ function showSkillPreview(name, agentId) {
   modal.className = 'modal agent-skill-preview-modal'
   const titleEl = document.createElement('div')
   titleEl.className = 'modal-title'
-  titleEl.appendChild(icon('puzzle', 14))
+  titleEl.insertAdjacentHTML('beforeend', icon('puzzle', 14))
   titleEl.appendChild(document.createTextNode(' ' + name))
   const bodyEl = document.createElement('div')
   bodyEl.className = 'modal-body'
@@ -548,9 +548,9 @@ function showSkillPreview(name, agentId) {
   actionsEl.className = 'modal-actions'
   const cancelBtn = Object.assign(document.createElement('button'), {
     className: 'btn btn-secondary btn-sm',
-    dataset: { action: 'cancel' },
     textContent: t('common.close') || '关闭',
   })
+  cancelBtn.setAttribute('data-action', 'cancel')
   actionsEl.appendChild(cancelBtn)
   modal.appendChild(titleEl)
   modal.appendChild(bodyEl)
@@ -564,7 +564,7 @@ function showSkillPreview(name, agentId) {
   cancelBtn.addEventListener('click', close)
 
   // 异步加载详情
-  api.skillsInfo(name, agentId).then(detail => {
+  api.skillsInfo(name, agentId, filePath).then(detail => {
     const missingInfo = detail?.missing || {}
     const reqs = detail?.requirements || {}
     const allMissing = [
@@ -591,7 +591,7 @@ function renderSkillCard(skill, checked) {
   const eligible = skill.eligible !== false
   const disabled = skill.disabled === true
   return `
-    <label class="agent-skill-card ${!eligible || disabled ? 'is-muted' : ''}" data-name="${esc(skill.name)}" data-desc="${esc(desc || skill.name || '')}">
+    <label class="agent-skill-card ${!eligible || disabled ? 'is-muted' : ''}" data-name="${esc(skill.name)}" data-desc="${esc(desc || skill.name || '')}" data-file-path="${esc(skill.filePath || '')}">
       <input type="checkbox" class="agent-skill-checkbox" data-skill-name="${esc(skill.name)}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
       <div class="agent-skill-main">
         <div class="agent-skill-head">
@@ -639,7 +639,7 @@ async function saveSkills(container, state) {
       return
     }
 
-    await api.updateAgentConfig(state.agentId, { skills: selected })
+    await api.updateAgentConfig(state.agentId, { skills: selected.length ? selected : null })
     invalidate('get_agent_detail')
     state.detail = await api.getAgentDetail(state.agentId)
     toast(t('agentDetail.skillsSaved'), 'success')

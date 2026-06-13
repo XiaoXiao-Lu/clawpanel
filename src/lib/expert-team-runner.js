@@ -5,6 +5,12 @@ const DEFAULT_RETRY_ATTEMPTS = 1
 const DEFAULT_TIMEOUT_MS = 120_000 // 2 minutes per expert call
 const ALL_EXPERTS_EMPTY_LABEL = '专家团没有收到可用的专家回复'
 
+// 独立 ID 计数器，避免依赖 blackboard.length 导致 ID 不连续
+let _msgSeq = 0
+function nextMsgId(prefix = 'msg') {
+  return `${prefix}-${++_msgSeq}`
+}
+
 const COLLABORATION_GUIDANCE = {
   panel: [
     'Mode guidance: expert panel consultation.',
@@ -94,7 +100,7 @@ export async function runExpertTeam({ group, experts, task, images, onEvent, sig
         continue
       }
       const contribution = result.value
-      contribution.id = `msg-${plan.blackboard.length + 1}`
+      contribution.id = nextMsgId('msg')
       contributions.push(contribution)
       plan.blackboard.push(contribution)
       emit(onEvent, { type: 'expert_done', message: contribution })
@@ -124,7 +130,7 @@ export async function runExpertTeamSequential({ group, experts, task, images, on
   const { config, defaultSlot } = await resolveRunModelContext(externalSlot)
 
   const runtimeGroup = maxRounds == null ? group : { ...(group || {}), maxRounds }
-  const plan = buildExpertTeamPlan({ group: runtimeGroup, experts, task })
+  const plan = buildExpertTeamPlan({ group: runtimeGroup, experts, task, images })
   emit(onEvent, { type: 'start', plan: summarizePlan(plan, defaultSlot, config) })
 
   const rounds = resolveMaxRounds(plan.group)
@@ -145,7 +151,8 @@ export async function runExpertTeamSequential({ group, experts, task, images, on
 
       emit(onEvent, { ...buildExpertRunEvent('expert_start', expert, slot), round: round + 1 })
 
-      const messages = buildSequentialMessages({ plan, expert, previous, contributions, round, rounds })
+      const historyText = chainContext.length > 1 ? chainContext.slice(1).join('\n\n') : ''
+      const messages = buildSequentialMessages({ plan, expert, previous, historyText, round, rounds })
       let content
       try {
         content = await callChatModelWithRetry(slot, messages, {
@@ -168,7 +175,7 @@ export async function runExpertTeamSequential({ group, experts, task, images, on
         expert,
         content,
         slot,
-        id: `seq-${plan.blackboard.length + 1}`,
+        id: `seq-${++_msgSeq}`,
         round: rounds > 1 ? round + 1 : 1,
       })
       contributions.push(contribution)
@@ -292,11 +299,9 @@ export async function resumeExpertTeamRun({ plan: sourcePlan, contributions = []
   return { plan: summarizePlan(plan, defaultSlot, config), transcript: plan.blackboard, final: finalMessage }
 }
 
-function buildSequentialMessages({ plan, expert, previous, contributions = [], round, rounds }) {
+function buildSequentialMessages({ plan, expert, previous, historyText, round, rounds }) {
   const prevText = typeof previous === 'string' ? previous : JSON.stringify(previous)
-  const history = contributions.length > 0
-    ? contributions.map(c => `### ${c.expertName}\n${c.content}`).join('\n\n')
-    : ''
+  const history = historyText || ''
 
   return [
     { role: 'system', content: sequentialSystemPrompt(plan, expert, rounds) },
@@ -423,7 +428,7 @@ async function resumeParallelExperts({ plan, remaining, contributions, config, d
         continue
       }
       const contribution = result.value
-      contribution.id = `resume-${plan.blackboard.length + 1}`
+      contribution.id = nextMsgId('resume')
       contributions.push(contribution)
       plan.blackboard.push(contribution)
       emit(onEvent, { type: 'expert_done', message: contribution })
@@ -434,6 +439,7 @@ async function resumeParallelExperts({ plan, remaining, contributions, config, d
 async function resumeSequentialExperts({ plan, remaining, contributions, config, defaultSlot, signal, onEvent, tools, executeTool }) {
   const rounds = resolveMaxRounds(plan.group)
   let lastRound = null
+  // chainContext 初始值从现有 contributions 构建，后续每次追加新发言
   const chainContext = [
     `## 原始任务\n${plan.task}`,
     ...contributions.map(item => `## ${item.expertName || item.expertId} 的发言${item.round ? ` (第${item.round}轮)` : ''}\n${item.content}`),
@@ -447,13 +453,17 @@ async function resumeSequentialExperts({ plan, remaining, contributions, config,
     }
     const slot = resolveExpertModelSlot(config, expert, defaultSlot)
     emit(onEvent, { ...buildExpertRunEvent('expert_start', expert, slot), round, resumed: true })
-    const previous = chainContext[chainContext.length - 1] || plan.task
+    // previous 取自 contributions 末尾内容（无 markdown 头），避免与 history 分离导致上下文不一致
+    const previous = contributions.length > 0
+      ? contributions[contributions.length - 1].content
+      : plan.task
+    const historyText = chainContext.length > 1 ? chainContext.slice(1).join('\n\n') : ''
     try {
       const content = await callChatModelWithRetry(slot, buildSequentialMessages({
         plan,
         expert,
         previous,
-        contributions,
+        historyText,
         round: Math.max(0, (round || 1) - 1),
         rounds,
       }), {
@@ -468,11 +478,12 @@ async function resumeSequentialExperts({ plan, remaining, contributions, config,
         expert,
         content,
         slot,
-        id: `resume-seq-${plan.blackboard.length + 1}`,
+        id: nextMsgId('resume-seq'),
         round: round || 1,
       })
       contributions.push(contribution)
       plan.blackboard.push(contribution)
+      // chainContext 随 contributions 增长同步更新，确保后续专家看到完整历史
       chainContext.push(`## ${expert.name || expert.id} 的发言${round ? ` (第${round}轮)` : ''}\n${content}`)
       emit(onEvent, { type: 'expert_done', message: contribution })
     } catch (error) {

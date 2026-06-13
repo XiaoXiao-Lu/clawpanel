@@ -833,7 +833,7 @@ function updateGroupMemberControls(page, state) {
   const selectedSet = new Set(selected)
   moderator.innerHTML = `<option value="">${t('expertTeams.noModerator')}</option>` + state.experts
     .filter(expert => selectedSet.has(expert.id))
-    .map(expert => option(expert.id, expert.name || expert.id, current))
+    .map(expert => option(expert.id, esc(expert.name || expert.id), current))
     .join('')
   if (!selectedSet.has(current)) moderator.value = ''
   updateGroupWorkflowGuide(page)
@@ -1325,7 +1325,7 @@ function moderatorOptions(group, experts) {
   const selected = new Set((Array.isArray(group.members) ? group.members : []).map(member => member.expertId))
   return `<option value="">${t('expertTeams.noModerator')}</option>` + experts
     .filter(expert => selected.has(expert.id))
-    .map(expert => option(expert.id, expert.name || expert.id, group.moderatorExpertId || ''))
+    .map(expert => option(expert.id, esc(expert.name || expert.id), group.moderatorExpertId || ''))
     .join('')
 }
 

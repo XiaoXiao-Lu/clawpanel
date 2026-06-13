@@ -808,6 +808,17 @@
   background: transparent;
   padding: 0;
 }
+.skills-preview-info a {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--aether-primary);
+  text-decoration: none;
+}
+.skills-preview-info a:hover {
+  text-decoration: underline;
+}
 .skills-preview-requirements {
   display: grid;
   gap: 8px;

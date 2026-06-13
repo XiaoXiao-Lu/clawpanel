@@ -2418,22 +2418,11 @@ function processQueue() {
   sendMessageDirect(next.text)
 }
 
-// ── 本地文件路径检测（Fix #226）──
-// 用于拦截用户意外粘贴/拖拽本地文件路径（而非图片内容本身）的场景
-// 例如：C:\Users\x\img.png、/Users/x/img.png、file:///C:/img.png 等
-// 这类字符串发送到 LLM 会触发 "Only base64/http/https URLs are supported" 错误
-const LOCAL_PATH_PREFIX_RE = /^(?:[a-zA-Z]:[\\/]|\/(?:Users|home|mnt|media|opt|tmp|var|root)\/|file:\/\/)/i
+// ── 本地文件路径清洗（Fix #226）──
+// 文本路径本身允许粘贴/拖拽；只有 markdown 图片引用本地路径时，
+// 在发送给 LLM 前替换，避免 API 把它当作不可访问的图片 URL。
 // 匹配 markdown 图片语法中的本地路径：![alt](C:\...)、![alt](/Users/...)
 const LOCAL_PATH_MD_IMG_RE = /!\[[^\]]*\]\((\s*(?:[a-zA-Z]:[\\/]|\/(?:Users|home|mnt|media|opt|tmp|var|root)\/|file:\/\/)[^)]+)\)/gi
-
-function isLocalPathText(text) {
-  if (!text) return false
-  const trimmed = String(text).trim()
-  if (!trimmed) return false
-  // 多行粘贴：首行若匹配本地路径即视为路径
-  const firstLine = trimmed.split(/\r?\n/)[0].trim()
-  return LOCAL_PATH_PREFIX_RE.test(firstLine)
-}
 
 // 在发送给 LLM 之前清洗用户消息中的本地路径 markdown 图片引用
 // LLM 不能访问本地文件，把路径替换为占位文本避免 API 报错
@@ -6944,15 +6933,15 @@ function showSettings() {
         el.addEventListener('change', sync)
       })
       // 展开 / 收起
-      row.querySelector('.ast-fb-toggle').onclick = () => {
+      row.querySelector('.ast-fb-toggle').addEventListener('click', () => {
         fallbackDrafts[idx]._editing = !(fallbackDrafts[idx]._editing === true || (!fallbackDrafts[idx].baseUrl && !fallbackDrafts[idx].model))
         renderFallbackList()
-      }
+      })
       // 删除
-      row.querySelector('.ast-fb-remove').onclick = () => {
+      row.querySelector('.ast-fb-remove').addEventListener('click', () => {
         fallbackDrafts.splice(idx, 1)
         renderFallbackList()
-      }
+      })
       // HTML5 拖拽排序
       row.ondragstart = (e) => {
         e.dataTransfer.setData('text/plain', String(idx))
@@ -7037,15 +7026,15 @@ function showSettings() {
 
     // 绑定每个预设按钮
     fallbackPresetsEl.querySelectorAll('.ast-fb-preset-btn').forEach(btn => {
-      btn.onclick = () => {
+      btn.addEventListener('click', () => {
         const preset = PROVIDER_PRESETS.find(p => p.key === btn.dataset.presetKey)
         if (preset) addFallbackFromPreset(preset)
-      }
+      })
     })
     // 从主模型复制
-    fallbackPresetsEl.querySelector('#ast-fb-copy-primary').onclick = addFallbackFromPrimary
+    fallbackPresetsEl.querySelector('#ast-fb-copy-primary').addEventListener('click', addFallbackFromPrimary)
     // 自定义（空白）
-    fallbackPresetsEl.querySelector('#ast-fb-custom').onclick = () => {
+    fallbackPresetsEl.querySelector('#ast-fb-custom').addEventListener('click', () => {
       const mainApi = overlay.querySelector('#ast-apitype')?.value || 'openai-completions'
       fallbackDrafts.push({
         baseUrl: '',
@@ -7059,7 +7048,7 @@ function showSettings() {
         const last = fallbackListEl.querySelector('.ast-fallback-row:last-child .ast-fb-key')
         last?.focus()
       }, 30)
-    }
+    })
     // 更多服务商（展开全部）
     fallbackPresetsEl.querySelector('#ast-fb-more')?.addEventListener('click', () => {
       showAllPresets = true
@@ -7091,7 +7080,7 @@ function showSettings() {
   const baseUrlInput = overlay.querySelector('#ast-baseurl')
   const apiKeyInput = overlay.querySelector('#ast-apikey')
   overlay.querySelectorAll('.ast-preset-btn').forEach(btn => {
-    btn.onclick = () => {
+    btn.addEventListener('click', () => {
       baseUrlInput.value = btn.dataset.url
       apiTypeSelect.value = btn.dataset.api
       apiTypeSelect.dispatchEvent(new Event('change'))
@@ -7114,7 +7103,7 @@ function showSettings() {
       } else if (detailEl) {
         detailEl.style.display = 'none'
       }
-    }
+    })
   })
 
   // API 类型切换时更新提示文本和 placeholder
@@ -7182,12 +7171,12 @@ function showSettings() {
     statusEl.innerHTML = renderSoulStats(soul)
   }
 
-  overlay.querySelector('#ast-btn-load-soul').onclick = (e) => doLoadSoul(e.target.closest('button'))
+  overlay.querySelector('#ast-btn-load-soul').addEventListener('click', (e) => doLoadSoul(e.target.closest('button')))
   // 刷新按钮：重新扫描 Agent 列表
-  overlay.querySelector('#ast-btn-refresh-soul').onclick = (e) => {
+  overlay.querySelector('#ast-btn-refresh-soul').addEventListener('click', (e) => {
     refreshAgentList()
     overlay.querySelector('#ast-soul-status').innerHTML = '<div style="text-align:center;padding:16px 0;color:var(--text-tertiary);font-size:12px">' + t('assistant.personaSoulHint') + '</div>'
-  }
+  })
 
   // 打开面板时：如果已选 openclaw 模式，自动扫描 Agent 列表
   if (_config?.soulSource?.startsWith('openclaw:')) {
@@ -7255,11 +7244,11 @@ function showSettings() {
     }
     overlay.querySelector('#ast-kb-name').focus()
   }
-  overlay.querySelector('#ast-kb-add').onclick = () => openKBEditor(-1)
-  overlay.querySelector('#ast-kb-cancel').onclick = () => {
+  overlay.querySelector('#ast-kb-add').addEventListener('click', () => openKBEditor(-1))
+  overlay.querySelector('#ast-kb-cancel').addEventListener('click', () => {
     kbEditorEl.style.display = 'none'
-  }
-  overlay.querySelector('#ast-kb-save').onclick = () => {
+  })
+  overlay.querySelector('#ast-kb-save').addEventListener('click', () => {
     const name = overlay.querySelector('#ast-kb-name').value.trim()
     const content = overlay.querySelector('#ast-kb-content').value.trim()
     if (!name) { toast(t('assistant.kbNameRequired'), 'warning'); return }
@@ -7272,7 +7261,7 @@ function showSettings() {
     }
     kbEditorEl.style.display = 'none'
     renderKBList()
-  }
+  })
   // 点击列表项：编辑/切换启用/删除
   kbListEl.addEventListener('click', (e) => {
     const delBtn = e.target.closest('[data-kb-del]')
@@ -7315,7 +7304,7 @@ function showSettings() {
   const qtcoolStatus = overlay.querySelector('#ast-qtcool-status')
 
   // 测试按钮：快速验证接口可用性
-  overlay.querySelector('#ast-qtcool-test').onclick = async (e) => {
+  overlay.querySelector('#ast-qtcool-test').addEventListener('click', async (e) => {
     const btn = e.target
     const selectedModel = qtcoolModelSelect.value
     if (!selectedModel) { qtcoolStatus.innerHTML = `<span style="color:var(--warning)">${statusIcon('warn', 14)} ${t('assistant.qtcoolSelectModel')}</span>`; return }
@@ -7355,10 +7344,10 @@ function showSettings() {
     }
     btn.disabled = false
     btn.innerHTML = `${icon('search', 12)} ${t('assistant.testBtn')}`
-  }
+  })
 
   // 一键接入：填充配置 + 提示设为 OpenClaw 主模型
-  overlay.querySelector('#ast-qtcool-apply').onclick = async () => {
+  overlay.querySelector('#ast-qtcool-apply').addEventListener('click', async () => {
     const selectedModel = qtcoolModelSelect.value
     if (!selectedModel) { qtcoolStatus.innerHTML = `<span style="color:var(--warning)">${statusIcon('warn', 14)} ${t('assistant.qtcoolSelectModel')}</span>`; return }
     const key = qtcoolKeyInput.value.trim()
@@ -7416,7 +7405,7 @@ function showSettings() {
         toast(humanizeError(e, t('assistant.qtcoolWriteFail')), 'error')
       }
     }
-  }
+  })
 
   // 同步到 OpenClaw：将助手的 baseUrl/apiKey/model 写入 openclaw.json
   overlay.querySelector('#ast-qtcool-sync-to')?.addEventListener('click', async () => {
@@ -7493,7 +7482,7 @@ function showSettings() {
   const dropdown = overlay.querySelector('#ast-model-dropdown')
 
   // 测试对话：真实发一条消息，显示完整请求/响应参数
-  overlay.querySelector('#ast-btn-test').onclick = async (e) => {
+  overlay.querySelector('#ast-btn-test').addEventListener('click', async (e) => {
     const btn = e.target
     const baseUrl = overlay.querySelector('#ast-baseurl').value.trim()
     const apiKey = overlay.querySelector('#ast-apikey').value.trim()
@@ -7547,10 +7536,10 @@ function showSettings() {
     }
     btn.disabled = false
     btn.textContent = t('assistant.testBtn')
-  }
+  })
 
   // 获取模型列表
-  overlay.querySelector('#ast-btn-models').onclick = async (e) => {
+  overlay.querySelector('#ast-btn-models').addEventListener('click', async (e) => {
     const btn = e.target
     const baseUrl = overlay.querySelector('#ast-baseurl').value.trim()
     const apiKey = overlay.querySelector('#ast-apikey').value.trim()
@@ -7587,11 +7576,11 @@ function showSettings() {
       btn.disabled = false
       btn.textContent = t('assistant.fetchBtn')
     }
-  }
+  })
 
   // 从 OpenClaw 导入模型配置（Hermes 模式下该按钮不存在）
   const importBtn = overlay.querySelector('#ast-btn-import')
-  if (importBtn) importBtn.onclick = async (e) => {
+  if (importBtn) importBtn.addEventListener('click', async (e) => {
     const btn = e.target
     btn.disabled = true
     btn.textContent = t('assistant.personaScanning')
@@ -7695,7 +7684,7 @@ function showSettings() {
       btn.disabled = false
       btn.innerHTML = `${icon('download', 14)} ${t('assistant.importBtn')}`
     }
-  }
+  })
 
   // 模型下拉选择
   dropdown.addEventListener('click', (e) => {
@@ -7717,8 +7706,8 @@ function showSettings() {
     }
   })
 
-  overlay.querySelector('[data-action="cancel"]').onclick = () => overlay.remove()
-  overlay.querySelector('[data-action="confirm"]').onclick = () => {
+  overlay.querySelector('[data-action="cancel"]').addEventListener('click', () => overlay.remove())
+  overlay.querySelector('[data-action="confirm"]').addEventListener('click', () => {
     _config.assistantName = overlay.querySelector('#ast-name').value.trim() || DEFAULT_NAME
     _config.assistantPersonality = overlay.querySelector('#ast-personality').value.trim() || DEFAULT_PERSONALITY
     _config.baseUrl = overlay.querySelector('#ast-baseurl').value.trim()
@@ -7776,7 +7765,7 @@ function showSettings() {
     renderMessages()
     toast(t('assistant.settingsSaved'), 'info')
     updateModelBadge()
-  }
+  })
   overlay.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') overlay.remove()
   })
@@ -9270,12 +9259,6 @@ export async function render() {
       }
     }
     if (hasImage) { e.preventDefault(); return }
-    // Fix #226: 拦截纯文本的本地文件路径粘贴（LLM 无法访问本地文件）
-    const pastedText = e.clipboardData?.getData('text/plain') || ''
-    if (isLocalPathText(pastedText)) {
-      e.preventDefault()
-      toast(t('assistant.localPathBlocked'), 'warn')
-    }
   })
 
   // 拖拽图片
@@ -9290,13 +9273,10 @@ export async function render() {
   mainEl.addEventListener('drop', (e) => {
     e.preventDefault()
     mainEl.classList.remove('ast-drag-over')
-    // Fix #226: 拖拽路径文本（而非图片文件）时拦截
     const droppedFiles = e.dataTransfer?.files
     if (!droppedFiles || droppedFiles.length === 0) {
       const droppedText = e.dataTransfer?.getData('text/plain') || e.dataTransfer?.getData('text/uri-list') || ''
-      if (isLocalPathText(droppedText)) {
-        toast(t('assistant.localPathBlocked'), 'warn')
-      }
+      if (droppedText) insertTextAtCursor(_textarea, droppedText)
       return
     }
     for (const file of droppedFiles) addImageFromFile(file)
@@ -9507,6 +9487,18 @@ export async function render() {
 function autoResize(textarea) {
   textarea.style.height = 'auto'
   textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px'
+}
+
+function insertTextAtCursor(textarea, text) {
+  if (!textarea || !text) return
+  const start = textarea.selectionStart ?? textarea.value.length
+  const end = textarea.selectionEnd ?? textarea.value.length
+  textarea.value = textarea.value.slice(0, start) + text + textarea.value.slice(end)
+  const cursor = start + text.length
+  textarea.selectionStart = textarea.selectionEnd = cursor
+  textarea.focus()
+  autoResize(textarea)
+  textarea.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
 export function cleanup() {

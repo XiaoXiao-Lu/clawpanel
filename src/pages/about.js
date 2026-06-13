@@ -20,7 +20,7 @@ export async function render() {
       <img src="/images/logo-brand.png" alt="ClawPanel" class="about-logo">
       <div>
         <h1 class="page-title">ClawPanel</h1>
-        <p class="page-desc">${t('about.subtitle')} · <a href="https://claw.qt.cool" target="_blank" rel="noopener" style="color:var(--primary)">claw.qt.cool</a></p>
+        <p class="page-desc">${t('about.subtitle')} · <a href="https://claw.qt.cool" target="_blank" rel="noopener" style="color:var(--aether-primary)">claw.qt.cool</a></p>
       </div>
     </div>
     <div class="stat-cards" id="version-cards">

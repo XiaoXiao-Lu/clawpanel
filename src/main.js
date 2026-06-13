@@ -1329,6 +1329,11 @@ const ANNOUNCEMENT_CHECK_INTERVAL = 30 * 60 * 1000 // 30 分钟
 let _updateCheckTimer = null
 let _announcementCheckTimer = null
 
+export function cleanupTimers() {
+  if (_updateCheckTimer) { clearInterval(_updateCheckTimer); _updateCheckTimer = null }
+  if (_announcementCheckTimer) { clearInterval(_announcementCheckTimer); _announcementCheckTimer = null }
+}
+
 async function checkGlobalUpdate() {
   try {
     const [panelResult, versionResult] = await Promise.allSettled([
@@ -1392,6 +1397,14 @@ function startAnnouncementChecker() {
 
 // 启动：先检查后端 → 认证 → 加载应用
 ;(async () => {
+  // 全局未捕获 Promise 错误边界（防止异步操作静默泄漏）
+  window.addEventListener('unhandledrejection', (evt) => {
+    // 仅在 boot 完成前拦截，boot 完成后由 ws-client 等模块自行处理
+    if (window._bootDone) return
+    evt.preventDefault()
+    console.warn('[main] unhandledrejection:', evt.reason?.message ?? evt.reason)
+  })
+
   // Web 模式：先检测后端是否在线（不在线则显示提示，不加载应用）
   if (!isTauri) {
     const backendOk = await checkBackendHealth()
@@ -1425,6 +1438,10 @@ function startAnnouncementChecker() {
   initSiteMessageCenter({
     fetcher: () => api.checkSiteAnnouncements(getLang()),
   })
+
+  // 页面卸载时清理 timer，避免内存泄漏
+  window.addEventListener('beforeunload', cleanupTimers)
+
   startUpdateChecker()
   startAnnouncementChecker()
 

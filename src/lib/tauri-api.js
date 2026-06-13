@@ -462,7 +462,7 @@ export const api = {
 
   // Skills 管理
   skillsList: (agentId) => invoke('skills_list', { agent_id: agentId || null }),
-  skillsInfo: (name, agentId) => invoke('skills_info', { name, agent_id: agentId || null }),
+  skillsInfo: (name, agentId, filePath) => invoke('skills_info', { name, agent_id: agentId || null, file_path: filePath || null }),
   skillsCheck: () => invoke('skills_check'),
   skillsInstallDep: (kind, spec) => invoke('skills_install_dep', { kind, spec }),
   skillsInstallZip: (name, zipBase64, agentId) => { invalidate('skills_list'); return invoke('skills_install_zip', { name, zip_base64: zipBase64, agent_id: agentId || null }) },
