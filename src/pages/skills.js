@@ -288,12 +288,11 @@ function renderSkillIcon(item, className = 'skills-card-icon') {
   const fallback = iconFallbackText(item)
   const urls = iconUrls(item).slice(0, 3)
   const primary = urls[0] || ''
-  const fallbacks = esc(JSON.stringify(urls.slice(1)))
-  const onError = `const urls=JSON.parse(this.dataset.fallbacks||'[]');const next=urls.shift();this.dataset.fallbacks=JSON.stringify(urls);if(next){this.src=next}else{this.style.display='none'}`
+  const fallbacks = JSON.stringify(urls.slice(1))
   return `
     <div class="${className}" aria-hidden="true">
       <span>${esc(fallback)}</span>
-      ${primary ? `<img src="${esc(primary)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-fallbacks="${fallbacks}" onerror="${esc(onError)}">` : ''}
+      ${primary ? `<img src="${esc(primary)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-icon-fallbacks="${esc(fallbacks)}" data-icon-fallback-icon>` : ''}
     </div>`
 }
 
@@ -1153,6 +1152,20 @@ function activateMainTab(page, tab, options = {}) {
 }
 
 function bindEvents(page) {
+  // 图标后备：图片加载失败时尝试 fallback URL 列表
+  page.addEventListener('error', (e) => {
+    const img = e.target.closest('[data-icon-fallback-icon]')
+    if (!img) return
+    const fallbacks = JSON.parse(img.dataset.iconFallbacks || '[]')
+    const next = fallbacks.shift()
+    if (next) {
+      img.dataset.iconFallbacks = JSON.stringify(fallbacks)
+      img.src = next
+    } else {
+      img.style.display = 'none'
+    }
+  }, true)
+
   // 主 Tab 切换（Pill 风格）
   page.querySelectorAll('#skills-main-tabs .skills-tab-btn').forEach(tab => {
     tab.onclick = () => activateMainTab(page, tab)

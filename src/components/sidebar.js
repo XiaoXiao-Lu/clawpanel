@@ -299,7 +299,7 @@ export function renderSidebar(el) {
             renderSidebar(el)
           },
         }).catch(err => {
-          console.error('[sidebar] 内核升级触发失败:', err)
+          console.error('[sidebar] 内核升级触发失败:', err?.message ?? err)
         })
         return
       }
@@ -367,7 +367,7 @@ export function renderSidebar(el) {
               navigate(eng.isReady() ? eng.getDefaultRoute() : eng.getSetupRoute())
             }
           }).catch(err => {
-            console.error('[sidebar] 切换引擎失败:', err)
+            console.error('[sidebar] 切换引擎失败:', err?.message ?? err)
             toast(t('engine.switchFailed') || '引擎切换失败，请稍后重试', 'error')
             renderSidebar(el)
             // 恢复内容区：重新加载当前路由或显示错误占位
