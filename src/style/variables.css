@@ -35,6 +35,7 @@
   /* ═══ Secondary Accent: Mint ═══ */
   --aether-secondary:       #10E3A0;
   --aether-secondary-glow:   rgba(16, 227, 160, 0.25);
+  --aether-info:            var(--status-idle);
 
   /* ═══ Semantic Colors ═══ */
   --status-online:          #10E3A0;
@@ -482,6 +483,7 @@
     --aether-raised:        #F4F4F8;
     --aether-card:          #FFFFFF;
     --aether-card-hover:    #F6F7FA;
+    --aether-sunken:        #EEEEF3;
 
     /* Chat/page light theme shared surfaces */
     --light-bg-surface:     #F6F6FA;   /* panels, sidebars, headers */

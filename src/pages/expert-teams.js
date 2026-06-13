@@ -812,7 +812,7 @@ function updateGroupMemberControls(page, state) {
   const selectedSet = new Set(selected)
   moderator.innerHTML = `<option value="">${t('expertTeams.noModerator')}</option>` + state.experts
     .filter(expert => selectedSet.has(expert.id))
-    .map(expert => option(expert.id, escapeHtml(expert.name || expert.id), current))
+    .map(expert => option(expert.id, expert.name || expert.id, current))
     .join('')
   if (!selectedSet.has(current)) moderator.value = ''
   updateGroupWorkflowGuide(page)
@@ -855,27 +855,66 @@ function showGroupTemplatePicker(page, state) {
   const old = page.querySelector('.expert-template-picker-overlay')
   if (old) old.remove()
 
-  const items = GROUP_TEMPLATES.map((tpl, idx) => `
-    <button class="expert-template-item" data-template-idx="${idx}" type="button">
-      <strong>${icon('users', 13)} ${escapeHtml(t(tpl.labelKey))}</strong>
-      <small>${escapeHtml(t(tpl.descKey))}</small>
-      <span class="expert-template-meta">${getModeLabel(tpl.mode)} · ${escapeHtml(templateCadenceLabel(tpl))} · ${escapeHtml(tpl.memberRoles?.join('、') || '')}</span>
-    </button>
-  `).join('')
-
   const previousFocus = document.activeElement
   const titleId = 'expert-template-picker-title'
+
   const overlay = document.createElement('div')
   overlay.className = 'expert-template-picker-overlay'
-  overlay.innerHTML = `
-    <div class="expert-template-picker" role="dialog" aria-modal="true" aria-labelledby="${titleId}">
-      <div class="expert-template-picker-head">
-        <span id="${titleId}">${escapeHtml(t('expertTeams.createFromTemplate'))}</span>
-        <button type="button" data-action="template-blank">${escapeHtml(t('expertTeams.createBlank'))}</button>
-      </div>
-      <div class="expert-template-picker-body">${items}</div>
-    </div>
-  `
+
+  const dialog = document.createElement('div')
+  dialog.className = 'expert-template-picker'
+  dialog.setAttribute('role', 'dialog')
+  dialog.setAttribute('aria-modal', 'true')
+  dialog.setAttribute('aria-labelledby', titleId)
+
+  const head = document.createElement('div')
+  head.className = 'expert-template-picker-head'
+
+  const title = document.createElement('span')
+  title.id = titleId
+  title.textContent = t('expertTeams.createFromTemplate')
+
+  const blankBtn = document.createElement('button')
+  blankBtn.type = 'button'
+  blankBtn.setAttribute('data-action', 'template-blank')
+  blankBtn.textContent = t('expertTeams.createBlank')
+
+  head.appendChild(title)
+  head.appendChild(blankBtn)
+
+  const body = document.createElement('div')
+  body.className = 'expert-template-picker-body'
+
+  for (let idx = 0; idx < GROUP_TEMPLATES.length; idx++) {
+    const tpl = GROUP_TEMPLATES[idx]
+    const btn = document.createElement('button')
+    btn.className = 'expert-template-item'
+    btn.type = 'button'
+    btn.setAttribute('data-template-idx', String(idx))
+
+    const strong = document.createElement('strong')
+    strong.innerHTML = `${icon('users', 13)} ${escapeHtml(t(tpl.labelKey))}`
+
+    const small = document.createElement('small')
+    small.textContent = t(tpl.descKey)
+
+    const meta = document.createElement('span')
+    meta.className = 'expert-template-meta'
+    meta.textContent = [
+      getModeLabel(tpl.mode),
+      templateCadenceLabel(tpl),
+      tpl.memberRoles?.join('、') || '',
+    ].join(' · ')
+
+    btn.appendChild(strong)
+    btn.appendChild(small)
+    btn.appendChild(meta)
+    body.appendChild(btn)
+  }
+
+  dialog.appendChild(head)
+  dialog.appendChild(body)
+  overlay.appendChild(dialog)
 
   const close = () => {
     document.removeEventListener('keydown', onKeydown, true)
@@ -890,6 +929,20 @@ function showGroupTemplatePicker(page, state) {
       e.preventDefault()
       e.stopPropagation()
       close()
+      return
+    }
+    if (e.key === 'Tab') {
+      const focusable = overlay.querySelectorAll(
+        'button:not([disabled]), [tabindex]:not([disabled]):not([hidden])'
+      )
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (!first || !last) return
+      if (e.shiftKey ? document.activeElement === first : document.activeElement === last) {
+        e.preventDefault()
+        if (e.shiftKey) last.focus()
+        else first.focus()
+      }
     }
   }
 
