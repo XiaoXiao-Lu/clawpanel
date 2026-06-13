@@ -1912,7 +1912,7 @@
   content: '释放以添加图片';
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(var(--accent-rgb, 139,92,246), 0.08);
+  background: rgba(var(--accent-rgb, 91,78,232), 0.08);
   border: 2px dashed var(--aether-primary);
   border-radius: var(--radius-md);
   display: flex;
@@ -4778,10 +4778,31 @@
   border-radius: var(--radius-md);
 }
 
+/* ARIA tab states */
+.ast-expert-detail-tab[aria-selected="true"] {
+  border-color: color-mix(in srgb, var(--aether-primary) 32%, var(--border));
+  background: var(--aether-primary-muted);
+  color: var(--aether-primary);
+}
+
+/* Tab panels: hide non-active ones (ARIA tablist pattern) */
+.ast-expert-detail-content[hidden] {
+  display: none;
+}
+
 .ast-expert-detail-radio:nth-of-type(1):checked ~ .ast-expert-detail-tab-bar label:nth-child(1),
 .ast-expert-detail-radio:nth-of-type(2):checked ~ .ast-expert-detail-tab-bar label:nth-child(2),
 .ast-expert-detail-radio:nth-of-type(3):checked ~ .ast-expert-detail-tab-bar label:nth-child(3),
 .ast-expert-detail-radio:nth-of-type(4):checked ~ .ast-expert-detail-tab-bar label:nth-child(4) {
+  border-color: color-mix(in srgb, var(--aether-primary) 32%, var(--border));
+  background: var(--aether-primary-muted);
+  color: var(--aether-primary);
+}
+
+.ast-expert-detail-radio:nth-of-type(1):checked ~ .ast-expert-detail-tab-bar label:nth-child(1)[aria-selected="false"],
+.ast-expert-detail-radio:nth-of-type(2):checked ~ .ast-expert-detail-tab-bar label:nth-child(2)[aria-selected="false"],
+.ast-expert-detail-radio:nth-of-type(3):checked ~ .ast-expert-detail-tab-bar label:nth-child(3)[aria-selected="false"],
+.ast-expert-detail-radio:nth-of-type(4):checked ~ .ast-expert-detail-tab-bar label:nth-child(4)[aria-selected="false"] {
   border-color: color-mix(in srgb, var(--aether-primary) 32%, var(--border));
   background: var(--aether-primary-muted);
   color: var(--aether-primary);

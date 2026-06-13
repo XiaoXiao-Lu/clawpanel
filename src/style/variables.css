@@ -542,6 +542,12 @@
     --overlay-heavy:          rgba(0, 0, 0, 0.75);
 
     --accent-rgb:            91, 78, 232;
+    --accent:                var(--aether-primary);
+    --accent-hover:          var(--aether-primary-light);
+    --accent-muted:          var(--aether-primary-muted);
+    --accent-bg:            var(--aether-primary-faint);
+    --accent-border:         rgba(91, 78, 232, 0.24);
+    --accent-subtle:         var(--aether-primary-faint);
 
     --noise-opacity:          0.012;
 

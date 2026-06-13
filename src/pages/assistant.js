@@ -4448,21 +4448,21 @@ function renderExpertTeamDetailPanel(transcript, plan, progress, isRunning, m) {
       </span>
       <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
     </summary>
-    <div class="ast-expert-detail-body">
+    <div class="ast-expert-detail-body" role="tablist" aria-label="${escAttr(t('assistant.expertTeamDetailTabsAria'))}">
       <input type="radio" name="${escAttr(panelId)}-tab" id="${escAttr(panelId)}-tab-all" class="ast-expert-detail-radio" checked>
       <input type="radio" name="${escAttr(panelId)}-tab" id="${escAttr(panelId)}-tab-activity" class="ast-expert-detail-radio">
       <input type="radio" name="${escAttr(panelId)}-tab" id="${escAttr(panelId)}-tab-tool" class="ast-expert-detail-radio">
       <input type="radio" name="${escAttr(panelId)}-tab" id="${escAttr(panelId)}-tab-param" class="ast-expert-detail-radio">
       <div class="ast-expert-detail-tab-bar">
-        <label for="${escAttr(panelId)}-tab-all" class="ast-expert-detail-tab">${escHtml(t('assistant.expertTeamTabAll'))}</label>
-        <label for="${escAttr(panelId)}-tab-activity" class="ast-expert-detail-tab">${escHtml(t('assistant.expertTeamTabActivity'))}</label>
-        <label for="${escAttr(panelId)}-tab-tool" class="ast-expert-detail-tab">${escHtml(t('assistant.expertTeamTabTools'))}</label>
-        <label for="${escAttr(panelId)}-tab-param" class="ast-expert-detail-tab">${escHtml(t('assistant.expertTeamTabParams'))}</label>
+        <label for="${escAttr(panelId)}-tab-all" class="ast-expert-detail-tab" role="tab" aria-selected="true" tabindex="0">${escHtml(t('assistant.expertTeamTabAll'))}</label>
+        <label for="${escAttr(panelId)}-tab-activity" class="ast-expert-detail-tab" role="tab" aria-selected="false" tabindex="-1">${escHtml(t('assistant.expertTeamTabActivity'))}</label>
+        <label for="${escAttr(panelId)}-tab-tool" class="ast-expert-detail-tab" role="tab" aria-selected="false" tabindex="-1">${escHtml(t('assistant.expertTeamTabTools'))}</label>
+        <label for="${escAttr(panelId)}-tab-param" class="ast-expert-detail-tab" role="tab" aria-selected="false" tabindex="-1">${escHtml(t('assistant.expertTeamTabParams'))}</label>
       </div>
-      <div class="ast-expert-detail-content" data-tab="all">${allHtml}</div>
-      <div class="ast-expert-detail-content" data-tab="activity">${activityHtml}</div>
-      <div class="ast-expert-detail-content" data-tab="tool">${traceHtml}</div>
-      <div class="ast-expert-detail-content" data-tab="param">${paramHtml}</div>
+      <div class="ast-expert-detail-content" data-tab="all" role="tabpanel" aria-labelledby="${escAttr(panelId)}-tab-all">${allHtml}</div>
+      <div class="ast-expert-detail-content" data-tab="activity" role="tabpanel" aria-labelledby="${escAttr(panelId)}-tab-activity" hidden>${activityHtml}</div>
+      <div class="ast-expert-detail-content" data-tab="tool" role="tabpanel" aria-labelledby="${escAttr(panelId)}-tab-tool" hidden>${traceHtml}</div>
+      <div class="ast-expert-detail-content" data-tab="param" role="tabpanel" aria-labelledby="${escAttr(panelId)}-tab-param" hidden>${paramHtml}</div>
     </div>
   </details>`
 }
