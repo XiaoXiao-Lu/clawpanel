@@ -2308,7 +2308,7 @@ async function browserActionTool(args = {}) {
 // ── 状态 ──
 let _page = null, _messagesEl = null, _textarea = null, _sendBtn = null
 let _sessionListEl = null, _settingsPanel = null, _queueEl = null
-let _isStreaming = false, _abortController = null
+let _isStreaming = false, _abortController = null, _resumeInFlight = false
 let _config = null, _sessions = [], _currentSessionId = null
 let _lastRenderTime = 0
 let _saveThrottleTimer = null
@@ -4448,21 +4448,21 @@ function renderExpertTeamDetailPanel(transcript, plan, progress, isRunning, m) {
       </span>
       <span class="ast-expert-chevron">${icon('chevron-down', 13)}</span>
     </summary>
-    <div class="ast-expert-detail-body" role="tablist" aria-label="${escAttr(t('assistant.expertTeamDetailTabsAria'))}">
+    <div class="ast-expert-detail-body" aria-label="${escAttr(t('assistant.expertTeamDetailTabsAria'))}">
       <input type="radio" name="${escAttr(panelId)}-tab" id="${escAttr(panelId)}-tab-all" class="ast-expert-detail-radio" checked>
       <input type="radio" name="${escAttr(panelId)}-tab" id="${escAttr(panelId)}-tab-activity" class="ast-expert-detail-radio">
       <input type="radio" name="${escAttr(panelId)}-tab" id="${escAttr(panelId)}-tab-tool" class="ast-expert-detail-radio">
       <input type="radio" name="${escAttr(panelId)}-tab" id="${escAttr(panelId)}-tab-param" class="ast-expert-detail-radio">
       <div class="ast-expert-detail-tab-bar">
-        <label for="${escAttr(panelId)}-tab-all" class="ast-expert-detail-tab" role="tab" aria-selected="true" tabindex="0">${escHtml(t('assistant.expertTeamTabAll'))}</label>
-        <label for="${escAttr(panelId)}-tab-activity" class="ast-expert-detail-tab" role="tab" aria-selected="false" tabindex="-1">${escHtml(t('assistant.expertTeamTabActivity'))}</label>
-        <label for="${escAttr(panelId)}-tab-tool" class="ast-expert-detail-tab" role="tab" aria-selected="false" tabindex="-1">${escHtml(t('assistant.expertTeamTabTools'))}</label>
-        <label for="${escAttr(panelId)}-tab-param" class="ast-expert-detail-tab" role="tab" aria-selected="false" tabindex="-1">${escHtml(t('assistant.expertTeamTabParams'))}</label>
+        <label for="${escAttr(panelId)}-tab-all" class="ast-expert-detail-tab" tabindex="0">${escHtml(t('assistant.expertTeamTabAll'))}</label>
+        <label for="${escAttr(panelId)}-tab-activity" class="ast-expert-detail-tab" tabindex="-1">${escHtml(t('assistant.expertTeamTabActivity'))}</label>
+        <label for="${escAttr(panelId)}-tab-tool" class="ast-expert-detail-tab" tabindex="-1">${escHtml(t('assistant.expertTeamTabTools'))}</label>
+        <label for="${escAttr(panelId)}-tab-param" class="ast-expert-detail-tab" tabindex="-1">${escHtml(t('assistant.expertTeamTabParams'))}</label>
       </div>
-      <div class="ast-expert-detail-content" data-tab="all" role="tabpanel" aria-labelledby="${escAttr(panelId)}-tab-all">${allHtml}</div>
-      <div class="ast-expert-detail-content" data-tab="activity" role="tabpanel" aria-labelledby="${escAttr(panelId)}-tab-activity" hidden>${activityHtml}</div>
-      <div class="ast-expert-detail-content" data-tab="tool" role="tabpanel" aria-labelledby="${escAttr(panelId)}-tab-tool" hidden>${traceHtml}</div>
-      <div class="ast-expert-detail-content" data-tab="param" role="tabpanel" aria-labelledby="${escAttr(panelId)}-tab-param" hidden>${paramHtml}</div>
+      <div class="ast-expert-detail-content" data-tab="all" aria-labelledby="${escAttr(panelId)}-tab-all">${allHtml}</div>
+      <div class="ast-expert-detail-content" data-tab="activity" aria-labelledby="${escAttr(panelId)}-tab-activity" hidden>${activityHtml}</div>
+      <div class="ast-expert-detail-content" data-tab="tool" aria-labelledby="${escAttr(panelId)}-tab-tool" hidden>${traceHtml}</div>
+      <div class="ast-expert-detail-content" data-tab="param" aria-labelledby="${escAttr(panelId)}-tab-param" hidden>${paramHtml}</div>
     </div>
   </details>`
 }
@@ -8458,7 +8458,7 @@ async function sendViaExpertTeam(text, images) {
 }
 
 async function resumeExpertTeamMessage(idx, mode = 'synthesis') {
-  if (_isStreaming) {
+  if (_isStreaming || _resumeInFlight) {
     toast(t('assistant.expertTeamResumeWaitToast'), 'info')
     return
   }

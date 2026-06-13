@@ -41,6 +41,12 @@ export async function render() {
   })
   page.querySelector('#btn-usage-refresh')?.addEventListener('click', () => loadUsage(page))
 
+  // 重试按钮（避免内联 onclick）
+  page.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-usage-retry]')
+    if (btn) { btn.disabled = true; loadUsage(page) }
+  })
+
   loadUsage(page)
   return page
 }
@@ -81,7 +87,7 @@ async function loadUsage(page) {
     el.innerHTML = `<div class="usage-empty">
       <div style="color:var(--error);margin-bottom:8px">${t('usage.loadFailed')}: ${esc(e?.message || e)}</div>
       <div class="form-hint">${t('usage.loadFailedHint')}</div>
-      <button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="this.closest('.page').querySelector('#btn-usage-refresh').click()">${t('usage.retry')}</button>
+      <button class="btn btn-secondary btn-sm" style="margin-top:8px" data-usage-retry>${t('usage.retry')}</button>
     </div>`
   }
 }

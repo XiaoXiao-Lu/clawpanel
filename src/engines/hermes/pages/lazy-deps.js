@@ -108,7 +108,7 @@ async function loadAndRender(page) {
     status = statusResp?.ok ? (statusResp.status || {}) : {}
   } catch (e) {
     // 状态查询失败也允许渲染（按未知处理）
-    console.warn('lazy_deps status failed:', e)
+    console.warn('lazy_deps status failed:', e?.message || e)
   }
 
   const groups = groupByCategory(features)

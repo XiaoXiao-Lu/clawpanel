@@ -99,7 +99,7 @@ export function render() {
       logFiles = await api.hermesLogsList()
       if (logFiles.length && !activeFile) activeFile = logFiles[0].name
     } catch (e) {
-      console.error('[logs] Failed to load file list:', e)
+      console.error('[logs] Failed to load file list:', e?.message ?? e)
       logFiles = []
     }
   }

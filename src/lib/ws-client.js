@@ -416,7 +416,7 @@ export class WsClient {
     }
 
     ws.onerror = (err) => {
-      console.error('[ws] WebSocket 错误:', safeErrorSummary(err))
+      console.error('[ws] WebSocket 错误:', safeErrorSummary(err?.message ?? err))
     }
   }
 
@@ -641,7 +641,7 @@ export class WsClient {
       }, 3000)
     } catch (e) {
       const summary = safeErrorSummary(e)
-      console.error('[ws] 自动配对失败:', summary)
+      console.error('[ws] 自动配对失败:', safeErrorSummary(e).message)
       this._setConnected(false, 'error', `配对失败: ${summary.message}`)
     }
   }
@@ -669,7 +669,7 @@ export class WsClient {
       }, 3000)
     } catch (e) {
       const summary = safeErrorSummary(e)
-      console.error('[ws] 刷新凭据失败:', summary)
+      console.error('[ws] 刷新凭据失败:', safeErrorSummary(e).message)
       this._setConnected(false, 'error', `凭据刷新失败: ${summary.message}`)
     }
   }
@@ -683,7 +683,7 @@ export class WsClient {
         this._ws.send(JSON.stringify(frame))
       }
     } catch (e) {
-      console.error('[ws] 生成 connect frame 失败:', safeErrorSummary(e))
+      console.error('[ws] 生成 connect frame 失败:', safeErrorSummary(e).message)
       this._handshaking = false
     }
   }
@@ -1090,7 +1090,7 @@ export class WsClient {
       return { history }
     } catch (e) {
       const summary = safeErrorSummary(e)
-      console.error('[ws] 拉取历史消息失败:', summary)
+      console.error('[ws] 拉取历史消息失败:', safeErrorSummary(e).message)
       return { error: summary.message }
     }
   }

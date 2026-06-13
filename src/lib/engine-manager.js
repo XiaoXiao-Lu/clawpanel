@@ -104,11 +104,10 @@ export async function applyEngineSelection({ activeEngineId = 'openclaw', enable
         new Promise((_, reject) => setTimeout(() => reject(new Error('engine boot timeout')), 10000))
       ])
     } catch (e) {
-      console.warn('[engine-manager] boot 失败或超时:', e)
+      console.warn('[engine-manager] boot 失败或超时:', e?.message || e)
     }
   }
 }
-
 export async function adoptActiveEngineSelection({ enabledEngineIds = [], choice = '' } = {}) {
   const engine = _activeEngine
   if (!engine) return
@@ -169,7 +168,7 @@ export async function activateEngine(id, persist = true) {
         new Promise((_, reject) => setTimeout(() => reject(new Error('engine boot timeout')), 10000))
       ])
     } catch (e) {
-      console.warn('[engine-manager] boot 失败或超时:', e)
+      console.warn('[engine-manager] boot 失败或超时:', e?.message || e)
     }
   }
 
@@ -192,7 +191,7 @@ export async function activateEngine(id, persist = true) {
       _needsInitialEngineChoice = false
       _engineSetupDeferred = false
     } catch (e) {
-      console.warn('[engine-manager] 保存 engineMode 失败:', e)
+      console.warn('[engine-manager] 保存 engineMode 失败:', e?.message || e)
     }
   }
 

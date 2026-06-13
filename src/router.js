@@ -160,7 +160,7 @@ async function loadRoute() {
     try {
       mod = await retryLoad(loader, 3, 500)
     } catch (e) {
-      console.error('[router] 模块加载失败:', routePath, e)
+      console.error('[router] 模块加载失败:', routePath, e?.message ?? e)
       if (thisLoad === _loadId) showLoadError(_contentEl, routePath, e)
       return
     }
@@ -177,7 +177,7 @@ async function loadRoute() {
     const renderFn = mod.render || mod.default
     page = renderFn ? await withTimeout(renderFn(), 15000, '页面渲染超时') : mod
   } catch (e) {
-    console.error('[router] 页面渲染失败:', routePath, e)
+    console.error('[router] 页面渲染失败:', routePath, e?.message ?? e)
     // 渲染失败时清除缓存，下次重试时重新加载模块
     delete _moduleCache[routePath]
     if (thisLoad === _loadId) showLoadError(_contentEl, routePath, e)

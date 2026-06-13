@@ -245,8 +245,9 @@ async function loadConfig(page, state) {
     renderWaterfall(page, state)
   } catch (e) {
     console.error('[models] loadConfig failed:', e?.message ?? e)
+    const err = humanizeError(e, t('models.configLoadFailed'))
     const detail = escapeHtml(e?.stack || e?.message || String(e))
-    const shortMsg = escapeHtml(e?.message || String(e))
+    const shortMsg = escapeHtml(err.message || e?.message || String(e))
     listEl.innerHTML = `
       <div class="models-load-error" style="padding:36px 20px;text-align:center;max-width:560px;margin:0 auto">
         <div style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;background:rgba(239,68,68,0.10);color:var(--error);margin-bottom:14px">
@@ -257,7 +258,7 @@ async function loadConfig(page, state) {
           </svg>
         </div>
         <div style="color:var(--text-primary);font-weight:600;font-size:15px;margin-bottom:6px">${t('models.configLoadFailed')}</div>
-        <div style="color:var(--text-secondary);font-size:13px;line-height:1.65;margin-bottom:18px">${t('models.configLoadFailedHint')}</div>
+        <div style="color:var(--text-secondary);font-size:13px;line-height:1.65;margin-bottom:18px">${escapeHtml(err.hint || t('models.configLoadFailedHint'))}</div>
         <details style="text-align:left;margin-bottom:18px">
           <summary style="cursor:pointer;color:var(--text-tertiary);font-size:12px;padding:4px 0;user-select:none">${t('models.configLoadDetails')}</summary>
           <pre style="margin-top:8px;padding:10px 12px;background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:6px;font-size:11px;color:var(--text-secondary);white-space:pre-wrap;word-break:break-all;max-height:220px;overflow:auto;text-align:left">${detail}</pre>

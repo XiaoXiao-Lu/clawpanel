@@ -255,7 +255,7 @@ function createStore() {
   function flushNotify() {
     scheduled = false
     for (const fn of listeners) {
-      try { fn(state) } catch (e) { console.error('chatStore listener error:', e) }
+      try { fn(state) } catch (e) { console.error('chatStore listener error:', e?.message ?? e) }
     }
   }
   function notify() {

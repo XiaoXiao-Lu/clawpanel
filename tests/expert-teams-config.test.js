@@ -134,7 +134,7 @@ test('Expert Teams page supports expert editing and team member selection', () =
     'closeModal({ restoreFocus: true })',
     "modal.addEventListener('click'",
     "modal.addEventListener('keydown'",
-    "e.key !== 'Escape'",
+    "e.key === 'Escape'",
     'renderWorkflowGuide',
     'workflowGuide',
     'updateGroupWorkflowGuide',

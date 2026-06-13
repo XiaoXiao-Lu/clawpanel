@@ -1142,6 +1142,7 @@ async function showEditAgentDialog(page, state, id) {
     devLog('[Agent编辑] 获取到模型列表:', models.length, '个')
   } catch (e) {
     console.error('[Agent编辑] 获取模型列表失败:', e?.message ?? e)
+    toast(humanizeError(e, t('agents.loadFailed')), 'error')
   }
 
   const fields = [

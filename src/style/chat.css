@@ -164,7 +164,8 @@
 
 .msg.user:hover .msg-bubble,
 .msg-user:hover .msg-bubble {
-  box-shadow: 0 3px 14px rgba(91, 78, 232, 0.22), 0 1px 4px rgba(17, 24, 39, 0.08);
+  box-shadow: var(--brand-shadow-hover);
+  border-color: var(--aether-border-focus);
 }
 
 /* Message entrance animation enhancement */
@@ -2424,31 +2425,31 @@
     opacity: 1;
   }
   :root:not([data-theme="dark"]) .chat-input-area {
-    background: #F0F0F5;
+    background: var(--light-bg-elevated);
     border-top-color: rgba(0, 0, 0, 0.10);
   }
   /* Light theme: message area uses a clear grey background so white bubbles pop */
   :root:not([data-theme="dark"]) .chat-messages {
-    background: #EEEEF3;
+    background: var(--light-bg-content);
   }
   /* Light theme: sidebar with a distinct slightly warm grey */
   :root:not([data-theme="dark"]) .chat-sidebar.open {
-    background: #F6F6FA;
+    background: var(--light-bg-surface);
     border-right-color: rgba(0, 0, 0, 0.10);
   }
   :root:not([data-theme="dark"]) .chat-sidebar-header {
-    background: #F0F0F5;
+    background: var(--light-bg-elevated);
     border-bottom-color: rgba(0, 0, 0, 0.10);
   }
   :root:not([data-theme="dark"]) .chat-session-list {
-    background: #F6F6FA;
+    background: var(--light-bg-surface);
   }
   :root:not([data-theme="dark"]) .chat-session-tools {
-    background: #F0F0F5;
+    background: var(--light-bg-elevated);
     border-bottom-color: rgba(0, 0, 0, 0.10);
   }
   :root:not([data-theme="dark"]) .chat-header {
-    background: #F6F6FA;
+    background: var(--light-bg-surface);
     border-bottom-color: rgba(0, 0, 0, 0.10);
   }
   /* Light theme message bubbles — tinted cards on grey background */
@@ -2500,68 +2501,68 @@
   }
   /* Light theme: workspace panel */
   :root:not([data-theme="dark"]) .chat-workspace-panel {
-    background: #F6F6FA;
+    background: var(--light-bg-surface);
     border-bottom-color: rgba(0, 0, 0, 0.10);
   }
   :root:not([data-theme="dark"]) .chat-workspace-header {
-    background: #F0F0F5;
+    background: var(--light-bg-elevated);
     border-bottom-color: rgba(0, 0, 0, 0.08);
   }
   :root:not([data-theme="dark"]) .chat-workspace-sidebar-pane {
-    background: #F6F6FA;
+    background: var(--light-bg-surface);
     border-right-color: rgba(0, 0, 0, 0.08);
   }
   :root:not([data-theme="dark"]) .chat-workspace-core-item:hover {
-    background: rgba(91, 78, 232, 0.06);
+    background: var(--aether-primary-faint);
   }
   :root:not([data-theme="dark"]) .chat-workspace-core-item.active {
-    background: rgba(91, 78, 232, 0.10);
+    background: var(--aether-primary-muted);
   }
   :root:not([data-theme="dark"]) .chat-workspace-tree-item:hover {
-    background: rgba(91, 78, 232, 0.06);
+    background: var(--aether-primary-faint);
   }
   :root:not([data-theme="dark"]) .chat-workspace-tree-item.active {
-    background: rgba(91, 78, 232, 0.10);
+    background: var(--aether-primary-muted);
   }
   :root:not([data-theme="dark"]) .chat-workspace-editor-pane {
-    background: #FFFFFF;
+    background: var(--light-bg-white);
   }
   :root:not([data-theme="dark"]) .chat-workspace-editor {
-    background: #FFFFFF;
+    background: var(--light-bg-white);
   }
   :root:not([data-theme="dark"]) .chat-workspace-editor-meta {
-    background: #F8F8FC;
+    background: var(--light-bg-subtle);
     border-bottom-color: rgba(0, 0, 0, 0.06);
   }
   /* Light theme: command panel */
   :root:not([data-theme="dark"]) .chat-cmd-panel {
-    background: #FFFFFF;
+    background: var(--light-bg-white);
     border-color: rgba(0, 0, 0, 0.12);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   }
   :root:not([data-theme="dark"]) .cmd-item:hover {
-    background: rgba(91, 78, 232, 0.06);
+    background: var(--aether-primary-faint);
   }
   :root:not([data-theme="dark"]) .cmd-item:active {
-    background: rgba(91, 78, 232, 0.10);
+    background: var(--aether-primary-muted);
   }
   :root:not([data-theme="dark"]) .cmd-name {
     color: var(--aether-primary);
   }
   /* Light theme: connect overlay */
   :root:not([data-theme="dark"]) .chat-connect-overlay {
-    background: #F6F6FA;
+    background: var(--light-bg-surface);
   }
   /* Light theme: hosted agent panel */
   :root:not([data-theme="dark"]) .hosted-agent-panel {
-    background: #FFFFFF;
+    background: var(--light-bg-white);
     border-left-color: rgba(0, 0, 0, 0.10);
   }
   :root:not([data-theme="dark"]) .hosted-agent-header {
     border-bottom-color: rgba(0, 0, 0, 0.08);
   }
   :root:not([data-theme="dark"]) .hosted-agent-body {
-    background: #FFFFFF;
+    background: var(--light-bg-white);
   }
   :root:not([data-theme="dark"]) .hosted-agent-actions {
     border-top-color: rgba(0, 0, 0, 0.08);
@@ -2571,29 +2572,29 @@
   }
   /* Light theme: guide */
   :root:not([data-theme="dark"]) .chat-page-guide {
-    background: rgba(91, 78, 232, 0.05);
+    background: var(--aether-primary-faint);
     border-color: rgba(91, 78, 232, 0.12);
   }
   /* Light theme: header elements */
   :root:not([data-theme="dark"]) .chat-model-select {
-    background: #FFFFFF;
+    background: var(--light-bg-white);
     border-color: rgba(0, 0, 0, 0.12);
   }
   :root:not([data-theme="dark"]) .chat-session-filter {
-    background: #FFFFFF;
+    background: var(--light-bg-white);
     border-color: rgba(0, 0, 0, 0.12);
   }
   :root:not([data-theme="dark"]) .chat-message-search {
-    background: #FFFFFF;
+    background: var(--light-bg-white);
     border-color: rgba(0, 0, 0, 0.10);
   }
   /* Light theme: file cards */
   :root:not([data-theme="dark"]) .msg-file-card {
-    background: #F8F8FC;
+    background: var(--light-bg-subtle);
     border-color: rgba(0, 0, 0, 0.08);
   }
   :root:not([data-theme="dark"]) .msg-file-card:hover {
-    background: rgba(91, 78, 232, 0.06);
+    background: var(--aether-primary-faint);
     border-color: rgba(91, 78, 232, 0.15);
   }
   /* Light theme: disconnect bar */
@@ -2603,10 +2604,10 @@
   }
   /* Light theme: workspace details */
   :root:not([data-theme="dark"]) .chat-workspace-tree-row:hover {
-    background: rgba(91, 78, 232, 0.06);
+    background: var(--aether-primary-faint);
   }
   :root:not([data-theme="dark"]) .chat-workspace-tree-row.active {
-    background: rgba(91, 78, 232, 0.10);
+    background: var(--aether-primary-muted);
   }
 }
 

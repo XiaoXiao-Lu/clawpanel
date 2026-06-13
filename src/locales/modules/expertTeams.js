@@ -17,6 +17,8 @@ export default {
   noExperts: _('还没有自定义专家', 'No custom experts yet'),
   noGroups: _('还没有专家团', 'No expert teams yet'),
   emptyExpertsHint: _('先创建专家，再在专家团里选择他们。', 'Create experts first, then select them in a team.'),
+  noExpertsInLibrary: _('专家库为空', 'Expert library is empty'),
+  noExpertsInLibraryHint: _('先在专家标签页创建专家，再回到这里选择成员。', 'Create experts in the Experts tab first, then come back here to select members.'),
   emptyGroupsHint: _('专家团会从专家库中选择成员，并保存主持人与协作模式。', 'Teams select members from the expert library and save a moderator plus collaboration mode.'),
   formIdentity: _('身份', 'Identity'),
   formCapability: _('能力与上下文', 'Capability & Context'),

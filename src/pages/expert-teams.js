@@ -259,6 +259,27 @@ function bindEvents(page, state) {
     const picker = page.querySelector('#expert-member-picker')
     if (picker) renumberSelectedMembers(picker)
   })
+
+  // 键盘可访问性：使用 ↑/↓ 键重新排序选中成员
+  page.addEventListener('keydown', (e) => {
+    if (!['ArrowUp', 'ArrowDown'].includes(e.key)) return
+    const target = e.target.closest('[data-member-drag]')
+    if (!target || target.disabled) return
+    e.preventDefault()
+    const picker = page.querySelector('#expert-member-picker')
+    if (!picker) return
+    const row = target.closest('[data-member-row]')
+    if (!row || !row.classList.contains('is-selected')) return
+    const rows = [...picker.querySelectorAll('[data-member-row].is-selected')]
+    const currentIdx = rows.indexOf(row)
+    const newIdx = e.key === 'ArrowUp' ? currentIdx - 1 : currentIdx + 1
+    if (newIdx < 0 || newIdx >= rows.length) return
+    const otherRow = rows[newIdx]
+    const before = e.key === 'ArrowUp' ? otherRow : row
+    const after = e.key === 'ArrowUp' ? row : otherRow
+    picker.insertBefore(before, after)
+    renumberSelectedMembers(picker)
+  })
 }
 
 async function loadData(page, state, opts = {}) {

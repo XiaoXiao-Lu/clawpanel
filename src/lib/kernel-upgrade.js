@@ -107,7 +107,7 @@ export async function triggerKernelUpgrade(opts = {}) {
     }
     return true
   } catch (e) {
-    console.error('[kernel-upgrade] 升级失败', e)
+    console.error('[kernel-upgrade] 升级失败', e?.message ?? e)
     modal.setError(t('kernel.upgrade.failurePrefix') + ' ' + (e?.message || String(e)))
     cleanup()
     return false

@@ -45,7 +45,7 @@ export async function saveMessage(message) {
       sync: true
     })
   } catch (e) {
-    console.error('[db] saveMessage error:', e)
+    console.error('[db] saveMessage error:', e?.message ?? e)
   }
 }
 
@@ -67,7 +67,7 @@ export async function saveMessages(messages) {
       })
     })
   } catch (e) {
-    console.error('[db] saveMessages error:', e)
+    console.error('[db] saveMessages error:', e?.message ?? e)
   }
 }
 
@@ -88,7 +88,7 @@ export async function getLocalMessages(sessionKey, limit = 200) {
       tx.onerror = () => resolve([])
     })
   } catch (e) {
-    console.error('[db] getLocalMessages error:', e)
+    console.error('[db] getLocalMessages error:', e?.message ?? e)
     return []
   }
 }
@@ -103,7 +103,7 @@ export async function clearSessionMessages(sessionKey) {
       if (cursor) { cursor.delete(); cursor.continue() }
     }
   } catch (e) {
-    console.error('[db] clearSessionMessages error:', e)
+    console.error('[db] clearSessionMessages error:', e?.message ?? e)
   }
 }
 

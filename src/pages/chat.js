@@ -13,6 +13,7 @@ import { icon as svgIcon } from '../lib/icons.js'
 import { t } from '../lib/i18n.js'
 import { escapeHtml } from '../lib/utils.js'
 import { devLog } from '../lib/logger.js'
+import { humanizeError } from '../lib/humanize-error.js'
 
 const RENDER_THROTTLE = 30
 const MAX_VISIBLE_MESSAGES = 150  // 最大可见消息 DOM 节点数
@@ -1472,6 +1473,7 @@ async function refreshSessionList() {
     renderSessionList(sessions)
   } catch (e) {
     console.error('[chat] refreshSessionList error:', e?.message ?? e)
+    toast(humanizeError(e, t('chat.loadSessionsFailed')).message, 'error')
   }
 }
 
@@ -2861,7 +2863,8 @@ async function loadHistory() {
     scrollToBottom()
   } catch (e) {
     console.error('[chat] loadHistory error:', e?.message ?? e)
-    if (_messagesEl && !_messagesEl.querySelector('.msg')) appendSystemMessage(`${t('common.loadFailed')}: ${e.message}`)
+    const err = humanizeError(e, t('common.loadFailed'))
+    if (_messagesEl && !_messagesEl.querySelector('.msg')) appendSystemMessage(`${err.message}${err.hint ? ` ${err.hint}` : ''}`)
   } finally {
     _isLoadingHistory = false
   }

@@ -121,7 +121,7 @@ export function render() {
     try {
       categories = await api.hermesSkillsList()
     } catch (e) {
-      console.error('Failed to load skills:', e)
+      console.error('Failed to load skills:', e?.message ?? e)
       categories = []
       toast(humanizeError(e, t('engine.skillsLoadFailed')), 'error')
     }
@@ -175,7 +175,7 @@ export function render() {
       toolsetsRaw = r?.raw || ''
       toolsets = parseToolsets(toolsetsRaw)
     } catch (e) {
-      console.error('Failed to load toolsets:', e)
+      console.error('Failed to load toolsets:', e?.message ?? e)
       toolsetsRaw = ''
       toolsets = []
     } finally {

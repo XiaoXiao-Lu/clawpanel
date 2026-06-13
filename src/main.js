@@ -1112,7 +1112,7 @@ async function autoConnectWebSocket() {
     wsClient.connect(host, token, { password })
     console.log(`[main] WebSocket 连接已启动 -> ${host}${password ? ' (password mode)' : ''}`)
   } catch (e) {
-    console.error('[main] 自动连接 WebSocket 失败:', e)
+    console.error('[main] 自动连接 WebSocket 失败:', e?.message ?? e)
   }
 }
 
@@ -1408,7 +1408,7 @@ function startAnnouncementChecker() {
     window._bootDone = true
   } catch (bootErr) {
     window._bootDone = true
-    console.error('[main] boot() 失败:', bootErr)
+    console.error('[main] boot() 失败:', bootErr?.message ?? bootErr)
     _hideSplash()
     const app = document.getElementById('app')
     if (app) app.innerHTML = `
@@ -1416,9 +1416,11 @@ function startAnnouncementChecker() {
         <div style="font-size:48px;margin-bottom:var(--space-4)">⚠️</div>
         <div style="font-size:var(--text-xl);font-weight:600;margin-bottom:var(--space-2);color:var(--text-primary)">${t('common.pageLoadFailed')}</div>
         <div style="font-size:var(--text-base);color:var(--text-secondary);max-width:400px;line-height:1.6;margin-bottom:var(--space-4)">${String(bootErr?.message || bootErr).replace(/</g,'&lt;')}</div>
-        <button onclick="location.reload()" style="padding:var(--space-2) var(--space-5);border-radius:var(--radius-md);border:none;background:var(--accent);color:var(--text-inverse);font-size:var(--text-base);cursor:pointer">${t('common.reloadRetry')}</button>
+        <button id="__boot-retry-btn" style="padding:var(--space-2) var(--space-5);border-radius:var(--radius-md);border:none;background:var(--accent);color:var(--text-inverse);font-size:var(--text-base);cursor:pointer">${t('common.reloadRetry')}</button>
         <div style="margin-top:var(--space-6);font-size:var(--text-xs);color:var(--text-tertiary)">${t('common.pageLoadFailedHint')}<br><a href="https://github.com/qingchencloud/clawpanel/issues" target="_blank" style="color:var(--accent)">GitHub Issues</a></div>
       </div>`
+    // 绑定重试按钮事件（避免内联 onclick）
+    app.querySelector('#__boot-retry-btn')?.addEventListener('click', () => location.reload())
   }
   initSiteMessageCenter({
     fetcher: () => api.checkSiteAnnouncements(getLang()),
