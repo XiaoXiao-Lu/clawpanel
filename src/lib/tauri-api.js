@@ -466,7 +466,7 @@ export const api = {
   skillsCheck: () => invoke('skills_check'),
   skillsInstallDep: (kind, spec) => invoke('skills_install_dep', { kind, spec }),
   skillsInstallZip: (name, zipBase64, agentId) => { invalidate('skills_list'); return invoke('skills_install_zip', { name, zip_base64: zipBase64, agent_id: agentId || null }) },
-  skillsUninstall: (name, agentId) => invoke('skills_uninstall', { name, agent_id: agentId || null }),
+  skillsUninstall: (name, agentId, filePath) => invoke('skills_uninstall', { name, agent_id: agentId || null, file_path: filePath || null }),
   // SkillHub SDK（内置 HTTP，不依赖 CLI）
   skillhubSearch: (query, limit) => invoke('skillhub_search', { query, limit }),
   skillhubIndex: () => invoke('skillhub_index'),

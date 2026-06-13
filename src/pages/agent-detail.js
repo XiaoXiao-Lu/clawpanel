@@ -588,16 +588,14 @@ function renderSkillCard(skill, checked) {
   const emoji = skill.emoji || '🧩'
   const desc = normalizeSkillDescription(skill)
   const displayDesc = desc || '暂无描述'
-  const eligible = skill.eligible !== false
   const disabled = skill.disabled === true
   return `
-    <label class="agent-skill-card ${!eligible || disabled ? 'is-muted' : ''}" data-name="${esc(skill.name)}" data-desc="${esc(desc || skill.name || '')}" data-file-path="${esc(skill.filePath || '')}">
+    <label class="agent-skill-card ${disabled ? 'is-muted' : ''}" data-name="${esc(skill.name)}" data-desc="${esc(desc || skill.name || '')}" data-file-path="${esc(skill.filePath || '')}">
       <input type="checkbox" class="agent-skill-checkbox" data-skill-name="${esc(skill.name)}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
       <div class="agent-skill-main">
         <div class="agent-skill-head">
           <span class="agent-skill-name">${esc(emoji)} ${esc(skill.name)}</span>
           ${disabled ? `<span class="agent-skill-badge">${t('agentDetail.skillDisabled')}</span>` : ''}
-          ${!eligible && !disabled ? `<span class="agent-skill-badge">${t('agentDetail.skillUnavailable')}</span>` : ''}
         </div>
         <div class="agent-skill-desc ${desc ? '' : 'is-empty'}">${esc(displayDesc)}</div>
       </div>

@@ -445,6 +445,11 @@
   align-items: center; justify-content: flex-end; gap: 6px;
   align-self: center; margin-left: auto;
 }
+.clawhub-item.store-item .skills-store-installed-badge {
+  max-width: 88px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* Badge */
 .clawhub-badge {

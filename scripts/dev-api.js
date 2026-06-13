@@ -12227,11 +12227,14 @@ const handlers = {
       throw new Error(`安装失败: ${e.message || e}`)
     }
   },
-  skills_uninstall({ name, agent_id } = {}) {
+  skills_uninstall({ name, agent_id, file_path } = {}) {
     if (!name || name.includes('..') || name.includes('/') || name.includes('\\')) throw new Error('无效的 Skill 名称')
     const agentDir = resolveAgentSkillsDir(agent_id)
     const baseDir = agentDir || path.join(OPENCLAW_DIR, 'skills')
-    const skillDir = path.join(baseDir, name)
+    const requestedPath = String(file_path || '').trim()
+    const skillDir = requestedPath && fs.existsSync(path.join(requestedPath, 'SKILL.md')) && path.resolve(requestedPath).startsWith(path.resolve(baseDir))
+      ? requestedPath
+      : path.join(baseDir, name)
     if (!fs.existsSync(skillDir)) throw new Error(`Skill「${name}」不存在`)
     fs.rmSync(skillDir, { recursive: true, force: true })
     return { success: true, name }

@@ -27,6 +27,30 @@ function skillKey(value) {
   return String(value || '').trim().toLowerCase()
 }
 
+function normalizeSearchText(value) {
+  return String(value || '')
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+}
+
+function compactSearchText(value) {
+  return normalizeSearchText(value).replace(/[\s_\-./\\:()[\]{}]+/g, '')
+}
+
+function matchesSearch(query, ...fields) {
+  const normalizedQuery = normalizeSearchText(query)
+  if (!normalizedQuery) return true
+  const compactQuery = compactSearchText(normalizedQuery)
+  return fields.some(field => {
+    const normalizedField = normalizeSearchText(field)
+    if (!normalizedField) return false
+    return normalizedField.includes(normalizedQuery)
+      || (compactQuery && compactSearchText(normalizedField).includes(compactQuery))
+  })
+}
+
 function storeItemName(item) {
   return item?.display_name || item?.displayName || item?.name || item?.slug || ''
 }
@@ -489,6 +513,15 @@ function findInstalledSkill(name) {
   return _installedItems.get(skillKey(name)) || null
 }
 
+function installedSkillDirName(skill) {
+  const rawPath = String(skill?.filePath || skill?.path || skill?.fullPath || '').trim()
+  if (rawPath) {
+    const parts = rawPath.split(/[\\/]+/).filter(Boolean)
+    if (parts.length) return parts[parts.length - 1]
+  }
+  return skill?.name || skill?.slug || ''
+}
+
 function findStoreItemBySlug(slug) {
   return _storeItems.find(i => i.slug === slug) || _storeIndex?.find?.(i => i.slug === slug) || null
 }
@@ -862,13 +895,10 @@ function renderSkills(el, data) {
     el.querySelector('.skills-summary')?.after(filterEmptyEl)
 
     input.addEventListener('input', () => {
-      const q = input.value.trim().toLowerCase()
+      const q = input.value.trim()
       let visibleCount = 0
       el.querySelectorAll('.skill-card-item').forEach(card => {
-        const name = (card.dataset.name || '').toLowerCase()
-        const desc = (card.dataset.desc || '').toLowerCase()
-        const source = (card.dataset.source || '').toLowerCase()
-        const match = !q || name.includes(q) || desc.includes(q) || source.includes(q)
+        const match = matchesSearch(q, card.dataset.name, card.dataset.desc, card.dataset.source, card.dataset.filePath)
         card.style.display = match ? '' : 'none'
         if (match) visibleCount++
       })
@@ -941,7 +971,7 @@ function renderSkillCard(skill, status) {
       </div>
       <div class="clawhub-item-actions">
         <button class="btn btn-secondary btn-sm skills-preview-btn" data-action="skill-info" data-name="${esc(name)}" data-file-path="${esc(skill.filePath || skill.path || '')}" title="${t('skills.preview')}" aria-label="${t('skills.preview')}">👁</button>
-        ${!skill.bundled ? `<button class="btn btn-secondary btn-sm skills-remove-btn" data-action="skill-uninstall" data-name="${esc(name)}" title="${t('skills.uninstall')}" aria-label="${t('skills.uninstall')}">×</button>` : ''}
+        ${!skill.bundled ? `<button class="btn btn-secondary btn-sm skills-remove-btn" data-action="skill-uninstall" data-name="${esc(name)}" data-file-path="${esc(skill.filePath || skill.path || '')}" title="${t('skills.uninstall')}" aria-label="${t('skills.uninstall')}">×</button>` : ''}
         ${statusBadgeMap[status] || ''}
       </div>
       <div class="skills-card-hover-preview" aria-hidden="true">
@@ -1051,7 +1081,8 @@ function renderStoreItems(el, items) {
     const installed = !!installedSkill
     const installedSource = installedSkill?.source || ''
     const installedPath = installedSkill?.filePath || installedSkill?.path || installedSkill?.fullPath || ''
-    const installedLabel = [t('skills.installed'), installedSource].filter(Boolean).join(' · ')
+    const installedDir = installedSkillDirName(installedSkill)
+    const installedHint = [installedDir, installedSource, installedPath].filter(Boolean).join(' · ')
     const stats = [
       item.version ? `v${item.version}` : '',
       item.author || item.owner_name || '',
@@ -1069,7 +1100,7 @@ function renderStoreItems(el, items) {
         <div class="clawhub-item-actions">
           <button class="btn btn-secondary btn-sm skills-preview-btn" data-action="store-info" data-slug="${esc(slug)}" title="${t('skills.preview')}" aria-label="${t('skills.preview')}">👁</button>
           ${installed
-            ? `<span class="clawhub-badge installed" title="${esc(installedPath || installedSource)}">${esc(installedLabel)}</span>`
+            ? `<span class="clawhub-badge installed skills-store-installed-badge" title="${esc(installedHint)}">${esc(t('skills.installed'))}</span>`
             : `<button class="btn btn-secondary btn-sm skills-store-add-btn" data-action="store-install" data-slug="${esc(slug)}" title="${t('skills.install')}" aria-label="${t('skills.install')}">+</button>`
           }
         </div>
@@ -1079,6 +1110,23 @@ function renderStoreItems(el, items) {
       </div>
     `
   }).join('')
+}
+
+function filterStoreItemsLocally(items, query) {
+  if (!query || !Array.isArray(items) || !items.length) return items
+  return items.filter(item => matchesSearch(
+    query,
+    item?.slug,
+    item?.name,
+    item?.display_name,
+    item?.displayName,
+    item?.description,
+    item?.description_zh,
+    item?.summary,
+    item?.category,
+    ...(item?.tags || []),
+    ...(item?.categories || []),
+  ))
 }
 
 async function handleStoreSearch(page) {
@@ -1103,16 +1151,27 @@ async function handleStoreSearch(page) {
 
   try {
     let items
-    if (wsClient.connected && wsClient.gatewayReady) {
-      try {
-        const res = await wsClient.skillsSearch(q, 60)
-        items = res?.results || []
-      } catch {
-        items = await api.skillhubSearch(q, 60)
+    const searchRemote = async (query) => {
+      if (wsClient.connected && wsClient.gatewayReady) {
+        try {
+          const res = await wsClient.skillsSearch(query, 60)
+          return res?.results || []
+        } catch {
+          return await api.skillhubSearch(query, 60)
+        }
       }
-    } else {
-      items = await api.skillhubSearch(q, 60)
+      return await api.skillhubSearch(query, 60)
     }
+    if (wsClient.connected && wsClient.gatewayReady) {
+      items = await searchRemote(q)
+    } else {
+      items = await searchRemote(q)
+    }
+    const lowerQuery = normalizeSearchText(q)
+    if ((!items || !items.length) && lowerQuery && lowerQuery !== q) {
+      items = await searchRemote(lowerQuery)
+    }
+    items = filterStoreItemsLocally(items, q)
     if (meta) meta.innerHTML = `<span class="meta-dot"></span>${t('skills.searchMeta', { count: items?.length || 0, query: q })}`
     renderStoreItems(results, items)
   } catch (e) {
@@ -1204,13 +1263,14 @@ function readFileAsDataUrl(file) {
 
 async function handleSkillUninstall(page, btn) {
   const name = btn.dataset.name
+  const filePath = btn.dataset.filePath || ''
   if (!name) return
   const ok = await showConfirm(t('skills.confirmUninstall', { name }))
   if (!ok) return
   btn.disabled = true
   btn.textContent = '⏳ ' + t('skills.uninstalling')
   try {
-    await api.skillsUninstall(name, _selectedAgentId)
+    await api.skillsUninstall(name, _selectedAgentId, filePath)
     toast(t('skills.uninstalled', { name }), 'success')
     await loadSkills(page)
   } catch (e) {

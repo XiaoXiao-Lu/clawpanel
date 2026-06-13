@@ -214,18 +214,44 @@ fn decode_base64_payload(input: &str) -> Result<Vec<u8>, String> {
 
 /// 卸载 Skill（删除 skills/<name>/ 目录）
 #[tauri::command]
-pub async fn skills_uninstall(name: String, agent_id: Option<String>) -> Result<Value, String> {
+pub async fn skills_uninstall(
+    name: String,
+    agent_id: Option<String>,
+    file_path: Option<String>,
+) -> Result<Value, String> {
     if name.is_empty() || name.contains("..") || name.contains('/') || name.contains('\\') {
         return Err("无效的 Skill 名称".to_string());
     }
     let agent_ws = resolve_agent_skills_dir(agent_id.as_deref());
-    let skills_dir = resolve_custom_skill_dir_with_agent(&name, agent_ws.as_deref())
+    let skills_dir = resolve_skill_uninstall_dir(&name, agent_ws.as_deref(), file_path.as_deref())
         .ok_or_else(|| format!("Skill「{name}」不存在"))?;
     if !skills_dir.exists() {
         return Err(format!("Skill「{name}」不存在"));
     }
     std::fs::remove_dir_all(&skills_dir).map_err(|e| format!("删除失败: {e}"))?;
     Ok(serde_json::json!({ "success": true, "name": name }))
+}
+
+fn resolve_skill_uninstall_dir(
+    name: &str,
+    agent_skills_dir: Option<&std::path::Path>,
+    file_path: Option<&str>,
+) -> Option<std::path::PathBuf> {
+    if let Some(path) = file_path
+        .map(str::trim)
+        .filter(|path| !path.is_empty())
+        .map(std::path::PathBuf::from)
+    {
+        if path.is_dir()
+            && path.join("SKILL.md").is_file()
+            && custom_skill_roots_for_agent(agent_skills_dir)
+                .into_iter()
+                .any(|(root, _)| path.starts_with(root))
+        {
+            return Some(path);
+        }
+    }
+    resolve_custom_skill_dir_with_agent(name, agent_skills_dir)
 }
 
 /// 验证 Skill 配置是否正确
