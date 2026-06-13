@@ -8937,11 +8937,14 @@ function showDebugModal(title, content) {
     </div>
   `
   document.body.appendChild(overlay)
-  overlay.querySelector('.ast-debug-close').onclick = () => overlay.remove()
-  overlay.querySelector('.ast-debug-copy').onclick = () => {
-    navigator.clipboard.writeText(content).then(() => toast(t('common.copied')))
-  }
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove() })
+  overlay.addEventListener('click', (e) => {
+    if (e.target.closest('.ast-debug-close')) { overlay.remove(); return }
+    if (e.target.closest('.ast-debug-copy')) {
+      navigator.clipboard.writeText(content).then(() => toast(t('common.copied')))
+      return
+    }
+    if (e.target === overlay) overlay.remove()
+  })
 }
 
 const AST_GUIDE_KEY = 'clawpanel-guide-assistant-dismissed'
@@ -8955,7 +8958,7 @@ function getAssistantGuideHtml() {
         <b>${t('assistant.guideTitle')}</b>${t('assistant.guideDesc')}
         <span style="opacity:0.6">${t('assistant.guideHint')}</span>
       </div>
-      <button class="ast-guide-close" onclick="localStorage.setItem('${AST_GUIDE_KEY}','1');this.closest('.ast-page-guide').remove()" aria-label="${t('common.close')}">&times;</button>
+      <button class="ast-guide-close" type="button" aria-label="${t('common.close')}">&times;</button>
     </div>
   `
 }
@@ -9485,6 +9488,13 @@ export async function render() {
     if (quickBtn) {
       const prompt = quickBtn.dataset.prompt
       if (prompt) sendMessage(prompt)
+    }
+
+    // 引导提示关闭按钮（替换内联 onclick）
+    const guideClose = e.target.closest('.ast-guide-close')
+    if (guideClose) {
+      localStorage.setItem(AST_GUIDE_KEY, '1')
+      guideClose.closest('.ast-page-guide')?.remove()
     }
   })
 
