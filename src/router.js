@@ -4,6 +4,60 @@
 import { t } from './lib/i18n.js'
 import { escapeHtml as escHtml } from './lib/utils.js'
 
+// CSS lazy loading — 按路由按需加载页面级样式
+const _loadedCSS = new Set()
+async function _loadRouteCSS(routePath) {
+  const map = {
+    '/dashboard': () => import('./style/pages/dashboard.css'),
+    '/h/dashboard': () => import('./style/pages/dashboard.css'),
+    '/about': () => import('./style/pages/about.css'),
+    '/services': () => import('./style/pages/services.css'),
+    '/h/services': () => import('./style/pages/services.css'),
+    '/models': () => import('./style/pages/models.css'),
+    '/channels': () => import('./style/pages/channels.css'),
+    '/h/channels': () => import('./style/pages/channels.css'),
+    '/settings': () => import('./style/pages/settings.css'),
+    '/memory': () => import('./style/pages/memory.css'),
+    '/h/memory': () => import('./style/pages/memory.css'),
+    '/notifications': () => import('./style/pages/notifications.css'),
+    '/expert-teams': () => import('./style/pages/expert-teams.css'),
+    '/glossary': () => import('./style/pages/glossary.css'),
+    '/chat': () => import('./style/chat.css'),
+    '/h/chat': () => import('./style/chat.css'),
+    '/h/group-chat': () => import('./style/chat.css'),
+    '/agents': () => import('./style/agents.css'),
+    '/agent-detail': () => import('./style/agents.css'),
+    '/chat-debug': () => import('./style/debug.css'),
+    '/diagnose': () => import('./style/debug.css'),
+    '/assistant': () => import('./style/assistant.css'),
+  }
+
+  const loader = map[routePath]
+  if (loader) {
+    const key = String(loader)
+    if (!_loadedCSS.has(key)) { _loadedCSS.add(key); await loader() }
+  } else {
+    // 未映射路由加载通用 misc.css
+    if (!_loadedCSS.has('__misc__')) {
+      _loadedCSS.add('__misc__')
+      await import('./style/pages/misc.css')
+    }
+  }
+
+  // 全局辅助 CSS — 首次访问任意页面时加载
+  if (!_loadedCSS.has('__global__')) {
+    _loadedCSS.add('__global__')
+    await Promise.all([
+      import('./style/ai-drawer.css'),
+      import('./style/site-message-center.css'),
+      import('./components/command-palette.css'),
+      import('./style/pages/polish.css'),
+      import('./engines/hermes/style/hermes.css'),
+      import('./engines/xintian/style/xintian.css'),
+    ])
+  }
+}
+
 const routes = {}
 const _moduleCache = {}
 let _contentEl = null
@@ -171,6 +225,9 @@ async function loadRoute() {
 
   // 如果加载期间路由又变了，丢弃本次结果
   if (thisLoad !== _loadId) return
+
+  // 按路由加载对应 CSS（首次访问时异步加载，后续跳过）
+  await _loadRouteCSS(routePath)
 
   let page
   try {

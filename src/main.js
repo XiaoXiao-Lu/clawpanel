@@ -39,31 +39,7 @@ import './style/reset.css'
 import './style/layout.css'
 // Layer 4: Components
 import './style/components.css'
-// Layer 5: Pages (by domain, split from pages.css)
-import './style/pages/dashboard.css'
-import './style/pages/about.css'
-import './style/pages/services.css'
-import './style/pages/models.css'
-import './style/pages/channels.css'
-import './style/pages/settings.css'
-import './style/pages/memory.css'
-import './style/pages/notifications.css'
-import './style/pages/expert-teams.css'
-import './style/pages/glossary.css'
-import './style/pages/misc.css'
-// Layer 6: Chat & Assistant
-import './style/chat.css'
-import './style/agents.css'
-import './style/debug.css'
-import './style/assistant.css'
-import './components/command-palette.css'
-import './style/ai-drawer.css'
-import './style/site-message-center.css'
-// Layer 7: Engine-specific (scoped to [data-engine="<id>"])
-import './engines/hermes/style/hermes.css'
-import './engines/xintian/style/xintian.css'
-// Layer 8: Visual polish layer (absorbed from prototype-polish.css, loaded last for cascade priority)
-import './style/pages/polish.css'
+// Layer 5+ (Pages, Chat, Engine styles, Polish) — loaded lazily by router
 
 // 初始化主题 + 国际化
 initTheme()
