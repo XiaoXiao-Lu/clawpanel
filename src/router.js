@@ -13,6 +13,7 @@ async function _loadRouteCSS(routePath) {
     '/about': () => import('./style/pages/about.css'),
     '/services': () => import('./style/pages/services.css'),
     '/h/services': () => import('./style/pages/services.css'),
+    '/gateway': () => import('./style/pages/services.css'),
     '/models': () => import('./style/pages/models.css'),
     '/channels': () => import('./style/pages/channels.css'),
     '/h/channels': () => import('./style/pages/channels.css'),
