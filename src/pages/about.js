@@ -17,7 +17,7 @@ export async function render() {
 
   page.innerHTML = `
     <div class="page-header about-header">
-      <img src="/images/logo-brand.png" alt="ClawPanel" class="about-logo">
+      <img src="/images/logo-brand.webp" alt="ClawPanel" class="about-logo">
       <div>
         <h1 class="page-title">ClawPanel</h1>
         <p class="page-desc">${t('about.subtitle')} · <a href="https://claw.qt.cool" target="_blank" rel="noopener" style="color:var(--aether-primary)">claw.qt.cool</a></p>
@@ -936,7 +936,7 @@ function renderCompany(page) {
   const el = page.querySelector('#company-section')
   el.innerHTML = `
     <div class="company-header">
-      <img src="/images/logo-brand.png" alt="QingchenCloud" class="company-logo">
+      <img src="/images/logo-brand.webp" alt="QingchenCloud" class="company-logo">
       <div>
         <div class="company-name">${t('about.companyName')}</div>
         <div class="company-subtitle">QingchenCloud</div>
