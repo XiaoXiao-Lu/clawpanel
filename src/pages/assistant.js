@@ -8433,14 +8433,24 @@ async function sendViaExpertTeam(text, images) {
     _abortController = null
     if (_sendBtn) _sendBtn.innerHTML = sendIcon()
     setSessionStatus(session.id, 'idle')
-    // 标记交付态：保留专家团上下文，供追问使用
-    const hasFinal = (aiMsg._expertTeamTranscript || []).some(item => item.type === 'final')
-    if (hasFinal || aiMsg._expertTeamTranscript?.length > 0) {
+    // 标记交付态：只有"成功完成"（含 final 产物）才视为已交付，供追问用。
+    // 停止（stopped）/ 失败（error）不算交付：保留 transcript 用于回看，但下一次发消息
+    // 不应再自动恢复专家团上下文，避免用户主动切回"直接对话"后又被强制拉回专家团。
+    const transcriptEvents = aiMsg._expertTeamTranscript || []
+    const hasFinal = transcriptEvents.some(item => item.type === 'final')
+    const hasFinalLike = transcriptEvents.some(item => item.type === 'final_partial' || item.type === 'final_delta')
+    const wasStopped = transcriptEvents.some(item => item.type === 'stopped') || signal?.aborted
+    const hasError = transcriptEvents.some(item => item.type === 'error')
+    if ((hasFinal || hasFinalLike) && !wasStopped && !hasError) {
       _expertTeamJustDelivered = {
         groupId: group.id,
         groupName: group.name || group.id,
       }
       aiMsg._expertTeamDelivered = true
+    } else {
+      // 明确清掉，避免上一次的"已交付"状态被错误延续
+      _expertTeamJustDelivered = null
+      aiMsg._expertTeamDelivered = false
     }
     saveSessions()
   }
@@ -8847,6 +8857,10 @@ async function retryAIResponse(session) {
 
 function stopStreaming() {
   _isStreaming = false
+  // 立即更新 UI，不等 finally 块
+  stopStreamRefresh()
+  if (_sendBtn) _sendBtn.innerHTML = sendIcon()
+  if (_textarea) _textarea.focus()
   if (_abortController) {
     _abortController.abort()
     _abortController = null

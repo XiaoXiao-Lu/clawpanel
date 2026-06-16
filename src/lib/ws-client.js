@@ -911,10 +911,8 @@ export class WsClient {
     this._unsupportedMethods.clear()
   }
 
-  chatSend(sessionKey, message, attachments, options = {}) {
+  chatSend(sessionKey, message, attachments) {
     const params = { sessionKey, message, deliver: false, idempotencyKey: uuid() }
-    if (options.provider) params.provider = options.provider
-    if (options.model) params.model = options.model
     if (attachments && attachments.length > 0) {
       params.attachments = attachments
       logWsDebug('[ws] 发送附件:', { count: attachments.length })
@@ -942,6 +940,10 @@ export class WsClient {
 
   sessionsReset(key) {
     return this.request('sessions.reset', { key })
+  }
+
+  sessionsPatch(key, patch = {}) {
+    return this.request('sessions.patch', { key, ...patch })
   }
 
   // ===== 4.9: Sessions Compaction =====

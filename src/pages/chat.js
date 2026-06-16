@@ -1191,7 +1191,19 @@ async function applySelectedModel() {
   _isApplyingModel = true
   renderModelSelect()
   try {
+    // Always persist locally for cross-tab resilience
     localStorage.setItem(STORAGE_MODEL_KEY, modelRef.full)
+    // Best-effort: persist to Gateway via sessions.patch for cross-device sync
+    try {
+      await wsClient.sessionsPatch(_sessionKey, {
+        providerOverride: modelRef.provider,
+        modelOverride: modelRef.model,
+        modelOverrideSource: 'user'
+      })
+      refreshSessionList()
+    } catch (_patchErr) {
+      // Gateway may not support sessions.patch yet; local save is sufficient
+    }
     toast(`${formatChatModelLabel(modelRef.full)}`, 'success')
   } catch (e) {
     toast(`${t('common.saveFailed')}: ${e.message || e}`, 'error')
@@ -1418,7 +1430,7 @@ async function connectGateway() {
       }
       // 始终刷新会话列表（无论是否有 sessionKey）
       refreshSessionList()
-      // Gateway 就绪后刷新模型列表；当前选择会在桌面端下一次 chat.send 中作为 provider/model 覆盖参数发送。
+      // Gateway 就绪后刷新模型列表；模型切换优先通过 sessions.patch RPC 持久化到服务端（若 Gateway 未实现则仅本地保存）。
       loadModelOptions().catch(() => {})
     })
 
@@ -2085,12 +2097,10 @@ async function doSend(text, attachments = []) {
   _isSending = true
   _startResponseWatchdog()
   try {
-    const modelRef = parseSelectedModelRef()
     await wsClient.chatSend(
       _sessionKey,
       text,
-      attachments.length ? attachments : undefined,
-      modelRef ? { provider: modelRef.provider, model: modelRef.model } : undefined
+      attachments.length ? attachments : undefined
     )
   } catch (err) {
     showTyping(false)
