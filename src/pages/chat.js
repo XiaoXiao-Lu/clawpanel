@@ -2845,6 +2845,22 @@ async function loadHistory() {
       return
     }
 
+    // 防止服务端历史落后于本地（Gateway 异步写入可能导致用户刚发的消息尚未可见）
+    // 若服务端消息数少于 DOM 现有消息数，跳过全量重绘，避免用户消息消失
+    if (hasExisting) {
+      const domCount = _messagesEl.querySelectorAll('.msg').length
+      if (deduped.length < domCount) {
+        devLog(`[chat] 跳过全量重绘：服务端 ${deduped.length} 条 < DOM ${domCount} 条`)
+        saveMessages(result.messages.map(m => {
+          const c = extractContent(m)
+          const role = (m.role === 'tool' || m.role === 'toolResult') ? 'assistant' : m.role
+          return { id: m.id || uuid(), sessionKey: _sessionKey, role, content: c?.text || '', timestamp: m.timestamp || Date.now() }
+        }))
+        _isLoadingHistory = false
+        return
+      }
+    }
+
     clearMessages()
     let hasOmittedImages = false
     deduped.forEach(msg => {
