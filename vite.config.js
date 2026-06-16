@@ -67,7 +67,9 @@ function ignoredWatchPath(file) {
     normalized.includes('/reports/') ||
     normalized.endsWith('/reports') ||
     normalized.includes('/screenshots/') ||
-    normalized.endsWith('/screenshots')
+    normalized.endsWith('/screenshots') ||
+    normalized.endsWith('.exe') ||
+    normalized.endsWith('.dll')
   )
 }
 
@@ -82,7 +84,18 @@ export default defineConfig({
     port: 1420,
     strictPort: true,
     watch: {
-      ignored: ignoredWatchPath,
+      ignored: [
+        '**/src-tauri/target/**',
+        '**/dist/**',
+        '**/.tmp/**',
+        '**/reports/**',
+        '**/screenshots/**',
+        '**/*.exe',
+        '**/*.dll',
+      ],
+    },
+    fs: {
+      deny: ['src-tauri/target'],
     },
     proxy: {
       '/ws': {
