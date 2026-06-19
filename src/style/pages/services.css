@@ -210,7 +210,7 @@
   background: var(--brand);
   color: var(--text-inverse);
   font-size: var(--font-size-sm);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: var(--shadow-sm);
   animation: task-bar-slide-in 0.3s ease;
 }
 .upgrade-task-bar-text {

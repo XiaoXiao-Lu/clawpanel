@@ -208,7 +208,7 @@ function renderTopology(container, agents, bindings, platforms) {
   for (const n of channelNodes) {
     const opacity = n.enabled ? 1 : 0.45
     svg += `<g class="route-map-node" data-nav="channels" style="cursor:pointer;opacity:${opacity}">
-      <rect x="${n.x}" y="${n.y}" width="${NODE_W}" height="${NODE_H}" rx="10" class="route-map-card" style="stroke:${n.color}"/>
+      <rect x="${n.x}" y="${n.y}" width="${NODE_W}" height="${NODE_H}" rx="10" class="route-map-card" style="stroke:${n.color};fill:var(--aether-card)"/>
       <circle cx="${n.x + 22}" cy="${n.y + NODE_H / 2}" r="8" fill="${n.color}" fill-opacity="0.15"/>
       <text x="${n.x + 22}" y="${n.y + NODE_H / 2 + 1}" text-anchor="middle" class="route-map-node-emoji" style="font-size:10px">${n.enabled ? '📡' : '⏸'}</text>
       <text x="${n.x + 40}" y="${n.y + NODE_H / 2 - 4}" class="route-map-node-label">${escAttr(n.label)}</text>
@@ -219,7 +219,7 @@ function renderTopology(container, agents, bindings, platforms) {
   // Draw agent nodes
   for (const n of agentNodes) {
     svg += `<g class="route-map-node" data-nav="agents" style="cursor:pointer">
-      <rect x="${n.x}" y="${n.y}" width="${NODE_W}" height="${NODE_H}" rx="10" class="route-map-card ${n.isDefault ? 'route-map-card-default' : ''}"/>
+      <rect x="${n.x}" y="${n.y}" width="${NODE_W}" height="${NODE_H}" rx="10" class="route-map-card ${n.isDefault ? 'route-map-card-default' : ''}" style="fill:var(--aether-card)"/>
       <text x="${n.x + 22}" y="${n.y + NODE_H / 2 + 5}" text-anchor="middle" style="font-size:16px">${n.emoji}</text>
       <text x="${n.x + 40}" y="${n.y + NODE_H / 2 - 4}" class="route-map-node-label">${escAttr(n.label)}</text>
       <text x="${n.x + 40}" y="${n.y + NODE_H / 2 + 12}" class="route-map-node-sub">${n.isDefault ? '⭐ ' + t('routeMap.defaultAgent') : n.id}</text>

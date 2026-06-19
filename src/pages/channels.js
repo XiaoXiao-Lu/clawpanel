@@ -2467,7 +2467,7 @@ async function openConfigDialog(pid, page, state, accountId) {
                 const wrap = document.createElement('div')
                 wrap.style.cssText = 'text-align:center;margin:12px 0;padding:16px;background:var(--bg-primary, #fff);border-radius:var(--radius-md);border:1px solid var(--border-primary)'
                 wrap.innerHTML = `
-                  <div style="font-size:var(--font-size-sm);font-weight:600;color:#000;margin-bottom:8px">${t('channels.weixinScanQr')}</div>
+                  <div style="font-size:var(--font-size-sm);font-weight:600;color:var(--text-primary);margin-bottom:var(--space-2)">${t('channels.weixinScanQr')}</div>
                   <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}" alt="WeChat QR" style="width:200px;height:200px;image-rendering:pixelated;border-radius:4px;margin:0 auto;display:block" loading="eager">
                   <div style="margin-top:8px"><a href="${escapeAttr(qrUrl)}" target="_blank" rel="noopener" style="color:var(--accent);font-size:var(--font-size-xs);word-break:break-all">${t('channels.weixinOpenInBrowser')}</a></div>
                 `

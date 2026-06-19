@@ -88,4 +88,5 @@ export default {
   skillInstalled: _('Skill {name} 安装成功', 'Skill {name} installed', 'Skill {name} 安裝成功'),
   agentLabel: _('Agent:', 'Agent:'),
   allAgents: _('默认', 'Default', '預設'),
+  globalSkillHint: _('所有 Agent 共享全局技能库', 'All Agents share the global skill library', '所有 Agent 共用全域技能庫'),
 }

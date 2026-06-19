@@ -1,0 +1,223 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic:
+          - link "Tetris Home":
+            - /url: https://tetris.com/
+      - navigation "Primary navigation" [ref=e6]:
+        - list [ref=e7]:
+          - listitem [ref=e8]:
+            - link "About" [ref=e10] [cursor=pointer]:
+              - /url: https://tetris.com/about
+              - generic [ref=e12]: About
+          - listitem [ref=e14]:
+            - link "Tetris Life" [ref=e16] [cursor=pointer]:
+              - /url: https://tetris.com/tetris-life
+              - generic [ref=e18]: Tetris Life
+          - listitem [ref=e20]:
+            - link "News" [ref=e22] [cursor=pointer]:
+              - /url: https://tetris.com/news
+              - generic [ref=e24]: News
+          - listitem [ref=e26]:
+            - link "Products" [ref=e28] [cursor=pointer]:
+              - /url: https://tetris.com/products
+              - generic [ref=e30]: Products
+        - list [ref=e32]:
+          - listitem [ref=e33]:
+            - link "Visit our x page" [ref=e34] [cursor=pointer]:
+              - /url: https://twitter.com/Tetris_Official
+          - listitem [ref=e36]:
+            - link "Visit our facebook page" [ref=e37] [cursor=pointer]:
+              - /url: https://www.facebook.com/Tetris/
+          - listitem [ref=e39]:
+            - link "Visit our instagram page" [ref=e40] [cursor=pointer]:
+              - /url: https://www.instagram.com/tetris_official/
+          - listitem [ref=e42]:
+            - button "Play audio" [ref=e43] [cursor=pointer]
+  - complementary [ref=e45]:
+    - img "J Tetromino" [ref=e46]
+    - img "O Tetromino" [ref=e47]
+    - img "T Tetromino" [ref=e48]
+    - img "I Tetromino" [ref=e49]
+    - img "L Tetromino" [ref=e50]
+    - img "Red Z Tetromino" [ref=e51]
+    - img "Green Z Tetromino" [ref=e52]
+    - generic [ref=e53]:
+      - button "Close menu" [ref=e54] [cursor=pointer]:
+        - img [ref=e55]
+      - link "Tetris Home":
+        - /url: https://tetris.com/
+    - navigation "Mobile menu navigation" [ref=e58]:
+      - list [ref=e59]:
+        - listitem [ref=e60]:
+          - link "Play Now" [ref=e62] [cursor=pointer]:
+            - /url: https://tetris.com/play-now
+            - generic [ref=e64]:
+              - img [ref=e65]
+              - generic [ref=e67]:
+                - img [ref=e68]
+                - generic [ref=e70]: Play Now
+                - img
+                - img
+                - img
+        - listitem [ref=e71]:
+          - link "About" [ref=e73] [cursor=pointer]:
+            - /url: https://tetris.com/about
+            - generic [ref=e75]:
+              - img [ref=e76]
+              - generic [ref=e78]:
+                - img [ref=e79]
+                - generic [ref=e81]: About
+                - img
+                - img
+                - img
+        - listitem [ref=e82]:
+          - link "Tetris Life" [ref=e84] [cursor=pointer]:
+            - /url: https://tetris.com/tetris-life
+            - generic [ref=e86]:
+              - img [ref=e87]
+              - generic [ref=e89]:
+                - img [ref=e90]
+                - generic [ref=e92]: Tetris Life
+                - img
+                - img
+                - img
+        - listitem [ref=e93]:
+          - link "News" [ref=e95] [cursor=pointer]:
+            - /url: https://tetris.com/news
+            - generic [ref=e97]:
+              - img [ref=e98]
+              - generic [ref=e100]:
+                - img [ref=e101]
+                - generic [ref=e103]: News
+                - img
+                - img
+                - img
+        - listitem [ref=e104]:
+          - link "Products" [ref=e106] [cursor=pointer]:
+            - /url: https://tetris.com/products
+            - generic [ref=e108]:
+              - img [ref=e109]
+              - generic [ref=e111]:
+                - img [ref=e112]
+                - generic [ref=e114]: Products
+                - img
+                - img
+                - img
+      - list [ref=e115]:
+        - listitem [ref=e116]:
+          - link [ref=e117] [cursor=pointer]:
+            - /url: https://twitter.com/Tetris_Official
+        - listitem [ref=e118]:
+          - link [ref=e119] [cursor=pointer]:
+            - /url: https://www.facebook.com/Tetris/
+        - listitem [ref=e120]:
+          - link [ref=e121] [cursor=pointer]:
+            - /url: https://www.instagram.com/tetris_official/
+      - list [ref=e122]:
+        - listitem [ref=e123]:
+          - link "Terms Of Use" [ref=e125] [cursor=pointer]:
+            - /url: https://tetris.com/terms-conditions
+            - generic [ref=e126]: Terms Of Use
+        - listitem [ref=e127]:
+          - link "Privacy Policy" [ref=e129] [cursor=pointer]:
+            - /url: https://tetris.com/privacy-policy
+            - generic [ref=e130]: Privacy Policy
+  - main [ref=e131]:
+    - generic [ref=e133]:
+      - img "Radial Background Grid" [ref=e134]
+      - generic [ref=e135]:
+        - generic [ref=e136] [cursor=pointer]:
+          - img [ref=e137]
+          - generic [ref=e139]:
+            - img [ref=e140]
+            - generic [ref=e142]: About
+            - img
+            - img
+            - img
+        - generic [ref=e143] [cursor=pointer]:
+          - img [ref=e144]
+          - generic [ref=e146]:
+            - img [ref=e147]
+            - generic [ref=e149]: Objective
+            - img
+            - img
+            - img
+        - generic [ref=e150] [cursor=pointer]:
+          - img [ref=e151]
+          - generic [ref=e153]:
+            - img [ref=e154]
+            - generic [ref=e156]: Control & Scores
+            - img
+            - img
+            - img
+        - generic [ref=e157] [cursor=pointer]:
+          - img [ref=e158]
+          - generic [ref=e160]:
+            - img [ref=e161]
+            - generic [ref=e163]: Gameplay Info
+            - img
+            - img
+            - img
+  - contentinfo [ref=e164]:
+    - generic [ref=e166]:
+      - generic [ref=e167]:
+        - navigation "Footer navigation" [ref=e168]:
+          - list [ref=e169]:
+            - listitem [ref=e170]:
+              - link "Products" [ref=e172] [cursor=pointer]:
+                - /url: https://tetris.com/products
+                - generic [ref=e173]: Products
+            - listitem [ref=e174]:
+              - link "News" [ref=e176] [cursor=pointer]:
+                - /url: https://tetris.com/news
+                - generic [ref=e177]: News
+            - listitem [ref=e178]:
+              - link "Tetris Life" [ref=e180] [cursor=pointer]:
+                - /url: https://tetris.com/tetris-life
+                - generic [ref=e181]: Tetris Life
+            - listitem [ref=e182]:
+              - link "About" [ref=e184] [cursor=pointer]:
+                - /url: https://tetris.com/about
+                - generic [ref=e185]: About
+            - listitem [ref=e186]:
+              - link "Press" [ref=e188] [cursor=pointer]:
+                - /url: https://tetris.com/press
+                - generic [ref=e189]: Press
+            - listitem [ref=e190]:
+              - link "Contact Us" [ref=e192] [cursor=pointer]:
+                - /url: https://tetris.com/contact-us
+                - generic [ref=e193]: Contact Us
+        - navigation "Legal and policy links" [ref=e194]:
+          - list [ref=e195]:
+            - listitem [ref=e196]:
+              - link "Terms Of Use" [ref=e198] [cursor=pointer]:
+                - /url: https://tetris.com/terms-conditions
+                - generic [ref=e199]: Terms Of Use
+            - listitem [ref=e200]:
+              - link "Privacy Policy" [ref=e202] [cursor=pointer]:
+                - /url: https://tetris.com/privacy-policy
+                - generic [ref=e203]: Privacy Policy
+      - link "Play Now" [ref=e207] [cursor=pointer]:
+        - /url: https://play.tetris.com
+        - generic [ref=e208]: Play Now
+    - generic [ref=e210]:
+      - generic [ref=e211]:
+        - generic:
+          - link "Tetris Home":
+            - /url: https://tetris.com/
+        - generic [ref=e213]:
+          - paragraph [ref=e214]: Tetris ® & © 1985~2026 Tetris Holding. Tetris logos, Tetris theme song and Tetriminos are trademarks of Tetris Holding. The Tetris trade dress is owned by Tetris Holding. Licensed to The Tetris Company. Tetris Game Design by Alexey Pajitnov. All Rights Reserved.
+          - paragraph [ref=e215]: All other trademarks are the property of their respective owners.
+      - navigation [ref=e216]:
+        - list [ref=e217]:
+          - listitem [ref=e218]:
+            - link [ref=e219] [cursor=pointer]:
+              - /url: https://twitter.com/Tetris_Official
+          - listitem [ref=e220]:
+            - link [ref=e221] [cursor=pointer]:
+              - /url: https://www.facebook.com/Tetris/
+          - listitem [ref=e222]:
+            - link [ref=e223] [cursor=pointer]:
+              - /url: https://www.instagram.com/tetris_official/

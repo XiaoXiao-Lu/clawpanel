@@ -6616,9 +6616,9 @@ function showSettings() {
           <div class="form-group" style="margin-bottom:8px">
             <label class="form-label">${t('assistant.quickSelect')}</label>
             <div id="ast-provider-presets" style="display:flex;flex-wrap:wrap;gap:6px">
-              ${PROVIDER_PRESETS.filter(p => !p.hidden).map(p => `<button class="btn btn-sm btn-secondary ast-preset-btn" data-key="${p.key}" data-url="${escHtml(p.baseUrl)}" data-api="${p.api}" style="font-size:12px;padding:3px 10px">${p.label}${p.badge ? ' <span style="font-size:9px;background:var(--accent);color:#fff;padding:1px 4px;border-radius:6px;margin-left:3px">' + p.badge + '</span>' : ''}</button>`).join('')}
+              ${PROVIDER_PRESETS.filter(p => !p.hidden).map(p => `<button class="btn btn-sm btn-secondary ast-preset-btn" data-key="${p.key}" data-url="${escHtml(p.baseUrl)}" data-api="${p.api}" style="font-size:var(--font-size-sm);padding:3px var(--space-3)">${p.label}${p.badge ? ' <span style="font-size:var(--font-size-xxs);background:var(--accent);color:#fff;padding:1px var(--space-1);border-radius:var(--radius-sm);margin-left:3px">' + p.badge + '</span>' : ''}</button>`).join('')}
             </div>
-            <div id="ast-preset-detail" style="display:none;margin-top:6px;padding:8px 12px;background:var(--bg-tertiary);border-radius:var(--radius-md);font-size:12px"></div>
+            <div id="ast-preset-detail" style="display:none;margin-top:6px;padding:var(--space-2) var(--space-3);background:var(--bg-tertiary);border-radius:var(--radius-md);font-size:var(--font-size-sm)"></div>
           </div>
           <div style="display:flex;gap:10px">
             <div class="form-group" style="flex:1">
@@ -6643,7 +6643,7 @@ function showSettings() {
               ${!isHermes ? `<button class="btn btn-sm btn-secondary" id="ast-btn-import" title="${t('assistant.importTitle')}">${icon('download', 14)} ${t('assistant.importBtn')}</button>` : ''}
             </div>
           </div>
-          <div id="ast-test-result" style="margin:6px 0 2px;font-size:12px;min-height:16px"></div>
+          <div id="ast-test-result" style="margin:6px 0 2px;font-size:var(--font-size-sm);min-height:16px"></div>
           <div style="display:flex;gap:10px;align-items:flex-end">
             <div class="form-group" style="flex:1">
               <label class="form-label">${t('assistant.model')}</label>
@@ -6665,9 +6665,9 @@ function showSettings() {
                 <div>
                   <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
                     <span style="font-weight:700;font-size:var(--font-size-sm)">${icon('zap', 14)} ${t('assistant.qtcoolName')}</span>
-                    <span style="font-size:10px;background:var(--primary);color:#fff;padding:1px 7px;border-radius:8px">${t('assistant.qtcoolRecommend')}</span>
+                    <span style="font-size:var(--font-size-xs);background:var(--primary);color:#fff;padding:1px 7px;border-radius:var(--radius-md)">${t('assistant.qtcoolRecommend')}</span>
                   </div>
-                  <div style="font-size:11px;color:var(--text-tertiary);line-height:1.35">
+                  <div style="font-size:var(--font-size-xs);color:var(--text-tertiary);line-height:1.35">
                     ${t('assistant.qtcoolDesc')}
                   </div>
                 </div>

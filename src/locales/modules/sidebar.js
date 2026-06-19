@@ -14,6 +14,7 @@ export default {
   sectionData: _('数据', 'Data', '資料', 'データ', '데이터', 'Dữ liệu', 'Datos', 'Dados', 'Данные', 'Données', 'Daten'),
   sectionManage: _('管理', 'Manage', '管理', '管理', '관리', 'Quản lý', 'Gestión', 'Gestão', 'Управление', 'Gestion', 'Verwaltung'),
   sectionExtension: _('扩展', 'Extensions', '擴充', '拡張', '확장', 'Mở rộng', 'Extensiones', 'Extensões', 'Расширения', '', 'Erweiterungen'),
+  sectionSystem: _('系统', 'System', '系統', 'システム', '시스템', 'Hệ thống', 'Sistema', 'Sistema', 'Система', 'Système', 'System'),
   dashboard: _('仪表盘', 'Dashboard', '儀表盤', 'ダッシュボード', '대시보드', 'Bảng điều khiển', 'Panel', 'Painel', 'Панель', 'Tableau de bord'),
   assistant: _('晴辰助手', 'Assistant', '', 'アシスタント', '어시스턴트', 'Trợ lý', 'Asistente', 'Assistente', 'Ассистент', '', 'Assistent'),
   chat: _('实时聊天', 'Live Chat', '實時聊天', 'ライブチャット', '실시간 채팅', 'Trò chuyện', 'Chat', 'Chat', 'Чат', 'Chat', 'Live-Chat'),

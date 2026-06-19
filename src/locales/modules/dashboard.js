@@ -27,6 +27,9 @@ export default {
   sessionsShort: _('会话', 'Sessions'),
   channelsShort: _('渠道', 'Channels'),
   providersShort: _('服务商', 'Providers'),
+  statsTitle: _('核心指标', 'Key Metrics'),
+  overviewTitle: _('运行概览', 'Overview'),
+  quickActionsTitle: _('快捷操作', 'Quick Actions'),
   // ── 新手任务卡片 ──
   onboardingTitle: _('🎯 新手上路', '🎯 Get Started', '🎯 新手上路', '🎯 はじめに', '🎯 시작하기', '🎯 Bắt đầu', '🎯 Empezar', '🎯 Comece aqui', '🎯 Начало работы', '🎯 Démarrer', '🎯 Erste Schritte'),
   onboardingDesc: _('完成下面几步，就能开始用面板了', 'Finish these steps to start using ClawPanel', '完成下面几步，就能開始用面板了', '以下のステップを完了するとパネルが使えます', '아래 단계를 완료하면 패널을 사용할 수 있습니다', 'Hoàn tất các bước dưới để bắt đầu sử dụng', 'Completa estos pasos para empezar a usar el panel', 'Conclua estes passos para começar a usar o painel', 'Выполните эти шаги, чтобы начать пользоваться панелью', 'Effectuez ces étapes pour commencer à utiliser le panneau', 'Schließen Sie diese Schritte ab, um mit dem Panel zu beginnen'),

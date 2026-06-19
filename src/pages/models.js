@@ -2014,7 +2014,7 @@ async function importClientConfigs(page, state) {
 function addProvider(page, state) {
   // 构建预设按钮 HTML
   const presetsHtml = PROVIDER_PRESETS.filter(p => !p.hidden).map(p =>
-    `<button class="btn btn-sm btn-secondary preset-btn" data-preset="${p.key}" style="margin:0 6px 6px 0">${p.label}${p.badge ? ' <span style="font-size:9px;background:var(--accent);color:#fff;padding:1px 5px;border-radius:8px;margin-left:4px">' + p.badge + '</span>' : ''}</button>`
+    `<button class="btn btn-sm btn-secondary preset-btn" data-preset="${p.key}" style="margin:0 6px 6px 0">${p.label}${p.badge ? ' <span style="font-size:var(--font-size-xxs);background:var(--accent);color:#fff;padding:1px 5px;border-radius:var(--radius-md);margin-left:4px">' + p.badge + '</span>' : ''}</button>`
   ).join('')
 
   const overlay = document.createElement('div')

@@ -616,6 +616,8 @@ export default {
   expertTeamToolMetaBrowser: _('浏览器', 'Browser'),
   expertTeamToolMetaNetwork: _('网络', 'Network'),
   expertTeamToolNoTextResult: _('执行完成，无文本结果', 'Completed with no text result'),
+  expertTeamDirect: _('直接对话', 'Direct Chat'),
+  expertTeamDirectDesc: _('不启用专家团，直接与模型对话', 'Chat directly with the model without an expert team'),
   expertTeamDoneExpandHint: _('已完成，可展开查看完整发言', 'Completed; expand to view the full response'),
   expertTeamChars: _('{count}字', '{count} chars'),
   expertTeamContentMeta: _('{chars}字 · {lines}行', '{chars} chars · {lines} lines'),

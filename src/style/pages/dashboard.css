@@ -499,7 +499,7 @@
   padding: var(--space-3) var(--space-4);
   background: var(--aether-elevated);
   border: 1px solid var(--aether-border-soft);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   color: var(--text-primary);
   font-family: var(--font-display);
   font-size: var(--text-sm);

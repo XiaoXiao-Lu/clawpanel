@@ -9,7 +9,7 @@
 .agents-page .page-header {
   margin-bottom: var(--space-5);
   padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--aether-border-soft);
+  border-bottom: 1px solid var(--aether-border);
   position: relative;
 }
 

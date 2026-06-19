@@ -83,25 +83,25 @@ function openCiaoBugModal(result) {
       <div class="modal-body" style="font-size:var(--font-size-sm);line-height:1.6;">
         <p style="margin:0 0 12px;">${escapeHtml(t('ciaoBug.summary'))}</p>
 
-        <h4 style="margin:16px 0 6px;font-size:13px;color:var(--text-secondary);">${escapeHtml(t('ciaoBug.envTitle'))}</h4>
-        <div class="ciao-bug-env" style="font-size:12px;color:var(--text-secondary);word-break:break-all;">
+        <h4 style="margin:var(--space-4) 0 6px;font-size:var(--font-size-sm);color:var(--text-secondary);">${escapeHtml(t('ciaoBug.envTitle'))}</h4>
+        <div class="ciao-bug-env" style="font-size:var(--font-size-xs);color:var(--text-secondary);word-break:break-all;">
           ${versionLine}
           ${pathLine}
         </div>
 
-        <h4 style="margin:16px 0 6px;font-size:13px;color:var(--text-secondary);">${escapeHtml(t('ciaoBug.fixTitle'))}</h4>
-        <ol style="margin:0;padding-left:20px;">
+        <h4 style="margin:var(--space-4) 0 6px;font-size:var(--font-size-sm);color:var(--text-secondary);">${escapeHtml(t('ciaoBug.fixTitle'))}</h4>
+        <ol style="margin:0;padding-left:var(--space-5);">
           <li style="margin-bottom:6px;">${t('ciaoBug.fixUpstream')}</li>
           <li style="margin-bottom:6px;">${t('ciaoBug.fixPatchPackage')}</li>
           <li style="margin-bottom:6px;">${t('ciaoBug.fixManual')}</li>
         </ol>
 
-        <div style="margin-top:14px;display:flex;gap:12px;flex-wrap:wrap;font-size:12px;">
+        <div style="margin-top:14px;display:flex;gap:var(--space-3);flex-wrap:wrap;font-size:var(--font-size-xs);">
           <a href="https://github.com/homebridge/ciao/issues/64" target="_blank" rel="noopener" style="color:var(--accent);">${escapeHtml(t('ciaoBug.linkIssue'))}</a>
           <a href="https://github.com/homebridge/ciao/pull/65" target="_blank" rel="noopener" style="color:var(--accent);">${escapeHtml(t('ciaoBug.linkPr'))}</a>
         </div>
 
-        <p style="margin:16px 0 0;font-size:12px;color:var(--text-tertiary);">${escapeHtml(t('ciaoBug.disclaimer'))}</p>
+        <p style="margin:var(--space-4) 0 0;font-size:var(--font-size-xs);color:var(--text-tertiary);">${escapeHtml(t('ciaoBug.disclaimer'))}</p>
       </div>
       <div class="modal-actions">
         <button class="btn btn-secondary btn-sm" data-action="close">${escapeHtml(t('common.close'))}</button>

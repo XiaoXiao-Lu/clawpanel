@@ -294,7 +294,7 @@
 .memory-preview p { margin: 8px 0; }
 
 .memory-preview pre {
-  background: var(--aether-void);
+  background: var(--bg-code);
   border: 1px solid var(--aether-border);
   border-radius: var(--radius-md);
   padding: 14px 16px;
@@ -303,6 +303,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   line-height: 1.65;
+  color: var(--text-primary);
 }
 
 .memory-preview code {
