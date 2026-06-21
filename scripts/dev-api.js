@@ -11862,10 +11862,17 @@ const handlers = {
     return files
   },
 
-  read_memory_file({ path: filePath, agent_id, agentId }) {
+  read_memory_file({ path: filePath, agent_id, agentId, category }) {
     if (isUnsafePath(filePath)) throw new Error('非法路径')
     const cfg = readOpenclawConfigOptional()
     const targetAgentId = agent_id || agentId || 'main'
+    // If category is provided, try the category-specific directory first
+    if (category) {
+      const catDir = resolveMemoryDir(cfg, targetAgentId, category)
+      const catFull = path.join(catDir, filePath)
+      if (fs.existsSync(catFull)) return fs.readFileSync(catFull, 'utf8')
+    }
+    // Fallback: search all directories
     const full = resolveMemoryPathCandidates(cfg, targetAgentId, filePath).find(candidate => fs.existsSync(candidate))
     if (!full) return ''
     return fs.readFileSync(full, 'utf8')
@@ -12242,6 +12249,15 @@ const handlers = {
   // SkillHub SDK（内置 HTTP，不依赖 CLI）
   async skillhub_search({ query, limit }) {
     return await skillhubSdk.search(query, limit || 20)
+  },
+  async skillhub_search_all({ query, limit }) {
+    return await skillhubSdk.searchAll(query, limit || 60)
+  },
+  async skillhub_search_xiaping({ query, limit }) {
+    return await skillhubSdk.searchXiaping(query, limit || 20)
+  },
+  async skillhub_search_github({ query, limit }) {
+    return await skillhubSdk.searchGithub(query, limit || 20)
   },
   async skillhub_index() {
     return await skillhubSdk.fetchIndex()

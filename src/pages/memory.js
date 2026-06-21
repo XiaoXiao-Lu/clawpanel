@@ -1,13 +1,16 @@
 /**
  * 记忆文件管理页面
  */
-import { api } from '../lib/tauri-api.js'
+import { api, invalidate } from '../lib/tauri-api.js'
 import { toast } from '../components/toast.js'
 import { humanizeError } from '../lib/humanize-error.js'
 import { showModal } from '../components/modal.js'
 import { t } from '../lib/i18n.js'
 import { renderMarkdown } from '../engines/hermes/lib/markdown-renderer.js'
 import { escapeHtml } from '../lib/utils.js'
+
+// 模块级变量：用于 cleanup 时移除 visibilitychange 监听
+let _visibilityHandler = null
 
 function CATEGORIES() {
   return [
@@ -37,6 +40,7 @@ export async function render() {
       <div class="memory-sidebar">
         <div class="sidebar-toolbar">
           <button class="btn btn-sm btn-secondary" id="btn-new-file">+ ${t('memory.newFile')}</button>
+          <button class="btn btn-sm btn-secondary" id="btn-refresh" title="${t('memory.refreshTooltip')}">${t('memory.refresh')}</button>
           <button class="btn btn-sm btn-danger" id="btn-del-file" disabled>${t('memory.deleteFile')}</button>
         </div>
         <div id="file-tree"><div class="loading-placeholder" style="height:48px;margin:6px 8px;border-radius:var(--radius-md);background:var(--surface-sunken)"></div><div class="loading-placeholder" style="height:48px;margin:6px 8px;border-radius:var(--radius-md);background:var(--surface-sunken)"></div><div class="loading-placeholder" style="height:48px;margin:6px 8px;border-radius:var(--radius-md);background:var(--surface-sunken)"></div></div>
@@ -83,6 +87,8 @@ export async function render() {
     state.currentPath = null
     state.lastSavedContent = ''
     resetEditor(page)
+    // 切换 Agent 时清除缓存
+    invalidate('list_memory_files', 'read_memory_file')
     // 显示加载动画
     const tree = page.querySelector('#file-tree')
     tree.innerHTML = '<div class="loading-placeholder" style="height:48px;margin:6px 8px;border-radius:var(--radius-md);background:var(--surface-sunken)"></div><div class="loading-placeholder" style="height:48px;margin:6px 8px;border-radius:var(--radius-md);background:var(--surface-sunken)"></div><div class="loading-placeholder" style="height:48px;margin:6px 8px;border-radius:var(--radius-md);background:var(--surface-sunken)"></div>'
@@ -108,6 +114,8 @@ export async function render() {
       const cat = CATEGORIES().find(c => c.key === state.category)
       page.querySelector('#category-desc').textContent = cat?.desc || ''
       resetEditor(page)
+      // 切换分类时清除缓存，确保获取最新文件列表
+      invalidate('list_memory_files')
       // 显示加载动画
       const tree = page.querySelector('#file-tree')
       tree.innerHTML = '<div class="loading-placeholder" style="height:48px;margin:6px 8px;border-radius:var(--radius-md);background:var(--surface-sunken)"></div><div class="loading-placeholder" style="height:48px;margin:6px 8px;border-radius:var(--radius-md);background:var(--surface-sunken)"></div><div class="loading-placeholder" style="height:48px;margin:6px 8px;border-radius:var(--radius-md);background:var(--surface-sunken)"></div>'
@@ -117,6 +125,17 @@ export async function render() {
 
   // 保存
   page.querySelector('#btn-save-file').onclick = () => saveFile(page, state)
+
+  // 刷新：清除缓存后重新加载文件列表和当前文件内容
+  page.querySelector('#btn-refresh').onclick = () => refreshAll(page, state)
+
+  // 页面可见性变化：从本地编辑器切回来时自动刷新
+  _visibilityHandler = () => {
+    if (document.visibilityState === 'visible') {
+      refreshAll(page, state, true)
+    }
+  }
+  document.addEventListener('visibilitychange', _visibilityHandler)
 
   // 实时预览
   page.querySelector('#file-editor').addEventListener('input', () => {
@@ -278,9 +297,12 @@ function renderFileTree(page, state, files) {
       }
     })
     item.onclick = async () => {
+      const isSameFile = state.currentPath === item.dataset.path
       state.currentPath = item.dataset.path
       tree.querySelectorAll('.file-item').forEach(i => i.classList.remove('active'))
       item.classList.add('active')
+      // 点击已选中的文件时强制清除缓存重新读取
+      if (isSameFile) invalidate('read_memory_file')
       await loadFileContent(page, state)
       restoreDraft(page, state)
     }
@@ -299,7 +321,7 @@ async function loadFileContent(page, state) {
   label.textContent = state.currentPath
 
   try {
-    const content = await api.readMemoryFile(state.currentPath, state.agentId)
+    const content = await api.readMemoryFile(state.currentPath, state.agentId, state.category)
     editor.value = content || ''
     state.lastSavedContent = content || ''
     editor.disabled = false
@@ -339,6 +361,18 @@ async function saveFile(page, state) {
     toast(t('memory.fileSaved'), 'success')
   } catch (e) {
     toast(humanizeError(e, t('memory.saveFailed')), 'error')
+  }
+}
+
+// ===== 刷新：清除缓存后重新加载文件列表和当前文件内容 =====
+
+async function refreshAll(page, state, silent = false) {
+  invalidate('list_memory_files', 'read_memory_file')
+  await loadFiles(page, state)
+  // 如果有当前选中的文件，重新读取内容
+  if (state.currentPath) {
+    await loadFileContent(page, state)
+    if (!silent) toast(t('memory.refresh'), 'success')
   }
 }
 
@@ -436,5 +470,13 @@ async function exportZip(state) {
     }
   } catch (e) {
     toast(humanizeError(e, t('memory.exportFailed')), 'error')
+  }
+}
+
+// 页面卸载时清理事件监听
+export function cleanup() {
+  if (_visibilityHandler) {
+    document.removeEventListener('visibilitychange', _visibilityHandler)
+    _visibilityHandler = null
   }
 }

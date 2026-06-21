@@ -366,7 +366,7 @@ export const api = {
 
   // 记忆文件
   listMemoryFiles: (category, agentId) => cachedInvoke('list_memory_files', { category, agentId: agentId || null }),
-  readMemoryFile: (path, agentId) => cachedInvoke('read_memory_file', { path, agentId: agentId || null }, 5000),
+  readMemoryFile: (path, agentId, category) => cachedInvoke('read_memory_file', { path, agentId: agentId || null, category: category || null }, 5000),
   writeMemoryFile: (path, content, category, agentId) => { invalidate('list_memory_files', 'read_memory_file'); return invoke('write_memory_file', { path, content, category: category || 'memory', agentId: agentId || null }) },
   deleteMemoryFile: (path, agentId) => { invalidate('list_memory_files'); return invoke('delete_memory_file', { path, agentId: agentId || null }) },
   exportMemoryZip: (category, agentId) => invoke('export_memory_zip', { category, agentId: agentId || null }),
@@ -469,6 +469,9 @@ export const api = {
   skillsUninstall: (name, agentId, filePath) => invoke('skills_uninstall', { name, agent_id: agentId || null, file_path: filePath || null }),
   // SkillHub SDK（内置 HTTP，不依赖 CLI）
   skillhubSearch: (query, limit) => invoke('skillhub_search', { query, limit }),
+  skillhubSearchAll: (query, limit) => invoke('skillhub_search_all', { query, limit }),
+  skillhubSearchXiaping: (query, limit) => invoke('skillhub_search_xiaping', { query, limit }),
+  skillhubSearchGithub: (query, limit) => invoke('skillhub_search_github', { query, limit }),
   skillhubIndex: () => invoke('skillhub_index'),
   skillhubInstall: (slug, agentId) => invoke('skillhub_install', { slug, agent_id: agentId || null }),
 

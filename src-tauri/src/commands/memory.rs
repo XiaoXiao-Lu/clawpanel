@@ -182,12 +182,30 @@ fn collect_files(
 }
 
 #[tauri::command]
-pub async fn read_memory_file(path: String, agent_id: Option<String>) -> Result<String, String> {
+pub async fn read_memory_file(
+    path: String,
+    agent_id: Option<String>,
+    category: Option<String>,
+) -> Result<String, String> {
     if is_unsafe_path(&path) {
         return Err("非法路径".to_string());
     }
 
     let aid = agent_id.as_deref().unwrap_or("main");
+
+    // If category is provided, try the category-specific directory first.
+    // This prevents reading a stale copy from a different directory when
+    // files with the same name exist in multiple categories.
+    if let Some(cat) = category.as_deref() {
+        if let Ok(dir) = memory_dir_for_agent(aid, cat).await {
+            let full = dir.join(&path);
+            if full.exists() {
+                return fs::read_to_string(&full).map_err(|e| format!("读取失败: {e}"));
+            }
+        }
+    }
+
+    // Fallback: search all directories (backward compatibility)
     let candidates = [
         memory_dir_for_agent(aid, "memory").await,
         memory_dir_for_agent(aid, "archive").await,
