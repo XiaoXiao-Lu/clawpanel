@@ -98,9 +98,15 @@ export function renderMarkdown(text) {
 
   // 代码块
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-    const highlighted = highlightCode(code.trimEnd(), lang)
-    const langLabel = lang ? `<span class="code-lang">${escapeHtml(lang)}</span>` : ''
-    const block = `<pre data-lang="${escapeAttr(lang)}">${langLabel}<button class="code-copy-btn" data-copy-btn>Copy</button><code>${highlighted}</code></pre>`
+    const trimmed = code.trimEnd()
+    const highlighted = highlightCode(trimmed, lang)
+    const lineCount = trimmed.split('\n').length
+    const foldable = lineCount > 15
+    const langLabel = `<span class="code-lang">${escapeHtml(lang || 'text')}</span>`
+    const foldBtn = foldable
+      ? `<button class="code-fold-btn" data-fold-btn aria-label="折叠/展开代码" title="折叠/展开"></button>`
+      : ''
+    const block = `<div class="code-block-wrapper"${foldable ? ' data-foldable' : ''}><div class="code-block-header">${langLabel}<div class="code-block-actions"><button class="code-copy-btn" data-copy-btn>复制</button>${foldBtn}</div></div><pre class="code-block-pre" data-lang="${escapeAttr(lang)}"><code>${highlighted}</code></pre></div>`
     return `\x00MDBLOCK${codeBlocks.push(block) - 1}\x00`
   })
 
@@ -249,7 +255,7 @@ export function renderMarkdown(text) {
   if (typeof window !== 'undefined' && DOMPurify && purifyReady) {
     raw = DOMPurify.sanitize(raw, {
       ALLOWED_TAGS: ['p','br','strong','em','code','pre','button','span','h1','h2','h3','h4','h5','h6','hr','blockquote','ul','ol','li','table','tr','th','td','a','img','input','div'],
-      ALLOWED_ATTR: ['class','type','disabled','checked','data-lang','href','target','rel','src','alt','loading','hidden','data-copy-btn'],
+      ALLOWED_ATTR: ['class','type','disabled','checked','data-lang','href','target','rel','src','alt','loading','hidden','data-copy-btn','data-fold-btn','data-foldable','title'],
       ALLOW_DATA_ATTR: false,
     })
   }
@@ -400,19 +406,32 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     }
   }, true) // 捕获阶段
 
-  // 复制按钮（使用事件委托）
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-copy-btn]')
-    if (!btn) return
-    const pre = btn.closest('pre')
-    const code = pre?.querySelector('code')
-    if (!code) return
-    navigator.clipboard.writeText(code.innerText).then(() => {
-      btn.textContent = '✓'
-      setTimeout(() => { btn.textContent = 'Copy' }, 1500)
-    }).catch(() => {
-      btn.textContent = '✗'
-      setTimeout(() => { btn.textContent = 'Copy' }, 1500)
+  // 复制 + 折叠按钮（使用事件委托，全局只注册一次）
+  if (!window.__codeBlockEventsReady) {
+    window.__codeBlockEventsReady = true
+    document.addEventListener('click', (e) => {
+      // 复制按钮
+      const copyBtn = e.target.closest('[data-copy-btn]')
+      if (copyBtn) {
+        const wrapper = copyBtn.closest('.code-block-wrapper')
+        const code = (wrapper || copyBtn.closest('pre'))?.querySelector('code')
+        if (!code) return
+        navigator.clipboard.writeText(code.innerText).then(() => {
+          copyBtn.textContent = '✓'
+          setTimeout(() => { copyBtn.textContent = '复制' }, 1500)
+        }).catch(() => {
+          copyBtn.textContent = '✗'
+          setTimeout(() => { copyBtn.textContent = '复制' }, 1500)
+        })
+        return
+      }
+      // 折叠按钮
+      const foldBtn = e.target.closest('[data-fold-btn]')
+      if (foldBtn) {
+        const wrapper = foldBtn.closest('.code-block-wrapper')
+        if (!wrapper) return
+        wrapper.classList.toggle('collapsed')
+      }
     })
-  })
+  }
 }

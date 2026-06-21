@@ -40,8 +40,10 @@ test('renderMarkdown preserves inline code and common inline formatting', () => 
 test('renderMarkdown preserves fenced code blocks without trusting raw pre tags', () => {
   const html = renderMarkdown('```js\nconst x = "<tag>"\n```\n<pre><img src=x onerror=alert(1)></pre>')
 
-  assert.match(html, /<pre data-lang="js">/)
+  assert.match(html, /<pre class="code-block-pre" data-lang="js">/)
   assert.match(html, /<span class="code-lang">js<\/span>/)
+  assert.match(html, /<button class="code-copy-btn" data-copy-btn>复制<\/button>/)
+  assert.match(html, /<div class="code-block-wrapper">/)
   assert.match(html, /&quot;&lt;tag&gt;&quot;/)
   assert.match(html, /&lt;pre&gt;&lt;img src=x onerror=alert\(1\)&gt;&lt;\/pre&gt;/)
   assert.doesNotMatch(html, /<pre><img/i)

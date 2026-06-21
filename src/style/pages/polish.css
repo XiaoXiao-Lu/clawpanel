@@ -146,11 +146,117 @@ select:focus {
 .ast-msg-bubble-ai pre,
 .hm-chat-msg-bubble pre,
 .hm-skills-markdown pre,
-.hm-services-json {
+.hm-services-json,
+.code-block-wrapper {
   background: var(--bg-code);
   border: 1px solid var(--aether-border);
   border-radius: var(--radius-md);
   color: var(--text-primary);
+}
+
+/* ─── Code block toolbar (copy + fold) ─── */
+.code-block-wrapper {
+  position: relative;
+  margin: 10px 0;
+  overflow: hidden;
+}
+
+.code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  background: color-mix(in srgb, var(--aether-border-soft) 30%, transparent);
+  border-bottom: 1px solid var(--aether-border-soft);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.code-lang {
+  color: var(--text-tertiary, var(--text-3, #9090B0));
+  font-family: var(--font-mono);
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+  user-select: none;
+}
+
+.code-block-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.code-copy-btn,
+.code-fold-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  min-width: 28px;
+  padding: 0 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary, var(--text-3, #9090B0));
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.code-copy-btn:hover,
+.code-fold-btn:hover {
+  background: var(--aether-glass, rgba(255,255,255,0.08));
+  color: var(--text-primary);
+}
+
+.code-copy-btn:focus-visible,
+.code-fold-btn:focus-visible {
+  outline: 2px solid var(--aether-primary, #818cf8);
+  outline-offset: 1px;
+}
+
+/* 折叠按钮箭头图标 */
+.code-fold-btn::after {
+  content: '▾';
+  font-size: 13px;
+  line-height: 1;
+}
+
+.code-block-wrapper.collapsed .code-fold-btn::after {
+  content: '▸';
+}
+
+/* wrapper 内的 pre 重置已有样式（高优先级覆盖各页面 pre 规则） */
+.code-block-wrapper pre.code-block-pre {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 12px 16px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs, 12.5px);
+  line-height: 1.55;
+  white-space: pre;
+}
+
+.code-block-wrapper pre.code-block-pre code {
+  font-family: var(--font-mono);
+  background: none;
+  padding: 0;
+  border: none;
+  color: inherit;
+}
+
+/* 折叠状态：隐藏代码区域 */
+.code-block-wrapper.collapsed pre.code-block-pre {
+  display: none;
+}
+
+/* 暗色主题微调 */
+[data-theme="dark"] .code-block-header {
+  background: color-mix(in srgb, var(--aether-border-soft) 20%, transparent);
 }
 
 /* ─── Assistant ─── */

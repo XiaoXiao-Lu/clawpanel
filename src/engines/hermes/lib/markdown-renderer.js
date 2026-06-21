@@ -229,8 +229,22 @@ export function renderMarkdown(md) {
     // Trim trailing newline that often comes after the opening fence.
     const trimmed = code.replace(/\n$/, '')
     const highlighted = highlightCode(trimmed, lang || '')
-    const cls = lang ? ' class="lang-' + escHtml(lang) + '"' : ''
-    codeBlocks.push('<pre><code' + cls + '>' + highlighted + '</code></pre>')
+    const lineCount = trimmed.split('\n').length
+    const foldable = lineCount > 15
+    const langLabel = '<span class="code-lang">' + escHtml(lang || 'text') + '</span>'
+    const foldBtn = foldable
+      ? '<button class="code-fold-btn" data-fold-btn aria-label="折叠/展开代码" title="折叠/展开"></button>'
+      : ''
+    const wrapperAttrs = foldable ? ' data-foldable' : ''
+    codeBlocks.push(
+      '<div class="code-block-wrapper"' + wrapperAttrs + '>' +
+      '<div class="code-block-header">' + langLabel +
+      '<div class="code-block-actions">' +
+      '<button class="code-copy-btn" data-copy-btn>复制</button>' + foldBtn +
+      '</div></div>' +
+      '<pre class="code-block-pre"><code>' + highlighted + '</code></pre>' +
+      '</div>'
+    )
     return '\x00CODE' + idx + '\x00'
   })
 
@@ -478,4 +492,34 @@ function renderOrderedLists(text) {
   }
 
   return out.join('\n')
+}
+
+// ---------- code block toolbar events (copy + fold) ----------
+// 使用全局标志，与 src/lib/markdown.js 共享同一份事件委托，防止重复注册
+if (typeof window !== 'undefined' && !window.__codeBlockEventsReady) {
+  window.__codeBlockEventsReady = true
+  document.addEventListener('click', (e) => {
+    // 复制按钮
+    const copyBtn = e.target.closest('[data-copy-btn]')
+    if (copyBtn) {
+      const wrapper = copyBtn.closest('.code-block-wrapper')
+      const code = (wrapper || copyBtn.closest('pre'))?.querySelector('code')
+      if (!code) return
+      navigator.clipboard.writeText(code.innerText).then(() => {
+        copyBtn.textContent = '✓'
+        setTimeout(() => { copyBtn.textContent = '复制' }, 1500)
+      }).catch(() => {
+        copyBtn.textContent = '✗'
+        setTimeout(() => { copyBtn.textContent = '复制' }, 1500)
+      })
+      return
+    }
+    // 折叠按钮
+    const foldBtn = e.target.closest('[data-fold-btn]')
+    if (foldBtn) {
+      const wrapper = foldBtn.closest('.code-block-wrapper')
+      if (!wrapper) return
+      wrapper.classList.toggle('collapsed')
+    }
+  })
 }
