@@ -599,6 +599,16 @@
 .skills-store-searchbar .btn {
   min-height: 38px; border-radius: var(--radius-md); padding: 0 var(--space-5);
 }
+.skills-store-source-select {
+  min-height: 38px; border-radius: var(--radius-md);
+  border: 1px solid var(--aether-border); background: var(--aether-elevated);
+  font-size: var(--font-size-sm); font-weight: 600;
+  color: var(--text-secondary); cursor: pointer; padding: 0 var(--space-3);
+  max-width: 140px; flex-shrink: 0;
+}
+.skills-store-source-select:focus-visible {
+  outline: 2px solid var(--brand-glow); outline-offset: -1px;
+}
 
 .skills-store-filters {
   display: flex; gap: var(--space-sm); margin-bottom: var(--space-md); flex-wrap: wrap;

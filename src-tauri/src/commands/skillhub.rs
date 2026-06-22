@@ -8,6 +8,8 @@ use std::time::{Duration, Instant};
 
 const COS_BASE: &str = "https://skillhub-1388575217.cos.ap-guangzhou.myqcloud.com";
 const API_BASE: &str = "https://lightmake.site/api/v1";
+const XIAPING_BASE: &str = "https://xiaping.coze.com/api";
+const GITHUB_API_BASE: &str = "https://api.github.com";
 const INDEX_TTL: Duration = Duration::from_secs(600); // 10 分钟缓存
 
 // ── 数据结构 ──────────────────────────────────────────────
@@ -141,6 +143,191 @@ pub async fn fetch_index() -> Result<Vec<SkillHubItem>, String> {
     if let Ok(mut guard) = INDEX_CACHE.lock() {
         *guard = Some((Instant::now(), items.clone()));
     }
+    Ok(items)
+}
+
+/// 搜索虾评技能市场
+pub async fn search_xiaping(query: &str, limit: u32) -> Result<Vec<SkillHubItem>, String> {
+    let q = query.trim();
+    if q.is_empty() {
+        return Ok(vec![]);
+    }
+    let url = format!(
+        "{}/skills/search?q={}&limit={}",
+        XIAPING_BASE,
+        urlencoding::encode(q),
+        limit
+    );
+    let resp = client()?
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("虾评搜索请求失败: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!("虾评搜索失败: HTTP {}", resp.status()));
+    }
+    // 虾评返回格式可能是数组或 { results: [...] }
+    let text = resp
+        .text()
+        .await
+        .map_err(|e| format!("虾评搜索响应读取失败: {e}"))?;
+    let items: Vec<SkillHubItem> = if text.trim_start().starts_with('[') {
+        serde_json::from_str(&text).map_err(|e| format!("虾评搜索结果解析失败: {e}"))?
+    } else {
+        let wrapper: serde_json::Value = serde_json::from_str(&text)
+            .map_err(|e| format!("虾评搜索结果解析失败: {e}"))?;
+        if let Some(arr) = wrapper.get("results").and_then(|v| v.as_array()) {
+            serde_json::from_value(serde_json::Value::Array(arr.clone()))
+                .map_err(|e| format!("虾评搜索结果解析失败: {e}"))?
+        } else if let Some(arr) = wrapper.get("skills").and_then(|v| v.as_array()) {
+            serde_json::from_value(serde_json::Value::Array(arr.clone()))
+                .map_err(|e| format!("虾评搜索结果解析失败: {e}"))?
+        } else {
+            vec![]
+        }
+    };
+    Ok(items)
+}
+
+/// 搜索 GitHub 开源 Skill 仓库
+pub async fn search_github(query: &str, limit: u32) -> Result<Vec<SkillHubItem>, String> {
+    let q = query.trim();
+    if q.is_empty() {
+        return Ok(vec![]);
+    }
+    // GitHub Code Search API 搜索包含 SKILL.md 的仓库
+    let url = format!(
+        "{}/search/code?q=filename:SKILL.md+{}&per_page={}",
+        GITHUB_API_BASE,
+        urlencoding::encode(q),
+        limit.min(30) // GitHub Code Search 最多 100 条/页
+    );
+    let mut request = client()?
+        .get(&url)
+        .header("Accept", "application/vnd.github.v3+json");
+    // 如果有 GITHUB_TOKEN 环境变量，带上认证
+    if let Ok(token) = std::env::var("GITHUB_TOKEN") {
+        if !token.is_empty() {
+            request = request.header("Authorization", format!("Bearer {token}"));
+        }
+    }
+    let resp = request
+        .send()
+        .await
+        .map_err(|e| format!("GitHub 搜索请求失败: {e}"))?;
+    if !resp.status().is_success() {
+        // GitHub Code Search 需要认证，匿名可能返回 401/403
+        if resp.status().as_u16() == 401 || resp.status().as_u16() == 403 {
+            return Err("GitHub 代码搜索需要认证，请设置 GITHUB_TOKEN 环境变量".into());
+        }
+        return Err(format!("GitHub 搜索失败: HTTP {}", resp.status()));
+    }
+    let data: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("GitHub 搜索结果解析失败: {e}"))?;
+    let items_val = data.get("items").and_then(|v| v.as_array());
+    let mut items = Vec::new();
+    if let Some(arr) = items_val {
+        for entry in arr.iter().take(limit as usize) {
+            let repo = entry.get("repository").unwrap_or(entry);
+            let full_name = repo.get("full_name").and_then(|v| v.as_str()).unwrap_or("");
+            let description = repo.get("description").and_then(|v| v.as_str());
+            let html_url = repo.get("html_url").and_then(|v| v.as_str());
+            let stars = repo.get("stargazers_count").and_then(|v| v.as_u64());
+            let owner = repo.get("owner").and_then(|o| o.get("login")).and_then(|v| v.as_str());
+            // 将 GitHub 仓库映射为 SkillHubItem 格式
+            let slug = full_name.replace('/', "-");
+            items.push(SkillHubItem {
+                slug,
+                name: Some(full_name.to_string()),
+                display_name: Some(full_name.to_string()),
+                summary: description.map(|s| s.to_string()),
+                description: description.map(|s| s.to_string()),
+                description_zh: None,
+                version: None,
+                author: owner.map(|s| s.to_string()),
+                owner_name: owner.map(|s| s.to_string()),
+                category: Some("github".to_string()),
+                tags: Some(vec!["github".to_string()]),
+                categories: None,
+                homepage: html_url.map(|s| s.to_string()),
+                icon: None,
+                logo: repo.get("owner").and_then(|o| o.get("avatar_url")).and_then(|v| v.as_str()).map(|s| s.to_string()),
+                avatar: None,
+                avatar_url: repo.get("owner").and_then(|o| o.get("avatar_url")).and_then(|v| v.as_str()).map(|s| s.to_string()),
+                image: None,
+                downloads: None,
+                installs: None,
+                stars,
+                labels: None,
+                updated_at: repo.get("updated_at").and_then(|v| v.as_str()).and_then(|s| {
+                    // 解析 ISO 8601 时间为 Unix 时间戳
+                    chrono::DateTime::parse_from_rfc3339(s)
+                        .ok()
+                        .map(|dt| dt.timestamp() as u64)
+                }),
+            });
+        }
+    }
+    Ok(items)
+}
+
+/// 多源聚合搜索：同时搜索 SkillHub + 虾评 + GitHub，合并去重
+/// 每个源独立超时（8秒），任一源失败不影响其他源的结果
+pub async fn search_all(query: &str, limit: u32) -> Result<Vec<SkillHubItem>, String> {
+    let q = query.trim();
+    if q.is_empty() {
+        return Ok(vec![]);
+    }
+
+    // 每个源加 8 秒超时，避免某个源拖慢整体搜索
+    let timeout = Duration::from_secs(8);
+    let skillhub_res = tokio::time::timeout(timeout, search(q, limit)).await;
+    let xiaping_res = tokio::time::timeout(timeout, search_xiaping(q, limit)).await;
+    let github_res = tokio::time::timeout(timeout, search_github(q, limit.min(20))).await;
+
+    let mut items = Vec::new();
+    let mut seen_slugs = std::collections::HashSet::new();
+
+    // 1. SkillHub 结果（优先级最高）
+    if let Ok(Ok(skillhub_items)) = skillhub_res {
+        for item in skillhub_items {
+            let key = item.slug.to_lowercase();
+            if seen_slugs.insert(key) {
+                items.push(item);
+            }
+        }
+    }
+
+    // 2. 虾评结果
+    if let Ok(Ok(xiaping_items)) = xiaping_res {
+        for mut item in xiaping_items {
+            let key = item.slug.to_lowercase();
+            if seen_slugs.insert(key.clone()) {
+                if item.category.as_deref().unwrap_or("").is_empty() {
+                    item.category = Some("xiaping".to_string());
+                }
+                if item.tags.is_none() {
+                    item.tags = Some(vec!["xiaping".to_string()]);
+                }
+                items.push(item);
+            }
+        }
+    }
+
+    // 3. GitHub 结果
+    if let Ok(Ok(github_items)) = github_res {
+        for item in github_items {
+            let key = item.slug.to_lowercase();
+            if seen_slugs.insert(key) {
+                items.push(item);
+            }
+        }
+    }
+
+    // 限制总数
+    items.truncate(limit as usize);
     Ok(items)
 }
 

@@ -4816,9 +4816,28 @@ pub async fn list_configured_platforms() -> Result<Value, String> {
             let enabled = val.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
             let mut accounts: Vec<Value> = vec![];
 
+            // 如果根节点有凭证（默认账号），将其作为 "default" 账号加入列表
+            // 这样前端能展示并管理默认账号，避免「添加账号」时看不到已有默认账号
+            if channel_root_has_messaging_credential(val.as_object().unwrap_or(&serde_json::Map::new())) {
+                let mut entry = json!({ "accountId": "" });
+                if let Some(display_id) = account_display_value(val, "appId")
+                    .or_else(|| account_display_value(val, "clientId"))
+                    .or_else(|| account_display_value(val, "account"))
+                    .or_else(|| account_display_value(val, "nick"))
+                    .or_else(|| account_display_value(val, "ship"))
+                {
+                    entry["appId"] = Value::String(display_id);
+                }
+                accounts.push(entry);
+            }
+
             // 提取多账号信息（仅安全字段，不含 appSecret 等敏感数据）
             if let Some(accts) = val.get("accounts").and_then(|a| a.as_object()) {
                 for (acct_id, acct_val) in accts {
+                    // 跳过 "default" 键，因为根节点凭证已经作为默认账号加入
+                    if acct_id == "default" {
+                        continue;
+                    }
                     let mut entry = json!({ "accountId": acct_id });
                     if let Some(display_id) = account_display_value(acct_val, "appId")
                         .or_else(|| account_display_value(acct_val, "clientId"))

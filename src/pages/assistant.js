@@ -8640,7 +8640,8 @@ async function sendMessageDirect(text) {
           if (!lastContainer) return
           const toolHtml = renderToolBlocks(history)
           const bubble = lastContainer.querySelector('.ast-msg-bubble-ai')
-          lastContainer.innerHTML = toolHtml + (bubble ? bubble.outerHTML : '')
+          const meta = lastContainer.querySelector('.ast-msg-meta')
+          lastContainer.innerHTML = toolHtml + (bubble ? bubble.outerHTML : '') + (meta ? meta.outerHTML : '')
           if (_messagesEl) _messagesEl.scrollTop = _messagesEl.scrollHeight
         },
         // onChunk — 流式打字机效果（需从 container 重新查询 bubble，因为 onToolProgress 会替换 innerHTML）
@@ -8773,7 +8774,8 @@ async function retryAIResponse(session) {
           if (!lastContainer) return
           const toolHtml = renderToolBlocks(history)
           const bubble = lastContainer.querySelector('.ast-msg-bubble-ai')
-          lastContainer.innerHTML = toolHtml + (bubble ? bubble.outerHTML : '')
+          const meta = lastContainer.querySelector('.ast-msg-meta')
+          lastContainer.innerHTML = toolHtml + (bubble ? bubble.outerHTML : '') + (meta ? meta.outerHTML : '')
           if (_messagesEl) _messagesEl.scrollTop = _messagesEl.scrollHeight
         },
         // onChunk — 流式打字机效果（需从 container 重新查询 bubble）

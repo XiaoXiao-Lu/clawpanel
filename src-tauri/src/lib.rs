@@ -236,6 +236,9 @@ pub fn run() {
             skills::skills_validate,
             // SkillHub SDK（内置 HTTP，不依赖 CLI）
             skills::skillhub_search,
+            skills::skillhub_search_all,
+            skills::skillhub_search_xiaping,
+            skills::skillhub_search_github,
             skills::skillhub_index,
             skills::skillhub_install,
             // 前端热更新

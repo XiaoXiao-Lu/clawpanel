@@ -19,10 +19,12 @@ test('Skills market exposes local ZIP install controls', () => {
 })
 
 test('Skills market exposes selectable store source and SkillHub CN browse entry', () => {
-  assert.match(skillsPage, /id="skill-store-source"/)
-  assert.match(skillsPage, /value="skillhubcn"/)
+  assert.match(skillsPage, /id="skill-store-search-source"/)
+  assert.match(skillsPage, /value="all"/)
+  assert.match(skillsPage, /value="skillhub"/)
+  assert.match(skillsPage, /value="xiaping"/)
+  assert.match(skillsPage, /value="github"/)
   assert.match(skillsPage, /https:\/\/www\.skillhub\.cn\//)
-  assert.match(skillsPage, /function updateStoreSourceUi/)
 })
 
 test('Skills market searches SkillHub remotely instead of filtering the small featured index', () => {
@@ -30,8 +32,9 @@ test('Skills market searches SkillHub remotely instead of filtering the small fe
     skillsPage.indexOf('async function handleStoreSearch'),
     skillsPage.indexOf('async function handleStoreInstall')
   )
-  assert.match(searchBody, /api\.skillhubSearch\(q,\s*60\)/)
+  assert.match(searchBody, /api\.skillhubSearchAll\(query,\s*60\)/)
   assert.doesNotMatch(searchBody, /_storeIndex\.filter/, 'keyword search should not be capped by the featured mirror index')
+  assert.doesNotMatch(searchBody, /filterStoreItemsLocally/, 'should not apply strict substring filter on API results')
 })
 
 test('Skills market presents installable skills as a scan-friendly grid', () => {
@@ -125,5 +128,42 @@ test('SkillHub item model preserves richer catalog metadata for grid cards', () 
   assert.match(tauriSkillhub, /pub installs: Option<u64>/)
   assert.match(tauriSkillhub, /pub labels: Option<serde_json::Value>/)
   assert.match(tauriSkills, /copy_skill_visual_fields/)
-  assert.match(tauriSkills, /\["homepage", "icon", "logo", "avatar", "avatar_url", "image", "version", "author"\]/)
+  assert.match(tauriSkills, /\["homepage", "icon", "logo", "avatar", "avatar_url", "image"\]/)
+})
+
+test('Multi-source skill search supports SkillHub + Xiaping + GitHub', () => {
+  // Rust SDK has all three search functions + aggregator
+  assert.match(tauriSkillhub, /pub async fn search_xiaping/)
+  assert.match(tauriSkillhub, /pub async fn search_github/)
+  assert.match(tauriSkillhub, /pub async fn search_all/)
+  assert.match(tauriSkillhub, /XIAPING_BASE/)
+  assert.match(tauriSkillhub, /GITHUB_API_BASE/)
+
+  // Tauri commands registered
+  assert.match(tauriSkills, /pub async fn skillhub_search_all/)
+  assert.match(tauriSkills, /pub async fn skillhub_search_xiaping/)
+  assert.match(tauriSkills, /pub async fn skillhub_search_github/)
+  assert.match(tauriLib, /skills::skillhub_search_all/)
+  assert.match(tauriLib, /skills::skillhub_search_xiaping/)
+  assert.match(tauriLib, /skills::skillhub_search_github/)
+
+  // Frontend API wrappers
+  assert.match(tauriApi, /skillhubSearchAll:/)
+  assert.match(tauriApi, /skillhubSearchXiaping:/)
+  assert.match(tauriApi, /skillhubSearchGithub:/)
+
+  // Web/dev-api backend
+  assert.match(devApi, /async skillhub_search_all/)
+  assert.match(devApi, /async skillhub_search_xiaping/)
+  assert.match(devApi, /async skillhub_search_github/)
+
+  // Frontend uses multi-source search by default
+  const searchBody = skillsPage.slice(
+    skillsPage.indexOf('async function handleStoreSearch'),
+    skillsPage.indexOf('async function handleStoreInstall')
+  )
+  assert.match(searchBody, /skill-store-search-source/)
+  assert.match(searchBody, /source === 'all'/)
+  assert.match(searchBody, /source === 'xiaping'/)
+  assert.match(searchBody, /source === 'github'/)
 })

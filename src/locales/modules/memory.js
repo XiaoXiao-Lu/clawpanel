@@ -4,6 +4,8 @@ export default {
   title: _('记忆文件', 'Memory Files', '記憶檔案', 'メモリ', '메모리', 'Bộ nhớ', 'Memoria', 'Memória', 'Память', 'Mémoire', 'Speicher'),
   agentLabel: _('Agent:', 'Agent:'),
   newFile: _('+ 新建', '+ New'),
+  refresh: _('刷新', 'Refresh', '重新整理'),
+  refreshTooltip: _('重新加载文件列表和内容', 'Reload file list and content', '重新載入檔案列表和內容'),
   deleteFile: _('删除', 'Delete', '刪除'),
   exportZip: _('打包下载全部', 'Export All as ZIP', '打包下載全部'),
   selectFile: _('选择文件查看', 'Select a file to view', '選擇檔案查看'),

@@ -140,6 +140,8 @@ const PLATFORM_REGISTRY = {
       { key: 'dmPolicy', label: t('channels.dmPolicy'), type: 'select', options: DM_POLICY_OPTIONS, required: false },
       { key: 'groupPolicy', label: t('channels.groupPolicy'), type: 'select', options: GROUP_POLICY_OPTIONS(t('channels.groupAllGroups')), required: false },
       { key: 'allowFrom', label: 'Allow From', placeholder: t('channels.allowFromPh'), required: false, hint: t('channels.allowFromHint') },
+      { key: 'groupAllowFrom', label: 'Group Allow From', placeholder: t('channels.groupAllowFromPh'), required: false, hint: t('channels.groupAllowFromHint') },
+      { key: 'proxy', label: 'Proxy', placeholder: 'http://127.0.0.1:7890', required: false, hint: t('channels.proxyHint') },
     ],
     configKey: 'telegram',
     pairingChannel: 'telegram',
@@ -1203,6 +1205,7 @@ function renderConfigured(page, state) {
           if (hasAccounts) {
             const accountsHtml = accounts.map(acc => {
               const accId = acc.accountId || 'default'
+              const isDefaultAcc = !acc.accountId  // 空 accountId = 默认账号（根级别）
               const accBindings = (state.bindings || []).filter(b =>
                 b.match?.channel === channelKey && (b.match?.accountId || '') === (acc.accountId || '')
               )
@@ -1211,6 +1214,8 @@ function renderConfigured(page, state) {
               const badgesHtml = showBadge ? accAgents.map(a =>
                 `<span class="agent-badge">\u2192 ${escapeAttr(a)}</span>`
               ).join(' ') : ''
+              // 默认账号不显示删除按钮（删除默认账号 = 删除整个平台，用平台级删除按钮代替）
+              const removeBtnHtml = isDefaultAcc ? '' : `<button class="btn btn-xs btn-danger" data-action="remove-account" data-account-id="${escapeAttr(acc.accountId || '')}" aria-label="${escapeAttr(t('channels.remove'))}" title="${escapeAttr(t('channels.remove'))}">${icon('trash', 12)}</button>`
               return `
                 <div class="account-item" data-account="${escapeAttr(acc.accountId || '')}">
                   <span class="account-id">${escapeAttr(accId)}</span>
@@ -1219,7 +1224,7 @@ function renderConfigured(page, state) {
                   ${renderRuntimeAccountInfo(runtimeSummary, acc.accountId || '')}
                   <span class="account-actions">
                     <button class="btn btn-xs btn-secondary" data-action="edit-account" data-account-id="${escapeAttr(acc.accountId || '')}">${icon('edit', 12)} ${t('channels.editAccount')}</button>
-                    <button class="btn btn-xs btn-danger" data-action="remove-account" data-account-id="${escapeAttr(acc.accountId || '')}" aria-label="${escapeAttr(t('channels.remove'))}" title="${escapeAttr(t('channels.remove'))}">${icon('trash', 12)}</button>
+                    ${removeBtnHtml}
                   </span>
                 </div>
               `
@@ -1486,7 +1491,7 @@ function renderConfigured(page, state) {
       showPlatformActionMenu(pid, page, state)
     })
 
-    card.querySelector('[data-action="add-account"]')?.addEventListener('click', () => openConfigDialog(pid, page, state, ''))
+    card.querySelector('[data-action="add-account"]')?.addEventListener('click', () => openConfigDialog(pid, page, state, '', true))
     card.querySelector('[data-action="edit"]')?.addEventListener('click', () => openConfigDialog(pid, page, state))
     card.querySelectorAll('[data-runtime-action]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -2242,7 +2247,7 @@ async function handleGatewayWhatsAppLogin(btn, resultEl, actionDef) {
 
 // ── 配置弹窗（新增 / 编辑共用） ──
 
-async function openConfigDialog(pid, page, state, accountId) {
+async function openConfigDialog(pid, page, state, accountId, isNewAccount = false) {
   const reg = PLATFORM_REGISTRY[pid]
   if (!reg) { toast(t('channels.unknownPlatform'), 'error'); return }
 
@@ -2547,17 +2552,20 @@ async function openConfigDialog(pid, page, state, accountId) {
   }
 
   // 尝试加载已有配置（accountId 用于多账号读取）
+  // 新增账号模式下跳过加载，避免预填根级别配置导致覆盖
   let existing = {}
   let isEdit = false
-  try {
-    const res = await api.readPlatformConfig(pid, accountId)
-    if (res?.values) {
-      existing = res.values
-    }
-    if (res?.exists) {
-      isEdit = true
-    }
-  } catch {}
+  if (!isNewAccount) {
+    try {
+      const res = await api.readPlatformConfig(pid, accountId)
+      if (res?.values) {
+        existing = res.values
+      }
+      if (res?.exists) {
+        isEdit = true
+      }
+    } catch {}
+  }
 
   // 加载 Agent 列表（不预选，因为一个 channel+accountId 可以被多个 agent 绑定）
   let agents = []
@@ -2570,11 +2578,13 @@ async function openConfigDialog(pid, page, state, accountId) {
   const supportsMultiAccount = supportsMessagingMultiAccount(pid)
 
   // 账号标识（多账号）；编辑时 accountId 非空会在 input value 中显示
+  // 新增账号模式下必填
+  const accountIdRequired = isNewAccount
   const accountIdHtml = supportsMultiAccount ? `
     <div class="form-group">
-      <label class="form-label">${t('channels.accountIdentifier')}</label>
-      <input class="form-input" name="__accountId" placeholder="${t('channels.accountIdPlaceholder')}" value="${escapeAttr(accountId != null ? accountId : '')}">
-      <div class="form-hint">${t('channels.accountIdHint')}</div>
+      <label class="form-label">${t('channels.accountIdentifier')}${accountIdRequired ? ' <span style="color:var(--danger)">*</span>' : ''}</label>
+      <input class="form-input" name="__accountId" placeholder="${t('channels.accountIdPlaceholder')}" value="${escapeAttr(accountId != null ? accountId : '')}"${accountIdRequired ? ' required' : ''}>
+      <div class="form-hint">${isNewAccount ? t('channels.accountIdRequiredHint') : t('channels.accountIdHint')}</div>
     </div>
   ` : ''
 
@@ -3075,6 +3085,16 @@ async function openConfigDialog(pid, page, state, accountId) {
       // 写入配置
       btnSave.textContent = t('channels.writingConfig')
       const saveAccountId = modal.querySelector('input[name="__accountId"]')?.value?.trim() || null
+
+      // 新增账号模式下，必须填写账号标识
+      if (isNewAccount && !saveAccountId) {
+        toast(t('channels.accountIdRequired'), 'error')
+        btnSave.disabled = false
+        btnVerify.disabled = false
+        btnSave.textContent = isEdit ? t('channels.save') : t('channels.connectAndSave')
+        return
+      }
+
       const saveAgentId = modal.querySelector('select[name="__agentId"]')?.value?.trim() || 'main'
       await api.saveMessagingPlatform(pid, form, saveAccountId, null)
 

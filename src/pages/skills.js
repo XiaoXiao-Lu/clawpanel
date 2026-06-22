@@ -701,6 +701,12 @@ export async function render() {
 
       <div class="skills-store-searchbar">
         <input class="input clawhub-search-input" id="skill-store-search" placeholder="${t('skills.searchPlaceholder')}" type="text">
+        <select class="input skills-store-source-select" id="skill-store-search-source" title="${t('skills.sourceHint')}">
+          <option value="all">🌐 ${t('skills.sourceAll')}</option>
+          <option value="skillhub">🌍 SkillHub</option>
+          <option value="xiaping">🦐 ${t('skills.sourceXiaping')}</option>
+          <option value="github">🐙 GitHub</option>
+        </select>
         <button class="btn btn-primary btn-sm" data-action="store-search">${icon('search', 14)} ${t('skills.search')}</button>
       </div>
 
@@ -725,11 +731,6 @@ export async function render() {
 
       <div class="skills-store-footer">
         <span>⚡ ${t('skills.storeSourceHint')}</span>
-        <select class="input" id="skill-store-source">
-          <option value="skillhubcn">🌏 ${t('skills.sourceCn')}</option>
-          <option value="cos">🚀 ${t('skills.sourceMirror')}</option>
-          <option value="official">🌍 ${t('skills.sourceOfficial')}</option>
-        </select>
       </div>
     </div>
   `
@@ -1050,20 +1051,12 @@ async function loadStore(page) {
 }
 
 function updateStoreSourceUi(page) {
-  const select = page.querySelector('#skill-store-source')
+  const select = page.querySelector('#skill-store-search-source')
   const browse = page.querySelector('#skill-store-browse')
   if (!select || !browse) return
-  const source = select.value || 'cos'
-  if (source === 'official') {
-    browse.href = 'https://www.skillhub.club/'
-    browse.textContent = '🔗 ' + t('skills.browseOfficial')
-  } else if (source === 'skillhubcn') {
-    browse.href = 'https://www.skillhub.cn/'
-    browse.textContent = '🔗 ' + t('skills.browseCn')
-  } else {
-    browse.href = 'https://skillhub-1388575217.cos.ap-guangzhou.myqcloud.com/skills.json'
-    browse.textContent = '🔗 ' + t('skills.browseMirror')
-  }
+  // 浏览链接保持指向 SkillHub CN
+  browse.href = 'https://www.skillhub.cn/'
+  browse.textContent = '🔗 ' + t('skills.browseCn')
 }
 
 function renderStoreItems(el, items) {
@@ -1112,29 +1105,14 @@ function renderStoreItems(el, items) {
   }).join('')
 }
 
-function filterStoreItemsLocally(items, query) {
-  if (!query || !Array.isArray(items) || !items.length) return items
-  return items.filter(item => matchesSearch(
-    query,
-    item?.slug,
-    item?.name,
-    item?.display_name,
-    item?.displayName,
-    item?.description,
-    item?.description_zh,
-    item?.summary,
-    item?.category,
-    ...(item?.tags || []),
-    ...(item?.categories || []),
-  ))
-}
-
 async function handleStoreSearch(page) {
   const input = page.querySelector('#skill-store-search')
   const results = page.querySelector('#store-results')
   const meta = page.querySelector('#skill-store-meta')
+  const sourceSelect = page.querySelector('#skill-store-search-source')
   if (!input || !results) return
   const q = input.value.trim()
+  const source = sourceSelect?.value || 'all'
 
   if (!q && _storeIndex && _storeIndex.length) {
     const items = _storeIndex
@@ -1152,30 +1130,54 @@ async function handleStoreSearch(page) {
   try {
     let items
     const searchRemote = async (query) => {
-      if (wsClient.connected && wsClient.gatewayReady) {
-        try {
-          const res = await wsClient.skillsSearch(query, 60)
-          return res?.results || []
-        } catch {
-          return await api.skillhubSearch(query, 60)
+      // 根据用户选择的源调用不同 API
+      if (source === 'all') {
+        // 多源聚合搜索（默认）
+        if (wsClient.connected && wsClient.gatewayReady) {
+          try {
+            const res = await wsClient.skillsSearch(query, 60)
+            if (res?.results?.length) return res.results
+          } catch { /* 回退到 Tauri invoke */ }
         }
+        return await api.skillhubSearchAll(query, 60)
+      } else if (source === 'xiaping') {
+        return await api.skillhubSearchXiaping(query, 60)
+      } else if (source === 'github') {
+        return await api.skillhubSearchGithub(query, 30)
+      } else {
+        // skillhub only
+        if (wsClient.connected && wsClient.gatewayReady) {
+          try {
+            const res = await wsClient.skillsSearch(query, 60)
+            return res?.results || []
+          } catch {
+            return await api.skillhubSearch(query, 60)
+          }
+        }
+        return await api.skillhubSearch(query, 60)
       }
-      return await api.skillhubSearch(query, 60)
     }
-    if (wsClient.connected && wsClient.gatewayReady) {
-      items = await searchRemote(q)
-    } else {
-      items = await searchRemote(q)
-    }
+    items = await searchRemote(q)
     const lowerQuery = normalizeSearchText(q)
     if ((!items || !items.length) && lowerQuery && lowerQuery !== q) {
       items = await searchRemote(lowerQuery)
     }
-    items = filterStoreItemsLocally(items, q)
-    if (meta) meta.innerHTML = `<span class="meta-dot"></span>${t('skills.searchMeta', { count: items?.length || 0, query: q })}`
+    // 信任远程 API 的语义搜索结果，不再做严格子串二次过滤
+    if (meta) {
+      const sourceLabel = source === 'all' ? t('skills.sourceAll')
+        : source === 'xiaping' ? t('skills.sourceXiaping')
+        : source === 'github' ? 'GitHub'
+        : 'SkillHub'
+      meta.innerHTML = `<span class="meta-dot"></span>${t('skills.searchMeta', { count: items?.length || 0, query: q })} (${sourceLabel})`
+    }
     renderStoreItems(results, items)
   } catch (e) {
-    results.innerHTML = `<div class="skills-empty-state"><div class="skills-empty-icon">${statusIcon('warn', 14)}</div><div class="skills-empty-title">${t('skills.searchFailed')}</div><div class="skills-empty-desc">${esc(e?.message || e)}</div></div>`
+    const errMsg = String(e?.message || e)
+    // GitHub 无 token 时显示友好提示
+    const hint = errMsg.includes('GITHUB_TOKEN')
+      ? t('skills.githubTokenHint')
+      : esc(errMsg)
+    results.innerHTML = `<div class="skills-empty-state"><div class="skills-empty-icon">${statusIcon('warn', 14)}</div><div class="skills-empty-title">${t('skills.searchFailed')}</div><div class="skills-empty-desc">${hint}</div></div>`
   }
 }
 
@@ -1411,11 +1413,18 @@ function bindEvents(page) {
   })
 
   page.addEventListener('change', (e) => {
-    if (e.target?.id === 'skill-store-source') {
+    if (e.target?.id === 'skill-store-search-source') {
       updateStoreSourceUi(page)
-      const activeChip = page.querySelector('.skills-chip.active')
-      if (activeChip && !activeChip.dataset.query) {
-        showFeaturedStoreItems(page).catch(() => {})
+      // 切换源后，如果搜索框有内容，自动重新搜索
+      const searchInput = page.querySelector('#skill-store-search')
+      if (searchInput?.value.trim()) {
+        page.querySelectorAll('.skills-chip').forEach(chip => chip.classList.remove('active'))
+        handleStoreSearch(page).catch(() => {})
+      } else {
+        const activeChip = page.querySelector('.skills-chip.active')
+        if (activeChip && !activeChip.dataset.query) {
+          showFeaturedStoreItems(page).catch(() => {})
+        }
       }
     }
   })

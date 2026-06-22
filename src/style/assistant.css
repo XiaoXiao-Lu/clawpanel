@@ -1717,6 +1717,7 @@
   font-size: var(--font-size-sm);
   overflow: hidden;
   width: 100%;
+  color: var(--text-primary);
 }
 
 .ast-tool-block.ok {
@@ -1745,6 +1746,7 @@
   align-items: center;
   gap: 6px;
   background: var(--aether-glass);
+  color: var(--text-primary);
   transition: background var(--ease-fast);
 }
 
@@ -1786,7 +1788,8 @@
   line-height: 1.5;
   max-height: 200px;
   overflow: auto;
-  background: var(--aether-base);
+  background: var(--bg-code);
+  color: var(--text-secondary);
   white-space: pre-wrap;
   word-break: break-all;
   border-top: 1px solid var(--aether-border-soft);
@@ -5778,7 +5781,7 @@
     border-color: var(--aether-border-subtle);
   }
   :root:not([data-theme="dark"]) .ast-tool-result {
-    background: var(--aether-elevated);
+    background: var(--bg-code);
     border-top-color: var(--aether-border-subtle);
   }
   :root:not([data-theme="dark"]) .ast-tool-summary code {
@@ -6001,4 +6004,19 @@
   :root:not([data-theme="dark"]) .ast-session-delete:hover {
     background: var(--error-surface);
   }
+}
+
+/* ═══════════════════════════════════════════
+   浅色主题覆盖 — explicit light (non-media-query)
+   当用户手动切到 light 但系统是 dark 时也生效
+   ═══════════════════════════════════════════ */
+:root[data-theme="light"] .ast-tool-block {
+  border-color: var(--aether-border-subtle);
+}
+:root[data-theme="light"] .ast-tool-result {
+  background: var(--bg-code);
+  border-top-color: var(--aether-border-subtle);
+}
+:root[data-theme="light"] .ast-tool-summary code {
+  background: var(--aether-elevated);
 }

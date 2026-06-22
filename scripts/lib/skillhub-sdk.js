@@ -12,6 +12,8 @@ const inflateRawAsync = promisify(inflateRaw)
 
 const COS_BASE = 'https://skillhub-1388575217.cos.ap-guangzhou.myqcloud.com'
 const API_BASE = 'https://lightmake.site/api/v1'
+const XIAPING_BASE = 'https://xiaping.coze.com/api'
+const GITHUB_API_BASE = 'https://api.github.com'
 const INDEX_TTL = 10 * 60 * 1000 // 10 分钟缓存
 
 let _indexCache = null // { ts: number, items: Array }
@@ -32,6 +34,138 @@ export async function search(query, limit = 20) {
   if (!resp.ok) throw new Error(`SkillHub 搜索失败: HTTP ${resp.status}`)
   const data = await resp.json()
   return data.results || []
+}
+
+/**
+ * 搜索虾评技能市场
+ * @param {string} query
+ * @param {number} [limit=20]
+ * @returns {Promise<Array>}
+ */
+export async function searchXiaping(query, limit = 20) {
+  const q = (query || '').trim()
+  if (!q) return []
+  const url = `${XIAPING_BASE}/skills/search?q=${encodeURIComponent(q)}&limit=${limit}`
+  const resp = await fetch(url, { signal: AbortSignal.timeout(15000) })
+  if (!resp.ok) throw new Error(`虾评搜索失败: HTTP ${resp.status}`)
+  const data = await resp.json()
+  // 兼容数组或 { results: [...] } 或 { skills: [...] } 格式
+  if (Array.isArray(data)) return data
+  return data.results || data.skills || []
+}
+
+/**
+ * 搜索 GitHub 开源 Skill 仓库
+ * @param {string} query
+ * @param {number} [limit=20]
+ * @returns {Promise<Array>}
+ */
+export async function searchGithub(query, limit = 20) {
+  const q = (query || '').trim()
+  if (!q) return []
+  const perPage = Math.min(limit, 30)
+  const url = `${GITHUB_API_BASE}/search/code?q=filename:SKILL.md+${encodeURIComponent(q)}&per_page=${perPage}`
+  const headers = { Accept: 'application/vnd.github.v3+json' }
+  // 如果有 GITHUB_TOKEN 环境变量，带上认证
+  if (process.env.GITHUB_TOKEN) {
+    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`
+  }
+  const resp = await fetch(url, { headers, signal: AbortSignal.timeout(15000) })
+  if (!resp.ok) {
+    if (resp.status === 401 || resp.status === 403) {
+      throw new Error('GitHub 代码搜索需要认证，请设置 GITHUB_TOKEN 环境变量')
+    }
+    throw new Error(`GitHub 搜索失败: HTTP ${resp.status}`)
+  }
+  const data = await resp.json()
+  const items = (data.items || []).map(entry => {
+    const repo = entry.repository || entry
+    const fullName = repo.full_name || ''
+    const slug = fullName.replace('/', '-')
+    return {
+      slug,
+      name: fullName,
+      display_name: fullName,
+      summary: repo.description || '',
+      description: repo.description || '',
+      author: repo.owner?.login || '',
+      owner_name: repo.owner?.login || '',
+      category: 'github',
+      tags: ['github'],
+      homepage: repo.html_url || '',
+      logo: repo.owner?.avatar_url || '',
+      avatar_url: repo.owner?.avatar_url || '',
+      stars: repo.stargazers_count || 0,
+    }
+  })
+  return items
+}
+
+/**
+ * 多源聚合搜索：同时搜索 SkillHub + 虾评 + GitHub，合并去重
+ * 每个源独立超时（8秒），任一源失败不影响其他
+ * @param {string} query
+ * @param {number} [limit=60]
+ * @returns {Promise<Array>}
+ */
+export async function searchAll(query, limit = 60) {
+  const q = (query || '').trim()
+  if (!q) return []
+
+  // 每个源加 8 秒超时，避免某个源拖慢整体搜索
+  const timeout = 8000
+  const withTimeout = (promise) =>
+    Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeout)),
+    ]).catch(() => null) // 超时或失败返回 null
+
+  const [skillhubRes, xiapingRes, githubRes] = await Promise.all([
+    withTimeout(search(q, limit)),
+    withTimeout(searchXiaping(q, limit)),
+    withTimeout(searchGithub(q, Math.min(limit, 20))),
+  ])
+
+  const items = []
+  const seenSlugs = new Set()
+
+  // 1. SkillHub 结果（优先级最高）
+  if (Array.isArray(skillhubRes)) {
+    for (const item of skillhubRes) {
+      const key = (item.slug || '').toLowerCase()
+      if (key && !seenSlugs.has(key)) {
+        seenSlugs.add(key)
+        items.push(item)
+      }
+    }
+  }
+
+  // 2. 虾评结果
+  if (Array.isArray(xiapingRes)) {
+    for (const item of xiapingRes) {
+      const key = (item.slug || item.name || '').toLowerCase()
+      if (key && !seenSlugs.has(key)) {
+        seenSlugs.add(key)
+        if (!item.category) item.category = 'xiaping'
+        if (!item.tags) item.tags = ['xiaping']
+        items.push(item)
+      }
+    }
+  }
+
+  // 3. GitHub 结果
+  if (Array.isArray(githubRes)) {
+    for (const item of githubRes) {
+      const key = (item.slug || '').toLowerCase()
+      if (key && !seenSlugs.has(key)) {
+        seenSlugs.add(key)
+        items.push(item)
+      }
+    }
+  }
+
+  // 限制总数
+  return items.slice(0, limit)
 }
 
 /**

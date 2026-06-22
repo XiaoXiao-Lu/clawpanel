@@ -7540,19 +7540,33 @@ function resolvePlatformConfigEntry(channelRoot, platform, accountId) {
 }
 
 export function listPlatformAccounts(channelRoot) {
-  if (!channelRoot || typeof channelRoot !== 'object' || !channelRoot.accounts || typeof channelRoot.accounts !== 'object') {
-    return []
+  if (!channelRoot || typeof channelRoot !== 'object') return []
+  const accounts = []
+
+  // 如果根节点有凭证（默认账号），将其作为 "default" 账号加入列表
+  if (channelRootHasMessagingCredential(channelRoot)) {
+    const entry = { accountId: '' }
+    const displayId = ['appId', 'clientId', 'account', 'nick', 'ship']
+      .map(key => secretAwareAccountDisplayValue(channelRoot[key]))
+      .find(Boolean)
+    if (displayId) entry.appId = displayId
+    accounts.push(entry)
   }
-  return Object.entries(channelRoot.accounts)
-    .map(([accountId, value]) => {
+
+  // 提取命名账号
+  if (channelRoot.accounts && typeof channelRoot.accounts === 'object') {
+    for (const [accountId, value] of Object.entries(channelRoot.accounts)) {
+      if (accountId === 'default') continue  // 根节点凭证已作为默认账号
       const entry = { accountId }
       const displayId = ['appId', 'clientId', 'account', 'nick', 'ship']
         .map(key => secretAwareAccountDisplayValue(value?.[key]))
         .find(Boolean)
       if (displayId) entry.appId = displayId
-      return entry
-    })
-    .sort((a, b) => (a.accountId || '').localeCompare(b.accountId || ''))
+      accounts.push(entry)
+    }
+  }
+
+  return accounts.sort((a, b) => (a.accountId || '').localeCompare(b.accountId || ''))
 }
 
 function normalizeBindingMatchValue(value) {

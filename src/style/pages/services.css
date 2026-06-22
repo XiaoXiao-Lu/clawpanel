@@ -349,6 +349,158 @@
   animation: fadeIn 200ms ease;
 }
 
+/* Gateway — Session identityLinks 编辑器 */
+.config-section-desc {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-md);
+}
+
+.gw-idlinks-empty {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px dashed var(--border-secondary);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.gw-idlinks-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  padding: var(--space-xs) var(--space-sm);
+  margin-top: var(--space-xs);
+  background: rgba(129, 140, 248, 0.06);
+  border-radius: var(--radius-sm);
+}
+
+.gw-idlink-entry {
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+  background: var(--surface-base);
+  transition: border-color var(--ease-fast), box-shadow var(--ease-fast);
+}
+.gw-idlink-entry:hover {
+  border-color: var(--border-focus);
+}
+
+.gw-idlink-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.gw-idlink-header .gw-idlink-name {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.gw-idlink-remove {
+  flex-shrink: 0;
+}
+
+.gw-idlink-peers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-left: var(--space-md);
+  border-left: 2px solid var(--brand-primary-alpha, rgba(129, 140, 248, 0.25));
+  margin-left: var(--space-xs);
+}
+
+.gw-idlink-peer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  background: var(--surface-raised);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  transition: border-color var(--ease-fast);
+}
+.gw-idlink-peer:hover {
+  border-color: var(--border-focus);
+}
+
+.gw-idlink-peer-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.gw-idlink-peer-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  font-size: var(--text-xxs);
+  color: var(--text-tertiary);
+  padding: var(--space-xs) var(--space-sm);
+  background: rgba(245, 158, 11, 0.06);
+  border-radius: var(--radius-sm);
+  line-height: 1.4;
+}
+.gw-idlink-peer-hint svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--accent-warm, #f59e0b);
+}
+.gw-idlink-peer-hint-text {
+  word-break: break-all;
+}
+
+.gw-idlink-channel-select {
+  flex-shrink: 0;
+  width: auto !important;
+  min-width: 130px !important;
+  max-width: 160px;
+  cursor: pointer;
+}
+
+.gw-idlink-userid-input {
+  flex: 1 !important;
+  min-width: 90px;
+  font-family: var(--font-mono, monospace) !important;
+  font-size: var(--text-xxs) !important;
+}
+
+.gw-idlink-hint-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--surface-elevated);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: help;
+  transition: color var(--ease-fast), background var(--ease-fast);
+  line-height: 1;
+}
+.gw-idlink-hint-icon:hover {
+  color: var(--brand-primary);
+  background: rgba(129, 140, 248, 0.12);
+}
+
+.gw-idlink-peer-add {
+  align-self: flex-start;
+}
+
+/* 删除旧的 hint-icon 样式 */
+.gw-idlink-hint-icon,
+.gw-idlink-hint-icon:hover {
+  display: none;
+}
+
 /* Gateway — 保存栏 */
 .gw-save-bar {
   display: flex;
@@ -360,6 +512,9 @@
   border-radius: var(--radius-lg);
   background: var(--surface-raised);
   box-shadow: var(--shadow-sm);
+  position: sticky;
+  bottom: var(--space-md);
+  z-index: var(--z-dropdown, 100);
 }
 
 .gw-save-bar .btn {

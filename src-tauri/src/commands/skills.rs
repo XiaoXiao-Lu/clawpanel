@@ -123,6 +123,27 @@ pub async fn skillhub_search(query: String, limit: Option<u32>) -> Result<Value,
     Ok(serde_json::to_value(items).unwrap_or_default())
 }
 
+/// 多源聚合搜索（SkillHub + 虾评 + GitHub）
+#[tauri::command]
+pub async fn skillhub_search_all(query: String, limit: Option<u32>) -> Result<Value, String> {
+    let items = super::skillhub::search_all(&query, limit.unwrap_or(60)).await?;
+    Ok(serde_json::to_value(items).unwrap_or_default())
+}
+
+/// 搜索虾评技能市场
+#[tauri::command]
+pub async fn skillhub_search_xiaping(query: String, limit: Option<u32>) -> Result<Value, String> {
+    let items = super::skillhub::search_xiaping(&query, limit.unwrap_or(20)).await?;
+    Ok(serde_json::to_value(items).unwrap_or_default())
+}
+
+/// 搜索 GitHub 开源 Skill 仓库
+#[tauri::command]
+pub async fn skillhub_search_github(query: String, limit: Option<u32>) -> Result<Value, String> {
+    let items = super::skillhub::search_github(&query, limit.unwrap_or(20)).await?;
+    Ok(serde_json::to_value(items).unwrap_or_default())
+}
+
 /// 获取全量技能索引（COS CDN，带内存缓存）
 #[tauri::command]
 pub async fn skillhub_index() -> Result<Value, String> {
