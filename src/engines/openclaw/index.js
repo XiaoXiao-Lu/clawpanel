@@ -49,7 +49,6 @@ export default {
       items: [
         { route: '/models', label: t('sidebar.models'), icon: 'models' },
         { route: '/agents', label: t('sidebar.agents'), icon: 'agents' },
-        { route: '/expert-teams', label: t('sidebar.expertTeams'), icon: 'agents' },
         { route: '/gateway', label: t('sidebar.gateway'), icon: 'gateway' },
         { route: '/channels', label: t('sidebar.channels'), icon: 'channels' },
         { route: '/communication', label: t('sidebar.communication'), icon: 'settings' },
@@ -101,7 +100,6 @@ export default {
       { path: '/logs', loader: () => import('../../pages/logs.js') },
       { path: '/models', loader: () => import('../../pages/models.js') },
       { path: '/agents', loader: () => import('../../pages/agents.js') },
-      { path: '/expert-teams', loader: () => import('../../pages/expert-teams.js') },
       { path: '/agent-detail', loader: () => import('../../pages/agent-detail.js') },
       { path: '/gateway', loader: () => import('../../pages/gateway.js') },
       { path: '/memory', loader: () => import('../../pages/memory.js') },

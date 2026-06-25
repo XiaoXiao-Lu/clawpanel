@@ -2254,20 +2254,7 @@
     "inputPlaceholder": "Describe your issue, paste logs, screenshots or error messages...",
     "send": "Send",
     "inputHint": "Enter to send · Shift+Enter for newline · Paste/drag images · Independent of OpenClaw",
-    "autoSwitchExecute": "Auto-switched to Execute mode",
-    "expertTeam": "Expert Team",
-    "expertTeamDirect": "Direct Chat",
-    "expertTeamDirectDesc": "Chat directly with the model without an expert team",
-    "expertTeamTriggerTitle": "Select expert team — Current: {selection}",
-    "expertTeamMenuLabel": "Select expert team or direct chat",
-    "expertTeamOptionMeta": "{count} members · {mode}",
-    "expertTeamNoRunnableMembers": "No runnable members",
-    "expertTeamModePanel": "Panel Review",
-    "expertTeamModeCreation": "Team Creation",
-    "expertTeamModeDebate": "Debate Review",
-    "expertTeamModeReview": "Cross Review",
-    "expertTeamModeResearch": "Parallel Research",
-    "expertTeamModeSequential": "Sequential Relay"
+    "autoSwitchExecute": "Auto-switched to Execute mode"
   },
   "toast": {
     "copySuccess": "Copied to clipboard",

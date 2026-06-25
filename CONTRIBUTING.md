@@ -326,7 +326,7 @@ ClawPanel 面板自身的配置文件，独立于 OpenClaw：
 
 ### 构建产物锁
 
-本地自动化、CI 和维护脚本都应通过 `npm run build` 生成 `dist`，不要直接执行 `vite build` 或 `npx vite build`。`npm run build` 会进入 `scripts/build-with-dist-lock.mjs`，和 `npm run expert-teams:ui` 共用 `.tmp/dist.lock`，避免构建过程中专家团 UI smoke 读取到半更新的 chunk。
+本地自动化、CI 和维护脚本都应通过 `npm run build` 生成 `dist`，不要直接执行 `vite build` 或 `npx vite build`。`npm run build` 会进入 `scripts/build-with-dist-lock.mjs` 并持有 `.tmp/dist.lock`，避免构建过程中读到半更新的 chunk。
 
 ---
 

@@ -148,6 +148,12 @@ export const FEATURE_CATALOG = {
     minVersion: '2026.5.4',
     desc: '渠道进度草稿 honor toolProgressDetail: raw',
   },
+  // TODO: channels.runtimeStatus — 待上游内核正式支持 channels.status RPC 后重新注册
+  // 'channels.runtimeStatus': {
+  //   engine: 'openclaw',
+  //   minVersion: '2026.5.0',
+  //   desc: 'channels.status RPC 返回 Gateway 渠道运行时连接态',
+  // },
 
   // ===== Plugins =====
   'plugins.installHints': {
