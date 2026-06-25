@@ -105,7 +105,7 @@ test('DeepSeek long-context path compacts locally and records prefix diagnostics
 
   const buildContextMessagesForSession = functionBody(assistantJs, 'buildContextMessagesForSession')
   assert.match(buildContextMessagesForSession, /if\s*\(isDeepSeekConfig\(\)\)\s*return\s+buildDeepSeekContextMessages\(session\)/)
-  assert.match(buildContextMessagesForSession, /return\s+modelFacingChatMessages\(session\.messages\)\.slice\(-MAX_CONTEXT_TOKENS\)/)
+  assert.match(buildContextMessagesForSession, /return\s+trimChatMessagesToBudget\(modelFacingChatMessages\(session\.messages\)\)/)
 })
 
 test('send and retry both use the shared context builder', () => {

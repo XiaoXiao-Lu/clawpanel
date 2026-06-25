@@ -3250,6 +3250,217 @@ async function callAIWithSlot(slot, messages, onChunk) {
   }
 }
 
+function normalizeToolCall(raw, index = 0) {
+  const fn = raw?.function || {}
+  return {
+    id: raw?.id || `tool_call_${Date.now()}_${index}`,
+    type: raw?.type || 'function',
+    function: {
+      name: fn.name || '',
+      arguments: fn.arguments || '',
+    },
+  }
+}
+
+function mergeToolCallDelta(map, raw) {
+  const index = Number.isInteger(raw?.index) ? raw.index : map.size
+  const current = map.get(index) || {
+    id: '',
+    type: 'function',
+    function: { name: '', arguments: '' },
+  }
+  if (raw.id) current.id = raw.id
+  if (raw.type) current.type = raw.type
+  if (raw.function?.name) current.function.name += raw.function.name
+  if (raw.function?.arguments) current.function.arguments += raw.function.arguments
+  map.set(index, current)
+}
+
+function parseToolArgs(raw) {
+  if (!raw) return {}
+  try { return JSON.parse(raw) } catch { return {} }
+}
+
+function toolResultContent(result) {
+  if (typeof result === 'string') return result
+  try { return JSON.stringify(result, null, 2) } catch { return String(result) }
+}
+
+// OpenAI-compatible tool loop: stream assistant text, execute completed tool_calls,
+// append tool results, then continue until the model returns final text.
+async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
+  const apiType = normalizeApiType(_config.apiType)
+  if (apiType !== 'openai-completions') {
+    let content = ''
+    await callAI(messages, (chunk) => {
+      content += chunk
+      onChunk?.(chunk)
+    })
+    return { content, toolHistory: [] }
+  }
+
+  if (!_config.baseUrl || !_config.model || (requiresApiKey(apiType) && !_config.apiKey)) {
+    throw new Error(t('assistant.errConfigFirst'))
+  }
+
+  const base = cleanBaseUrl(_config.baseUrl, apiType)
+  const tools = getEnabledTools()
+  const deepseek = isDeepSeekConfig(_config, base)
+  const history = await buildProviderMessages(messages, base)
+  const toolHistory = []
+  const maxRounds = _config.autoRounds === 0 ? 50 : Math.max(1, _config.autoRounds || 8)
+  let finalContent = ''
+
+  _abortController = new AbortController()
+
+  for (let round = 0; round < maxRounds; round++) {
+    if (_abortController?.signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+    onStatus?.(round === 0 ? t('assistant.aiThinking') : `继续分析工具结果 (${round + 1}/${maxRounds})`)
+
+    const url = base + '/chat/completions'
+    const body = {
+      model: _config.model,
+      messages: history,
+      stream: true,
+      temperature: _config.temperature || 0.7,
+    }
+    if (tools.length > 0) {
+      body.tools = tools
+      body.tool_choice = 'auto'
+    }
+    applyDeepSeekChatOptions(body, { deepseek, tools: tools.length > 0 })
+
+    const reqTime = Date.now()
+    _lastDebugInfo = {
+      url,
+      method: 'POST',
+      providerHints: deepseek ? { deepseek: true, cacheFriendly: true, tools: tools.length > 0 } : undefined,
+      requestBody: {
+        ...body,
+        messages: summarizeRequestMessages(body.messages),
+        tools: tools.map(td => td.function?.name).filter(Boolean),
+      },
+      requestTime: new Date(reqTime).toLocaleString('zh-CN'),
+    }
+    if (deepseek) attachDeepSeekPrefixDiagnostics(body.messages, tools)
+
+    const resp = await fetchModelChatCompletions(base, body, {
+      signal: _abortController.signal,
+    })
+
+    _lastDebugInfo.status = resp.status
+    _lastDebugInfo.contentType = resp.headers.get('content-type') || ''
+    if (resp._proxiedByBackend) _lastDebugInfo.proxiedByBackend = true
+    _lastDebugInfo.responseTime = new Date().toLocaleString('zh-CN')
+    _lastDebugInfo.latency = Date.now() - reqTime + 'ms'
+
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '')
+      _lastDebugInfo.errorBody = errText.slice(0, 500)
+      let errMsg = `API 错误 ${resp.status}`
+      try {
+        const errJson = JSON.parse(errText)
+        errMsg = errJson.error?.message || errJson.message || errMsg
+      } catch {
+        if (errText) errMsg += `: ${errText.slice(0, 200)}`
+      }
+      throw new Error(enhanceModelCallError(errMsg))
+    }
+
+    let contentBuf = ''
+    let reasoningBuf = ''
+    let streamError = ''
+    let finishReason = ''
+    const toolCallMap = new Map()
+    const ct = resp.headers.get('content-type') || ''
+
+    if (ct.includes('text/event-stream') || ct.includes('text/plain')) {
+      _lastDebugInfo.streaming = true
+      let chunkCount = 0
+      await readSSEStream(resp, (json) => {
+        chunkCount++
+        if (deepseek && json.usage) captureDeepSeekUsage(json)
+        if (json.error) streamError = streamError || json.error?.message || json.error || ''
+        const choice = json.choices?.[0]
+        if (choice?.finish_reason) finishReason = choice.finish_reason
+        const d = choice?.delta
+        if (!d) return
+        if (d.content) {
+          contentBuf += d.content
+          finalContent += d.content
+          onChunk?.(d.content)
+        }
+        if (d.reasoning_content) reasoningBuf += d.reasoning_content
+        for (const tc of d.tool_calls || []) mergeToolCallDelta(toolCallMap, tc)
+      }, _abortController?.signal)
+      _lastDebugInfo.chunks = { total: chunkCount, toolCalls: toolCallMap.size }
+    } else {
+      _lastDebugInfo.streaming = false
+      const json = await resp.json()
+      _lastDebugInfo.responseBody = { id: json.id, model: json.model, object: json.object, usage: json.usage }
+      if (deepseek && json.usage) captureDeepSeekUsage(json)
+      const choice = json.choices?.[0] || {}
+      finishReason = choice.finish_reason || ''
+      const msg = choice.message || {}
+      contentBuf = msg.content || ''
+      reasoningBuf = msg.reasoning_content || ''
+      if (contentBuf) {
+        finalContent += contentBuf
+        onChunk?.(contentBuf)
+      }
+      ;(msg.tool_calls || []).forEach((tc, index) => toolCallMap.set(index, normalizeToolCall(tc, index)))
+    }
+
+    const toolCalls = [...toolCallMap.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([index, tc]) => normalizeToolCall(tc, index))
+      .filter(tc => tc.function.name)
+
+    if (toolCalls.length === 0) {
+      if (!contentBuf && !finalContent && reasoningBuf) {
+        finalContent += reasoningBuf
+        onChunk?.(reasoningBuf)
+        _lastDebugInfo.fallbackToReasoning = true
+      }
+      if (!finalContent && streamError) throw new Error(streamError)
+      return { content: finalContent, toolHistory }
+    }
+
+    const assistantMsg = {
+      role: 'assistant',
+      content: contentBuf || (deepseek ? '' : null),
+      tool_calls: toolCalls,
+    }
+    if (deepseek && reasoningBuf) assistantMsg.reasoning_content = reasoningBuf
+    history.push(assistantMsg)
+
+    for (const tc of toolCalls) {
+      const toolName = tc.function.name
+      const args = parseToolArgs(tc.function.arguments)
+      const item = { id: tc.id, name: toolName, args, pending: true }
+      toolHistory.push(item)
+      onToolProgress?.([...toolHistory])
+      const { result, approved } = await executeToolWithSafety(toolName, args, tc)
+      item.pending = false
+      item.result = toolResultContent(result)
+      item.approved = approved
+      onToolProgress?.([...toolHistory])
+      history.push({
+        role: 'tool',
+        tool_call_id: tc.id,
+        name: toolName,
+        content: item.result,
+      })
+    }
+
+    if (finishReason && finishReason !== 'tool_calls') {
+      return { content: finalContent, toolHistory }
+    }
+  }
+
+  return { content: finalContent, toolHistory }
+}
+
 async function _callAIOnce(messages, onChunk) {
   const apiType = normalizeApiType(_config.apiType)
   if (!_config.baseUrl || !_config.model || (requiresApiKey(apiType) && !_config.apiKey)) {
