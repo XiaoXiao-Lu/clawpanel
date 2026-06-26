@@ -347,13 +347,29 @@ function bindConfigEvents(el, state) {
     })
   }
 
-  // identityLinks 编辑器 — 从已配置渠道读取选项
+  // identityLinks 编辑器 — 显示全部 25 个渠道，已配置的加标识
   const linksContainer = el.querySelector('#gw-identity-links')
   const addIdentityBtn = el.querySelector('#btn-add-identity')
   const configuredChannels = state.config?.channels ? Object.keys(state.config.channels) : []
 
-  // 渠道获取用户ID的提示
+  // 全部支持的渠道（configKey，覆盖 PLATFORM_REGISTRY + wecom 插件）
+  const ALL_CHANNEL_KEYS = [
+    // 国内平台
+    'qqbot', 'dingtalk', 'feishu', 'openclaw-weixin', 'wecom',
+    // 国际即时通讯
+    'telegram', 'whatsapp', 'discord', 'slack', 'line',
+    'zalo', 'zalouser', 'signal', 'imessage',
+    // 办公协作
+    'googlechat', 'msteams', 'mattermost',
+    // 开放协议 / 去中心化
+    'matrix', 'irc', 'twitch', 'nostr', 'tlon',
+    // 其他
+    'clickclack', 'nextcloudtalk', 'synologychat',
+  ]
+
+  // 渠道获取用户ID的提示（覆盖全部 25 个渠道）
   const channelIdHints = {
+    // 即时通讯
     telegram: 'Telegram: 在 @userinfobot 中发送任意消息即可获取数字 ID',
     discord: 'Discord: 右键用户头像 → 复制用户 ID（需开启开发者模式）',
     feishu: '飞书: 在飞书开放平台 → 用户管理 → 查看用户的 open_id',
@@ -363,6 +379,25 @@ function bindConfigEvents(el, state) {
     wecom: '企业微信: 在通讯录 → 成员详情中复制 UserId',
     slack: 'Slack: 右键头像 → Copy member ID',
     matrix: 'Matrix: 点击头像 → 复制 @username:domain 格式',
+    dingtalk: '钉钉: 在钉钉开放平台 → 用户管理 → 查看用户的 UserID',
+    // 国际 / 区域性渠道
+    line: 'LINE: 在 LINE Developers Console 查看用户的 userId，或查看日志 from 字段',
+    zalo: 'Zalo: 发送消息后查看 Gateway 日志中的 fromUser / userId 字段',
+    zalouser: 'Zalo Personal: 发送消息后查看日志中的 fromUser 字段',
+    // 办公协作
+    googlechat: 'Google Chat: 在 Google Workspace 管理控制台查看用户 Email',
+    msteams: 'Teams: 在 Teams 管理后台 → 用户管理 → 查看 User ID',
+    mattermost: 'Mattermost: 点击用户头像 → 复制 User ID',
+    clickclack: 'ClickClack: 发送消息后查看 Gateway 日志中的 fromUser 字段',
+    nextcloudtalk: 'Nextcloud Talk: 发送消息后查看日志中的 actorId 或 userId',
+    // 开放协议 / 去中心化
+    irc: 'IRC: 发送消息后查看 Gateway 日志中的 nick 字段',
+    signal: 'Signal: 发送消息后查看 Gateway 日志中的 source 字段',
+    imessage: 'iMessage: 发送消息后查看 Gateway 日志中的 sender 字段',
+    twitch: 'Twitch: 在 Twitch 开发者后台 → 用户管理查看 ID',
+    nostr: 'Nostr: 使用用户的 npub 公钥',
+    tlon: 'Tlon: 发送消息后查看 Gateway 日志中的 fromUser 字段',
+    synologychat: 'Synology Chat: 发送消息后查看日志中的 userId 字段',
   }
 
   // 解析 "telegram:123456" 为 {channel, userId}
@@ -406,10 +441,14 @@ function bindConfigEvents(el, state) {
               return `
               <div class="gw-idlink-peer" data-pi="${pi}">
                 <div class="gw-idlink-peer-row">
-                  <select class="form-input gw-idlink-channel-select" aria-label="选择渠道">
+                  <select class="form-input gw-idlink-channel-select" aria-label="选择渠道" style="min-width:150px">
                     <option value="">— ${t('gateway.selectChannel')} —</option>
-                    ${configuredChannels.map(ch => `<option value="${ch}" ${parsed.channel === ch ? 'selected' : ''}>${ch}</option>`).join('')}
-                    ${!configuredChannels.includes(parsed.channel) && parsed.channel ? `<option value="${parsed.channel}" selected>✏️ ${parsed.channel} (未配置)</option>` : ''}
+                    ${ALL_CHANNEL_KEYS.map(ch => {
+                      const isConfigured = configuredChannels.includes(ch)
+                      const isSelected = parsed.channel === ch
+                      const label = isConfigured ? `${ch} ✓` : ch
+                      return `<option value="${ch}" ${isSelected ? 'selected' : ''}>${label}</option>`
+                    }).join('')}
                   </select>
                   <input class="form-input gw-idlink-userid-input" type="text" value="${escapeAttr(parsed.userId)}" placeholder="用户 ID" style="flex:1;min-width:100px;font-family:var(--font-mono,monospace)">
                   <button class="btn btn-sm btn-secondary gw-idlink-peer-remove" title="${t('gateway.removeIdentity')}" aria-label="${t('gateway.removeIdentity')}">
