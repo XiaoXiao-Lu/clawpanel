@@ -7618,6 +7618,19 @@ function ensureMessagingPluginAllowed(cfg, pluginId) {
   cfg.plugins.entries[pid].enabled = true
 }
 
+function disableMessagingPlugin(cfg, pluginId) {
+  if (!pluginId || !pluginId.trim()) return
+  const pid = pluginId.trim()
+  if (!cfg.plugins || typeof cfg.plugins !== 'object' || Array.isArray(cfg.plugins)) return
+  if (Array.isArray(cfg.plugins.allow)) {
+    cfg.plugins.allow = cfg.plugins.allow.filter(item => item !== pid)
+  }
+  const entry = cfg.plugins.entries?.[pid]
+  if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+    entry.enabled = false
+  }
+}
+
 function buildOpenClawMessagingPlatformEntry(platform, form, currentSaved = {}) {
   const entry = { enabled: true }
   const storageKey = platformStorageKey(platform)
@@ -7924,6 +7937,10 @@ export function mergeOpenClawMessagingPlatformConfig(cfg, { platform, form, acco
     ? ''
     : normalizedAccountId
   applyMessagingPlatformEntry(cfg, storageKey, targetAccountId, entry)
+  if (storageKey === 'feishu') {
+    ensureMessagingPluginAllowed(cfg, 'openclaw-lark')
+    disableMessagingPlugin(cfg, 'feishu')
+  }
   if (['zalo', 'zalouser', 'line', 'mattermost', 'clickclack', 'nextcloud-talk', 'twitch', 'nostr', 'irc', 'tlon', 'synology-chat', 'googlechat', 'msteams', 'imessage', 'whatsapp'].includes(storageKey)) {
     ensureMessagingPluginAllowed(cfg, storageKey)
   }
@@ -9448,6 +9465,8 @@ const handlers = {
       } else {
         setRootChannelEntry(entry)
       }
+      ensureMessagingPluginAllowed(cfg, 'openclaw-lark')
+      disableMessagingPlugin(cfg, 'feishu')
     } else if (platform === 'dingtalk' || platform === 'dingtalk-connector') {
       Object.assign(entry, form)
       preserveMessagingCredentialRefs(entry, form, currentSaved)

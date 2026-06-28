@@ -1039,6 +1039,11 @@ function supportsMessagingMultiAccount(pid) {
   return MULTI_INSTANCE_PLATFORMS.includes(pid)
 }
 
+function shouldSkipPluginInstallForExistingAccount(pid, state, isNewAccount) {
+  if (pid !== 'feishu' || !isNewAccount) return false
+  return (state.configured || []).some(p => p.id === 'feishu')
+}
+
 function platformLabel(pid) {
   return PLATFORM_REGISTRY[pid]?.label || CHANNEL_LABELS[pid] || pid
 }
@@ -1093,11 +1098,16 @@ function renderRuntimeSummary(summary) {
   return `<div class="channel-runtime-summary ${summary.state}">${escapeAttr(parts.join(' · ') || 'Gateway 暂未返回账号状态')}</div>`
 }
 
-function renderRuntimeAccountInfo(summary, accountId) {
-  if (!summary.supported) return ''
+function getRuntimeAccount(summary, accountId) {
+  if (!summary.supported) return null
   const normalizedAccountId = accountId || 'default'
-  const account = summary.accounts.find(a => (a.accountId || 'default') === normalizedAccountId)
+  return summary.accounts.find(a => (a.accountId || 'default') === normalizedAccountId)
     || (!accountId ? summary.accounts.find(a => a.accountId === summary.defaultAccountId) : null)
+    || null
+}
+
+function renderRuntimeAccountInfo(summary, accountId) {
+  const account = getRuntimeAccount(summary, accountId)
   if (!account) return ''
   const meta = getRuntimeStateMeta(account.state)
   const details = []
@@ -1117,7 +1127,7 @@ function isPluginManagedRuntimeChannel(pid) {
   return pid === 'weixin'
 }
 
-function renderRuntimeActions(summary, accountId = '', pid = '') {
+function renderRuntimeActions(summary, accountId = '', pid = '', options = {}) {
   if (isPluginManagedRuntimeChannel(pid)) {
     return `
       <button class="btn btn-sm btn-secondary" data-runtime-action="refresh" data-account-id="${escapeAttr(accountId || '')}" title="${t('channels.runtimeRefreshTitle')}" aria-label="${t('channels.runtimeRefreshTitle')}">${icon('refresh-cw', 14)} ${t('channels.runtimeRefreshShort')}</button>
@@ -1128,8 +1138,10 @@ function renderRuntimeActions(summary, accountId = '', pid = '') {
     return `<button class="btn btn-sm btn-secondary" data-runtime-action="refresh" aria-label="${t('channels.runtimeRefresh')}">${icon('refresh-cw', 14)} ${t('channels.runtimeRefresh')}</button>`
   }
   const accountAttr = escapeAttr(accountId || '')
-  const stopDisabled = summary.state === 'missing' || summary.state === 'configured'
-  const logoutDisabled = summary.state === 'missing'
+  const scopedAccount = options.accountScoped ? getRuntimeAccount(summary, accountId) : null
+  const runtimeState = scopedAccount?.state || summary.state
+  const stopDisabled = runtimeState === 'missing' || runtimeState === 'configured'
+  const logoutDisabled = runtimeState === 'missing'
   return `
     <button class="btn btn-sm btn-secondary" data-runtime-action="refresh" data-account-id="${accountAttr}" title="${t('channels.runtimeRefreshTitle')}">${icon('refresh-cw', 14)} ${t('channels.runtimeRefreshShort')}</button>
     <button class="btn btn-sm btn-secondary" data-runtime-action="start" data-account-id="${accountAttr}" title="${t('channels.runtimeStartTitle')}">${icon('play', 14)} ${t('channels.runtimeStart')}</button>
@@ -1223,6 +1235,7 @@ function renderConfigured(page, state) {
                   ${badgesHtml}
                   ${renderRuntimeAccountInfo(runtimeSummary, acc.accountId || '')}
                   <span class="account-actions">
+                    ${renderRuntimeActions(runtimeSummary, acc.accountId || '', p.id, { accountScoped: true })}
                     <button class="btn btn-xs btn-secondary" data-action="edit-account" data-account-id="${escapeAttr(acc.accountId || '')}">${icon('edit', 12)} ${t('channels.editAccount')}</button>
                     ${removeBtnHtml}
                   </span>
@@ -1335,7 +1348,7 @@ function renderConfigured(page, state) {
       actions.push({
         label: `${icon('plus', 14)} ${t('channels.addNewAccount')}`,
         sub: t('channels.addNewAccountSub'),
-        onClick: () => openConfigDialog(pid, page, state, '')
+        onClick: () => openConfigDialog(pid, page, state, '', true)
       })
     }
 
@@ -2250,6 +2263,7 @@ async function handleGatewayWhatsAppLogin(btn, resultEl, actionDef) {
 async function openConfigDialog(pid, page, state, accountId, isNewAccount = false) {
   const reg = PLATFORM_REGISTRY[pid]
   if (!reg) { toast(t('channels.unknownPlatform'), 'error'); return }
+  const skipPluginInstall = shouldSkipPluginInstallForExistingAccount(pid, state, isNewAccount)
 
   // 插件状态缓存：同一次弹窗对话中只检查/安装一次，避免重复保存时反复触发
   let _pluginChecked = false
@@ -3008,7 +3022,7 @@ async function openConfigDialog(pid, page, state, accountId, isNewAccount = fals
 
     try {
       // 如果需要安装插件，先安装并显示日志（同一弹窗只检查一次）
-      if (reg.pluginRequired && !_pluginChecked) {
+      if (reg.pluginRequired && !_pluginChecked && !skipPluginInstall) {
         _pluginChecked = true
         const pluginPackage = reg.pluginRequired
         const pluginId = reg.pluginId || pid

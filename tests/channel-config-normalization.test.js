@@ -908,6 +908,32 @@ test('渠道保存会为飞书补齐新版内核要求的默认字段', () => {
   assert.equal(form.resolveSenderNames, true)
 })
 
+test('飞书保存会启用官方 Lark 插件并禁用旧 feishu 插件', () => {
+  const cfg = {
+    channels: {},
+    plugins: {
+      allow: ['feishu', 'qqbot'],
+      entries: {
+        feishu: { enabled: true },
+      },
+    },
+  }
+
+  mergeOpenClawMessagingPlatformConfig(cfg, {
+    platform: 'feishu',
+    form: {
+      appId: 'cli_a',
+      appSecret: 'secret',
+    },
+  })
+
+  assert.equal(cfg.channels.feishu.appId, 'cli_a')
+  assert.equal(cfg.plugins.allow.includes('openclaw-lark'), true)
+  assert.equal(cfg.plugins.allow.includes('feishu'), false)
+  assert.equal(cfg.plugins.entries['openclaw-lark'].enabled, true)
+  assert.equal(cfg.plugins.entries.feishu.enabled, false)
+})
+
 test('渠道读取会把新版访问策略字段回显为表单可编辑值', () => {
   const values = buildMessagingPlatformFormValues('telegram', {
     botToken: '123:token',

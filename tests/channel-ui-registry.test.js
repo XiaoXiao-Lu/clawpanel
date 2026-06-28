@@ -25,6 +25,23 @@ test('Discord 渠道 UI 会暴露服务器频道 allowlist 配置字段', () => 
   assert.match(discordBlock, /key:\s*'channelId'/)
 })
 
+test('飞书新增账号会复用已有插件状态避免重复自动安装', () => {
+  assert.match(channelsPageSource, /function shouldSkipPluginInstallForExistingAccount\(pid,\s*state,\s*isNewAccount\)/)
+  assert.match(channelsPageSource, /pid !== 'feishu' \|\| !isNewAccount/)
+  assert.match(channelsPageSource, /p\.id === 'feishu'/)
+  assert.match(channelsPageSource, /reg\.pluginRequired && !_pluginChecked && !skipPluginInstall/)
+})
+
+test('多账号渠道会在账号行暴露带 accountId 的运行操作', () => {
+  assert.match(channelsPageSource, /renderRuntimeActions\(runtimeSummary,\s*acc\.accountId \|\| '',\s*p\.id,\s*\{ accountScoped: true \}\)/)
+  assert.match(channelsPageSource, /const params = \{ channel \}/)
+  assert.match(channelsPageSource, /if \(accountId\) params\.accountId = accountId/)
+})
+
+test('平台操作菜单新增账号会进入新增账号模式', () => {
+  assert.match(channelsPageSource, /onClick:\s*\(\) => openConfigDialog\(pid,\s*page,\s*state,\s*'',\s*true\)/)
+})
+
 test('iMessage 渠道 UI 会暴露桥接运行配置字段', () => {
   const imessageBlock = getRegistryBlock('imessage')
 
