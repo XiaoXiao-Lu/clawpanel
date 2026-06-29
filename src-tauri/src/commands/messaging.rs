@@ -1398,6 +1398,44 @@ fn binding_identity_matches(binding: &Value, agent_id: &str, target_match: &Valu
     existing_match == expected_match
 }
 
+fn binding_specificity_score(binding: &Value) -> i32 {
+    let Some(match_obj) = binding.get("match").and_then(|v| v.as_object()) else {
+        return 0;
+    };
+
+    let mut score = 0;
+    if match_obj
+        .get("peer")
+        .map(|v| !v.is_null())
+        .unwrap_or(false)
+    {
+        score += 1_000;
+    }
+    if match_obj
+        .get("accountId")
+        .and_then(|v| v.as_str())
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false)
+    {
+        score += 100;
+    }
+    score += match_obj
+        .keys()
+        .filter(|key| key.as_str() != "channel" && key.as_str() != "accountId" && key.as_str() != "peer")
+        .count() as i32;
+    score
+}
+
+fn reorder_bindings_for_routing(bindings: &mut Vec<Value>) {
+    let mut indexed: Vec<(usize, Value)> = bindings.drain(..).enumerate().collect();
+    indexed.sort_by(|(left_idx, left), (right_idx, right)| {
+        binding_specificity_score(right)
+            .cmp(&binding_specificity_score(left))
+            .then_with(|| left_idx.cmp(right_idx))
+    });
+    *bindings = indexed.into_iter().map(|(_, binding)| binding).collect();
+}
+
 fn gateway_auth_mode(cfg: &Value) -> Option<&str> {
     cfg.get("gateway")
         .and_then(|g| g.get("auth"))
@@ -6222,6 +6260,8 @@ fn create_agent_binding(
         bindings_arr.push(binding_value);
     }
 
+    reorder_bindings_for_routing(bindings_arr);
+
     Ok(())
 }
 
@@ -6365,6 +6405,8 @@ pub async fn save_agent_binding(
         bindings_arr.push(binding_value);
     }
 
+    reorder_bindings_for_routing(bindings_arr);
+
     // 写回配置并重载 Gateway
     super::config::save_openclaw_json(&cfg)?;
 
@@ -6410,6 +6452,8 @@ pub async fn delete_agent_binding(
         return Err("未找到对应的绑定".to_string());
     }
 
+    reorder_bindings_for_routing(bindings);
+
     // 写回配置并重载 Gateway
     super::config::save_openclaw_json(&cfg)?;
 
@@ -6445,6 +6489,8 @@ pub async fn delete_agent_all_bindings(
     });
 
     let removed = original_len - bindings.len();
+
+    reorder_bindings_for_routing(bindings);
 
     // 写回配置并重载 Gateway
     super::config::save_openclaw_json(&cfg)?;

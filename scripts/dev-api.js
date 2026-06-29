@@ -2372,10 +2372,43 @@ function stripUiFields(config) {
   return config
 }
 
+function bindingSpecificityScore(binding) {
+  const match = binding?.match
+  if (!match || typeof match !== 'object' || Array.isArray(match)) return 0
+  let score = 0
+  if (match.peer != null) score += 1000
+  if (typeof match.accountId === 'string' && match.accountId.trim()) score += 100
+  for (const key of Object.keys(match)) {
+    if (key === 'channel' || key === 'accountId' || key === 'peer') continue
+    score += 1
+  }
+  return score
+}
+
+function reorderBindingsForRouting(bindings) {
+  if (!Array.isArray(bindings)) return bindings
+  return [...bindings]
+    .map((binding, index) => ({ binding, index }))
+    .sort((left, right) => (
+      bindingSpecificityScore(right.binding) - bindingSpecificityScore(left.binding)
+    ) || (left.index - right.index))
+    .map(item => item.binding)
+}
+
+function normalizeBindingRoutePriority(config) {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) return false
+  if (!Array.isArray(config.bindings)) return false
+  const reordered = reorderBindingsForRouting(config.bindings)
+  const changed = JSON.stringify(reordered) !== JSON.stringify(config.bindings)
+  if (changed) config.bindings = reordered
+  return changed
+}
+
 function cleanLoadedConfig(config) {
   const before = JSON.stringify(config)
   const cleaned = stripUiFields(config)
-  if (fs.existsSync(CONFIG_PATH) && JSON.stringify(cleaned) !== before) {
+  const reordered = normalizeBindingRoutePriority(cleaned)
+  if (fs.existsSync(CONFIG_PATH) && (JSON.stringify(cleaned) !== before || reordered)) {
     writeOpenclawConfigFile(cleaned)
   }
   return cleaned
@@ -2845,6 +2878,7 @@ function validateModelProviderEnvRefs(config) {
 
 function writeOpenclawConfigFile(config) {
   const cleaned = stripUiFields(config)
+  normalizeBindingRoutePriority(cleaned)
   validateModelProviderEnvRefs(cleaned)
   if (fs.existsSync(CONFIG_PATH)) fs.copyFileSync(CONFIG_PATH, CONFIG_PATH + '.bak')
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(cleaned, null, 2))

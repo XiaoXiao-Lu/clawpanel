@@ -787,6 +787,53 @@ fn backups_dir() -> PathBuf {
     super::openclaw_dir().join("backups")
 }
 
+fn binding_specificity_score(binding: &Value) -> i32 {
+    let Some(match_obj) = binding.get("match").and_then(|v| v.as_object()) else {
+        return 0;
+    };
+
+    let mut score = 0;
+    if match_obj
+        .get("peer")
+        .map(|v| !v.is_null())
+        .unwrap_or(false)
+    {
+        score += 1_000;
+    }
+    if match_obj
+        .get("accountId")
+        .and_then(|v| v.as_str())
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false)
+    {
+        score += 100;
+    }
+    score += match_obj
+        .keys()
+        .filter(|key| key.as_str() != "channel" && key.as_str() != "accountId" && key.as_str() != "peer")
+        .count() as i32;
+    score
+}
+
+fn reorder_bindings_for_routing(bindings: &mut Vec<Value>) {
+    let mut indexed: Vec<(usize, Value)> = bindings.drain(..).enumerate().collect();
+    indexed.sort_by(|(left_idx, left), (right_idx, right)| {
+        binding_specificity_score(right)
+            .cmp(&binding_specificity_score(left))
+            .then_with(|| left_idx.cmp(right_idx))
+    });
+    *bindings = indexed.into_iter().map(|(_, binding)| binding).collect();
+}
+
+fn normalize_binding_route_priority(config: &mut Value) -> bool {
+    let Some(bindings) = config.get_mut("bindings").and_then(|v| v.as_array_mut()) else {
+        return false;
+    };
+    let before = bindings.clone();
+    reorder_bindings_for_routing(bindings);
+    *bindings != before
+}
+
 #[tauri::command]
 pub fn read_openclaw_config() -> Result<Value, String> {
     let path = super::openclaw_dir().join("openclaw.json");
@@ -846,8 +893,15 @@ pub fn read_openclaw_config() -> Result<Value, String> {
     };
 
     // 自动清理 UI 专属字段，防止污染配置导致 CLI 启动失败
+    let mut needs_write_back = false;
     if has_ui_fields(&config) {
         config = strip_ui_fields(config);
+        needs_write_back = true;
+    }
+    if normalize_binding_route_priority(&mut config) {
+        needs_write_back = true;
+    }
+    if needs_write_back {
         // 静默写回清理后的配置
         let bak = super::openclaw_dir().join("openclaw.json.bak");
         let _ = fs::copy(&path, &bak);
@@ -1043,7 +1097,8 @@ pub fn write_openclaw_config(config: Value) -> Result<(), String> {
     };
 
     // 清理 UI 专属字段，避免 CLI schema 校验失败
-    let cleaned = strip_ui_fields(merged);
+    let mut cleaned = strip_ui_fields(merged);
+    let _ = normalize_binding_route_priority(&mut cleaned);
     validate_model_provider_env_refs(&cleaned)?;
 
     // 写入

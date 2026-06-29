@@ -59,6 +59,7 @@ export default {
       section: t('sidebar.sectionData'),
       items: [
         { route: '/memory', label: t('sidebar.memory'), icon: 'memory', gate: 'memory' },
+        { route: '/memory-auto-capture', label: t('sidebar.memoryAutoCapture'), icon: 'inbox', gate: 'memory' },
         { route: '/dreaming', label: t('sidebar.dreaming'), icon: 'dreaming', gate: 'dreaming' },
         { route: '/cron', label: t('sidebar.cron'), icon: 'clock', gate: 'cron' },
         { route: '/usage', label: t('sidebar.usage'), icon: 'bar-chart' },
@@ -103,6 +104,7 @@ export default {
       { path: '/agent-detail', loader: () => import('../../pages/agent-detail.js') },
       { path: '/gateway', loader: () => import('../../pages/gateway.js') },
       { path: '/memory', loader: () => import('../../pages/memory.js') },
+      { path: '/memory-auto-capture', loader: () => import('../../pages/memory-auto-capture.js') },
       { path: '/dreaming', loader: () => import('../../pages/dreaming.js') },
       { path: '/skills', loader: () => import('../../pages/skills.js') },
       { path: '/connectors', loader: () => import('../../pages/connectors.js') },

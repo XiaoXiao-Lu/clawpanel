@@ -37,6 +37,7 @@ export function NAV_ITEMS_FULL() { return [
     section: t('sidebar.sectionData'),
     items: [
       { route: '/memory', label: t('sidebar.memory'), icon: 'memory', gate: 'memory' },
+      { route: '/memory-auto-capture', label: t('sidebar.memoryAutoCapture'), icon: 'inbox', gate: 'memory' },
       { route: '/dreaming', label: t('sidebar.dreaming'), icon: 'dreaming', gate: 'dreaming' },
       { route: '/cron', label: t('sidebar.cron'), icon: 'clock', gate: 'cron' },
       { route: '/usage', label: t('sidebar.usage'), icon: 'bar-chart' },

@@ -47,6 +47,12 @@
           "English"
         ],
         "displayLanguageSelector": true
+      },
+      "wix": {
+        "language": [
+          "en-US",
+          "zh-CN"
+        ]
       }
     }
   }
