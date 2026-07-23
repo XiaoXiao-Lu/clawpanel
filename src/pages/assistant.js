@@ -2784,15 +2784,10 @@ function cleanBaseUrl(raw, apiType) {
   base = base.replace(/\/api\/generate\/?$/, '')
   base = base.replace(/\/api\/tags\/?$/, '')
   base = base.replace(/\/api\/?$/, '')
-  base = base.replace(/\/chat\/completions\/?$/, '')
-  base = base.replace(/\/completions\/?$/, '')
-  base = base.replace(/\/responses\/?$/, '')
-  base = base.replace(/\/messages\/?$/, '')
-  base = base.replace(/\/models\/?$/, '')
   const type = normalizeApiType(apiType || _config.apiType)
   if (type === 'anthropic-messages') {
-    // Anthropic: https://api.anthropic.com/v1
-    if (!base.endsWith('/v1')) base += '/v1'
+    // Anthropic 官方地址通常是 /v1，但自定义代理可能直接填写 /messages。
+    if (!base.endsWith('/v1') && !base.endsWith('/messages')) base += '/v1'
     return base
   }
   if (type === 'google-generative-ai') {
@@ -2802,6 +2797,17 @@ function cleanBaseUrl(raw, apiType) {
   if (/:(11434)$/i.test(base) && !base.endsWith('/v1')) return `${base}/v1`
   // 不再强制追加 /v1，尊重用户填写的 URL（火山引擎等第三方用 /v3 等路径）
   return base
+}
+
+function joinProviderEndpoint(base, endpoint) {
+  const normalizedBase = (base || '').replace(/\/+$/, '')
+  const normalizedEndpoint = String(endpoint || '').replace(/^\/+/, '')
+  if (!normalizedBase) return `/${normalizedEndpoint}`
+  if (!normalizedEndpoint) return normalizedBase
+  if (normalizedBase.toLowerCase().endsWith(`/${normalizedEndpoint.toLowerCase()}`)) {
+    return normalizedBase
+  }
+  return `${normalizedBase}/${normalizedEndpoint}`
 }
 
 function authHeaders(apiType, apiKey) {
@@ -2823,8 +2829,8 @@ function authHeaders(apiType, apiKey) {
 }
 
 // 超时常量
-const TIMEOUT_TOTAL = 120_000    // 总超时 120 秒
-const TIMEOUT_CHUNK = 30_000     // 流式 chunk 间隔超时 30 秒
+const TIMEOUT_TOTAL = 600_000    // 总超时 10 分钟，兼容长上下文/长思考模型
+const TIMEOUT_CHUNK = 180_000    // 流式 chunk 间隔超时 3 分钟
 const TIMEOUT_CONNECT = 30_000   // 连接超时 30 秒
 
 // #Compat-3: 收集所有可用的模型槽位（主模型 + 启用的备用模型）
@@ -3317,7 +3323,7 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
     if (_abortController?.signal?.aborted) throw new DOMException('Aborted', 'AbortError')
     onStatus?.(round === 0 ? t('assistant.aiThinking') : `继续分析工具结果 (${round + 1}/${maxRounds})`)
 
-    const url = base + '/chat/completions'
+    const url = joinProviderEndpoint(base, '/chat/completions')
     const body = {
       model: _config.model,
       messages: history,
@@ -3468,14 +3474,15 @@ async function _callAIOnce(messages, onChunk) {
   }
 
   const base = cleanBaseUrl(_config.baseUrl, apiType)
-  _abortController = new AbortController()
+  let requestController = new AbortController()
+  _abortController = requestController
   const allMessages = await buildProviderMessages(messages, base)
 
   // 总超时保护
   let _timedOut = false
   const totalTimer = setTimeout(() => {
     _timedOut = true
-    if (_abortController) _abortController.abort()
+    requestController.abort()
   }, TIMEOUT_TOTAL)
 
   try {
@@ -3502,7 +3509,8 @@ async function _callAIOnce(messages, onChunk) {
       const msg = err.message || ''
       if (msg.includes('legacy protocol') || msg.includes('/v1/responses') || msg.includes('not supported')) {
         logAssistantDebug('[assistant] Chat Completions 不支持此模型，自动切换到 Responses API')
-        _abortController = new AbortController()
+        requestController = new AbortController()
+        _abortController = requestController
         await callResponsesAPI(base, allMessages, onChunk)
         return
       }
@@ -3518,7 +3526,7 @@ let _lastDebugInfo = null
 
 // ── Chat Completions API（/v1/chat/completions）──
 async function callChatCompletions(base, messages, onChunk) {
-  const url = base + '/chat/completions'
+  const url = joinProviderEndpoint(base, '/chat/completions')
   const deepseek = isDeepSeekConfig(_config, base)
   const body = {
     model: _config.model,
@@ -3627,7 +3635,7 @@ async function callChatCompletions(base, messages, onChunk) {
 
 // ── Responses API（/v1/responses）──
 async function callResponsesAPI(base, messages, onChunk) {
-  const url = base + '/responses'
+  const url = joinProviderEndpoint(base, '/responses')
   const input = messages.filter(m => m.role !== 'system')
   const instructions = messages.find(m => m.role === 'system')?.content || ''
 
@@ -3673,7 +3681,7 @@ async function callResponsesAPI(base, messages, onChunk) {
 
 // ── Anthropic Messages API（/v1/messages）──
 async function callAnthropicMessages(base, messages, onChunk) {
-  const url = base + '/messages'
+  const url = joinProviderEndpoint(base, '/messages')
   const systemMsg = messages.find(m => m.role === 'system')?.content || ''
   const chatMessages = messages.filter(m => m.role !== 'system')
 
@@ -3765,7 +3773,7 @@ async function callGeminiGenerate(base, messages, onChunk) {
     body.systemInstruction = { parts: [{ text: systemMsg }] }
   }
 
-  const url = `${base}/models/${_config.model}:streamGenerateContent?alt=sse&key=${_config.apiKey}`
+  const url = `${joinProviderEndpoint(base, '/models')}/${_config.model}:streamGenerateContent?alt=sse&key=${_config.apiKey}`
 
   const reqTime = Date.now()
   _lastDebugInfo = { url: url.replace(_config.apiKey, '***'), method: 'POST', requestTime: new Date(reqTime).toLocaleString('zh-CN') }
@@ -3817,12 +3825,19 @@ async function readSSEStream(resp, onEvent, signal) {
     while (true) {
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 
-      // chunk 超时：如果 30 秒内没有收到任何数据，视为超时
+      // chunk 超时：长思考模型可能数十秒无输出，但不能无限挂起。
       const readPromise = reader.read()
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(t('assistant.errStreamTimeout'))), TIMEOUT_CHUNK)
-      )
+      let timeoutId = null
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          try { reader.cancel() } catch {}
+          reject(new Error(t('assistant.errStreamTimeout', { seconds: TIMEOUT_CHUNK / 1000 })))
+        }, TIMEOUT_CHUNK)
+      })
       const { done, value } = await Promise.race([readPromise, timeoutPromise])
+        .finally(() => {
+          if (timeoutId) clearTimeout(timeoutId)
+        })
       if (done) {
         if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
         break

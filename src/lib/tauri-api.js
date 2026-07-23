@@ -56,6 +56,7 @@ async function getTauriInvoke() {
 // 简单缓存：避免页面切换时重复请求后端
 const _cache = new Map()
 const _inflight = new Map() // in-flight 请求去重，防止缓存过期后同一命令并发 spawn 多个进程
+let _cacheEpoch = 0
 const CACHE_TTL = 60000 // 60秒
 const LONG_CACHE_TTL = 300000 // 5分钟（安装状态等低频数据）
 
@@ -104,12 +105,16 @@ function cachedInvoke(cmd, args = {}, ttl = CACHE_TTL) {
   if (_inflight.has(key)) {
     return _inflight.get(key)
   }
-  const p = invoke(cmd, args).then(val => {
-    _cache.set(key, { val, ts: Date.now() })
-    _inflight.delete(key)
+  const epoch = _cacheEpoch
+  let p
+  p = invoke(cmd, args).then(val => {
+    if (_cacheEpoch === epoch && _inflight.get(key) === p) {
+      _cache.set(key, { val, ts: Date.now() })
+    }
+    if (_inflight.get(key) === p) _inflight.delete(key)
     return val
   }).catch(err => {
-    _inflight.delete(key)
+    if (_inflight.get(key) === p) _inflight.delete(key)
     throw err
   })
   _inflight.set(key, p)
@@ -118,6 +123,7 @@ function cachedInvoke(cmd, args = {}, ttl = CACHE_TTL) {
 
 // 清除指定命令的缓存（写操作后调用）
 function invalidate(...cmds) {
+  _cacheEpoch += 1
   if (!cmds.length) {
     _cache.clear()
     _inflight.clear()
@@ -133,6 +139,21 @@ function invalidate(...cmds) {
 
 // 导出 invalidate 供外部使用
 export { invalidate }
+
+function invalidateChannelConfigCaches() {
+  invalidate('list_configured_platforms', 'read_openclaw_config', 'read_platform_config', 'list_all_bindings', 'get_agent_bindings')
+}
+
+function invokeWithChannelConfigInvalidation(cmd, args = {}) {
+  invalidateChannelConfigCaches()
+  return invoke(cmd, args).finally(() => invalidateChannelConfigCaches())
+}
+
+function invokeWithInvalidation(cmds, cmd, args = {}) {
+  const keys = Array.isArray(cmds) ? cmds : [cmds]
+  invalidate(...keys)
+  return invoke(cmd, args).finally(() => invalidate(...keys))
+}
 
 async function invoke(cmd, args = {}) {
   const start = Date.now()
@@ -280,10 +301,10 @@ function _debouncedReloadGateway() {
 export const api = {
   // 服务管理（状态用短缓存，操作不缓存）
   getServicesStatus: () => cachedInvoke('get_services_status', {}, 10000),
-  startService: (label) => { invalidate('get_services_status'); return invoke('start_service', { label }) },
-  stopService: (label) => { invalidate('get_services_status'); return invoke('stop_service', { label }) },
-  restartService: (label) => { invalidate('get_services_status'); return invoke('restart_service', { label }) },
-  claimGateway: () => { invalidate('get_services_status'); return invoke('claim_gateway') },
+  startService: (label) => invokeWithInvalidation(['get_services_status', 'get_status_summary'], 'start_service', { label }),
+  stopService: (label) => invokeWithInvalidation(['get_services_status', 'get_status_summary'], 'stop_service', { label }),
+  restartService: (label) => invokeWithInvalidation(['get_services_status', 'get_status_summary'], 'restart_service', { label }),
+  claimGateway: () => invokeWithInvalidation(['get_services_status', 'get_status_summary'], 'claim_gateway'),
   probeGatewayPort: () => invoke('probe_gateway_port'),
   diagnoseGatewayConnection: () => invoke('diagnose_gateway_connection'),
   guardianStatus: () => invoke('guardian_status'),
@@ -300,10 +321,18 @@ export const api = {
   getVersionInfo: () => cachedInvoke('get_version_info', {}, 30000),
   getStatusSummary: () => cachedInvoke('get_status_summary', {}, 60000),
   readOpenclawConfig: () => cachedInvoke('read_openclaw_config'),
-  calibrateOpenclawConfig: (mode = 'inherit') => { invalidate('read_openclaw_config', 'check_installation', 'list_backups', 'get_services_status', 'get_status_summary'); return invoke('calibrate_openclaw_config', { mode }).then(r => { _debouncedReloadGateway(); return r }) },
-  writeOpenclawConfig: (config, opts = {}) => { invalidate('read_openclaw_config'); return invoke('write_openclaw_config', { config }).then(r => { if (opts.noReload !== true) _debouncedReloadGateway(); return r }) },
+  calibrateOpenclawConfig: (mode = 'inherit') => {
+    const keys = ['read_openclaw_config', 'check_installation', 'list_backups', 'get_services_status', 'get_status_summary', 'list_configured_platforms']
+    invalidate(...keys)
+    return invoke('calibrate_openclaw_config', { mode }).then(r => { _debouncedReloadGateway(); return r }).finally(() => invalidate(...keys))
+  },
+  writeOpenclawConfig: (config, opts = {}) => {
+    const keys = ['read_openclaw_config', 'list_configured_platforms', 'list_agents']
+    invalidate(...keys)
+    return invoke('write_openclaw_config', { config }).then(r => { if (opts.noReload !== true) _debouncedReloadGateway(); return r }).finally(() => invalidate(...keys))
+  },
   readMcpConfig: () => cachedInvoke('read_mcp_config'),
-  writeMcpConfig: (config) => { invalidate('read_mcp_config'); return invoke('write_mcp_config', { config }) },
+  writeMcpConfig: (config) => invokeWithInvalidation('read_mcp_config', 'write_mcp_config', { config }),
   reloadGateway: () => invoke('reload_gateway'),
   restartGateway: () => invoke('restart_gateway'),
   doctorCheck: () => invoke('doctor_check'),
@@ -319,10 +348,10 @@ export const api = {
     invalidate('check_installation', 'check_node', 'check_git', 'get_services_status', 'get_status_summary', 'get_version_info')
     return invoke('uninstall_openclaw', { cleanConfig })
   },
-  installGateway: () => { invalidate('get_services_status', 'get_status_summary'); return invoke('install_gateway') },
-  uninstallGateway: () => { invalidate('get_services_status', 'get_status_summary'); return invoke('uninstall_gateway') },
+  installGateway: () => invokeWithInvalidation(['get_services_status', 'get_status_summary', 'check_installation'], 'install_gateway'),
+  uninstallGateway: () => invokeWithInvalidation(['get_services_status', 'get_status_summary', 'check_installation'], 'uninstall_gateway'),
   getNpmRegistry: () => cachedInvoke('get_npm_registry', {}, 30000),
-  setNpmRegistry: (registry) => { invalidate('get_npm_registry'); return invoke('set_npm_registry', { registry }) },
+  setNpmRegistry: (registry) => invokeWithInvalidation('get_npm_registry', 'set_npm_registry', { registry }),
   testModel: (baseUrl, apiKey, modelId, apiType = null) => invoke('test_model', { baseUrl, apiKey, modelId, apiType }),
   testModelVerbose: (baseUrl, apiKey, modelId, apiType = null) => invoke('test_model_verbose', { baseUrl, apiKey, modelId, apiType }),
   listRemoteModels: (baseUrl, apiKey, apiType = null) => invoke('list_remote_models', { baseUrl, apiKey, apiType }),
@@ -337,7 +366,7 @@ export const api = {
   getAgentDetail: (id) => cachedInvoke('get_agent_detail', { id }, 5000),
   listAgentFiles: (id) => cachedInvoke('list_agent_files', { id }, 5000),
   readAgentFile: (id, name) => invoke('read_agent_file', { id, name }),
-  writeAgentFile: (id, name, content) => { invalidate('list_agent_files', 'read_agent_file'); return invoke('write_agent_file', { id, name, content }) },
+  writeAgentFile: (id, name, content) => invokeWithInvalidation(['list_agent_files', 'read_agent_file'], 'write_agent_file', { id, name, content }),
   getAgentWorkspaceInfo: (id) => cachedInvoke('get_agent_workspace_info', { id }, 5000),
   listAgentWorkspaceEntries: (id, relativePath) => cachedInvoke('list_agent_workspace_entries', { id, relativePath: relativePath || null }, 5000),
   readAgentWorkspaceFile: (id, relativePath) => cachedInvoke('read_agent_workspace_file', { id, relativePath }, 5000),
@@ -345,30 +374,40 @@ export const api = {
     invalidate('get_agent_workspace_info', 'list_agent_workspace_entries', 'read_agent_workspace_file', 'list_agent_files', 'read_agent_file')
     return invoke('write_agent_workspace_file', { id, relativePath, content })
   },
-  updateAgentConfig: (id, config) => { invalidate('list_agents', 'get_agent_detail'); return invoke('update_agent_config', { id, config }) },
-  addAgent: (name, model, workspace) => { invalidate('list_agents'); return invoke('add_agent', { name, model, workspace: workspace || null }) },
-  deleteAgent: (id) => { invalidate('list_agents', 'get_agent_detail'); return invoke('delete_agent', { id }) },
-  updateAgentIdentity: (id, name, emoji) => { invalidate('list_agents', 'get_agent_detail'); return invoke('update_agent_identity', { id, name, emoji }) },
-  updateAgentModel: (id, model) => { invalidate('list_agents', 'get_agent_detail'); return invoke('update_agent_model', { id, model }) },
+  updateAgentConfig: (id, config) => invokeWithInvalidation(['list_agents', 'get_agent_detail'], 'update_agent_config', { id, config }),
+  addAgent: (name, model, workspace) => invokeWithInvalidation('list_agents', 'add_agent', { name, model, workspace: workspace || null }),
+  deleteAgent: (id) => invokeWithInvalidation(['list_agents', 'get_agent_detail'], 'delete_agent', { id }),
+  updateAgentIdentity: (id, name, emoji) => invokeWithInvalidation(['list_agents', 'get_agent_detail'], 'update_agent_identity', { id, name, emoji }),
+  updateAgentModel: (id, model) => invokeWithInvalidation(['list_agents', 'get_agent_detail'], 'update_agent_model', { id, model }),
   backupAgent: (id) => invoke('backup_agent', { id }),
 
 
-  // 日志（短缓存）
-  readLogTail: (logName, lines = 100) => cachedInvoke('read_log_tail', { logName, lines }, 5000),
+  // 日志需要每次读取最新尾部内容，不能走缓存，否则刷新会显示旧内容。
+  readLogTail: (logName, lines = 100) => invoke('read_log_tail', { logName, lines }),
   searchLog: (logName, query, maxResults = 50) => invoke('search_log', { logName, query, maxResults }),
 
   // 记忆文件
   listMemoryFiles: (category, agentId) => cachedInvoke('list_memory_files', { category, agentId: agentId || null }),
   readMemoryFile: (path, agentId, category) => cachedInvoke('read_memory_file', { path, agentId: agentId || null, category: category || null }, 5000),
-  writeMemoryFile: (path, content, category, agentId) => { invalidate('list_memory_files', 'read_memory_file'); return invoke('write_memory_file', { path, content, category: category || 'memory', agentId: agentId || null }) },
-  deleteMemoryFile: (path, agentId) => { invalidate('list_memory_files'); return invoke('delete_memory_file', { path, agentId: agentId || null }) },
+  resolveMemoryFilePath: (path, agentId, category) => invoke('resolve_memory_file_path', { path, agentId: agentId || null, category: category || null }),
+  openPath: (path, mode = 'file') => invoke('open_path', { path, mode }),
+  writeMemoryFile: (path, content, category, agentId) => {
+    invalidate('list_memory_files', 'read_memory_file')
+    return invoke('write_memory_file', { path, content, category: category || 'memory', agentId: agentId || null })
+      .finally(() => invalidate('list_memory_files', 'read_memory_file'))
+  },
+  deleteMemoryFile: (path, agentId, category) => {
+    invalidate('list_memory_files', 'read_memory_file')
+    return invoke('delete_memory_file', { path, agentId: agentId || null, category: category || null })
+      .finally(() => invalidate('list_memory_files', 'read_memory_file'))
+  },
   exportMemoryZip: (category, agentId) => invoke('export_memory_zip', { category, agentId: agentId || null }),
 
   // 消息渠道管理
   readPlatformConfig: (platform, accountId) => invoke('read_platform_config', { platform, accountId: accountId || null }),
-  saveMessagingPlatform: (platform, form, accountId, agentId) => { invalidate('list_configured_platforms', 'read_openclaw_config', 'read_platform_config'); return invoke('save_messaging_platform', { platform, form, accountId: accountId || null, agentId: agentId || null }) },
-  removeMessagingPlatform: (platform, accountId) => { invalidate('list_configured_platforms', 'read_openclaw_config', 'read_platform_config'); return invoke('remove_messaging_platform', { platform, accountId: accountId || null }) },
-  toggleMessagingPlatform: (platform, enabled) => { invalidate('list_configured_platforms', 'read_openclaw_config', 'read_platform_config'); return invoke('toggle_messaging_platform', { platform, enabled }) },
+  saveMessagingPlatform: (platform, form, accountId, agentId) => invokeWithChannelConfigInvalidation('save_messaging_platform', { platform, form, accountId: accountId || null, agentId: agentId || null }),
+  removeMessagingPlatform: (platform, accountId) => invokeWithChannelConfigInvalidation('remove_messaging_platform', { platform, accountId: accountId || null }),
+  toggleMessagingPlatform: (platform, enabled) => invokeWithChannelConfigInvalidation('toggle_messaging_platform', { platform, enabled }),
   verifyBotToken: (platform, form) => invoke('verify_bot_token', { platform, form }),
   diagnoseChannel: (platform, accountId) => invoke('diagnose_channel', { platform, accountId: accountId || null }),
   repairQqbotChannelSetup: () => {
@@ -377,8 +416,8 @@ export const api = {
   },
   listConfiguredPlatforms: () => cachedInvoke('list_configured_platforms', {}, 5000),
   listAllPlugins: () => cachedInvoke('list_all_plugins', {}, 5000),
-  togglePlugin: (pluginId, enabled) => { invalidate('list_all_plugins'); return invoke('toggle_plugin', { pluginId, enabled }) },
-  installPlugin: (packageName) => { invalidate('list_all_plugins'); return invoke('install_plugin', { packageName }) },
+  togglePlugin: (pluginId, enabled) => invokeWithInvalidation('list_all_plugins', 'toggle_plugin', { pluginId, enabled }),
+  installPlugin: (packageName) => invokeWithInvalidation('list_all_plugins', 'install_plugin', { packageName }),
   getChannelPluginStatus: (pluginId) => invoke('get_channel_plugin_status', { pluginId }),
   installQqbotPlugin: (version = null) => invoke('install_qqbot_plugin', { version }),
   installChannelPlugin: (packageName, pluginId, version = null) => invoke('install_channel_plugin', { packageName, pluginId, version }),
@@ -388,9 +427,9 @@ export const api = {
   // Agent 渠道绑定管理
   getAgentBindings: (agentId) => invoke('get_agent_bindings', { agentId }),
   listAllBindings: () => invoke('list_all_bindings'),
-  saveAgentBinding: (agentId, channel, accountId, bindingConfig) => { invalidate('read_openclaw_config', 'list_configured_platforms'); return invoke('save_agent_binding', { agentId, channel, accountId: accountId || null, bindingConfig: bindingConfig || {} }) },
-  deleteAgentBinding: (agentId, channel, accountId, bindingConfig) => { invalidate('read_openclaw_config', 'list_configured_platforms'); return invoke('delete_agent_binding', { agentId, channel, accountId: accountId || null, bindingConfig: bindingConfig || null }) },
-  deleteAgentAllBindings: (agentId) => { invalidate('read_openclaw_config', 'list_configured_platforms'); return invoke('delete_agent_all_bindings', { agentId }) },
+  saveAgentBinding: (agentId, channel, accountId, bindingConfig) => invokeWithChannelConfigInvalidation('save_agent_binding', { agentId, channel, accountId: accountId || null, bindingConfig: bindingConfig || {} }),
+  deleteAgentBinding: (agentId, channel, accountId, bindingConfig) => invokeWithChannelConfigInvalidation('delete_agent_binding', { agentId, channel, accountId: accountId || null, bindingConfig: bindingConfig || null }),
+  deleteAgentAllBindings: (agentId) => invokeWithChannelConfigInvalidation('delete_agent_all_bindings', { agentId }),
 
   // 面板配置 (clawpanel.json)
   getOpenclawDir: () => invoke('get_openclaw_dir'),
@@ -403,23 +442,40 @@ export const api = {
     return invoke('relaunch_app')
   },
   readPanelConfig: () => invoke('read_panel_config'),
-  writePanelConfig: (config) => { invalidate(); return invoke('write_panel_config', { config }).then(r => { invoke('invalidate_path_cache').catch(() => {}); return r }) },
+  writePanelConfig: (config) => {
+    invalidate()
+    return invoke('write_panel_config', { config })
+      .then(r => { invoke('invalidate_path_cache').catch(() => {}); return r })
+      .finally(() => invalidate())
+  },
   testProxy: (url) => invoke('test_proxy', { url: url || null }),
 
   // 安装/部署
   checkInstallation: () => cachedInvoke('check_installation', {}, LONG_CACHE_TTL),
-  initOpenclawConfig: () => { invalidate('check_installation'); return invoke('init_openclaw_config') },
+  initOpenclawConfig: () => invokeWithInvalidation(['check_installation', 'read_openclaw_config'], 'init_openclaw_config'),
   checkNode: () => cachedInvoke('check_node', {}, LONG_CACHE_TTL),
   checkNodeAtPath: (nodeDir) => invoke('check_node_at_path', { nodeDir }),
   checkOpenclawAtPath: (cliPath) => invoke('check_openclaw_at_path', { cliPath }),
   scanNodePaths: () => invoke('scan_node_paths'),
   scanOpenclawPaths: () => invoke('scan_openclaw_paths'),
-  saveCustomNodePath: (nodeDir) => invoke('save_custom_node_path', { nodeDir }).then(r => { invalidate('check_node', 'get_services_status'); invoke('invalidate_path_cache').catch(() => {}); return r }),
+  saveCustomNodePath: (nodeDir) => {
+    const keys = ['check_node', 'get_services_status']
+    invalidate(...keys)
+    return invoke('save_custom_node_path', { nodeDir })
+      .then(r => { invoke('invalidate_path_cache').catch(() => {}); return r })
+      .finally(() => invalidate(...keys))
+  },
   invalidatePathCache: () => invoke('invalidate_path_cache'),
   checkGit: () => cachedInvoke('check_git', {}, LONG_CACHE_TTL),
   scanGitPaths: () => invoke('scan_git_paths'),
   autoInstallGit: () => invoke('auto_install_git'),
-  autoInstallNode: () => invoke('auto_install_node').then(r => { invalidate('check_node', 'get_services_status'); invoke('invalidate_path_cache').catch(() => {}); return r }),
+  autoInstallNode: () => {
+    const keys = ['check_node', 'get_services_status']
+    invalidate(...keys)
+    return invoke('auto_install_node')
+      .then(r => { invoke('invalidate_path_cache').catch(() => {}); return r })
+      .finally(() => invalidate(...keys))
+  },
   configureGitHttps: () => invoke('configure_git_https'),
   getDeployConfig: () => cachedInvoke('get_deploy_config'),
   patchModelVision: () => invoke('patch_model_vision'),
@@ -429,9 +485,9 @@ export const api = {
 
   // 备份管理
   listBackups: () => cachedInvoke('list_backups'),
-  createBackup: () => { invalidate('list_backups'); return invoke('create_backup') },
+  createBackup: () => invokeWithInvalidation('list_backups', 'create_backup'),
   restoreBackup: (name) => invoke('restore_backup', { name }),
-  deleteBackup: (name) => { invalidate('list_backups'); return invoke('delete_backup', { name }) },
+  deleteBackup: (name) => invokeWithInvalidation('list_backups', 'delete_backup', { name }),
 
   // 设备密钥 + Gateway 握手
   createConnectFrame: (nonce, gatewayToken, gatewayPassword) => invoke('create_connect_frame', { nonce, gatewayToken, gatewayPassword: gatewayPassword || null }),
@@ -458,7 +514,7 @@ export const api = {
   skillsInfo: (name, agentId, filePath) => invoke('skills_info', { name, agent_id: agentId || null, file_path: filePath || null }),
   skillsCheck: () => invoke('skills_check'),
   skillsInstallDep: (kind, spec) => invoke('skills_install_dep', { kind, spec }),
-  skillsInstallZip: (name, zipBase64, agentId) => { invalidate('skills_list'); return invoke('skills_install_zip', { name, zip_base64: zipBase64, agent_id: agentId || null }) },
+  skillsInstallZip: (name, zipBase64, agentId) => invokeWithInvalidation('skills_list', 'skills_install_zip', { name, zip_base64: zipBase64, agent_id: agentId || null }),
   skillsUninstall: (name, agentId, filePath) => invoke('skills_uninstall', { name, agent_id: agentId || null, file_path: filePath || null }),
   // SkillHub SDK（内置 HTTP，不依赖 CLI）
   skillhubSearch: (query, limit) => invoke('skillhub_search', { query, limit }),
@@ -470,9 +526,9 @@ export const api = {
 
   // 实例管理
   instanceList: () => cachedInvoke('instance_list', {}, 10000),
-  instanceAdd: (instance) => { invalidate('instance_list'); return invoke('instance_add', instance) },
-  instanceRemove: (id) => { invalidate('instance_list'); return invoke('instance_remove', { id }) },
-  instanceSetActive: (id) => { invalidate('instance_list'); _cache.clear(); return invoke('instance_set_active', { id }) },
+  instanceAdd: (instance) => invokeWithInvalidation('instance_list', 'instance_add', instance),
+  instanceRemove: (id) => invokeWithInvalidation('instance_list', 'instance_remove', { id }),
+  instanceSetActive: (id) => { invalidate(); return invoke('instance_set_active', { id }).finally(() => invalidate()) },
   instanceHealthCheck: (id) => invoke('instance_health_check', { id }),
   instanceHealthAll: () => invoke('instance_health_all'),
 

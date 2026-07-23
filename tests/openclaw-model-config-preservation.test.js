@@ -1,13 +1,18 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import {
   cleanupDeletedModelReferences,
   cleanupDeletedProviderReferences,
+  normalizeProviderUrls,
   normalizeMaxConcurrent,
   normalizeDefaultModelSelection,
   rotateFallbackChain,
 } from '../src/pages/models.js'
+
+const modelsPageSource = readFileSync(new URL('../src/pages/models.js', import.meta.url), 'utf8')
+const modelsCssSource = readFileSync(new URL('../src/style/pages/models.css', import.meta.url), 'utf8')
 
 test('OpenClaw model page preserves JSON-edited fallback entries during normalize', () => {
   const config = {
@@ -130,4 +135,43 @@ test('OpenClaw model page clamps max concurrent agent sessions', () => {
   assert.equal(normalizeMaxConcurrent(200), 100)
   assert.equal(normalizeMaxConcurrent('not-a-number'), 4)
   assert.equal(normalizeMaxConcurrent('not-a-number', 2), 2)
+})
+
+test('OpenClaw model page preserves custom provider endpoint paths when saving', () => {
+  const config = {
+    models: {
+      providers: {
+        custom: {
+          api: 'openai-completions',
+          baseUrl: ' https://provider.example.com/custom/v3/chat/completions/ ',
+          models: [{ id: 'chat-model' }],
+        },
+        anthropic: {
+          api: 'anthropic-messages',
+          baseUrl: 'https://proxy.example.com/messages/',
+          models: [{ id: 'claude' }],
+        },
+      },
+    },
+  }
+
+  normalizeProviderUrls(config)
+
+  assert.equal(config.models.providers.custom.baseUrl, 'https://provider.example.com/custom/v3/chat/completions')
+  assert.equal(config.models.providers.anthropic.baseUrl, 'https://proxy.example.com/messages')
+})
+
+test('OpenClaw provider tabs keep provider actions outside the horizontal scroll area', () => {
+  assert.match(modelsPageSource, /models-provider-tabs-shell/)
+  assert.match(modelsPageSource, /<div class="models-provider-tabs">[\s\S]*<\/div>\s*\$\{providerFilter !== 'all'/)
+
+  const shellRule = modelsCssSource.match(/\.models-provider-tabs-shell\s*\{[^}]+\}/)?.[0] || ''
+  const tabsRule = modelsCssSource.match(/\.models-provider-tabs\s*\{[^}]+\}/)?.[0] || ''
+  const actionsRule = modelsCssSource.match(/\.models-provider-tab-actions\s*\{[^}]+\}/)?.[0] || ''
+
+  assert.match(shellRule, /display:\s*flex/)
+  assert.match(tabsRule, /flex:\s*1 1 auto/)
+  assert.match(tabsRule, /min-width:\s*0/)
+  assert.match(actionsRule, /flex:\s*0 0 auto/)
+  assert.doesNotMatch(actionsRule, /position:\s*sticky/)
 })

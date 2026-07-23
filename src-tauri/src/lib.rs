@@ -154,6 +154,8 @@ pub fn run() {
             // 记忆文件
             memory::list_memory_files,
             memory::read_memory_file,
+            memory::resolve_memory_file_path,
+            memory::open_path,
             memory::write_memory_file,
             memory::delete_memory_file,
             memory::export_memory_zip,

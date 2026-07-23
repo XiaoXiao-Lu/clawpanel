@@ -1,8 +1,9 @@
+use serde_json::json;
 /// 记忆文件管理命令
 use std::collections::HashMap;
 use std::fs;
-use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::Mutex;
 
 /// 缓存 agent workspace 路径，避免每次操作都调 CLI（Windows 上 spawn Node.js 进程很慢）
@@ -135,6 +136,32 @@ async fn memory_dir_for_agent(agent_id: &str, category: &str) -> Result<PathBuf,
     })
 }
 
+async fn resolve_memory_file_path_for_agent(
+    aid: &str,
+    file_path: &str,
+    category: Option<&str>,
+) -> Result<PathBuf, String> {
+    if let Some(cat) = category {
+        let dir = memory_dir_for_agent(aid, cat).await?;
+        return Ok(dir.join(file_path));
+    }
+
+    let candidates = [
+        memory_dir_for_agent(aid, "memory").await,
+        memory_dir_for_agent(aid, "archive").await,
+        memory_dir_for_agent(aid, "core").await,
+    ];
+
+    for dir in candidates.iter().flatten() {
+        let full = dir.join(file_path);
+        if full.exists() {
+            return Ok(full);
+        }
+    }
+
+    Ok(memory_dir_for_agent(aid, "memory").await?.join(file_path))
+}
+
 #[tauri::command]
 pub async fn list_memory_files(
     category: String,
@@ -163,7 +190,7 @@ fn collect_files(
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
-            // core 类别只读根目录的 .md 文件
+            // core 类别只读根目录的文件（不递归子目录）
             if category != "core" {
                 collect_files(base, &path, files, category)?;
             }
@@ -174,6 +201,9 @@ fn collect_files(
                     .strip_prefix(base)
                     .map(|p| p.to_string_lossy().to_string())
                     .unwrap_or_else(|_| path.to_string_lossy().to_string());
+                // 统一使用 POSIX 路径分隔符，确保 ZIP 内路径跨平台兼容
+                #[cfg(target_os = "windows")]
+                let rel = rel.replace('\\', "/");
                 files.push(rel);
             }
         }
@@ -223,6 +253,86 @@ pub async fn read_memory_file(
 }
 
 #[tauri::command]
+pub async fn resolve_memory_file_path(
+    path: String,
+    agent_id: Option<String>,
+    category: Option<String>,
+) -> Result<serde_json::Value, String> {
+    if is_unsafe_path(&path) {
+        return Err("非法路径".to_string());
+    }
+
+    let aid = agent_id.as_deref().unwrap_or("main");
+    let full = resolve_memory_file_path_for_agent(aid, &path, category.as_deref()).await?;
+    let directory = full
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    Ok(json!({
+        "path": full.to_string_lossy().to_string(),
+        "directory": directory,
+        "exists": full.exists(),
+    }))
+}
+
+fn open_os_path(target: &Path) -> Result<(), String> {
+    if !target.exists() {
+        return Err(format!("路径不存在: {}", target.to_string_lossy()));
+    }
+
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut c = Command::new("explorer");
+        c.arg(target);
+        c
+    };
+
+    #[cfg(target_os = "macos")]
+    let mut command = {
+        let mut c = Command::new("open");
+        c.arg(target);
+        c
+    };
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let mut command = {
+        let mut c = Command::new("xdg-open");
+        c.arg(target);
+        c
+    };
+
+    command
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("打开路径失败: {e}"))
+}
+
+#[tauri::command]
+pub fn open_path(path: String, mode: Option<String>) -> Result<(), String> {
+    if path.trim().is_empty() || path.contains('\0') {
+        return Err("非法路径".to_string());
+    }
+
+    let requested = PathBuf::from(&path);
+    let target = match mode.as_deref() {
+        Some("folder") => {
+            if requested.is_dir() {
+                requested
+            } else {
+                requested
+                    .parent()
+                    .map(|p| p.to_path_buf())
+                    .ok_or_else(|| "无法解析文件所在目录".to_string())?
+            }
+        }
+        _ => requested,
+    };
+
+    open_os_path(&target)
+}
+
+#[tauri::command]
 pub async fn write_memory_file(
     path: String,
     content: String,
@@ -245,12 +355,25 @@ pub async fn write_memory_file(
 }
 
 #[tauri::command]
-pub async fn delete_memory_file(path: String, agent_id: Option<String>) -> Result<(), String> {
+pub async fn delete_memory_file(
+    path: String,
+    agent_id: Option<String>,
+    category: Option<String>,
+) -> Result<(), String> {
     if is_unsafe_path(&path) {
         return Err("非法路径".to_string());
     }
 
     let aid = agent_id.as_deref().unwrap_or("main");
+
+    if let Some(cat) = category.as_deref() {
+        let dir = memory_dir_for_agent(aid, cat).await?;
+        let full = dir.join(&path);
+        if full.exists() {
+            return fs::remove_file(&full).map_err(|e| format!("删除失败: {e}"));
+        }
+    }
+
     let candidates = [
         memory_dir_for_agent(aid, "memory").await,
         memory_dir_for_agent(aid, "archive").await,
@@ -284,13 +407,14 @@ pub async fn export_memory_zip(
         return Err("没有可导出的文件".to_string());
     }
 
-    let tmp_dir = std::env::temp_dir();
+    let export_dir = super::openclaw_dir().join("exports").join("memory");
+    fs::create_dir_all(&export_dir).map_err(|e| format!("创建打包目录失败: {e}"))?;
     let zip_name = format!(
         "openclaw-{}-{}.zip",
         category,
         chrono::Local::now().format("%Y%m%d-%H%M%S")
     );
-    let zip_path = tmp_dir.join(&zip_name);
+    let zip_path = export_dir.join(&zip_name);
 
     let file = fs::File::create(&zip_path).map_err(|e| format!("创建 zip 失败: {e}"))?;
     let mut zip = zip::ZipWriter::new(file);
@@ -299,11 +423,11 @@ pub async fn export_memory_zip(
 
     for rel_path in &files {
         let full_path = dir.join(rel_path);
-        let content =
-            fs::read_to_string(&full_path).map_err(|e| format!("读取 {rel_path} 失败: {e}"))?;
         zip.start_file(rel_path, options)
             .map_err(|e| format!("写入 zip 失败: {e}"))?;
-        zip.write_all(content.as_bytes())
+        let mut input =
+            fs::File::open(&full_path).map_err(|e| format!("读取 {rel_path} 失败: {e}"))?;
+        std::io::copy(&mut input, &mut zip)
             .map_err(|e| format!("写入内容失败: {e}"))?;
     }
 

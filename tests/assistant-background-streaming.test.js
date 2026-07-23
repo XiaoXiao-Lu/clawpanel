@@ -129,3 +129,37 @@ test('assistant error reporting uses sanitized summaries', () => {
   assert.match(assistantJs, /error:\s*safeAssistantErrorText\(err,\s*t\('assistant\.testFailed'\)\)/)
   assert.match(assistantJs, /const\s+safeErr\s*=\s*safeAssistantErrorText\(err,\s*t\('assistant\.requestInterrupted'\)\)/)
 })
+
+test('assistant preserves provider endpoint paths while building request URLs', () => {
+  const cleanBaseUrl = functionBody('cleanBaseUrl')
+  assert.doesNotMatch(cleanBaseUrl, /\/chat\\\/completions/)
+  assert.doesNotMatch(cleanBaseUrl, /\/messages\\\/\?\$/)
+  assert.doesNotMatch(cleanBaseUrl, /\/models\\\/\?\$/)
+  assert.match(cleanBaseUrl, /!base\.endsWith\('\/messages'\)/)
+
+  const joinProviderEndpoint = functionBody('joinProviderEndpoint')
+  assert.match(joinProviderEndpoint, /endsWith\(`\/\$\{normalizedEndpoint\.toLowerCase\(\)\}`\)/)
+
+  const callChatCompletions = functionBody('callChatCompletions')
+  const callAnthropicMessages = functionBody('callAnthropicMessages')
+  const callGeminiGenerate = functionBody('callGeminiGenerate')
+  assert.match(callChatCompletions, /joinProviderEndpoint\(base,\s*'\/chat\/completions'\)/)
+  assert.match(callAnthropicMessages, /joinProviderEndpoint\(base,\s*'\/messages'\)/)
+  assert.match(callGeminiGenerate, /joinProviderEndpoint\(base,\s*'\/models'\)/)
+})
+
+test('assistant streaming timeouts are long-running friendly and request-scoped', () => {
+  assert.match(assistantJs, /const\s+TIMEOUT_TOTAL\s*=\s*600_000/)
+  assert.match(assistantJs, /const\s+TIMEOUT_CHUNK\s*=\s*180_000/)
+
+  const callAIOnce = functionBody('_callAIOnce')
+  assert.match(callAIOnce, /let\s+requestController\s*=\s*new\s+AbortController\(\)/)
+  assert.match(callAIOnce, /requestController\.abort\(\)/)
+  assert.doesNotMatch(callAIOnce, /if\s*\(_abortController\)\s*_abortController\.abort\(\)/)
+  assert.match(callAIOnce, /requestController\s*=\s*new\s+AbortController\(\)[\s\S]*_abortController\s*=\s*requestController/)
+
+  const readSSEStream = functionBody('readSSEStream')
+  assert.match(readSSEStream, /clearTimeout\(timeoutId\)/)
+  assert.match(readSSEStream, /reader\.cancel\(\)/)
+  assert.match(readSSEStream, /t\('assistant\.errStreamTimeout',\s*\{\s*seconds:\s*TIMEOUT_CHUNK\s*\/\s*1000\s*\}\)/)
+})

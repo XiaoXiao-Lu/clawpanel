@@ -225,7 +225,7 @@ function showInstallerUpdateModal({ panelInfo, latest, installedVersion }) {
       <button class="installer-update-close" id="btn-installer-update-close" title="${t('common.close')}">&times;</button>
       <div class="installer-update-head">
         <div class="installer-update-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <path d="M7 10l5 5 5-5"/>
             <path d="M12 15V3"/>

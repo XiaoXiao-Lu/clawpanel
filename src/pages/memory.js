@@ -52,10 +52,18 @@ export async function render() {
             <span id="file-stats"></span>
           </div>
           <div class="toolbar-right">
+            <button class="btn btn-sm btn-secondary" id="btn-copy-path" disabled title="${t('memory.copyPath')}">${t('memory.copyPath')}</button>
+            <button class="btn btn-sm btn-secondary" id="btn-open-folder" disabled title="${t('memory.openFolder')}">${t('memory.openFolder')}</button>
+            <button class="btn btn-sm btn-secondary" id="btn-open-file" disabled title="${t('memory.openFile')}">${t('memory.openFile')}</button>
             <button class="btn btn-sm btn-secondary" id="btn-download" disabled title="${t('memory.download')}">${t('memory.download')}</button>
             <button class="btn btn-sm btn-secondary" id="btn-export-zip" title="${t('memory.exportZip')}">${t('memory.exportZip')}</button>
+            <button class="btn btn-sm btn-secondary" id="btn-open-export-folder" disabled title="${t('memory.openExportFolder')}">${t('memory.openExportFolder')}</button>
             <button class="btn btn-sm btn-primary" id="btn-save-file" disabled>${t('memory.save')}</button>
           </div>
+        </div>
+        <div class="memory-path-row" id="memory-path-row" hidden>
+          <span class="memory-path-label">${t('memory.filePath')}</span>
+          <code id="memory-file-path"></code>
         </div>
         <div class="memory-editor-split">
           <textarea class="editor-area" id="file-editor" placeholder="${t('memory.editorPlaceholder')}" disabled spellcheck="false"></textarea>
@@ -65,7 +73,7 @@ export async function render() {
     </div>
   `
 
-  const state = { category: 'memory', currentPath: null, agentId: 'main', lastSavedContent: '', draftTimer: null }
+  const state = { category: 'memory', currentPath: null, currentFileInfo: null, agentId: 'main', lastSavedContent: '', draftTimer: null, lastExportZipPath: '' }
 
   // 先用默认选项填充下拉框，立即显示页面
   const agentSelect = page.querySelector('#agent-select')
@@ -85,6 +93,7 @@ export async function render() {
   page.querySelector('#agent-select').onchange = (e) => {
     state.agentId = e.target.value
     state.currentPath = null
+    state.currentFileInfo = null
     state.lastSavedContent = ''
     resetEditor(page)
     // 切换 Agent 时清除缓存
@@ -110,6 +119,7 @@ export async function render() {
       tab.classList.add('active')
       state.category = tab.dataset.tab
       state.currentPath = null
+      state.currentFileInfo = null
       state.lastSavedContent = ''
       const cat = CATEGORIES().find(c => c.key === state.category)
       page.querySelector('#category-desc').textContent = cat?.desc || ''
@@ -187,9 +197,10 @@ export async function render() {
     })
     if (!yes) return
     try {
-      await api.deleteMemoryFile(state.currentPath, state.agentId)
+      await api.deleteMemoryFile(state.currentPath, state.agentId, state.category)
       toast(t('memory.deleted', { name }), 'success')
       state.currentPath = null
+      state.currentFileInfo = null
       resetEditor(page)
       loadFiles(page, state)
     } catch (e) {
@@ -199,9 +210,13 @@ export async function render() {
 
   // 单个下载
   page.querySelector('#btn-download').onclick = () => downloadCurrentFile(page, state)
+  page.querySelector('#btn-copy-path').onclick = () => copyCurrentPath(state)
+  page.querySelector('#btn-open-folder').onclick = () => openCurrentMemoryLocation(state, 'folder')
+  page.querySelector('#btn-open-file').onclick = () => openCurrentMemoryLocation(state, 'file')
 
   // 打包下载
-  page.querySelector('#btn-export-zip').onclick = () => exportZip(state)
+  page.querySelector('#btn-export-zip').onclick = () => exportZip(page, state)
+  page.querySelector('#btn-open-export-folder').onclick = () => openExportZipFolder(state)
 
   loadFiles(page, state)
   return page
@@ -223,12 +238,14 @@ async function loadFiles(page, state) {
       tree.querySelector('[data-empty-cta="new-file"]')?.addEventListener('click', () => {
         page.querySelector('#btn-new-file')?.click()
       })
-      return
+      return []
     }
     renderFileTree(page, state, files)
+    return files
   } catch (e) {
     tree.innerHTML = `<div style="color:var(--error);padding:12px">${t('memory.loadFailed')}: ${escapeHtml(e)}</div>`
     toast(humanizeError(e, t('memory.loadListFailed')), 'error')
+    return null
   }
 }
 
@@ -319,15 +336,22 @@ async function loadFileContent(page, state) {
   editor.disabled = true
   editor.value = t('memory.loading')
   label.textContent = state.currentPath
+  state.currentFileInfo = null
+  updatePathInfo(page, state)
 
   try {
-    const content = await api.readMemoryFile(state.currentPath, state.agentId, state.category)
+    const [content, fileInfo] = await Promise.all([
+      api.readMemoryFile(state.currentPath, state.agentId, state.category),
+      api.resolveMemoryFilePath(state.currentPath, state.agentId, state.category).catch(() => null),
+    ])
     editor.value = content || ''
+    state.currentFileInfo = fileInfo || null
     state.lastSavedContent = content || ''
     editor.disabled = false
     btnSave.disabled = false
     btnDel.disabled = false
     btnDl.disabled = false
+    updatePathInfo(page, state)
     updatePreview(page, state)
     updateStats(page)
   } catch (e) {
@@ -345,6 +369,11 @@ function resetEditor(page) {
   page.querySelector('#btn-save-file').disabled = true
   page.querySelector('#btn-del-file').disabled = true
   page.querySelector('#btn-download').disabled = true
+  page.querySelector('#btn-copy-path').disabled = true
+  page.querySelector('#btn-open-folder').disabled = true
+  page.querySelector('#btn-open-file').disabled = true
+  page.querySelector('#memory-path-row').hidden = true
+  page.querySelector('#memory-file-path').textContent = ''
   const preview = page.querySelector('#md-preview')
   if (preview) {
     preview.innerHTML = `<div class="empty-state empty-compact" style="padding:60px 20px"><div class="empty-icon">📄</div><div class="empty-desc">${t('memory.editorPlaceholder')}</div></div>`
@@ -364,13 +393,61 @@ async function saveFile(page, state) {
   }
 }
 
+function updatePathInfo(page, state) {
+  const fileInfo = state.currentFileInfo
+  const fullPath = fileInfo?.path || ''
+  const pathRow = page.querySelector('#memory-path-row')
+  const pathEl = page.querySelector('#memory-file-path')
+  if (pathRow) pathRow.hidden = !fullPath
+  if (pathEl) pathEl.textContent = fullPath
+  page.querySelector('#btn-copy-path').disabled = !fullPath
+  page.querySelector('#btn-open-folder').disabled = !fileInfo?.directory
+  page.querySelector('#btn-open-file').disabled = !fullPath || fileInfo?.exists === false
+}
+
+async function copyCurrentPath(state) {
+  const fullPath = state.currentFileInfo?.path
+  if (!fullPath) return
+  try {
+    await navigator.clipboard.writeText(fullPath)
+    toast(t('memory.pathCopied'), 'success')
+  } catch (e) {
+    toast(humanizeError(e, t('memory.copyPathFailed')), 'error')
+  }
+}
+
+async function openCurrentMemoryLocation(state, mode) {
+  const target = mode === 'file' ? state.currentFileInfo?.path : state.currentFileInfo?.directory
+  if (!target) return
+  try {
+    await api.openPath(target, mode)
+  } catch (e) {
+    toast(humanizeError(e, mode === 'file' ? t('memory.openFileFailed') : t('memory.openFolderFailed')), 'error')
+  }
+}
+
 // ===== 刷新：清除缓存后重新加载文件列表和当前文件内容 =====
 
 async function refreshAll(page, state, silent = false) {
   invalidate('list_memory_files', 'read_memory_file')
-  await loadFiles(page, state)
+  const files = await loadFiles(page, state)
+
+  if (Array.isArray(files) && state.currentPath && !files.includes(state.currentPath)) {
+    state.currentPath = null
+    state.currentFileInfo = null
+    state.lastSavedContent = ''
+    resetEditor(page)
+    if (!silent) toast(t('memory.refresh'), 'success')
+    return
+  }
+
   // 如果有当前选中的文件，重新读取内容
   if (state.currentPath) {
+    const editor = page.querySelector('#file-editor')
+    const hasUnsavedChanges = editor && !editor.disabled && editor.value !== state.lastSavedContent
+    if (silent && hasUnsavedChanges) {
+      return
+    }
     await loadFileContent(page, state)
     if (!silent) toast(t('memory.refresh'), 'success')
   }
@@ -454,15 +531,25 @@ async function downloadCurrentFile(page, state) {
   }
 }
 
-async function exportZip(state) {
+async function openExportZipFolder(state) {
+  if (!state.lastExportZipPath) return
+  try {
+    await api.openPath(state.lastExportZipPath, 'folder')
+  } catch (e) {
+    toast(humanizeError(e, t('memory.openExportFolderFailed')), 'error')
+  }
+}
+
+async function exportZip(page, state) {
   try {
     const zipPath = await api.exportMemoryZip(state.category, state.agentId)
+    state.lastExportZipPath = zipPath
+    const btnOpenExportFolder = page.querySelector('#btn-open-export-folder')
+    if (btnOpenExportFolder) btnOpenExportFolder.disabled = false
     const label = CATEGORIES().find(c => c.key === state.category)?.label || state.category
-    // 尝试用 Tauri shell open 打开文件所在目录
+    // 尝试打开文件所在目录
     try {
-      const { open } = await import('@tauri-apps/plugin-shell')
-      const dir = zipPath.substring(0, zipPath.lastIndexOf('/')) || zipPath
-      await open(dir)
+      await api.openPath(zipPath, 'folder')
       toast(t('memory.exported', { label, path: zipPath }), 'success')
     } catch {
       // fallback：仅显示路径

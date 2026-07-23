@@ -688,6 +688,209 @@ select.form-input:disabled {
   outline-offset: 2px;
 }
 
+/* Full installer update dialog */
+.installer-update-overlay {
+  padding: var(--space-4);
+}
+
+.installer-update-modal {
+  position: relative;
+  width: min(560px, calc(100vw - 32px));
+  min-width: 0;
+  max-height: min(720px, calc(100vh - 32px));
+  padding: var(--space-5);
+  gap: var(--space-4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.installer-update-close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.installer-update-close:hover,
+.installer-update-close:focus-visible {
+  background: var(--aether-primary-muted);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.installer-update-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding-right: 36px;
+}
+
+.installer-update-icon {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  background: var(--aether-primary-muted);
+  color: var(--aether-primary);
+}
+
+.installer-update-icon svg {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  stroke: currentColor;
+}
+
+.installer-update-title-wrap {
+  min-width: 0;
+}
+
+.installer-update-kicker,
+.installer-update-section-title,
+.installer-update-asset-label,
+.installer-update-version-card span {
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.installer-update-kicker,
+.installer-update-section-title,
+.installer-update-asset-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.installer-update-title {
+  margin-top: 2px;
+  color: var(--text-primary);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.installer-update-subtitle {
+  margin-top: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.installer-update-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.installer-update-version-card,
+.installer-update-asset,
+.installer-update-steps,
+.installer-update-notes {
+  border: 1px solid var(--aether-border-soft);
+  border-radius: var(--radius-md);
+  background: var(--aether-surface);
+  padding: var(--space-3);
+}
+
+.installer-update-version-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.installer-update-version-card strong,
+.installer-update-asset-name,
+.installer-update-asset-meta {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.installer-update-version-card strong {
+  color: var(--text-primary);
+  font-size: var(--text-lg);
+}
+
+.installer-update-version-card-new {
+  border-color: var(--aether-primary-muted);
+  background: color-mix(in srgb, var(--aether-primary) 8%, var(--aether-surface));
+}
+
+.installer-update-asset-name {
+  margin-top: var(--space-1);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.installer-update-asset-meta,
+.installer-update-release-text {
+  margin-top: var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.installer-update-steps ol {
+  margin: var(--space-2) 0 0;
+  padding-left: 1.25rem;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.installer-update-steps li + li {
+  margin-top: 4px;
+}
+
+.installer-update-notes {
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.installer-update-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+@media (max-width: 560px) {
+  .installer-update-modal {
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    padding: var(--space-4);
+  }
+
+  .installer-update-head {
+    gap: var(--space-3);
+  }
+
+  .installer-update-icon {
+    width: 48px;
+    height: 48px;
+    flex-basis: 48px;
+  }
+
+  .installer-update-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .installer-update-actions .btn {
+    flex: 1 1 180px;
+  }
+}
+
 @keyframes fadeInModal { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modalIn {
   from { opacity: 0; transform: scale(0.97) translateY(4px); }

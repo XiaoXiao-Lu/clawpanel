@@ -206,6 +206,8 @@
 
 .editor-toolbar .toolbar-right {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
   flex-shrink: 0;
 }
@@ -225,6 +227,37 @@
   color: var(--text-tertiary);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+
+.memory-path-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 7px 16px;
+  color: var(--text-tertiary);
+  background: var(--aether-void);
+  border-bottom: 1px solid var(--aether-border-subtle);
+  font-size: var(--font-size-xs);
+}
+
+.memory-path-row[hidden] {
+  display: none;
+}
+
+.memory-path-label {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.memory-path-row code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  background: transparent;
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Split editor/preview */

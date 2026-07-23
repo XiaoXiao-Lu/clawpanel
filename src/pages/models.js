@@ -1273,20 +1273,22 @@ function renderProviders(page, state) {
 
   // Tab 导航 HTML + 服务商操作按钮（当选中具体服务商时显示）
   const tabHtml = `
-    <div class="models-provider-tabs">
-      <button class="models-provider-tab${providerFilter === 'all' ? ' active' : ''}" data-provider-tab="all">
-        ${t('models.allProviders')}
-        <span class="models-provider-tab__count">${tabCounts.all}</span>
-      </button>
-      ${keys.map(key => {
-        const isActive = providerFilter === key
-        return `
-          <button class="models-provider-tab${isActive ? ' active' : ''}" data-provider-tab="${escapeHtml(key)}">
-            ${escapeHtml(key)}
-            <span class="models-provider-tab__count">${tabCounts[key] || 0}</span>
-          </button>
-        `
-      }).join('')}
+    <div class="models-provider-tabs-shell">
+      <div class="models-provider-tabs">
+        <button class="models-provider-tab${providerFilter === 'all' ? ' active' : ''}" data-provider-tab="all">
+          ${t('models.allProviders')}
+          <span class="models-provider-tab__count">${tabCounts.all}</span>
+        </button>
+        ${keys.map(key => {
+          const isActive = providerFilter === key
+          return `
+            <button class="models-provider-tab${isActive ? ' active' : ''}" data-provider-tab="${escapeHtml(key)}">
+              ${escapeHtml(key)}
+              <span class="models-provider-tab__count">${tabCounts[key] || 0}</span>
+            </button>
+          `
+        }).join('')}
+      </div>
       ${providerFilter !== 'all' ? `
         <div class="models-provider-tab-actions">
           <button class="btn-icon" data-action="add-model" title="${t('models.addModel')}" aria-label="${t('models.addModel')}">${icon('plus', 14)}</button>
@@ -1445,9 +1447,22 @@ let _globalPrimaryCombo = null
 // 组件清理跟踪
 let _docClickHandler = null
 
+// 保存最新 state 引用，用于 cleanup 时刷新待保存的修改
+let _pendingState = null
+
 export function cleanup() {
-  clearTimeout(_saveTimer)
-  _saveTimer = null
+  // 先刷新待保存的修改，避免导航离开时防抖保存被丢弃
+  if (_saveTimer && _pendingState) {
+    clearTimeout(_saveTimer)
+    _saveTimer = null
+    // 立即执行保存（fire-and-forget，页面已切换但写请求仍会完成）
+    const state = _pendingState
+    _pendingState = null
+    doAutoSave(state)
+  } else {
+    clearTimeout(_saveTimer)
+    _saveTimer = null
+  }
   if (_batchTestAbort) { _batchTestAbort.abort = true; _batchTestAbort = null }
   if (_globalPrimaryCombo) {
     _globalPrimaryCombo.destroy()
@@ -1460,7 +1475,12 @@ export function cleanup() {
 }
 function autoSave(state) {
   clearTimeout(_saveTimer)
-  _saveTimer = setTimeout(() => doAutoSave(state), 300)
+  _pendingState = state
+  _saveTimer = setTimeout(() => {
+    _saveTimer = null
+    _pendingState = null
+    doAutoSave(state)
+  }, 300)
 }
 
 /** 已知的 API 类型错误→正确映射,自动修复用户手动编辑或旧版本配置 */
@@ -1474,8 +1494,8 @@ const API_TYPE_FIXES = {
 }
 const VALID_API_TYPES = new Set(API_TYPES.map(t => t.value))
 
-/** 保存前规范化所有服务商的 baseUrl 和 API 类型,确保 Gateway 能正确调用 */
-function normalizeProviderUrls(config) {
+/** 保存前规范化所有服务商的 baseUrl 和 API 类型。存储层只做无损整理，避免用户自定义端点被改写。 */
+export function normalizeProviderUrls(config) {
   const providers = config?.models?.providers
   if (!providers) return
   for (const [, p] of Object.entries(providers)) {
@@ -1491,20 +1511,7 @@ function normalizeProviderUrls(config) {
     }
 
     if (!p.baseUrl) continue
-    let url = p.baseUrl.replace(/\/+$/, '')
-    // 去掉尾部的已知端点路径(用户可能粘贴了完整 URL)
-    for (const suffix of ['/api/chat', '/api/generate', '/api/tags', '/api', '/chat/completions', '/completions', '/responses', '/messages', '/models']) {
-      if (url.endsWith(suffix)) { url = url.slice(0, -suffix.length); break }
-    }
-    url = url.replace(/\/+$/, '')
-    const apiType = (p.api || 'openai-completions').toLowerCase()
-    if (apiType === 'anthropic-messages') {
-      if (!url.endsWith('/v1')) url += '/v1'
-    } else if (apiType !== 'google-generative-ai' && apiType !== 'ollama') {
-      // Ollama OpenAI 兼容模式端口检测:11434 默认需要加 /v1(ollama 原生 API 不需要)
-      if (/:11434$/.test(url) && !url.endsWith('/v1')) url += '/v1'
-      // 不再强制追加 /v1,尊重用户填写的 URL(火山引擎等第三方用 /v3 等路径)
-    }
+    const url = String(p.baseUrl).trim().replace(/\/+$/, '')
     p.baseUrl = url
   }
 }
