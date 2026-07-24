@@ -76,6 +76,35 @@ test('renderMarkdown renders execution-flow markdown document syntax', () => {
   assert.match(html, /<td>完成<\/td>/)
 })
 
+test('renderMarkdown renders GFM tables without wrapping pipes', () => {
+  const html = renderMarkdown([
+    '名称 | 说明',
+    '--- | ---',
+    'MEMORY.md | 当前工作上下文',
+    'AGENTS.md | 项目指令',
+  ].join('\n'))
+
+  assert.match(html, /<table>/)
+  assert.match(html, /<th>名称<\/th>/)
+  assert.match(html, /<th>说明<\/th>/)
+  assert.match(html, /<td>MEMORY\.md<\/td>/)
+  assert.match(html, /<td>当前工作上下文<\/td>/)
+})
+
+test('renderMarkdown keeps escaped pipes and code pipes inside table cells', () => {
+  const html = renderMarkdown([
+    '字段 | 示例',
+    '--- | ---',
+    '转义 | A \\| B',
+    '代码 | `a|b`',
+  ].join('\n'))
+
+  assert.match(html, /<td>A \| B<\/td>/)
+  assert.match(html, /<td><code>a\|b<\/code><\/td>/)
+  assert.equal(html.match(/<tr>/g)?.length, 3)
+  assert.equal(html.match(/<td>/g)?.length, 4)
+})
+
 test('renderMarkdown preserves visual hierarchy for nested execution lists', () => {
   const html = renderMarkdown([
     '1. 准备',

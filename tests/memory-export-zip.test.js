@@ -26,3 +26,8 @@ test('Memory page exposes the last ZIP export folder', () => {
   assert.match(memoryLocale, /openExportFolder:\s*_\('查看打包目录'/)
   assert.match(memoryLocale, /openExportFolderFailed:\s*_\('打开打包目录失败'/)
 })
+
+test('Memory page uses the shared markdown renderer for complete table support', () => {
+  assert.match(memoryPage, /import \{ renderMarkdown \} from '\.\.\/lib\/markdown\.js'/)
+  assert.doesNotMatch(memoryPage, /engines\/hermes\/lib\/markdown-renderer/)
+})

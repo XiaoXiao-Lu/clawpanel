@@ -140,13 +140,8 @@ export function renderMarkdown(text) {
       continue
     }
 
-    // 表格检测：表头分隔行 (|---|...|)
-    const isTableSeparator = /^\s*\|[\s\-:|]+\|\s*$/.test(line) || 
-                             /^\s*[\-:]+(\s*\|\s*[\-:]+)+\s*$/.test(line)
-    
     // 检测是否可能是表格行
-    const isTableRow = /^\s*\|.*\|\s*$/.test(line) || 
-                       /^\s*[^\|]+\s*\|\s*[^\|]+/.test(line)
+    const isTableRow = isMarkdownTableRow(line)
     
     // 如果在表格中，继续收集行
     if (inTable) {
@@ -162,8 +157,7 @@ export function renderMarkdown(text) {
     // 检测表格开始：当前行是表格行，且下一行是分隔行
     if (!inTable && isTableRow && i + 1 < lines.length) {
       const nextLine = lines[i + 1]
-      if (/^\s*\|[\s\-:|]+\|\s*$/.test(nextLine) || 
-          /^\s*[\-:]+(\s*\|\s*[\-:]+)+\s*$/.test(nextLine)) {
+      if (isMarkdownTableSeparator(nextLine)) {
         closeList()
         inTable = true
         tableRows.push(line)
@@ -289,6 +283,67 @@ function renderBlockquote(lines) {
   return `<blockquote>${paragraphs.join('')}</blockquote>`
 }
 
+function splitMarkdownTableRow(row) {
+  let value = String(row ?? '').trim()
+  if (!value) return []
+
+  if (value.startsWith('|')) value = value.slice(1)
+  if (value.endsWith('|') && !value.endsWith('\\|')) value = value.slice(0, -1)
+
+  const cells = []
+  let current = ''
+  let escaped = false
+  let codeTicks = 0
+
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i]
+
+    if (escaped) {
+      current += ch
+      escaped = false
+      continue
+    }
+
+    if (ch === '\\') {
+      escaped = true
+      current += ch
+      continue
+    }
+
+    if (ch === '`') {
+      const match = value.slice(i).match(/^`+/)?.[0] || '`'
+      if (codeTicks === 0) {
+        codeTicks = match.length
+      } else if (match.length === codeTicks) {
+        codeTicks = 0
+      }
+      current += match
+      i += match.length - 1
+      continue
+    }
+
+    if (ch === '|' && codeTicks === 0) {
+      cells.push(current.trim().replace(/\\\|/g, '|'))
+      current = ''
+      continue
+    }
+
+    current += ch
+  }
+
+  cells.push(current.trim().replace(/\\\|/g, '|'))
+  return cells
+}
+
+function isMarkdownTableSeparator(row) {
+  const cells = splitMarkdownTableRow(row)
+  return cells.length >= 2 && cells.every(cell => /^:?-{3,}:?$/.test(cell.replace(/\s+/g, '')))
+}
+
+function isMarkdownTableRow(row) {
+  return splitMarkdownTableRow(row).length >= 2
+}
+
 /**
  * 渲染 Markdown 表格
  * @param {string[]} rows - 表格行数组
@@ -298,47 +353,29 @@ function renderTable(rows) {
   if (!rows || rows.length < 2) return ''
   
   const table = ['<table>']
-  let isHeaderRow = true
-  let hasSeparator = false
+  let renderedRows = 0
   
   for (let i = 0; i < rows.length; i++) {
     let row = rows[i].trim()
     
     // 跳过空行
     if (!row) continue
-    // 检测分隔行 (|---|...|)
-    const isSeparator = /^\s*\|[\s\-:|]+\|\s*$/.test(row) || 
-                        /^\s*[\-:]+(\s*\|\s*[\-:]+)+\s*$/.test(row)
-    if (isSeparator) {
-      hasSeparator = true
-      continue
-    }
+    if (isMarkdownTableSeparator(row)) continue
     
     // 解析单元格
-    let cells = []
-    if (row.startsWith('|') && row.endsWith('|')) {
-      // 标准格式: | cell1 | cell2 |
-      cells = row.slice(1, -1).split('|')
-    } else {
-      // 简化格式: cell1 | cell2
-      cells = row.split('|')
-    }
+    let cells = splitMarkdownTableRow(row)
     // 清理单元格内容
     cells = cells.map(cell => inlineFormat(cell.trim()))
     if (cells.length === 0) continue
     
     // 渲染行
-    const tag = isHeaderRow && !hasSeparator && i === 0 ? 'th' : 'td'
+    const tag = renderedRows === 0 ? 'th' : 'td'
     table.push('  <tr>')
     cells.forEach(cell => {
       table.push(`    <${tag}>${cell}</${tag}>`)
     })
     table.push('  </tr>')
-    
-    // 第一行后切换到数据行（如果有分隔行）
-    if (hasSeparator && i === 0) {
-      isHeaderRow = false
-    }
+    renderedRows += 1
   }
   
   table.push('</table>')

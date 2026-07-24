@@ -6,7 +6,7 @@ import { toast } from '../components/toast.js'
 import { humanizeError } from '../lib/humanize-error.js'
 import { showModal } from '../components/modal.js'
 import { t } from '../lib/i18n.js'
-import { renderMarkdown } from '../engines/hermes/lib/markdown-renderer.js'
+import { renderMarkdown } from '../lib/markdown.js'
 import { escapeHtml } from '../lib/utils.js'
 
 // 模块级变量：用于 cleanup 时移除 visibilitychange 监听
