@@ -695,7 +695,8 @@ function renderPage(page) {
       @keyframes dream-twinkle { 0%,100% { opacity:.3; transform:scale(1) } 50% { opacity:1; transform:scale(1.6) } }
       @keyframes dream-float { 0%,100% { transform:translateY(0) } 50% { transform:translateY(-6px) } }
       @keyframes dream-z { 0% { opacity:0; transform:translate(0,0) scale(.6) } 30% { opacity:.7 } 100% { opacity:0; transform:translate(18px,-32px) scale(1.1) } }
-      .dream-hero { position:relative; overflow:hidden; border-radius:8px; min-height:280px; padding:28px 24px 24px; background:radial-gradient(circle at 20% 10%, rgba(139,92,246,0.36), rgba(15,23,42,0.94) 52%), linear-gradient(135deg, #0f172a 0%, #1f2937 55%, #164e63 100%); color:#f8fafc; box-shadow:0 24px 64px rgba(15,23,42,0.28); margin-bottom:var(--space-lg); display:flex; flex-direction:column; justify-content:space-between }
+      .dream-hero { position:relative; isolation:isolate; overflow:hidden; border-radius:8px; min-height:320px; padding:28px 24px 28px; background:radial-gradient(circle at 20% 10%, rgba(139,92,246,0.36), rgba(15,23,42,0.94) 52%), linear-gradient(135deg, #0f172a 0%, #1f2937 55%, #164e63 100%); color:#f8fafc; box-shadow:0 24px 64px rgba(15,23,42,0.28); margin-bottom:var(--space-lg); display:flex; flex-direction:column; justify-content:space-between }
+      .dream-hero::after { content:""; position:absolute; inset:0; z-index:2; border:1px solid rgba(255,255,255,0.16); border-radius:inherit; pointer-events:none }
       .dream-star { position:absolute; z-index:0; border-radius:999px; background:rgba(255,255,255,0.85); box-shadow:0 0 12px rgba(255,255,255,0.35); animation:dream-twinkle 3s ease-in-out infinite; pointer-events:none }
       .dream-moon { position:absolute; z-index:0; top:22px; right:28px; width:100px; height:100px; border-radius:999px; background:radial-gradient(circle at 35% 35%, rgba(255,255,255,0.98), rgba(224,231,255,0.92) 38%, rgba(196,181,253,0.52) 62%, rgba(20,184,166,0.14) 100%); box-shadow:0 0 32px rgba(196,181,253,0.35), 0 0 88px rgba(20,184,166,0.14); animation:dream-float 6s ease-in-out infinite; pointer-events:none }
       .dream-z { position:absolute; z-index:0; top:28px; right:140px; font-size:16px; font-weight:700; color:rgba(226,232,240,0.58); animation:dream-z 2.5s ease-out infinite; pointer-events:none }
@@ -709,11 +710,11 @@ function renderPage(page) {
       .dream-hero .btn-secondary:disabled { opacity:.4 }
       .dream-hero .btn-warning { background:rgba(251,191,36,0.2); color:var(--warning); border-color:rgba(251,191,36,0.3) }
       .dream-hero .form-hint { color:rgba(226,232,240,0.72) }
-      .dream-stats-row { position:relative; z-index:1; display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-top:22px }
+      .dream-stats-row { position:relative; z-index:1; flex-shrink:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-top:22px }
       .dream-stat-glass { padding:14px 16px; border-radius:16px; background:rgba(255,255,255,0.06); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.08) }
       .dream-stat-glass .ds-label { font-size:12px; color:rgba(226,232,240,0.72) }
       .dream-stat-glass .ds-value { font-size:22px; font-weight:700; margin-top:4px; color:#f8fafc }
-      .dream-hero-body { position:relative; z-index:1; display:flex; justify-content:space-between; gap:18px; align-items:flex-start; flex-wrap:wrap }
+      .dream-hero-body { position:relative; z-index:1; flex-shrink:0; display:flex; justify-content:space-between; gap:18px; align-items:flex-start; flex-wrap:wrap }
       .dream-hero-main { max-width:600px; min-width:min(100%,320px) }
       .dream-hero-badge { margin-bottom:10px }
       .dream-hero-title { font-size:26px; font-weight:700; letter-spacing:0; margin-bottom:10px; color:#ffffff }
@@ -721,7 +722,7 @@ function renderPage(page) {
       .dream-hero-text { margin-top:12px; font-size:13px; line-height:1.8; color:#f8fafc }
       .dream-hero-tags { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px }
       .dream-hero-actions { position:relative; z-index:1; display:flex; flex-direction:column; gap:10px; align-items:flex-end; max-width:420px }
-      @media (max-width:900px) { .dream-hero { min-height:320px } .dream-hero-actions { width:100%; align-items:flex-start; max-width:none } .dream-actions { width:100% } }
+      @media (max-width:900px) { .dream-hero { min-height:360px } .dream-hero-actions { width:100%; align-items:flex-start; max-width:none } .dream-actions { width:100% } }
       @media (max-width:560px) { .dream-hero { padding:22px 16px 18px; min-height:auto } .dream-moon { width:72px; height:72px; right:16px; top:18px; opacity:.56 } .dream-z { display:none } .dream-hero-main { min-width:0 } .dream-hero-title { font-size:22px } .dream-hero-tags .badge { max-width:100%; white-space:normal; overflow-wrap:anywhere } .dream-actions .btn { flex:1 1 150px; justify-content:center } .dream-stats-row { grid-template-columns:repeat(2,minmax(0,1fr)) } .dream-diary-grid { grid-template-columns:1fr } }
       .dream-stat-cards { margin-bottom:var(--space-lg) }
       .dream-phase-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:var(--space-md); margin-bottom:var(--space-lg) }

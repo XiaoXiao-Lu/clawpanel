@@ -170,7 +170,8 @@ test('OpenClaw provider tabs keep provider actions outside the horizontal scroll
   const actionsRule = modelsCssSource.match(/\.models-provider-tab-actions\s*\{[^}]+\}/)?.[0] || ''
 
   assert.match(shellRule, /display:\s*flex/)
-  assert.match(tabsRule, /flex:\s*1 1 auto/)
+  assert.match(shellRule, /width:\s*100%/)
+  assert.match(tabsRule, /flex:\s*1 1 0/)
   assert.match(tabsRule, /min-width:\s*0/)
   assert.match(actionsRule, /flex:\s*0 0 auto/)
   assert.doesNotMatch(actionsRule, /position:\s*sticky/)

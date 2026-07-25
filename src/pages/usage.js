@@ -63,7 +63,7 @@ async function loadUsage(page) {
   el.innerHTML = `<div class="stat-card loading-placeholder" style="height:120px"></div>
     <div class="stat-card loading-placeholder" style="height:200px;margin-top:var(--space-md)"></div>`
 
-  if (!wsClient.connected) {
+  if (!wsClient.gatewayReady) {
     el.innerHTML = `<div class="usage-empty">
       <div style="color:var(--text-tertiary);margin-bottom:8px">${t('usage.gwConnecting')}</div>
       <div class="form-hint">${t('usage.gwWait')}</div>
@@ -79,9 +79,9 @@ async function loadUsage(page) {
 
   try {
     const now = new Date()
-    const end = now.toISOString().slice(0, 10)
-    const start = new Date(now.getTime() - (_days - 1) * 86400000).toISOString().slice(0, 10)
-    const data = await wsClient.request('sessions.usage', { startDate: start, endDate: end, limit: 20 })
+    const end = toLocalDateKey(now)
+    const start = toLocalDateKey(new Date(now.getTime() - (_days - 1) * 86400000))
+    const data = await loadUsageData({ startDate: start, endDate: end, limit: 20 })
     renderUsage(el, data)
   } catch (e) {
     el.innerHTML = `<div class="usage-empty">
@@ -90,6 +90,209 @@ async function loadUsage(page) {
       <button class="btn btn-secondary btn-sm" style="margin-top:8px" data-usage-retry>${t('usage.retry')}</button>
     </div>`
   }
+}
+
+async function loadUsageData(params) {
+  const data = await wsClient.requestCompat('sessions.usage', params, null)
+  if (data) return normalizeUsageData(data, params)
+
+  const fallback = await wsClient.request('sessions.list', { limit: Math.max(50, params.limit || 20) })
+  return buildUsageFromSessionsList(fallback, params)
+}
+
+function toLocalDateKey(date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function num(...values) {
+  for (const value of values) {
+    const n = Number(value)
+    if (Number.isFinite(n)) return n
+  }
+  return 0
+}
+
+function firstString(...values) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return ''
+}
+
+function normalizeTotals(value = {}) {
+  const input = num(value.input, value.inputTokens, value.input_tokens, value.promptTokens, value.prompt_tokens)
+  const output = num(value.output, value.outputTokens, value.output_tokens, value.completionTokens, value.completion_tokens)
+  const cacheRead = num(value.cacheRead, value.cacheReadTokens, value.cache_read_tokens, value.cachedTokens, value.cached_tokens)
+  const cacheWrite = num(value.cacheWrite, value.cacheWriteTokens, value.cache_write_tokens)
+  const totalTokens = num(value.totalTokens, value.total_tokens, value.tokens, input + output + cacheRead + cacheWrite)
+  const inputCost = num(value.inputCost, value.input_cost)
+  const outputCost = num(value.outputCost, value.output_cost)
+  const totalCost = num(value.totalCost, value.total_cost, value.cost, inputCost + outputCost)
+  return { input, output, cacheRead, cacheWrite, totalTokens, inputCost, outputCost, totalCost }
+}
+
+function normalizeMessageCounts(value = {}) {
+  return {
+    total: num(value.total, value.messages, value.messageCount, value.message_count),
+    user: num(value.user, value.userMessages, value.user_messages),
+    assistant: num(value.assistant, value.assistantMessages, value.assistant_messages),
+    errors: num(value.errors, value.errorCount, value.error_count),
+  }
+}
+
+function normalizeUsageData(data, range = {}) {
+  const totals = normalizeTotals(data?.totals || data?.usage || {})
+  const aggregates = data?.aggregates || {}
+  const messages = normalizeMessageCounts(aggregates.messages || data?.messages || data?.messageCounts || data?.message_counts || {})
+  const tools = aggregates.tools || data?.tools || {}
+
+  const normalizeBucket = (items, keyName) => (Array.isArray(items) ? items : []).map(item => ({
+    ...item,
+    [keyName]: item?.[keyName] || item?.name || item?.id || '',
+    count: num(item?.count, item?.sessions, item?.messages),
+    totals: normalizeTotals(item?.totals || item?.usage || item || {}),
+  }))
+
+  const dailySource = aggregates.daily || data?.daily || []
+  const daily = (Array.isArray(dailySource) ? dailySource : []).map(day => ({
+    ...day,
+    date: day?.date || day?.day || '',
+    tokens: num(day?.tokens, day?.totalTokens, day?.total_tokens),
+    messages: num(day?.messages, day?.messageCount, day?.message_count),
+  }))
+
+  const sessions = normalizeSessions(data?.sessions || data?.items || [])
+  return {
+    ...data,
+    startDate: data?.startDate || data?.start_date || range.startDate || '',
+    endDate: data?.endDate || data?.end_date || range.endDate || '',
+    totals,
+    aggregates: {
+      ...aggregates,
+      messages,
+      tools: {
+        ...tools,
+        totalCalls: num(tools.totalCalls, tools.total_calls, tools.calls),
+        uniqueTools: num(tools.uniqueTools, tools.unique_tools),
+        tools: Array.isArray(tools.tools) ? tools.tools : [],
+      },
+      byModel: normalizeBucket(aggregates.byModel || data?.byModel || data?.by_model, 'model'),
+      byProvider: normalizeBucket(aggregates.byProvider || data?.byProvider || data?.by_provider, 'provider'),
+      byAgent: normalizeBucket(aggregates.byAgent || data?.byAgent || data?.by_agent, 'agentId'),
+      byChannel: normalizeBucket(aggregates.byChannel || data?.byChannel || data?.by_channel, 'channel'),
+      daily,
+    },
+    sessions,
+  }
+}
+
+function normalizeSessions(payload) {
+  const sessions = Array.isArray(payload) ? payload : (Array.isArray(payload?.sessions) ? payload.sessions : Array.isArray(payload?.items) ? payload.items : [])
+  return sessions.map(session => {
+    const usage = normalizeTotals(session?.usage || session?.totals || session || {})
+    usage.messageCounts = normalizeMessageCounts(session?.usage?.messageCounts || session?.usage?.message_counts || session?.usage?.messages || session?.messageCounts || session?.message_counts || session?.messages || session || {})
+    const modelUsage = session?.usage?.modelUsage || session?.usage?.model_usage || []
+    if (Array.isArray(modelUsage) && modelUsage.length) usage.modelUsage = modelUsage
+    return {
+      ...session,
+      key: session?.key || session?.sessionKey || session?.session_key || session?.id || session?.sessionId || session?.session_id,
+      sessionId: session?.sessionId || session?.session_id || session?.id,
+      agentId: session?.agentId || session?.agent_id,
+      model: session?.model || session?.usage?.model,
+      modelProvider: session?.modelProvider || session?.model_provider || session?.provider,
+      usage,
+    }
+  })
+}
+
+function sessionDateKey(session) {
+  const value = session?.updatedAt || session?.updated_at || session?.lastMessageAt || session?.last_message_at || session?.createdAt || session?.created_at || session?.time || session?.timestamp
+  if (!value) return ''
+  const date = typeof value === 'number'
+    ? new Date(value > 1e12 ? value : value * 1000)
+    : new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return toLocalDateKey(date)
+}
+
+export function buildUsageFromSessionsList(payload, range = {}) {
+  const sessions = normalizeSessions(payload)
+    .filter(session => {
+      const date = sessionDateKey(session)
+      if (!date) return true
+      return (!range.startDate || date >= range.startDate) && (!range.endDate || date <= range.endDate)
+    })
+
+  const totals = normalizeTotals({})
+  const messages = normalizeMessageCounts({})
+  const byModel = new Map()
+  const byProvider = new Map()
+  const byAgent = new Map()
+  const byChannel = new Map()
+  const daily = new Map()
+
+  const addBucket = (map, key, usage) => {
+    if (!key) return
+    if (!map.has(key)) map.set(key, { count: 0, totals: normalizeTotals({}) })
+    const row = map.get(key)
+    row.count += 1
+    mergeTotals(row.totals, usage)
+  }
+
+  for (const session of sessions) {
+    const usage = session.usage || normalizeTotals({})
+    mergeTotals(totals, usage)
+    const counts = usage.messageCounts || {}
+    messages.total += num(counts.total)
+    messages.user += num(counts.user)
+    messages.assistant += num(counts.assistant)
+    messages.errors += num(counts.errors)
+    addBucket(byModel, firstString(session.model, usage.modelUsage?.[0]?.model), usage)
+    addBucket(byProvider, firstString(session.modelProvider, usage.modelUsage?.[0]?.provider), usage)
+    addBucket(byAgent, firstString(session.agentId, 'main'), usage)
+    addBucket(byChannel, firstString(session.channel, 'webchat'), usage)
+
+    const date = sessionDateKey(session) || range.endDate || toLocalDateKey(new Date())
+    if (!daily.has(date)) daily.set(date, { date, tokens: 0, messages: 0, sessions: 0 })
+    const d = daily.get(date)
+    d.tokens += usage.totalTokens || 0
+    d.messages += counts.total || 0
+    d.sessions += 1
+  }
+
+  const bucketArray = (map, keyName) => [...map.entries()]
+    .map(([key, value]) => ({ [keyName]: key, count: value.count, totals: value.totals }))
+    .sort((a, b) => b.totals.totalTokens - a.totals.totalTokens)
+
+  return {
+    startDate: range.startDate || '',
+    endDate: range.endDate || '',
+    totals,
+    aggregates: {
+      messages,
+      tools: { totalCalls: 0, uniqueTools: 0, tools: [] },
+      byModel: bucketArray(byModel, 'model'),
+      byProvider: bucketArray(byProvider, 'provider'),
+      byAgent: bucketArray(byAgent, 'agentId'),
+      byChannel: bucketArray(byChannel, 'channel'),
+      daily: [...daily.values()].sort((a, b) => a.date.localeCompare(b.date)),
+    },
+    sessions,
+  }
+}
+
+function mergeTotals(target, source = {}) {
+  target.input += num(source.input)
+  target.output += num(source.output)
+  target.cacheRead += num(source.cacheRead)
+  target.cacheWrite += num(source.cacheWrite)
+  target.totalTokens += num(source.totalTokens)
+  target.inputCost += num(source.inputCost)
+  target.outputCost += num(source.outputCost)
+  target.totalCost += num(source.totalCost)
 }
 
 function renderUsage(el, data) {
@@ -242,4 +445,3 @@ function renderUsage(el, data) {
 
   el.innerHTML = overviewHtml + topsHtml + tokenBreakdownHtml + dailyHtml + sessionsHtml
 }
-

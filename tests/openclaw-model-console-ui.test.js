@@ -43,6 +43,14 @@ test('Provider tab switching preserves scroll position instead of feeling like a
   assert.match(modelsPage, /renderProvidersKeepingViewport\(page,\s*state\)/)
 })
 
+test('Provider tab switching scrolls the active provider fully into view', () => {
+  assert.match(modelsPage, /function scrollActiveProviderTabIntoView/)
+  assert.match(modelsPage, /querySelector\('\.models-provider-tab\.active'\)/)
+  assert.match(modelsPage, /activeRight \+ margin > viewRight/)
+  assert.match(modelsPage, /tabs\.scrollLeft = activeRight \+ margin - tabs\.clientWidth/)
+  assert.match(modelsPage, /scrollActiveProviderTabIntoView\(page\)/)
+})
+
 test('Model console styling preserves responsive commercial layout', () => {
   assert.match(cssBlock('.models-hero'), /display:\s*grid/)
   assert.match(cssBlock('.models-console-footer'), /border-top:\s*1px solid var\(--border-secondary\)/)

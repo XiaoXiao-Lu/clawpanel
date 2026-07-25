@@ -1381,8 +1381,28 @@ function renderProviders(page, state) {
 
   listEl.innerHTML = tabHtml + tableHtml
 
+  scrollActiveProviderTabIntoView(page)
+
   // 绑定事件
   bindProviderButtons(listEl, page, state)
+}
+
+function scrollActiveProviderTabIntoView(page) {
+  const tabs = page.querySelector('.models-provider-tabs')
+  const active = tabs?.querySelector('.models-provider-tab.active')
+  if (!tabs || !active) return
+
+  const margin = 16
+  const activeLeft = active.offsetLeft
+  const activeRight = activeLeft + active.offsetWidth
+  const viewLeft = tabs.scrollLeft
+  const viewRight = viewLeft + tabs.clientWidth
+
+  if (activeRight + margin > viewRight) {
+    tabs.scrollLeft = activeRight + margin - tabs.clientWidth
+  } else if (activeLeft - margin < viewLeft) {
+    tabs.scrollLeft = Math.max(0, activeLeft - margin)
+  }
 }
 
 function getModelsScrollContainer(page) {

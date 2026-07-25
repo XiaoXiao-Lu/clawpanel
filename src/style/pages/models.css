@@ -357,11 +357,12 @@
 .models-provider-tabs-shell {
   display: flex; align-items: stretch; gap: var(--space-sm);
   margin-bottom: var(--space-md);
+  width: 100%;
   min-width: 0;
 }
 .models-provider-tabs {
   display: flex; gap: 0; align-items: center;
-  flex: 1 1 auto; min-width: 0;
+  flex: 1 1 0; min-width: 0;
   overflow-x: auto; overflow-y: hidden;
   scrollbar-width: none;
   padding: 4px;
