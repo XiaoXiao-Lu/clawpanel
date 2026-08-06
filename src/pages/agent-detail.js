@@ -75,11 +75,7 @@ async function backupAgent(id) {
   try {
     const zipPath = await api.backupAgent(id)
     try {
-      const { open } = await import('@tauri-apps/plugin-shell')
-      // 兼容 Windows 和 Unix 路径分隔符
-      const sep = zipPath.includes('\\') ? '\\' : '/'
-      const dir = zipPath.substring(0, zipPath.lastIndexOf(sep)) || zipPath
-      await open(dir)
+      await api.openPath(zipPath, 'folder')
     } catch { /* fallback */ }
     const fileName = zipPath.includes('\\') ? zipPath.split('\\').pop() : zipPath.split('/').pop()
     toast(t('agents.backupDone', { file: fileName }), 'success')

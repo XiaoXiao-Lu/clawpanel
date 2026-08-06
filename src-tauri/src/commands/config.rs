@@ -793,11 +793,7 @@ fn binding_specificity_score(binding: &Value) -> i32 {
     };
 
     let mut score = 0;
-    if match_obj
-        .get("peer")
-        .map(|v| !v.is_null())
-        .unwrap_or(false)
-    {
+    if match_obj.get("peer").map(|v| !v.is_null()).unwrap_or(false) {
         score += 1_000;
     }
     if match_obj
@@ -810,7 +806,9 @@ fn binding_specificity_score(binding: &Value) -> i32 {
     }
     score += match_obj
         .keys()
-        .filter(|key| key.as_str() != "channel" && key.as_str() != "accountId" && key.as_str() != "peer")
+        .filter(|key| {
+            key.as_str() != "channel" && key.as_str() != "accountId" && key.as_str() != "peer"
+        })
         .count() as i32;
     score
 }
@@ -1098,6 +1096,7 @@ pub fn write_openclaw_config(config: Value) -> Result<(), String> {
 
     // 清理 UI 专属字段，避免 CLI schema 校验失败
     let mut cleaned = strip_ui_fields(merged);
+
     let _ = normalize_binding_route_priority(&mut cleaned);
     validate_model_provider_env_refs(&cleaned)?;
 

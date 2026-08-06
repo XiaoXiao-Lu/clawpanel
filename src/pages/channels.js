@@ -1127,6 +1127,14 @@ function isPluginManagedRuntimeChannel(pid) {
   return pid === 'weixin'
 }
 
+// OpenClaw only exposes channels.logout for plugins that implement
+// gateway.logoutAccount. Credential-only channels such as Feishu reject it.
+const RUNTIME_LOGOUT_CHANNELS = new Set(['line', 'telegram', 'zalouser', 'nextcloud-talk'])
+
+function supportsRuntimeLogout(pid) {
+  return RUNTIME_LOGOUT_CHANNELS.has(pid)
+}
+
 function renderRuntimeActions(summary, accountId = '', pid = '', options = {}) {
   if (isPluginManagedRuntimeChannel(pid)) {
     return `
@@ -1142,12 +1150,32 @@ function renderRuntimeActions(summary, accountId = '', pid = '', options = {}) {
   const runtimeState = scopedAccount?.state || summary.state
   const stopDisabled = runtimeState === 'missing' || runtimeState === 'configured'
   const logoutDisabled = runtimeState === 'missing'
+  const logoutAction = supportsRuntimeLogout(pid)
+    ? `<button class="btn btn-sm btn-secondary" data-runtime-action="logout" data-account-id="${accountAttr}" ${logoutDisabled ? 'disabled' : ''} title="${t('channels.runtimeLogoutTitle')}">${icon('x-circle', 14)} ${t('channels.runtimeLogout')}</button>`
+    : ''
   return `
     <button class="btn btn-sm btn-secondary" data-runtime-action="refresh" data-account-id="${accountAttr}" title="${t('channels.runtimeRefreshTitle')}">${icon('refresh-cw', 14)} ${t('channels.runtimeRefreshShort')}</button>
     <button class="btn btn-sm btn-secondary" data-runtime-action="start" data-account-id="${accountAttr}" title="${t('channels.runtimeStartTitle')}">${icon('play', 14)} ${t('channels.runtimeStart')}</button>
     <button class="btn btn-sm btn-secondary" data-runtime-action="stop" data-account-id="${accountAttr}" ${stopDisabled ? 'disabled' : ''} title="${t('channels.runtimeStopTitle')}">${icon('stop', 14)} ${t('channels.runtimeStop')}</button>
-    <button class="btn btn-sm btn-secondary" data-runtime-action="logout" data-account-id="${accountAttr}" ${logoutDisabled ? 'disabled' : ''} title="${t('channels.runtimeLogoutTitle')}">${icon('x-circle', 14)} ${t('channels.runtimeLogout')}</button>
+    ${logoutAction}
   `
+}
+
+async function removeMessagingTarget(pid, accountId, btn, page, state) {
+  if (btn) btn.disabled = true
+  try {
+    const result = await api.removeMessagingPlatform(pid, accountId || null)
+    if (!result?.removed) throw new Error(result?.message || t('channels.removeFailed'))
+    await loadPlatforms(page, state)
+    const remainingPlatform = state.configured.find(platform => platform.id === pid)
+    const targetStillExists = accountId
+      ? (remainingPlatform?.accounts || []).some(account => account.accountId === accountId)
+      : Boolean(remainingPlatform)
+    if (targetStillExists) throw new Error(t('channels.removeStillConfigured'))
+    toast(t('channels.removed'), 'info')
+  } finally {
+    if (btn?.isConnected) btn.disabled = false
+  }
 }
 
 async function handleRuntimeAction(pid, action, accountId, btn, page, state) {
@@ -1235,8 +1263,8 @@ function renderConfigured(page, state) {
                   ${badgesHtml}
                   ${renderRuntimeAccountInfo(runtimeSummary, acc.accountId || '')}
                   <span class="account-actions">
-                    ${renderRuntimeActions(runtimeSummary, acc.accountId || '', p.id, { accountScoped: true })}
                     <button class="btn btn-xs btn-secondary" data-action="edit-account" data-account-id="${escapeAttr(acc.accountId || '')}">${icon('edit', 12)} ${t('channels.editAccount')}</button>
+                    ${renderRuntimeActions(runtimeSummary, acc.accountId || '', p.id, { accountScoped: true })}
                     ${removeBtnHtml}
                   </span>
                 </div>
@@ -1255,9 +1283,8 @@ function renderConfigured(page, state) {
                 ${renderRuntimeSummary(runtimeSummary)}
                 <div class="platform-accounts">${accountsHtml}</div>
                 <div class="platform-card-actions">
-                  ${renderRuntimeActions(runtimeSummary, '', p.id)}
                   ${supportsMulti ? `<button class="btn btn-sm btn-secondary" data-action="add-account">${icon('plus', 14)} ${t('channels.addAccount')}</button>` : ''}
-                  ${reg && !isPluginManagedRuntimeChannel(p.id) ? `<button class="btn btn-sm btn-secondary" data-action="edit">${icon('edit', 14)} ${t('channels.editDefault')}</button>` : (!reg ? `<span class="form-hint" style="align-self:center">${t('channels.noGuide')}</span>` : '')}
+                  ${!reg ? `<span class="form-hint" style="align-self:center">${t('channels.noGuide')}</span>` : ''}
                   <button class="btn btn-sm btn-secondary" data-action="toggle">${p.enabled ? icon('pause', 14) + ' ' + t('channels.disable') : icon('play', 14) + ' ' + t('channels.enable')}</button>
                   <button class="btn btn-sm btn-danger" data-action="remove" aria-label="${escapeAttr(t('channels.removePlatformBtn'))}" title="${escapeAttr(t('channels.removePlatformBtn'))}">${icon('trash', 14)}</button>
                 </div>
@@ -1525,9 +1552,7 @@ function renderConfigured(page, state) {
         const yes = await showConfirm(t('channels.confirmRemoveAccount', { name: displayName }))
         if (!yes) return
         try {
-          await api.removeMessagingPlatform(pid, accountId || null)
-          toast(t('channels.removed'), 'info')
-          await loadPlatforms(page, state)
+          await removeMessagingTarget(pid, accountId, btn, page, state)
         } catch (e) { toast(humanizeError(e, t('channels.removeFailed')), 'error') }
       })
     })
@@ -1560,9 +1585,7 @@ function renderConfigured(page, state) {
       })
       if (!yes) return
       try {
-        await api.removeMessagingPlatform(pid)
-        toast(t('channels.removed'), 'info')
-        await loadPlatforms(page, state)
+        await removeMessagingTarget(pid, '', card.querySelector('[data-action="remove"]'), page, state)
       } catch (e) { toast(humanizeError(e, t('channels.removeFailed')), 'error') }
     })
   })
@@ -2541,7 +2564,7 @@ async function openConfigDialog(pid, page, state, accountId, isNewAccount = fals
               logBox.scrollTop = logBox.scrollHeight
             }
             // 刷新渠道列表（先清缓存）
-            invalidate('list_configured_platforms')
+            invalidate('list_configured_platforms', 'read_openclaw_config', 'read_platform_config', 'list_all_bindings', 'get_agent_bindings')
             loadPlatforms(page, state).then(() => renderConfigured(page, state)).catch(() => {})
             // 2 秒后自动关闭弹窗
             setTimeout(() => { modal.close?.() || modal.remove?.() }, 2000)
@@ -2591,13 +2614,13 @@ async function openConfigDialog(pid, page, state, accountId, isNewAccount = fals
 
   const supportsMultiAccount = supportsMessagingMultiAccount(pid)
 
-  // 账号标识（多账号）；编辑时 accountId 非空会在 input value 中显示
-  // 新增账号模式下必填
+  // 账号标识是配置定位键。编辑时锁定，避免改名被当成新增账号并遗留旧配置。
   const accountIdRequired = isNewAccount
+  const accountIdReadonly = !isNewAccount
   const accountIdHtml = supportsMultiAccount ? `
     <div class="form-group">
       <label class="form-label">${t('channels.accountIdentifier')}${accountIdRequired ? ' <span style="color:var(--danger)">*</span>' : ''}</label>
-      <input class="form-input" name="__accountId" placeholder="${t('channels.accountIdPlaceholder')}" value="${escapeAttr(accountId != null ? accountId : '')}"${accountIdRequired ? ' required' : ''}>
+      <input class="form-input" name="__accountId" placeholder="${t('channels.accountIdPlaceholder')}" value="${escapeAttr(accountId != null ? accountId : '')}"${accountIdRequired ? ' required' : ''}${accountIdReadonly ? ' readonly' : ''}>
       <div class="form-hint">${isNewAccount ? t('channels.accountIdRequiredHint') : t('channels.accountIdHint')}</div>
     </div>
   ` : ''
@@ -3098,11 +3121,19 @@ async function openConfigDialog(pid, page, state, accountId, isNewAccount = fals
 
       // 写入配置
       btnSave.textContent = t('channels.writingConfig')
-      const saveAccountId = modal.querySelector('input[name="__accountId"]')?.value?.trim() || null
+      const enteredAccountId = modal.querySelector('input[name="__accountId"]')?.value?.trim() || null
+      const saveAccountId = isNewAccount ? enteredAccountId : (accountId || null)
 
       // 新增账号模式下，必须填写账号标识
       if (isNewAccount && !saveAccountId) {
         toast(t('channels.accountIdRequired'), 'error')
+        btnSave.disabled = false
+        btnVerify.disabled = false
+        btnSave.textContent = isEdit ? t('channels.save') : t('channels.connectAndSave')
+        return
+      }
+      if (isNewAccount && saveAccountId?.toLowerCase() === 'default') {
+        toast(t('channels.accountIdReserved'), 'error')
         btnSave.disabled = false
         btnVerify.disabled = false
         btnSave.textContent = isEdit ? t('channels.save') : t('channels.connectAndSave')

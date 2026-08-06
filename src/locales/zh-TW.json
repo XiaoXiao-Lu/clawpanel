@@ -967,7 +967,7 @@
     "actionFailed": "頻道動作執行失敗",
     "accountIdentifier": "账號標識",
     "accountIdPlaceholder": "留空為預設账號；修改會建立新账號",
-    "accountIdHint": "每個账號对應一個獨立機器人。不同账號可綁定不同 Agent。",
+    "accountIdHint": "每個账號對應一個獨立機器人；账號標識建立後不可修改。",
     "bindAgent": "綁定 Agent",
     "bindAgentHint": "該账號收到的訊息路由到哪個 Agent（可在「Agent 对接」頁新增更多綁定）。",
     "show": "顯示",

@@ -1116,7 +1116,7 @@
     "actionFailed": "Channel action failed",
     "accountIdentifier": "Account Identifier",
     "accountIdPlaceholder": "Leave empty for default account; changing creates a new account",
-    "accountIdHint": "Each account corresponds to an independent bot. Different accounts can bind to different Agents.",
+    "accountIdHint": "Each account is an independent bot; its identifier cannot be changed after creation.",
     "bindAgent": "Bind Agent",
     "bindAgentHint": "Which Agent receives messages for this account (add more bindings in \"Agent Binding\" tab).",
     "show": "Show",

@@ -301,10 +301,7 @@ pub async fn list_agent_activity() -> Result<Value, String> {
         .unwrap_or_default()
         .into_iter()
         .map(|agent| {
-            let id = agent
-                .get("id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("main");
+            let id = agent.get("id").and_then(|v| v.as_str()).unwrap_or("main");
             json!({
                 "agentId": id,
                 "state": "idle",

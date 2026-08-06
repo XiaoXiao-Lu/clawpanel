@@ -38,6 +38,26 @@ test('多账号渠道会在账号行暴露带 accountId 的运行操作', () => 
   assert.match(channelsPageSource, /if \(accountId\) params\.accountId = accountId/)
 })
 
+test('飞书不会展示 OpenClaw 不支持的运行时注销动作', () => {
+  assert.match(channelsPageSource, /const RUNTIME_LOGOUT_CHANNELS = new Set\(\['line', 'telegram', 'zalouser', 'nextcloud-talk'\]\)/)
+  assert.match(channelsPageSource, /supportsRuntimeLogout\(pid\)/)
+  assert.doesNotMatch(channelsPageSource, /RUNTIME_LOGOUT_CHANNELS[^\n]*feishu/)
+})
+
+test('删除渠道必须等待后端确认实际删除并重新加载列表', () => {
+  assert.match(channelsPageSource, /if \(!result\?\.removed\) throw new Error/)
+  assert.match(channelsPageSource, /await loadPlatforms\(page, state\)[\s\S]*toast\(t\('channels\.removed'\)/)
+  assert.match(channelsPageSource, /const remainingPlatform = state\.configured\.find\(platform => platform\.id === pid\)/)
+  assert.match(channelsPageSource, /if \(targetStillExists\) throw new Error\(t\('channels\.removeStillConfigured'\)\)/)
+})
+
+test('多账号渠道从账号行编辑且不会重复渲染平台级默认账号操作', () => {
+  assert.match(channelsPageSource, /data-action="edit-account" data-account-id=/)
+  assert.doesNotMatch(channelsPageSource, /t\('channels\.editDefault'\)/)
+  assert.match(channelsPageSource, /const accountIdReadonly = !isNewAccount/)
+  assert.match(channelsPageSource, /const saveAccountId = isNewAccount \? enteredAccountId : \(accountId \|\| null\)/)
+})
+
 test('平台操作菜单新增账号会进入新增账号模式', () => {
   assert.match(channelsPageSource, /onClick:\s*\(\) => openConfigDialog\(pid,\s*page,\s*state,\s*'',\s*true\)/)
 })

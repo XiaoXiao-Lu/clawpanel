@@ -82,6 +82,84 @@ fn secret_ref_placeholder(value: &Value) -> Option<String> {
     Some(format!("SecretRef({}:{}:{})", source, provider, id))
 }
 
+fn first_manifest_value<'a>(manifest: &'a Value, pointers: &[&str]) -> Option<&'a Value> {
+    pointers
+        .iter()
+        .find_map(|pointer| manifest.pointer(pointer))
+}
+
+fn normalize_plugin_config_schema(value: &Value) -> Option<Value> {
+    if !value.is_object() {
+        return None;
+    }
+    if value.get("properties").is_some() || value.get("type").is_some() {
+        return Some(value.clone());
+    }
+    value
+        .get("schema")
+        .and_then(normalize_plugin_config_schema)
+        .or_else(|| {
+            value
+                .get("configSchema")
+                .and_then(normalize_plugin_config_schema)
+        })
+}
+
+fn plugin_manifest_info(
+    path: &Path,
+) -> (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<Value>,
+    Option<Value>,
+) {
+    let manifest = std::fs::read_to_string(path.join("package.json"))
+        .ok()
+        .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+        .unwrap_or_else(|| json!({}));
+
+    let version = manifest
+        .get("version")
+        .and_then(|v| v.as_str().map(String::from));
+    let description = manifest
+        .get("description")
+        .and_then(|v| v.as_str().map(String::from));
+    let homepage = manifest
+        .get("homepage")
+        .or_else(|| manifest.get("repository").and_then(|v| v.get("url")))
+        .and_then(|v| v.as_str().map(String::from));
+
+    let schema = first_manifest_value(
+        &manifest,
+        &[
+            "/openclaw/configSchema",
+            "/openclaw/configuration",
+            "/openclaw/pluginConfig",
+            "/openclaw/config",
+            "/configSchema",
+            "/configuration",
+            "/pluginConfig",
+            "/contributes/configuration",
+        ],
+    )
+    .and_then(normalize_plugin_config_schema);
+
+    let defaults = first_manifest_value(
+        &manifest,
+        &[
+            "/openclaw/configDefaults",
+            "/openclaw/defaultConfig",
+            "/configDefaults",
+            "/defaultConfig",
+        ],
+    )
+    .filter(|v| v.is_object())
+    .cloned();
+
+    (version, description, homepage, schema, defaults)
+}
+
 fn insert_secret_aware_form_value(form: &mut Map<String, Value>, source: &Value, key: &str) {
     if let Some(v) = source.get(key).and_then(|v| v.as_str()) {
         form.insert(key.into(), Value::String(v.into()));
@@ -1404,11 +1482,7 @@ fn binding_specificity_score(binding: &Value) -> i32 {
     };
 
     let mut score = 0;
-    if match_obj
-        .get("peer")
-        .map(|v| !v.is_null())
-        .unwrap_or(false)
-    {
+    if match_obj.get("peer").map(|v| !v.is_null()).unwrap_or(false) {
         score += 1_000;
     }
     if match_obj
@@ -1421,7 +1495,9 @@ fn binding_specificity_score(binding: &Value) -> i32 {
     }
     score += match_obj
         .keys()
-        .filter(|key| key.as_str() != "channel" && key.as_str() != "accountId" && key.as_str() != "peer")
+        .filter(|key| {
+            key.as_str() != "channel" && key.as_str() != "accountId" && key.as_str() != "peer"
+        })
         .count() as i32;
     score
 }
@@ -2549,7 +2625,10 @@ pub async fn save_messaging_platform(
                 qqbot_obj.insert("appId".into(), Value::String(app_id));
                 qqbot_obj.insert("clientSecret".into(), Value::String(client_secret));
                 qqbot_obj.insert("token".into(), Value::String(token_combo));
-                if let Some(accounts) = qqbot_obj.get_mut("accounts").and_then(|a| a.as_object_mut()) {
+                if let Some(accounts) = qqbot_obj
+                    .get_mut("accounts")
+                    .and_then(|a| a.as_object_mut())
+                {
                     accounts.remove("default");
                     if accounts.is_empty() {
                         qqbot_obj.remove("accounts");
@@ -3795,6 +3874,126 @@ pub async fn save_messaging_platform(
     Ok(json!({ "ok": true }))
 }
 
+fn remove_messaging_platform_config(
+    cfg: &mut Value,
+    platform: &str,
+    account_id: Option<&str>,
+) -> Result<(bool, usize), String> {
+    let storage_key = platform_storage_key(&platform);
+    let normalized_account_id = account_id.map(str::trim).filter(|id| !id.is_empty());
+    let mut removed_config = false;
+
+    match normalized_account_id {
+        Some(acct) => {
+            // 多账号模式：仅删除指定账号
+            if let Some(channel) = cfg.get_mut("channels").and_then(|c| c.get_mut(storage_key)) {
+                let mut account_keys: Vec<String> = vec![];
+                if let Some(accounts) = channel.get_mut("accounts").and_then(|a| a.as_object_mut())
+                {
+                    removed_config = accounts.remove(acct).is_some();
+                    account_keys = accounts.keys().filter(|k| !k.is_empty()).cloned().collect();
+                }
+
+                if channel.get("defaultAccount").and_then(|v| v.as_str()) == Some(acct) {
+                    if let Some(next_account) = account_keys.first() {
+                        channel["defaultAccount"] = Value::String(next_account.clone());
+                    } else if let Some(obj) = channel.as_object_mut() {
+                        obj.remove("defaultAccount");
+                    }
+                }
+
+                let should_remove_empty_root = channel
+                    .as_object()
+                    .map(|obj| {
+                        account_keys.is_empty() && !channel_root_has_messaging_credential(obj)
+                    })
+                    .unwrap_or(false);
+                if should_remove_empty_root {
+                    if let Some(channels) = cfg.get_mut("channels").and_then(|c| c.as_object_mut())
+                    {
+                        channels.remove(storage_key);
+                    }
+                }
+            }
+        }
+        _ => {
+            // 整平台删除
+            if let Some(channels) = cfg.get_mut("channels").and_then(|c| c.as_object_mut()) {
+                removed_config = channels.remove(storage_key).is_some();
+            }
+        }
+    }
+
+    // 清理对应的 bindings 条目
+    let binding_channel = platform_list_id(&platform);
+    let mut removed_bindings = 0;
+    if let Some(bindings) = cfg.get_mut("bindings").and_then(|b| b.as_array_mut()) {
+        let binding_count_before = bindings.len();
+        bindings.retain(|b| {
+            let m = match b.get("match") {
+                Some(m) => m,
+                None => return true,
+            };
+            if m.get("channel").and_then(|v| v.as_str()) != Some(binding_channel) {
+                return true; // 不同渠道，保留
+            }
+            match normalized_account_id {
+                Some(acct) => m.get("accountId").and_then(|v| v.as_str()) != Some(acct),
+                _ => false, // 整平台删除，移除该渠道所有 binding
+            }
+        });
+        removed_bindings = binding_count_before - bindings.len();
+    }
+
+    if !removed_config && removed_bindings == 0 {
+        return Err(match normalized_account_id {
+            Some(acct) => format!("账号 {}/{} 不存在或已删除", platform, acct),
+            None => format!("平台 {} 不存在或已删除", platform),
+        });
+    }
+
+    Ok((removed_config, removed_bindings))
+}
+
+fn messaging_target_exists(cfg: &Value, platform: &str, account_id: Option<&str>) -> bool {
+    let storage_key = platform_storage_key(platform);
+    match account_id.map(str::trim).filter(|id| !id.is_empty()) {
+        Some(acct) => cfg
+            .pointer(&format!("/channels/{}/accounts", storage_key))
+            .and_then(Value::as_object)
+            .map(|accounts| accounts.contains_key(acct))
+            .unwrap_or(false),
+        None => cfg
+            .get("channels")
+            .and_then(Value::as_object)
+            .map(|channels| channels.contains_key(storage_key))
+            .unwrap_or(false),
+    }
+}
+
+fn messaging_binding_exists(cfg: &Value, platform: &str, account_id: Option<&str>) -> bool {
+    let binding_channel = platform_list_id(platform);
+    let normalized_account_id = account_id.map(str::trim).filter(|id| !id.is_empty());
+    cfg.get("bindings")
+        .and_then(Value::as_array)
+        .map(|bindings| {
+            bindings.iter().any(|binding| {
+                let matched = match binding.get("match") {
+                    Some(value) => value,
+                    None => return false,
+                };
+                if matched.get("channel").and_then(Value::as_str) != Some(binding_channel) {
+                    return false;
+                }
+                match normalized_account_id {
+                    Some(acct) => matched.get("accountId").and_then(Value::as_str) == Some(acct),
+                    None => true,
+                }
+            })
+        })
+        .unwrap_or(false)
+}
+
 /// 删除指定平台配置
 /// account_id: 可选，指定时仅删除 channels.<platform>.accounts.<account_id>（多账号模式）
 ///             未指定时删除整个平台配置
@@ -3805,53 +4004,27 @@ pub async fn remove_messaging_platform(
     app: tauri::AppHandle,
 ) -> Result<Value, String> {
     let mut cfg = super::config::load_openclaw_json()?;
-    let storage_key = platform_storage_key(&platform);
-
-    match &account_id {
-        Some(acct) if !acct.is_empty() => {
-            // 多账号模式：仅删除指定账号
-            if let Some(channel) = cfg.get_mut("channels").and_then(|c| c.get_mut(storage_key)) {
-                if let Some(accounts) = channel.get_mut("accounts").and_then(|a| a.as_object_mut())
-                {
-                    accounts.remove(acct.as_str());
-                }
-            }
-        }
-        _ => {
-            // 整平台删除
-            if let Some(channels) = cfg.get_mut("channels").and_then(|c| c.as_object_mut()) {
-                channels.remove(storage_key);
-            }
-        }
-    }
-
-    // 清理对应的 bindings 条目
-    let binding_channel = platform_list_id(&platform);
-    if let Some(bindings) = cfg.get_mut("bindings").and_then(|b| b.as_array_mut()) {
-        bindings.retain(|b| {
-            let m = match b.get("match") {
-                Some(m) => m,
-                None => return true,
-            };
-            if m.get("channel").and_then(|v| v.as_str()) != Some(binding_channel) {
-                return true; // 不同渠道，保留
-            }
-            match &account_id {
-                Some(acct) if !acct.is_empty() => {
-                    m.get("accountId").and_then(|v| v.as_str()) != Some(acct.as_str())
-                }
-                _ => false, // 整平台删除，移除该渠道所有 binding
-            }
-        });
-    }
+    let (removed_config, removed_bindings) =
+        remove_messaging_platform_config(&mut cfg, &platform, account_id.as_deref())?;
 
     super::config::save_openclaw_json(&cfg)?;
+    let persisted = super::config::load_openclaw_json()?;
+    if messaging_target_exists(&persisted, &platform, account_id.as_deref())
+        || messaging_binding_exists(&persisted, &platform, account_id.as_deref())
+    {
+        return Err("配置写入后校验失败，请重试".into());
+    }
     let app2 = app.clone();
     tauri::async_runtime::spawn(async move {
         let _ = super::config::do_reload_gateway(&app2).await;
     });
 
-    Ok(json!({ "ok": true }))
+    Ok(json!({
+        "ok": true,
+        "removed": true,
+        "removedConfig": removed_config,
+        "removedBindings": removed_bindings
+    }))
 }
 
 /// 切换平台启用/禁用
@@ -4856,7 +5029,9 @@ pub async fn list_configured_platforms() -> Result<Value, String> {
 
             // 如果根节点有凭证（默认账号），将其作为 "default" 账号加入列表
             // 这样前端能展示并管理默认账号，避免「添加账号」时看不到已有默认账号
-            if channel_root_has_messaging_credential(val.as_object().unwrap_or(&serde_json::Map::new())) {
+            if channel_root_has_messaging_credential(
+                val.as_object().unwrap_or(&serde_json::Map::new()),
+            ) {
                 let mut entry = json!({ "accountId": "" });
                 if let Some(display_id) = account_display_value(val, "appId")
                     .or_else(|| account_display_value(val, "clientId"))
@@ -4869,13 +5044,10 @@ pub async fn list_configured_platforms() -> Result<Value, String> {
                 accounts.push(entry);
             }
 
-            // 提取多账号信息（仅安全字段，不含 appSecret 等敏感数据）
+            // 提取多账号信息（仅安全字段，不含 appSecret 等敏感数据）。
+            // accounts.default 也必须返回，否则用户无法在面板中编辑或删除它。
             if let Some(accts) = val.get("accounts").and_then(|a| a.as_object()) {
                 for (acct_id, acct_val) in accts {
-                    // 跳过 "default" 键，因为根节点凭证已经作为默认账号加入
-                    if acct_id == "default" {
-                        continue;
-                    }
                     let mut entry = json!({ "accountId": acct_id });
                     if let Some(display_id) = account_display_value(acct_val, "appId")
                         .or_else(|| account_display_value(acct_val, "clientId"))
@@ -5006,19 +5178,8 @@ pub async fn list_all_plugins() -> Result<Value, String> {
                 let allowed = allow_arr.iter().any(|v| v.as_str() == Some(&plugin_id));
                 let builtin = is_plugin_builtin(&plugin_id);
 
-                // Try to read version from package.json
-                let version = std::fs::read_to_string(p.join("package.json"))
-                    .ok()
-                    .and_then(|s| serde_json::from_str::<Value>(&s).ok())
-                    .and_then(|v| v.get("version").and_then(|v| v.as_str().map(String::from)));
-
-                let description = std::fs::read_to_string(p.join("package.json"))
-                    .ok()
-                    .and_then(|s| serde_json::from_str::<Value>(&s).ok())
-                    .and_then(|v| {
-                        v.get("description")
-                            .and_then(|v| v.as_str().map(String::from))
-                    });
+                let (version, description, homepage, config_schema, config_defaults) =
+                    plugin_manifest_info(&p);
 
                 plugins.push(json!({
                     "id": plugin_id,
@@ -5028,7 +5189,10 @@ pub async fn list_all_plugins() -> Result<Value, String> {
                     "allowed": allowed,
                     "version": version,
                     "description": description,
+                    "homepage": homepage,
                     "config": entry_cfg.and_then(|e| e.get("config")),
+                    "configSchema": config_schema,
+                    "configDefaults": config_defaults,
                 }));
             }
         }
@@ -5054,7 +5218,10 @@ pub async fn list_all_plugins() -> Result<Value, String> {
             "allowed": allowed,
             "version": null,
             "description": null,
+            "homepage": null,
             "config": entry_val.get("config"),
+            "configSchema": null,
+            "configDefaults": null,
         }));
     }
 
@@ -7744,5 +7911,85 @@ mod tests {
         });
 
         assert!(value_has_messaging_credential(&account));
+    }
+
+    #[test]
+    fn remove_named_feishu_account_updates_default_and_bindings() {
+        let mut cfg = json!({
+            "channels": {
+                "feishu": {
+                    "appId": "root-app",
+                    "appSecret": "root-secret",
+                    "defaultAccount": "mimo",
+                    "accounts": {
+                        "mimo": { "appId": "mimo-app", "appSecret": "mimo-secret" },
+                        "ops": { "appId": "ops-app", "appSecret": "ops-secret" }
+                    }
+                }
+            },
+            "bindings": [
+                { "agentId": "mimo-agent", "match": { "channel": "feishu", "accountId": "mimo" } },
+                { "agentId": "ops-agent", "match": { "channel": "feishu", "accountId": "ops" } }
+            ]
+        });
+
+        let result = remove_messaging_platform_config(&mut cfg, "feishu", Some("mimo"));
+
+        assert_eq!(result, Ok((true, 1)));
+        assert!(!messaging_target_exists(&cfg, "feishu", Some("mimo")));
+        assert!(messaging_target_exists(&cfg, "feishu", Some("ops")));
+        assert_eq!(
+            cfg.pointer("/channels/feishu/defaultAccount"),
+            Some(&json!("ops"))
+        );
+        assert_eq!(cfg["bindings"].as_array().map(Vec::len), Some(1));
+    }
+
+    #[test]
+    fn remove_entire_feishu_platform_cleans_all_bindings() {
+        let mut cfg = json!({
+            "channels": { "feishu": { "appId": "root-app", "appSecret": "root-secret" } },
+            "bindings": [
+                { "agentId": "main", "match": { "channel": "feishu" } },
+                { "agentId": "other", "match": { "channel": "telegram" } }
+            ]
+        });
+
+        let result = remove_messaging_platform_config(&mut cfg, "feishu", None);
+
+        assert_eq!(result, Ok((true, 1)));
+        assert!(!messaging_target_exists(&cfg, "feishu", None));
+        assert_eq!(cfg["bindings"].as_array().map(Vec::len), Some(1));
+    }
+
+    #[test]
+    fn remove_entire_discord_platform_preserves_other_channels() {
+        let mut cfg = json!({
+            "channels": {
+                "discord": { "enabled": true, "token": "discord-token" },
+                "feishu": { "enabled": true, "appId": "feishu-app", "appSecret": "feishu-secret" }
+            },
+            "bindings": [
+                { "agentId": "discord-agent", "match": { "channel": "discord" } },
+                { "agentId": "main", "match": { "channel": "feishu", "accountId": "main" } }
+            ]
+        });
+
+        let result = remove_messaging_platform_config(&mut cfg, "discord", None);
+
+        assert_eq!(result, Ok((true, 1)));
+        assert!(!messaging_target_exists(&cfg, "discord", None));
+        assert!(!messaging_binding_exists(&cfg, "discord", None));
+        assert!(messaging_target_exists(&cfg, "feishu", None));
+        assert!(messaging_binding_exists(&cfg, "feishu", None));
+    }
+
+    #[test]
+    fn removing_missing_messaging_target_returns_error() {
+        let mut cfg = json!({ "channels": { "feishu": { "accounts": {} } } });
+
+        let result = remove_messaging_platform_config(&mut cfg, "feishu", Some("missing"));
+
+        assert!(result.is_err());
     }
 }

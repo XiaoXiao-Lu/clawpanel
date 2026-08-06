@@ -1199,7 +1199,7 @@
     "actionFailed": "渠道动作执行失败",
     "accountIdentifier": "账号标识",
     "accountIdPlaceholder": "留空为默认账号；修改会创建新账号",
-    "accountIdHint": "每个账号对应一个独立机器人。不同账号可绑定不同 Agent。",
+    "accountIdHint": "每个账号对应一个独立机器人；账号标识创建后不可修改。",
     "bindAgent": "绑定 Agent",
     "bindAgentHint": "该账号收到的消息路由到哪个 Agent（可在「Agent 对接」页添加更多绑定）。",
     "show": "显示",

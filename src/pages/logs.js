@@ -73,7 +73,14 @@ export async function render() {
   })
 
   // 刷新
-  page.querySelector('#btn-refresh').onclick = () => loadLog(page, currentTab)
+  page.querySelector('#btn-refresh').onclick = () => {
+    const query = page.querySelector('#log-search')?.value.trim()
+    if (query) {
+      searchLog(page, currentTab, query)
+    } else {
+      loadLog(page, currentTab)
+    }
+  }
 
   loadLog(page, currentTab)
   return page
@@ -85,6 +92,8 @@ export function cleanup() {
 }
 
 async function loadLog(page, logName) {
+  const requestId = String(Date.now() + Math.random())
+  page.dataset.logRequestId = requestId
   const el = page.querySelector('#log-content')
   const refreshBtn = page.querySelector('#btn-refresh')
   // 显示加载状态
@@ -92,6 +101,7 @@ async function loadLog(page, logName) {
   if (refreshBtn) { refreshBtn.classList.add('btn-loading'); refreshBtn.disabled = true }
   try {
     const content = await api.readLogTail(logName, 200)
+    if (page.dataset.logRequestId !== requestId) return
     if (!content || !content.trim()) {
       el.innerHTML = '<div style="color:var(--text-tertiary)">' + t('logs.empty') + '</div>'
       return
@@ -102,29 +112,59 @@ async function loadLog(page, logName) {
       el.scrollTop = el.scrollHeight
     }
   } catch (e) {
+    if (page.dataset.logRequestId !== requestId) return
     el.innerHTML = '<div style="color:var(--error);padding:12px">' + t('logs.loadFailed') + ': ' + e + '</div>'
     toast(humanizeError(e, t('logs.loadFailed')), 'error')
   } finally {
-    if (refreshBtn) { refreshBtn.classList.remove('btn-loading'); refreshBtn.disabled = false }
+    if (page.dataset.logRequestId === requestId && refreshBtn) {
+      refreshBtn.classList.remove('btn-loading')
+      refreshBtn.disabled = false
+    }
   }
 }
 
 async function searchLog(page, logName, query) {
+  const requestId = String(Date.now() + Math.random())
+  page.dataset.logRequestId = requestId
   const el = page.querySelector('#log-content')
+  const refreshBtn = page.querySelector('#btn-refresh')
+  if (refreshBtn) { refreshBtn.classList.add('btn-loading'); refreshBtn.disabled = true }
   try {
     const results = await api.searchLog(logName, query)
+    if (page.dataset.logRequestId !== requestId) return
     if (!results || !results.length) {
       el.innerHTML = '<div style="color:var(--text-tertiary)">' + t('logs.noResults') + '</div>'
       return
     }
-    el.innerHTML = results.map(l => `<div class="log-line">${highlightMatch(escapeHtml(l), query)}</div>`).join('')
+    el.innerHTML = results.map(l => `<div class="log-line">${highlightMatch(l, query)}</div>`).join('')
+    if (page.querySelector('#log-autoscroll')?.checked) {
+      el.scrollTop = el.scrollHeight
+    }
   } catch (e) {
+    if (page.dataset.logRequestId !== requestId) return
     el.innerHTML = '<div style="color:var(--error);padding:12px">' + t('logs.searchFailed') + ': ' + e + '</div>'
     toast(humanizeError(e, t('logs.searchFailed')), 'error')
+  } finally {
+    if (page.dataset.logRequestId === requestId && refreshBtn) {
+      refreshBtn.classList.remove('btn-loading')
+      refreshBtn.disabled = false
+    }
   }
 }
 
-function highlightMatch(html, query) {
+function highlightMatch(text, query) {
+  const source = String(text)
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return html.replace(new RegExp(escaped, 'gi'), m => `<mark>${m}</mark>`)
+  const re = new RegExp(escaped, 'gi')
+  let html = ''
+  let lastIndex = 0
+  let match
+  while ((match = re.exec(source)) !== null) {
+    html += escapeHtml(source.slice(lastIndex, match.index))
+    html += `<mark>${escapeHtml(match[0])}</mark>`
+    lastIndex = match.index + match[0].length
+    if (match[0].length === 0) re.lastIndex += 1
+  }
+  html += escapeHtml(source.slice(lastIndex))
+  return html
 }

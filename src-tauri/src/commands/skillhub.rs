@@ -174,8 +174,8 @@ pub async fn search_xiaping(query: &str, limit: u32) -> Result<Vec<SkillHubItem>
     let items: Vec<SkillHubItem> = if text.trim_start().starts_with('[') {
         serde_json::from_str(&text).map_err(|e| format!("虾评搜索结果解析失败: {e}"))?
     } else {
-        let wrapper: serde_json::Value = serde_json::from_str(&text)
-            .map_err(|e| format!("虾评搜索结果解析失败: {e}"))?;
+        let wrapper: serde_json::Value =
+            serde_json::from_str(&text).map_err(|e| format!("虾评搜索结果解析失败: {e}"))?;
         if let Some(arr) = wrapper.get("results").and_then(|v| v.as_array()) {
             serde_json::from_value(serde_json::Value::Array(arr.clone()))
                 .map_err(|e| format!("虾评搜索结果解析失败: {e}"))?
@@ -235,7 +235,10 @@ pub async fn search_github(query: &str, limit: u32) -> Result<Vec<SkillHubItem>,
             let description = repo.get("description").and_then(|v| v.as_str());
             let html_url = repo.get("html_url").and_then(|v| v.as_str());
             let stars = repo.get("stargazers_count").and_then(|v| v.as_u64());
-            let owner = repo.get("owner").and_then(|o| o.get("login")).and_then(|v| v.as_str());
+            let owner = repo
+                .get("owner")
+                .and_then(|o| o.get("login"))
+                .and_then(|v| v.as_str());
             // 将 GitHub 仓库映射为 SkillHubItem 格式
             let slug = full_name.replace('/', "-");
             items.push(SkillHubItem {
@@ -253,20 +256,31 @@ pub async fn search_github(query: &str, limit: u32) -> Result<Vec<SkillHubItem>,
                 categories: None,
                 homepage: html_url.map(|s| s.to_string()),
                 icon: None,
-                logo: repo.get("owner").and_then(|o| o.get("avatar_url")).and_then(|v| v.as_str()).map(|s| s.to_string()),
+                logo: repo
+                    .get("owner")
+                    .and_then(|o| o.get("avatar_url"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
                 avatar: None,
-                avatar_url: repo.get("owner").and_then(|o| o.get("avatar_url")).and_then(|v| v.as_str()).map(|s| s.to_string()),
+                avatar_url: repo
+                    .get("owner")
+                    .and_then(|o| o.get("avatar_url"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
                 image: None,
                 downloads: None,
                 installs: None,
                 stars,
                 labels: None,
-                updated_at: repo.get("updated_at").and_then(|v| v.as_str()).and_then(|s| {
-                    // 解析 ISO 8601 时间为 Unix 时间戳
-                    chrono::DateTime::parse_from_rfc3339(s)
-                        .ok()
-                        .map(|dt| dt.timestamp() as u64)
-                }),
+                updated_at: repo
+                    .get("updated_at")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| {
+                        // 解析 ISO 8601 时间为 Unix 时间戳
+                        chrono::DateTime::parse_from_rfc3339(s)
+                            .ok()
+                            .map(|dt| dt.timestamp() as u64)
+                    }),
             });
         }
     }
@@ -393,7 +407,10 @@ fn validate_slug(slug: &str) -> Result<(), String> {
 }
 
 fn normalize_install_name(name: &str) -> Result<String, String> {
-    let without_zip = name.trim().trim_end_matches(".zip").trim_end_matches(".ZIP");
+    let without_zip = name
+        .trim()
+        .trim_end_matches(".zip")
+        .trim_end_matches(".ZIP");
     let slug = without_zip
         .chars()
         .map(|ch| {
@@ -483,11 +500,7 @@ fn safe_zip_output_path(target_root: &Path, entry_name: &str) -> Option<PathBuf>
     let normalized = entry_name.replace('\\', "/");
     if normalized.is_empty()
         || normalized.starts_with('/')
-        || normalized
-            .as_bytes()
-            .get(1)
-            .copied()
-            == Some(b':')
+        || normalized.as_bytes().get(1).copied() == Some(b':')
     {
         return None;
     }

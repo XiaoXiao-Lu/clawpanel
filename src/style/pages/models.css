@@ -355,16 +355,19 @@
 
 /* ═══ PROVIDER TABS ═══ */
 .models-provider-tabs-shell {
-  display: flex; align-items: stretch; gap: var(--space-sm);
+  display: flex; align-items: center; gap: var(--space-sm);
   margin-bottom: var(--space-md);
   width: 100%;
   min-width: 0;
 }
 .models-provider-tabs {
-  display: flex; gap: 0; align-items: center;
+  display: flex; gap: 2px; align-items: center;
   flex: 1 1 0; min-width: 0;
   overflow-x: auto; overflow-y: hidden;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
+  min-height: 46px;
   padding: 4px;
   border: 1px solid var(--aether-border-soft);
   border-radius: var(--radius-md);
@@ -374,10 +377,10 @@
 
 .models-provider-tab {
   display: inline-flex; align-items: center; gap: 8px;
-  min-height: 38px; padding: 0 16px;
+  min-height: 36px; padding: 0 14px;
   border: none; border-radius: var(--radius-sm);
   background: transparent;
-  font-family: var(--font-mono); font-size: var(--font-size-base); font-weight: 600;
+  font-family: var(--font-mono); font-size: var(--font-size-sm); font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer; white-space: nowrap; flex-shrink: 0;
   transition: all var(--ease-fast);
@@ -402,6 +405,7 @@
   border: 1px solid var(--aether-border-soft);
   border-radius: var(--radius-md);
   flex: 0 0 auto;
+  min-height: 46px;
   background: var(--bg-elevated);
 }
 .models-provider-tab-actions__divider {

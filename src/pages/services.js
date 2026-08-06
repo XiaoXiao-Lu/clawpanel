@@ -16,13 +16,15 @@ import { escapeHtml } from '../lib/utils.js'
 
 export async function render() {
   const page = document.createElement('div')
-  page.className = 'page services-page'
+  const route = window.location.hash.replace(/^#/, '') || '/dashboard'
+  const isGatewayRoute = route === '/gateway'
+  page.className = `page services-page${isGatewayRoute ? ' gateway-page' : ''}`
 
   page.innerHTML = `
     <div class="page-header">
       <div class="page-title-group">
-        <h1 class="page-title">${t('services.title')}</h1>
-        <p class="page-desc">${t('services.desc')}</p>
+        <h1 class="page-title">${t(isGatewayRoute ? 'services.gatewayTitle' : 'services.title')}</h1>
+        <p class="page-desc">${t(isGatewayRoute ? 'services.gatewayDesc' : 'services.desc')}</p>
       </div>
       <div class="services-tabs-nav">
         <button class="tab-nav-btn active" data-tab="running">${t('services.tabRunning')}</button>
@@ -515,15 +517,15 @@ function renderServices(container, services) {
       </div>
       <div class="service-actions">
         ${cliMissing
-          ? `<div style="display:flex;flex-direction:column;gap:var(--space-xs);align-items:flex-end">
-               <div style="color:var(--text-tertiary);font-size:var(--font-size-xs)">${t('services.installCliHint')}</div>
-               <code style="font-size:var(--font-size-xs);background:var(--bg-tertiary);padding:2px 8px;border-radius:4px;user-select:all">npm install -g @qingchencloud/openclaw-zh</code>
+          ? `<div class="gateway-action-stack">
+               <div class="gateway-action-hint muted">${t('services.installCliHint')}</div>
+               <code class="gateway-cli-command">npm install -g @qingchencloud/openclaw-zh</code>
                <button class="btn btn-secondary btn-sm" data-action="refresh-services" style="margin-top:4px">${t('services.refreshStatus')}</button>
              </div>`
           : foreignGateway
-            ? `<div style="display:flex;flex-direction:column;gap:var(--space-xs);align-items:flex-end">
-                 <div style="color:var(--warning);font-size:var(--font-size-xs);max-width:320px;text-align:right">${t('services.foreignGatewayHint')}</div>
-                 <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+            ? `<div class="gateway-action-stack">
+                 <div class="gateway-action-hint warning">${t('services.foreignGatewayHint')}</div>
+                 <div class="gateway-action-buttons">
                    <button class="btn btn-primary btn-sm" data-action="claim-gateway">${t('services.claimGateway')}</button>
                    <button class="btn btn-secondary btn-sm" data-action="resolve-foreign-gateway">${t('dashboard.viewGuidance')}</button>
                    <button class="btn btn-secondary btn-sm" data-action="refresh-services">${t('services.refreshStatus')}</button>

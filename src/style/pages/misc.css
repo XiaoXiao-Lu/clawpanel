@@ -794,7 +794,8 @@
   border-left: 2px solid transparent;
 }
 .hm-logs-file-item:hover { background: var(--aether-glass); }
-.hm-logs-file-item.active {
+.hm-logs-file-item.active,
+.hm-logs-file-item.is-active {
   background: var(--aether-primary-faint); color: var(--aether-primary);
   font-weight: 500; border-left-color: var(--aether-primary);
 }
@@ -833,22 +834,31 @@
   border-left: 2px solid transparent; transition: background var(--ease-fast);
 }
 .hm-log-entry:hover { background: var(--aether-glass); }
-.hm-log-entry.error { border-left-color: var(--status-error); }
-.hm-log-entry.warn { border-left-color: var(--status-busy); }
+.hm-log-entry.error,
+.hm-log-entry[data-tone="error"] { border-left-color: var(--status-error); }
+.hm-log-entry.warn,
+.hm-log-entry[data-tone="warn"] { border-left-color: var(--status-busy); }
 .hm-log-time { color: var(--text-tertiary); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .hm-log-level {
   flex-shrink: 0; font-weight: 600; text-transform: uppercase; font-size: var(--font-size-xs);
   padding: 0 5px; border-radius: var(--radius-sm); min-width: 44px; text-align: center;
   display: inline-flex; align-items: center; justify-content: center;
 }
-.hm-log-level.info { background: var(--aether-primary-faint); color: var(--aether-primary); }
-.hm-log-level.debug { background: var(--aether-glass); color: var(--text-tertiary); }
-.hm-log-level.warn { background: var(--warning-bg); color: var(--status-busy); }
-.hm-log-level.error { background: var(--error-surface); color: var(--status-error); }
+.hm-log-level.info,
+.hm-log-level[data-tone="info"] { background: var(--aether-primary-faint); color: var(--aether-primary); }
+.hm-log-level.debug,
+.hm-log-level[data-tone="debug"] { background: var(--aether-glass); color: var(--text-tertiary); }
+.hm-log-level.warn,
+.hm-log-level[data-tone="warn"] { background: var(--warning-bg); color: var(--status-busy); }
+.hm-log-level.error,
+.hm-log-level[data-tone="error"] { background: var(--error-surface); color: var(--status-error); }
 .hm-log-msg { color: var(--text-secondary); white-space: pre-wrap; word-break: break-all; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.hm-log-entry.error .hm-log-msg { color: var(--status-error); }
-.hm-log-entry.warn .hm-log-msg { color: var(--status-busy); }
-.hm-log-entry.raw .hm-log-msg { color: var(--text-tertiary); }
+.hm-log-entry.error .hm-log-msg,
+.hm-log-entry[data-tone="error"] .hm-log-msg { color: var(--status-error); }
+.hm-log-entry.warn .hm-log-msg,
+.hm-log-entry[data-tone="warn"] .hm-log-msg { color: var(--status-busy); }
+.hm-log-entry.raw .hm-log-msg,
+.hm-log-entry.hm-log-entry--raw .hm-log-msg { color: var(--text-tertiary); }
 
 /* === Hermes Skills Page === */
 .hermes-skills-page { height: 100%; display: flex; flex-direction: column; }

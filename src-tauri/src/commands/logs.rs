@@ -96,15 +96,15 @@ pub fn search_log(
     let reader = BufReader::new(file);
     let query_lower = query.to_lowercase();
 
-    let mut matched: Vec<String> = reader
-        .lines()
-        .map_while(Result::ok)
-        .filter(|l| l.to_lowercase().contains(&query_lower))
-        .collect();
-
-    // 如果从中间开始读，第一条匹配可能是不完整行，跳过
-    if start_pos > 0 && !matched.is_empty() {
-        matched.remove(0);
+    let mut matched = Vec::new();
+    for (index, line) in reader.lines().map_while(Result::ok).enumerate() {
+        // 如果从中间开始读，第一行可能不完整，先跳过再搜索。
+        if start_pos > 0 && index == 0 {
+            continue;
+        }
+        if line.to_lowercase().contains(&query_lower) {
+            matched.push(line);
+        }
     }
 
     // 取最后 N 条（最新的匹配结果）

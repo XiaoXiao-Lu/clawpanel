@@ -391,6 +391,7 @@
 
   /* ─── Brand Aliases ─── */
   --brand:            var(--aether-primary);
+  --brand-primary:    var(--aether-primary);
   --brand-light:      var(--aether-primary-light);
   --brand-dark:       var(--aether-primary-dark);
   --brand-muted:      var(--aether-primary-muted);
@@ -423,6 +424,8 @@
   /* ─── Background Aliases ─── */
   --bg-root:          var(--aether-void);
   --bg-base:          var(--aether-base);
+  --aether-ground:    var(--aether-base);
+  --aether-surface:   var(--aether-card);
   --bg-primary:       var(--aether-base);
   --bg-elevated:      var(--aether-elevated);
   --bg-secondary:     var(--aether-elevated);
@@ -434,6 +437,8 @@
   --bg-hover:         var(--aether-glass-hover);
   --bg-active:        var(--aether-glass-active);
   --surface-raised:   var(--aether-elevated);
+  --surface-base:     var(--aether-base);
+  --surface-elevated: var(--aether-elevated);
   --surface-sunken:   var(--aether-sunken);
 
   /* ─── Text Aliases ─── */

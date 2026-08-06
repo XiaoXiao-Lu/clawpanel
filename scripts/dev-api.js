@@ -9545,26 +9545,57 @@ const handlers = {
     const storageKey = platformStorageKey(platform)
     const bindingChannel = platformBindingChannel(platform)
     const normalizedAccountId = typeof accountId === 'string' ? accountId.trim() : ''
+    let removedConfig = false
 
     if (normalizedAccountId) {
-      if (cfg.channels?.[storageKey]?.accounts && typeof cfg.channels[storageKey].accounts === 'object') {
-        delete cfg.channels[storageKey].accounts[normalizedAccountId]
+      const channelRoot = cfg.channels?.[storageKey]
+      if (channelRoot?.accounts && typeof channelRoot.accounts === 'object') {
+        removedConfig = Object.prototype.hasOwnProperty.call(channelRoot.accounts, normalizedAccountId)
+        if (removedConfig) delete channelRoot.accounts[normalizedAccountId]
+        const accountKeys = Object.keys(channelRoot.accounts).filter(Boolean)
+        if (channelRoot.defaultAccount === normalizedAccountId) {
+          if (accountKeys.length) channelRoot.defaultAccount = accountKeys[0]
+          else delete channelRoot.defaultAccount
+        }
+        if (!accountKeys.length && !channelRootHasMessagingCredential(channelRoot)) {
+          delete cfg.channels[storageKey]
+        }
       }
     } else if (cfg.channels) {
-      delete cfg.channels[storageKey]
+      removedConfig = Object.prototype.hasOwnProperty.call(cfg.channels, storageKey)
+      if (removedConfig) delete cfg.channels[storageKey]
     }
 
+    let removedBindings = 0
     if (Array.isArray(cfg.bindings)) {
+      const bindingCountBefore = cfg.bindings.length
       cfg.bindings = cfg.bindings.filter(b => {
         if (b.match?.channel !== bindingChannel) return true
         if (normalizedAccountId) return (b.match?.accountId || '') !== normalizedAccountId
         return false
       })
+      removedBindings = bindingCountBefore - cfg.bindings.length
+    }
+
+    if (!removedConfig && removedBindings === 0) {
+      throw new Error(normalizedAccountId
+        ? `账号 ${platform}/${normalizedAccountId} 不存在或已删除`
+        : `平台 ${platform} 不存在或已删除`)
     }
 
     writeOpenclawConfigFile(cfg)
+    const persisted = readOpenclawConfigRequired()
+    const persistedChannel = persisted.channels?.[storageKey]
+    const configStillExists = normalizedAccountId
+      ? Object.prototype.hasOwnProperty.call(persistedChannel?.accounts || {}, normalizedAccountId)
+      : Object.prototype.hasOwnProperty.call(persisted.channels || {}, storageKey)
+    const bindingStillExists = Array.isArray(persisted.bindings) && persisted.bindings.some(b =>
+      b.match?.channel === bindingChannel &&
+      (!normalizedAccountId || (b.match?.accountId || '') === normalizedAccountId)
+    )
+    if (configStillExists || bindingStillExists) throw new Error('配置写入后校验失败，请重试')
     triggerGatewayReloadNonBlocking('remove_messaging_platform')
-    return { ok: true }
+    return { ok: true, removed: true, removedConfig, removedBindings }
   },
 
   toggle_messaging_platform({ platform, enabled }) {
@@ -9724,6 +9755,47 @@ const handlers = {
     }
   },
 
+  _read_plugin_manifest_info(pluginDir) {
+    let manifest = {}
+    try {
+      manifest = JSON.parse(fs.readFileSync(path.join(pluginDir, 'package.json'), 'utf8'))
+    } catch {}
+    const pick = (...paths) => {
+      for (const pointer of paths) {
+        const parts = pointer.split('.').filter(Boolean)
+        let cur = manifest
+        for (const part of parts) cur = cur && typeof cur === 'object' ? cur[part] : undefined
+        if (cur !== undefined) return cur
+      }
+      return undefined
+    }
+    const normalizeSchema = (value) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+      if (value.properties || value.type) return value
+      if (value.schema) return normalizeSchema(value.schema)
+      if (value.configSchema) return normalizeSchema(value.configSchema)
+      return null
+    }
+    const repository = manifest.repository && typeof manifest.repository === 'object' ? manifest.repository.url : manifest.repository
+    const configDefaults = pick('openclaw.configDefaults', 'openclaw.defaultConfig', 'configDefaults', 'defaultConfig')
+    return {
+      version: manifest.version || null,
+      description: manifest.description || null,
+      homepage: manifest.homepage || repository || null,
+      configSchema: normalizeSchema(pick(
+        'openclaw.configSchema',
+        'openclaw.configuration',
+        'openclaw.pluginConfig',
+        'openclaw.config',
+        'configSchema',
+        'configuration',
+        'pluginConfig',
+        'contributes.configuration',
+      )),
+      configDefaults: configDefaults && typeof configDefaults === 'object' && !Array.isArray(configDefaults) ? configDefaults : null,
+    }
+  },
+
   list_all_plugins() {
     const cfg = readOpenclawConfigOptional()
     const entries = cfg.plugins?.entries || {}
@@ -9744,13 +9816,8 @@ const handlers = {
         const entryCfg = entries[name]
         const enabled = !!entryCfg?.enabled
         const allowed = allowArr.includes(name)
-        let version = null, description = null
-        try {
-          const pkg = JSON.parse(fs.readFileSync(path.join(p, 'package.json'), 'utf8'))
-          version = pkg.version || null
-          description = pkg.description || null
-        } catch {}
-        plugins.push({ id: name, installed: true, builtin: false, enabled, allowed, version, description, config: entryCfg?.config || null })
+        const info = handlers._read_plugin_manifest_info(p)
+        plugins.push({ id: name, installed: true, builtin: false, enabled, allowed, ...info, config: entryCfg?.config || null })
       }
     }
 
@@ -9758,7 +9825,7 @@ const handlers = {
     for (const [pid, val] of Object.entries(entries)) {
       if (seen.has(pid)) continue
       seen.add(pid)
-      plugins.push({ id: pid, installed: false, builtin: false, enabled: !!val?.enabled, allowed: allowArr.includes(pid), version: null, description: null, config: val?.config || null })
+      plugins.push({ id: pid, installed: false, builtin: false, enabled: !!val?.enabled, allowed: allowArr.includes(pid), version: null, description: null, homepage: null, configSchema: null, configDefaults: null, config: val?.config || null })
     }
 
     plugins.sort((a, b) => (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0) || a.id.localeCompare(b.id))
@@ -11437,7 +11504,7 @@ const handlers = {
       'gateway-err': 'gateway.err.log',
       'guardian': 'guardian.log',
       'guardian-backup': 'guardian-backup.log',
-      'config-audit': 'config-audit.log',
+      'config-audit': 'config-audit.jsonl',
     }
     const file = logFiles[logName] || logFiles['gateway']
     const logPath = path.join(LOGS_DIR, file)
@@ -11454,6 +11521,9 @@ const handlers = {
     const logFiles = {
       'gateway': 'gateway.log',
       'gateway-err': 'gateway.err.log',
+      'guardian': 'guardian.log',
+      'guardian-backup': 'guardian-backup.log',
+      'config-audit': 'config-audit.jsonl',
     }
     const file = logFiles[logName] || logFiles['gateway']
     const logPath = path.join(LOGS_DIR, file)
@@ -11865,6 +11935,40 @@ const handlers = {
     return fs.readFileSync(full, 'utf8')
   },
 
+  resolve_memory_file_path({ path: filePath, agent_id, agentId, category }) {
+    if (isUnsafePath(filePath)) throw new Error('非法路径')
+    const cfg = readOpenclawConfigOptional()
+    const targetAgentId = agent_id || agentId || 'main'
+    let full = null
+    if (category) {
+      full = path.join(resolveMemoryDir(cfg, targetAgentId, category), filePath)
+    } else {
+      full = resolveMemoryPathCandidates(cfg, targetAgentId, filePath).find(candidate => fs.existsSync(candidate)) ||
+        path.join(resolveMemoryDir(cfg, targetAgentId, 'memory'), filePath)
+    }
+    return {
+      path: full,
+      directory: path.dirname(full),
+      exists: fs.existsSync(full),
+    }
+  },
+
+  open_path({ path: targetPath, mode = 'file' }) {
+    if (!targetPath || String(targetPath).includes('\0')) throw new Error('非法路径')
+    const requested = path.resolve(String(targetPath))
+    let target = requested
+    if (mode === 'folder' && (!fs.existsSync(requested) || !fs.statSync(requested).isDirectory())) {
+      target = path.dirname(requested)
+    }
+    if (!fs.existsSync(target)) throw new Error(`路径不存在: ${target}`)
+
+    const platform = os.platform()
+    const command = platform === 'win32' ? 'explorer' : platform === 'darwin' ? 'open' : 'xdg-open'
+    const child = spawn(command, [target], { detached: true, stdio: 'ignore' })
+    child.unref()
+    return true
+  },
+
   write_memory_file({ path: filePath, content, category, agent_id, agentId }) {
     if (isUnsafePath(filePath)) throw new Error('非法路径')
     const cfg = readOpenclawConfigOptional()
@@ -11879,10 +11983,17 @@ const handlers = {
     return true
   },
 
-  delete_memory_file({ path: filePath, agent_id, agentId }) {
+  delete_memory_file({ path: filePath, agent_id, agentId, category }) {
     if (isUnsafePath(filePath)) throw new Error('非法路径')
     const cfg = readOpenclawConfigOptional()
     const targetAgentId = agent_id || agentId || 'main'
+    if (category) {
+      const catFull = path.join(resolveMemoryDir(cfg, targetAgentId, category), filePath)
+      if (fs.existsSync(catFull)) {
+        fs.unlinkSync(catFull)
+        return true
+      }
+    }
     const full = resolveMemoryPathCandidates(cfg, targetAgentId, filePath).find(candidate => fs.existsSync(candidate))
     if (!full) return true
     if (fs.existsSync(full)) fs.unlinkSync(full)
@@ -12640,8 +12751,15 @@ const handlers = {
 
     const agentDir = path.join(OPENCLAW_DIR, 'agents', name)
     const workspacePath = expandHomePath(workspace || null) || path.join(agentDir, 'workspace')
-    if (!fs.existsSync(agentDir)) fs.mkdirSync(agentDir, { recursive: true })
-    if (!fs.existsSync(workspacePath)) fs.mkdirSync(workspacePath, { recursive: true })
+    // Web 预览模式可能无法创建 ~/.openclaw/agents（例如受限沙箱或只读目录）。
+    // 工作区由 Agent 首次运行时再次尝试创建，不能让目录权限问题阻塞配置创建。
+    try {
+      if (!fs.existsSync(agentDir)) fs.mkdirSync(agentDir, { recursive: true })
+      if (!fs.existsSync(workspacePath)) fs.mkdirSync(workspacePath, { recursive: true })
+    } catch (err) {
+      if (!['EACCES', 'EPERM', 'EROFS'].includes(err?.code)) throw err
+      console.warn(`[dev-api] Agent 工作区暂时无法创建，将保留配置并稍后重试: ${workspacePath}`, err?.message || err)
+    }
 
     const entry = { id: name, workspace: workspacePath }
     if (model) entry.model = { primary: model }

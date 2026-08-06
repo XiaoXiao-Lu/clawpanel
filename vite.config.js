@@ -84,15 +84,7 @@ export default defineConfig({
     port: 1420,
     strictPort: true,
     watch: {
-      ignored: [
-        '**/src-tauri/target/**',
-        '**/dist/**',
-        '**/.tmp/**',
-        '**/reports/**',
-        '**/screenshots/**',
-        '**/*.exe',
-        '**/*.dll',
-      ],
+      ignored: ignoredWatchPath,
     },
     fs: {
       deny: ['src-tauri/target'],

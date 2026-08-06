@@ -1235,9 +1235,7 @@ async function backupAgent(id) {
   try {
     const zipPath = await api.backupAgent(id)
     try {
-      const { open } = await import('@tauri-apps/plugin-shell')
-      const dir = zipPath.substring(0, zipPath.lastIndexOf('/')) || zipPath
-      await open(dir)
+      await api.openPath(zipPath, 'folder')
     } catch { /* fallback */ }
     toast(t('agents.backupDone', { file: zipPath.split('/').pop() }), 'success')
   } catch (e) {

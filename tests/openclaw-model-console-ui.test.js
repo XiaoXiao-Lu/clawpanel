@@ -51,6 +51,15 @@ test('Provider tab switching scrolls the active provider fully into view', () =>
   assert.match(modelsPage, /scrollActiveProviderTabIntoView\(page\)/)
 })
 
+test('Remote model import keeps selected models in state before adding', () => {
+  assert.match(modelsPage, /const selectedIds = new Set\(\)/)
+  assert.match(modelsPage, /function getFilteredRemoteIds\(filter\)/)
+  assert.match(modelsPage, /if \(cb\.checked\) selectedIds\.add\(id\)/)
+  assert.match(modelsPage, /else selectedIds\.delete\(id\)/)
+  assert.match(modelsPage, /const selected = \[\.\.\.selectedIds\]\.filter\(id => !existingIds\.includes\(id\)\)/)
+  assert.doesNotMatch(modelsPage, /querySelectorAll\('\.remote-cb:checked'\)\.map/)
+})
+
 test('Model console styling preserves responsive commercial layout', () => {
   assert.match(cssBlock('.models-hero'), /display:\s*grid/)
   assert.match(cssBlock('.models-console-footer'), /border-top:\s*1px solid var\(--border-secondary\)/)

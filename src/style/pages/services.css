@@ -6,6 +6,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-md);
   padding: var(--space-lg);
   background: var(--bg-card);
   border: 1px solid var(--border-secondary);
@@ -24,12 +25,19 @@
   display: flex;
   align-items: center;
   gap: var(--space-md);
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.service-info > div {
+  min-width: 0;
 }
 
 .service-name {
   font-weight: 600;
   font-size: var(--font-size-md);
   color: var(--text-primary);
+  overflow-wrap: anywhere;
 }
 
 .service-name .proto-badge {
@@ -51,12 +59,59 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   margin-top: 2px;
+  overflow-wrap: anywhere;
 }
 
 .service-actions {
   display: flex;
   gap: var(--space-sm);
   align-items: center;
+  justify-content: flex-end;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.gateway-action-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.gateway-action-hint {
+  max-width: min(360px, 100%);
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.gateway-action-hint.muted {
+  color: var(--text-tertiary);
+}
+
+.gateway-action-hint.warning {
+  color: var(--warning);
+}
+
+.gateway-action-buttons {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.gateway-cli-command {
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  font-size: var(--font-size-xs);
+  user-select: all;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* 服务操作加载状态 */
@@ -679,7 +734,19 @@
     align-items: stretch;
   }
   .service-actions {
+    justify-content: flex-start;
     flex-wrap: wrap;
+  }
+  .gateway-action-stack {
+    align-items: stretch;
+    width: 100%;
+  }
+  .gateway-action-hint {
+    max-width: none;
+    text-align: left;
+  }
+  .gateway-action-buttons {
+    justify-content: flex-start;
   }
   .service-cancel-btn,
   .btn-icon,

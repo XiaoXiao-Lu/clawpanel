@@ -1100,7 +1100,10 @@ fn is_http_url(value: &str) -> bool {
 
 fn package_source_url(pkg: &Value) -> Option<String> {
     if let Some(repo) = pkg.get("repository") {
-        if let Some(url) = repo.as_str().or_else(|| repo.get("url").and_then(|v| v.as_str())) {
+        if let Some(url) = repo
+            .as_str()
+            .or_else(|| repo.get("url").and_then(|v| v.as_str()))
+        {
             if is_http_url(url) {
                 return Some(url.to_string());
             }
@@ -1124,7 +1127,9 @@ fn extract_first_external_url_from_file(path: &std::path::Path) -> Option<String
 }
 
 fn extract_first_external_url(content: &str) -> Option<String> {
-    let start = content.find("https://").or_else(|| content.find("http://"))?;
+    let start = content
+        .find("https://")
+        .or_else(|| content.find("http://"))?;
     let rest = &content[start..];
     let end = rest
         .find(|c: char| c.is_whitespace() || matches!(c, ')' | ']' | '"' | '\'' | '<' | '>'))

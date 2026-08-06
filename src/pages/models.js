@@ -213,6 +213,15 @@ export async function render() {
     }
   })
 
+  // 标签栏会在筛选和切换服务商时重绘，使用事件代理保证滚轮行为持续有效。
+  page.addEventListener('wheel', (event) => {
+    const providerTabs = event.target.closest?.('.models-provider-tabs')
+    if (!providerTabs || providerTabs.scrollWidth <= providerTabs.clientWidth) return
+    if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
+    event.preventDefault()
+    providerTabs.scrollLeft += event.deltaY
+  }, { passive: false })
+
   return page
 }
 
@@ -2504,7 +2513,9 @@ async function fetchRemoteModels(btn, page, state, providerKey) {
   btn.textContent = t('models.qtcoolFetching')
 
   try {
-    const remoteIds = await api.listRemoteModels(provider.baseUrl, provider.apiKey || '', provider.api || 'openai-completions')
+    const remoteIds = (await api.listRemoteModels(provider.baseUrl, provider.apiKey || '', provider.api || 'openai-completions'))
+      .map(id => String(id || '').trim())
+      .filter(Boolean)
     btn.disabled = false
     btn.classList.remove('btn-loading')
     btn.textContent = t('models.fetchList')
@@ -2535,17 +2546,22 @@ async function fetchRemoteModels(btn, page, state, providerKey) {
     const listEl = overlay.querySelector('#remote-model-list')
     const filterInput = overlay.querySelector('#remote-filter')
     const countEl = overlay.querySelector('#remote-selected-count')
+    const selectedIds = new Set()
+
+    function getFilteredRemoteIds(filter) {
+      const q = String(filter || '').toLowerCase()
+      return q ? remoteIds.filter(id => id.toLowerCase().includes(q)) : remoteIds
+    }
 
     function renderRemoteList(filter) {
-      const filtered = filter
-        ? remoteIds.filter(id => id.toLowerCase().includes(filter.toLowerCase()))
-        : remoteIds
+      const filtered = getFilteredRemoteIds(filter)
       listEl.innerHTML = filtered.map(id => {
         const exists = existingIds.includes(id)
+        const checked = selectedIds.has(id)
         return `
           <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--radius-sm);cursor:pointer;${exists ? 'opacity:0.5' : ''}">
-            <input type="checkbox" class="remote-cb" data-id="${id}" ${exists ? 'disabled' : ''}>
-            <span style="font-family:var(--font-mono);font-size:var(--font-size-sm)">${id}</span>
+            <input type="checkbox" class="remote-cb" data-id="${escapeHtml(id)}" ${checked ? 'checked' : ''} ${exists ? 'disabled' : ''}>
+            <span style="font-family:var(--font-mono);font-size:var(--font-size-sm)">${escapeHtml(id)}</span>
             ${exists ? `<span style="font-size:var(--font-size-xs);color:var(--text-tertiary)">(${t('models.alreadyAdded')})</span>` : ''}
           </label>`
       }).join('')
@@ -2553,19 +2569,29 @@ async function fetchRemoteModels(btn, page, state, providerKey) {
     }
 
     function updateCount() {
-      const n = listEl.querySelectorAll('.remote-cb:checked').length
-      countEl.textContent = t('models.remoteSelected', { count: n })
+      countEl.textContent = t('models.remoteSelected', { count: selectedIds.size })
     }
 
     renderRemoteList('')
     filterInput.oninput = () => renderRemoteList(filterInput.value.trim())
-    listEl.addEventListener('change', updateCount)
+    listEl.addEventListener('change', (e) => {
+      const cb = e.target.closest?.('.remote-cb')
+      if (!cb || cb.disabled) return
+      const id = cb.dataset.id
+      if (!id) return
+      if (cb.checked) selectedIds.add(id)
+      else selectedIds.delete(id)
+      updateCount()
+    })
 
     overlay.querySelector('#remote-toggle-all').onclick = () => {
-      const cbs = listEl.querySelectorAll('.remote-cb:not(:disabled)')
-      const allChecked = [...cbs].every(cb => cb.checked)
-      cbs.forEach(cb => { cb.checked = !allChecked })
-      updateCount()
+      const visibleIds = getFilteredRemoteIds(filterInput.value.trim()).filter(id => !existingIds.includes(id))
+      const allChecked = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id))
+      for (const id of visibleIds) {
+        if (allChecked) selectedIds.delete(id)
+        else selectedIds.add(id)
+      }
+      renderRemoteList(filterInput.value.trim())
     }
 
     // 点击遮罩关闭（带拖拽防误触）
@@ -2583,9 +2609,10 @@ async function fetchRemoteModels(btn, page, state, providerKey) {
   })
     overlay.querySelector('[data-action="cancel"]').onclick = () => overlay.remove()
     overlay.querySelector('[data-action="confirm"]').onclick = () => {
-      const selected = [...listEl.querySelectorAll('.remote-cb:checked')].map(cb => cb.dataset.id)
+      const selected = [...selectedIds].filter(id => !existingIds.includes(id))
       if (!selected.length) { toast(t('models.selectAtLeast'), 'warning'); return }
       pushUndo(state)
+      if (!Array.isArray(provider.models)) provider.models = []
       for (const id of selected) {
         provider.models.push({ id, input: ['text', 'image'] })
       }
