@@ -167,6 +167,16 @@ fn node_version_satisfies_clause(version: [u32; 3], clause: &str) -> bool {
             .map(|min| cmp_version_triplet(version, min).is_ge())
             .unwrap_or(false);
     }
+    if let Some(raw) = clause.strip_prefix("<=") {
+        return parse_node_version_triplet(raw)
+            .map(|max| cmp_version_triplet(version, max).is_le())
+            .unwrap_or(false);
+    }
+    if let Some(raw) = clause.strip_prefix('<') {
+        return parse_node_version_triplet(raw)
+            .map(|max| cmp_version_triplet(version, max).is_lt())
+            .unwrap_or(false);
+    }
     if let Some(raw) = clause.strip_prefix('>') {
         return parse_node_version_triplet(raw)
             .map(|min| cmp_version_triplet(version, min).is_gt())
@@ -7784,5 +7794,15 @@ mod write_openclaw_config_merge_tests {
             "v24.1.0",
             "^22.19.0 || >=24.0.0"
         ));
+    }
+
+    #[test]
+    fn node_requirement_supports_upper_bounds() {
+        let requirement = ">=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0";
+        assert!(!node_version_satisfies_requirement("v22.22.2", requirement));
+        assert!(node_version_satisfies_requirement("v22.22.3", requirement));
+        assert!(node_version_satisfies_requirement("v24.16.0", requirement));
+        assert!(!node_version_satisfies_requirement("v25.0.0", requirement));
+        assert!(node_version_satisfies_requirement("v25.9.0", requirement));
     }
 }
