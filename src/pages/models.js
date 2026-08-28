@@ -753,9 +753,9 @@ function renderHero(page, state) {
     _globalPrimaryCombo.setModels(items)
     if (primary) _globalPrimaryCombo.setValue(primary)
     const currentSampling = getSamplingConfig(state.config)
-    const tempInput = existing.querySelector('#models-temperature')
-    const topPInput = existing.querySelector('#models-top-p')
-    const topKInput = existing.querySelector('#models-top-k')
+    const tempInput = container.querySelector('#models-temperature')
+    const topPInput = container.querySelector('#models-top-p')
+    const topKInput = container.querySelector('#models-top-k')
     if (tempInput) tempInput.value = currentSampling.temperature ?? ''
     if (topPInput) topPInput.value = currentSampling.top_p ?? ''
     if (topKInput) topKInput.value = currentSampling.top_k ?? ''
