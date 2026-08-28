@@ -36,7 +36,7 @@ test('OpenClaw model page preserves JSON-edited fallback entries during normaliz
           ],
         },
         models: {
-          'manual-provider/manual-fallback': { temperature: 0.2 },
+          'manual-provider/manual-fallback': { params: { temperature: 0.2 } },
         },
       },
     },
@@ -49,7 +49,7 @@ test('OpenClaw model page preserves JSON-edited fallback entries during normaliz
     'manual-provider/manual-fallback',
     'openrouter/anthropic/claude-sonnet-4-6',
   ])
-  assert.deepEqual(config.agents.defaults.models['manual-provider/manual-fallback'], { temperature: 0.2 })
+  assert.deepEqual(config.agents.defaults.models['manual-provider/manual-fallback'], { params: { temperature: 0.2 } })
   assert.deepEqual(config.agents.defaults.models['manual-provider/manual-primary'], {})
 })
 
@@ -190,8 +190,19 @@ test('OpenClaw sampling settings stay unset until explicitly filled', () => {
   assert.deepEqual(config.agents.defaults.models, {})
 
   applySamplingConfig(config, { temperature: 0, top_p: 0, top_k: 12 })
-  assert.deepEqual(config.agents.defaults.models['openai/gpt-4o'], { temperature: 0, top_p: 0, top_k: 12 })
+  assert.deepEqual(config.agents.defaults.models['openai/gpt-4o'], { params: { temperature: 0, top_p: 0, top_k: 12 } })
 
   applySamplingConfig(config, { temperature: undefined, top_p: undefined, top_k: 0 })
   assert.deepEqual(config.agents.defaults.models, {})
+})
+
+test('OpenClaw sampling settings migrate legacy top-level fields into params', () => {
+  const config = {
+    models: { providers: { openai: { models: [{ id: 'gpt-4o' }] } } },
+    agents: { defaults: { models: { 'openai/gpt-4o': { alias: 'primary', temperature: 0.4, top_p: 0.8 } } } },
+  }
+
+  assert.deepEqual(getSamplingConfig(config), { temperature: 0.4, top_p: 0.8, top_k: undefined })
+  applySamplingConfig(config, { temperature: undefined, top_p: undefined, top_k: 0 })
+  assert.deepEqual(config.agents.defaults.models['openai/gpt-4o'], { alias: 'primary' })
 })

@@ -306,7 +306,7 @@ function ensureConfigDefaultModelConfig(config) {
 export function getSamplingConfig(config) {
   const models = config?.agents?.defaults?.models || {}
   const entries = Object.values(models).filter(v => v && typeof v === 'object')
-  const firstDefined = key => entries.find(v => v[key] !== undefined)?.[key]
+  const firstDefined = key => entries.find(v => v.params?.[key] !== undefined || v[key] !== undefined)?.params?.[key] ?? entries.find(v => v[key] !== undefined)?.[key]
   return {
     temperature: firstDefined('temperature'),
     top_p: firstDefined('top_p'),
@@ -329,12 +329,20 @@ export function applySamplingConfig(config, values) {
   for (const key of modelKeys) {
     const current = config.agents.defaults.models[key] && typeof config.agents.defaults.models[key] === 'object' ? config.agents.defaults.models[key] : {}
     const next = { ...current }
-    if (values.temperature === undefined) delete next.temperature
-    else next.temperature = values.temperature
-    if (values.top_p === undefined) delete next.top_p
-    else next.top_p = values.top_p
-    if (values.top_k > 0) next.top_k = values.top_k
-    else delete next.top_k
+    const params = { ...(current.params && typeof current.params === 'object' ? current.params : {}) }
+    // Migrate legacy top-level sampling fields while saving the supported params shape.
+    for (const key of ['temperature', 'top_p', 'top_k']) {
+      if (next[key] !== undefined && params[key] === undefined) params[key] = next[key]
+      delete next[key]
+    }
+    if (values.temperature === undefined) delete params.temperature
+    else params.temperature = values.temperature
+    if (values.top_p === undefined) delete params.top_p
+    else params.top_p = values.top_p
+    if (values.top_k > 0) params.top_k = values.top_k
+    else delete params.top_k
+    if (Object.keys(params).length > 0) next.params = params
+    else delete next.params
     if (Object.keys(next).length > 0) config.agents.defaults.models[key] = next
     else delete config.agents.defaults.models[key]
   }
