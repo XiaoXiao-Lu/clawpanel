@@ -5450,6 +5450,17 @@ fn optional_hermes_model_i64_field(
     }
 }
 
+fn optional_hermes_model_f64_field(form: &Value, form_key: &str, yaml_key_name: &str, current: &Value, min: f64, max: f64) -> Result<Option<f64>, String> {
+    let raw = if let Some(value) = form.get(form_key) {
+        if value.is_null() { None } else if let Some(text) = value.as_str() {
+            let text = text.trim(); if text.is_empty() { None } else { Some(text.parse::<f64>().map_err(|_| format!("{yaml_key_name} 必须是数字"))?) }
+        } else { value.as_f64() }
+    } else if let Some(value) = current.as_f64() { Some(value) } else if let Some(text) = current.as_str() {
+        let text = text.trim(); if text.is_empty() { None } else { Some(text.parse::<f64>().map_err(|_| format!("{yaml_key_name} 必须是数字"))?) }
+    } else { None };
+    match raw { Some(value) if value.is_finite() && value >= min && value <= max => Ok(Some(value)), Some(_) => Err(format!("{yaml_key_name} 必须在 {min}-{max} 范围内")), None => Ok(None) }
+}
+
 fn build_hermes_model_config_values(config: &serde_yaml::Value) -> Value {
     let root = config.as_mapping();
     let model = root
@@ -5486,6 +5497,9 @@ fn build_hermes_model_config_values(config: &serde_yaml::Value) -> Value {
         .filter(|value| *value > 0)
         .map(|value| value.to_string())
         .unwrap_or_default();
+    let temperature = model.and_then(|map| map.get(yaml_key("temperature"))).and_then(|value| value.as_f64());
+    let top_p = model.and_then(|map| map.get(yaml_key("top_p"))).and_then(|value| value.as_f64());
+    let top_k = model.and_then(|map| yaml_i64_field(map, "top_k")).filter(|value| *value > 0);
 
     serde_json::json!({
         "modelDefault": model_default,
@@ -5493,6 +5507,9 @@ fn build_hermes_model_config_values(config: &serde_yaml::Value) -> Value {
         "modelBaseUrl": base_url,
         "modelContextLength": context_length,
         "modelMaxTokens": max_tokens,
+        "modelTemperature": temperature.map(|v| v.to_string()).unwrap_or_default(),
+        "modelTopP": top_p.map(|v| v.to_string()).unwrap_or_default(),
+        "modelTopK": top_k.map(|v| v.to_string()).unwrap_or_default(),
     })
 }
 
@@ -5540,6 +5557,9 @@ fn merge_hermes_model_config(config: &mut serde_yaml::Value, form: &Value) -> Re
         "model.max_tokens",
         &current["modelMaxTokens"],
     )?;
+    let temperature = optional_hermes_model_f64_field(form, "modelTemperature", "model.temperature", &current["modelTemperature"], 0.0, 2.0)?;
+    let top_p = optional_hermes_model_f64_field(form, "modelTopP", "model.top_p", &current["modelTopP"], 0.0, 1.0)?;
+    let top_k = optional_hermes_model_i64_field(form, "modelTopK", "model.top_k", &current["modelTopK"])?;
 
     let root = ensure_yaml_object(config)?;
     let mut model = root
@@ -5573,6 +5593,9 @@ fn merge_hermes_model_config(config: &mut serde_yaml::Value, form: &Value) -> Re
     } else {
         model.remove(yaml_key("max_tokens"));
     }
+    if let Some(value) = temperature { model.insert(yaml_key("temperature"), serde_yaml::to_value(value).unwrap()); } else { model.remove(yaml_key("temperature")); }
+    if let Some(value) = top_p { model.insert(yaml_key("top_p"), serde_yaml::to_value(value).unwrap()); } else { model.remove(yaml_key("top_p")); }
+    if let Some(value) = top_k { model.insert(yaml_key("top_k"), serde_yaml::Value::Number(value.into())); } else { model.remove(yaml_key("top_k")); }
     model.remove(yaml_key("model"));
     root.insert(yaml_key("model"), serde_yaml::Value::Mapping(model));
     Ok(())

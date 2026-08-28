@@ -58,6 +58,27 @@ test('多账号渠道从账号行编辑且不会重复渲染平台级默认账�
   assert.match(channelsPageSource, /const saveAccountId = isNewAccount \? enteredAccountId : \(accountId \|\| null\)/)
 })
 
+test('微信已接入卡片同时提供扫码登录和编辑入口', () => {
+  assert.match(channelsPageSource, /data-action="weixin-login"/)
+  assert.match(channelsPageSource, /reg \? `<button class="btn btn-sm btn-secondary" data-action="edit"/)
+  assert.match(channelsPageSource, /data-action="weixin-login".*openConfigDialog\(pid, page, state\)/s)
+})
+
+test('渠道编辑会回显并替换已有的平台级 Agent 绑定', () => {
+  assert.match(channelsPageSource, /const existingPlatformBindings = \(state\.bindings \|\| \[\]\)\.filter\(binding =>/)
+  assert.match(channelsPageSource, /const selectedAgentId = existingPlatformBindings\[0\]\?\.agentId \|\| ''/)
+  assert.match(channelsPageSource, /const isSelected = selectedAgentId \? a\.id === selectedAgentId : a === agents\[0\]/)
+  assert.match(channelsPageSource, /await api\.saveAgentBinding\(saveAgentId, channelKey, saveAccountId, \{\}\)/)
+  assert.match(channelsPageSource, /await api\.deleteAgentBinding\(previousAgentId, channelKey, saveAccountId, \{\}\)/)
+})
+
+test('action-only 渠道编辑弹窗提供 Agent 选择和保存入口', () => {
+  assert.match(channelsPageSource, /const actionAgentOptions = actionAgents\.map\(agent =>/)
+  assert.match(channelsPageSource, /id="action-agent-id"/)
+  assert.match(channelsPageSource, /id="btn-action-save-agent"/)
+  assert.match(channelsPageSource, /api\.saveAgentBinding\(saveAgentId, actionChannelKey, accountId \|\| null, \{\}\)/)
+})
+
 test('平台操作菜单新增账号会进入新增账号模式', () => {
   assert.match(channelsPageSource, /onClick:\s*\(\) => openConfigDialog\(pid,\s*page,\s*state,\s*'',\s*true\)/)
 })

@@ -9,6 +9,8 @@ import {
   normalizeMaxConcurrent,
   normalizeDefaultModelSelection,
   rotateFallbackChain,
+  getSamplingConfig,
+  applySamplingConfig,
 } from '../src/pages/models.js'
 
 const modelsPageSource = readFileSync(new URL('../src/pages/models.js', import.meta.url), 'utf8')
@@ -175,4 +177,21 @@ test('OpenClaw provider tabs keep provider actions outside the horizontal scroll
   assert.match(tabsRule, /min-width:\s*0/)
   assert.match(actionsRule, /flex:\s*0 0 auto/)
   assert.doesNotMatch(actionsRule, /position:\s*sticky/)
+})
+
+test('OpenClaw sampling settings stay unset until explicitly filled', () => {
+  const config = {
+    models: { providers: { openai: { models: [{ id: 'gpt-4o' }] } } },
+    agents: { defaults: { models: {} } },
+  }
+
+  assert.deepEqual(getSamplingConfig(config), { temperature: undefined, top_p: undefined, top_k: undefined })
+  applySamplingConfig(config, { temperature: undefined, top_p: undefined, top_k: 0 })
+  assert.deepEqual(config.agents.defaults.models, {})
+
+  applySamplingConfig(config, { temperature: 0, top_p: 0, top_k: 12 })
+  assert.deepEqual(config.agents.defaults.models['openai/gpt-4o'], { temperature: 0, top_p: 0, top_k: 12 })
+
+  applySamplingConfig(config, { temperature: undefined, top_p: undefined, top_k: 0 })
+  assert.deepEqual(config.agents.defaults.models, {})
 })

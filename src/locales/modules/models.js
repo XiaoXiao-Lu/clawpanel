@@ -2,6 +2,9 @@ import { _ } from '../helper.js'
 
 export default {
   title: _('模型配置', 'Models', '模型設定', 'モデル設定', '모델 설정', 'Cấu hình mô hình', 'Configuración de modelos', 'Configuração de modelos', 'Настройка моделей', 'Configuration des modèles', 'Modell-Konfiguration'),
+  temperature: _('温度', 'Temperature', '溫度'),
+  topP: _('Top-p', 'Top-p', 'Top-p'),
+  topK: _('Top-k', 'Top-k', 'Top-k'),
   desc: _('添加 AI 模型服务商，配置可用模型', 'Add AI model providers, configure available models', '新增 AI 模型服務商，設定可用模型', 'AI モデルプロバイダーとモデルの管理', 'AI 모델 프로바이더 및 모델 관리', 'Quản lý nhà cung cấp và mô hình AI', 'Gestionar proveedores y modelos de IA', 'Gerenciar provedores e modelos de IA', 'Управление провайдерами и моделями ИИ', 'Gérer les fournisseurs et modèles IA', 'KI-Anbieter und Modelle verwalten'),
   addProvider: _('+ 添加服务商', '+ Add Provider', '+ 新增服務商', '+ プロバイダー追加', '+ 프로바이더 추가', '+ Thêm nhà cung cấp', '+ Agregar proveedor', '+ Adicionar provedor', '+ Добавить провайдера', '+ Ajouter un fournisseur', '+ Anbieter hinzufügen'),
   importClientConfigs: _('导入客户端配置', 'Import Client Configs', '匯入用戶端設定'),

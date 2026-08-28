@@ -1572,29 +1572,19 @@ async function buildProviderMessages(messages, base = '') {
 // ── 灵魂移植：扫描可用 Agent ──
 async function scanOpenClawAgents() {
   try {
-    const sysInfo = await api.assistantSystemInfo()
-    const home = sysInfo.match(/主目录[:：]\s*(.+)/)?.[1]?.trim() || sysInfo.match(/Home[:：]\s*(.+)/)?.[1]?.trim() || ''
-    if (!home) return []
-    const agents = []
-    // 默认主工作区始终存在于 ~/.openclaw/workspace
-    let defaultExists = false
-    try { await api.assistantListDir(home + '/.openclaw/workspace'); defaultExists = true } catch {}
-    agents.push({ id: 'default', label: '默认 (主工作区)', hasWorkspace: defaultExists })
-    // 扫描自定义 Agent
-    try {
-      const agentsDir = home + '/.openclaw/agents'
-      const listing = await api.assistantListDir(agentsDir)
-      const dirs = listing.split('\n').filter(l => l.includes('[DIR]'))
-        .map(l => l.replace(/^\[DIR\]\s*/, '').replace(/[\/\\]+$/, '').trim()).filter(Boolean)
-      for (const id of dirs) {
-        if (id === 'main') continue // main 就是默认，已在上面添加
-        const wsPath = agentsDir + '/' + id + '/workspace'
-        let hasWorkspace = false
-        try { await api.assistantListDir(wsPath); hasWorkspace = true } catch {}
-        agents.push({ id, label: id, hasWorkspace })
+    const configuredAgents = await api.listAgents()
+    if (!Array.isArray(configuredAgents)) return []
+    return Promise.all(configuredAgents.map(async agent => {
+      const id = agent?.id || 'main'
+      const info = await api.getAgentWorkspaceInfo(id).catch(() => null)
+      return {
+        id: id === 'main' ? 'default' : id,
+        agentId: id,
+        label: id === 'main' ? '默认 (主工作区)' : (agent.identityName || agent.name || id),
+        workspacePath: info?.workspacePath || agent.workspace || '',
+        hasWorkspace: info?.exists === true,
       }
-    } catch {}
-    return agents
+    }))
   } catch (err) {
     logAssistantIssue('[soul] 扫描 Agent 失败', err)
     return []
@@ -1604,24 +1594,17 @@ async function scanOpenClawAgents() {
 // ── 灵魂移植：加载指定 Agent 的身份 ──
 async function loadOpenClawSoul(agentId = 'default') {
   try {
-    const sysInfo = await api.assistantSystemInfo()
-    const home = sysInfo.match(/主目录[:：]\s*(.+)/)?.[1]?.trim() || sysInfo.match(/Home[:：]\s*(.+)/)?.[1]?.trim() || ''
-    if (!home) throw new Error(t('assistant.errHomeUnavailable'))
-    // default/main 使用 ~/.openclaw/workspace，其他使用 agents/{id}/workspace
-    let ws
-    if (agentId === 'default' || agentId === 'main') {
-      ws = home + '/.openclaw/workspace'
-    } else {
-      ws = home + '/.openclaw/agents/' + agentId + '/workspace'
+    const resolvedAgentId = agentId === 'default' ? 'main' : agentId
+    const workspaceInfo = await api.getAgentWorkspaceInfo(resolvedAgentId)
+    const ws = workspaceInfo?.workspacePath?.trim() || ''
+    if (!ws || workspaceInfo?.exists !== true) {
+      throw new Error(t('assistant.errWorkspaceMissing', { agentId: resolvedAgentId }))
     }
-    let wsExists = false
-    try { await api.assistantListDir(ws); wsExists = true } catch {}
-    if (!wsExists) throw new Error(t('assistant.errWorkspaceMissing', { agentId }))
 
     const readSafe = async (p) => { try { return await api.assistantReadFile(p) } catch { return null } }
 
     const soul = {
-      agentId,
+      agentId: resolvedAgentId,
       identity: await readSafe(ws + '/IDENTITY.md'),
       soul: await readSafe(ws + '/SOUL.md'),
       user: await readSafe(ws + '/USER.md'),
@@ -2684,10 +2667,12 @@ function loadConfig() {
     _config = raw ? JSON.parse(raw) : null
   } catch { _config = null }
   if (!_config) {
-    _config = { baseUrl: '', apiKey: '', model: '', temperature: 0.7, tools: { terminal: false, fileOps: false, webSearch: false }, assistantName: DEFAULT_NAME, assistantPersonality: DEFAULT_PERSONALITY }
+    _config = { baseUrl: '', apiKey: '', model: '', temperature: 0.7, topP: 1, topK: 0, tools: { terminal: false, fileOps: false, webSearch: false }, assistantName: DEFAULT_NAME, assistantPersonality: DEFAULT_PERSONALITY }
   }
   if (!_config.assistantName) _config.assistantName = DEFAULT_NAME
   if (!_config.assistantPersonality) _config.assistantPersonality = DEFAULT_PERSONALITY
+  if (_config.topP === undefined) _config.topP = 1
+  if (_config.topK === undefined) _config.topK = 0
   if (!_config.tools) _config.tools = { terminal: false, fileOps: false, webSearch: false }
   if (!_config.mode) _config.mode = DEFAULT_MODE
   _config.apiType = normalizeApiType(_config.apiType)
@@ -3328,7 +3313,9 @@ async function callAIWithTools(messages, onStatus, onToolProgress, onChunk) {
       model: _config.model,
       messages: history,
       stream: true,
-      temperature: _config.temperature || 0.7,
+      temperature: _config.temperature ?? 0.7,
+      top_p: _config.topP ?? 1,
+      top_k: _config.topK > 0 ? _config.topK : undefined,
     }
     if (tools.length > 0) {
       body.tools = tools
@@ -3532,7 +3519,9 @@ async function callChatCompletions(base, messages, onChunk) {
     model: _config.model,
     messages,
     stream: true,
-    temperature: _config.temperature || 0.7,
+    temperature: _config.temperature ?? 0.7,
+    top_p: _config.topP ?? 1,
+    top_k: _config.topK > 0 ? _config.topK : undefined,
   }
   applyDeepSeekChatOptions(body, { deepseek })
 
@@ -3644,7 +3633,9 @@ async function callResponsesAPI(base, messages, onChunk) {
     input,
     instructions,
     stream: true,
-    temperature: _config.temperature || 0.7,
+    temperature: _config.temperature ?? 0.7,
+    top_p: _config.topP ?? 1,
+    top_k: _config.topK > 0 ? _config.topK : undefined,
   }
 
   const resp = await fetchWithRetry(url, {
@@ -3689,7 +3680,9 @@ async function callAnthropicMessages(base, messages, onChunk) {
     model: _config.model,
     max_tokens: 8192,
     stream: true,
-    temperature: _config.temperature || 0.7,
+    temperature: _config.temperature ?? 0.7,
+    top_p: _config.topP ?? 1,
+    top_k: _config.topK > 0 ? _config.topK : undefined,
   }
   if (systemMsg) body.system = systemMsg
   body.messages = chatMessages
@@ -3767,7 +3760,7 @@ async function callGeminiGenerate(base, messages, onChunk) {
 
   const body = {
     contents,
-    generationConfig: { temperature: _config.temperature || 0.7 },
+    generationConfig: { temperature: _config.temperature ?? 0.7, topP: _config.topP ?? 1, ...(Number(_config.topK) > 0 ? { topK: Number(_config.topK) } : {}) },
   }
   if (systemMsg) {
     body.systemInstruction = { parts: [{ text: systemMsg }] }
@@ -4488,7 +4481,15 @@ function showSettings() {
             </div>
             <div class="form-group" style="width:80px">
               <label class="form-label">${t('assistant.temperature')}</label>
-              <input class="form-input" id="ast-temp" type="number" value="${c.temperature || 0.7}" min="0" max="2" step="0.1">
+              <input class="form-input" id="ast-temp" type="number" value="${c.temperature ?? 0.7}" min="0" max="2" step="0.1">
+            </div>
+            <div class="form-group" style="width:80px">
+              <label class="form-label">${t('assistant.topP')}</label>
+              <input class="form-input" id="ast-top-p" type="number" value="${c.topP ?? 1}" min="0" max="1" step="0.05">
+            </div>
+            <div class="form-group" style="width:80px">
+              <label class="form-label">${t('assistant.topK')}</label>
+              <input class="form-input" id="ast-top-k" type="number" value="${c.topK > 0 ? c.topK : 0}" min="0" max="1000" step="1">
             </div>
           </div>
           <div class="form-hint" id="ast-api-hint" style="margin-top:-4px">${apiHintText(c.apiType)}</div>
@@ -5548,6 +5549,8 @@ function showSettings() {
     _config.apiKey = overlay.querySelector('#ast-apikey').value.trim()
     _config.model = overlay.querySelector('#ast-model').value.trim()
     _config.temperature = parseFloat(overlay.querySelector('#ast-temp').value) || 0.7
+    _config.topP = Math.min(1, Math.max(0, parseFloat(overlay.querySelector('#ast-top-p').value) || 1))
+    _config.topK = Math.max(0, parseInt(overlay.querySelector('#ast-top-k').value, 10) || 0)
     _config.apiType = normalizeApiType(overlay.querySelector('#ast-apitype').value || 'openai-completions')
     // 工具开关
     _config.tools.terminal = overlay.querySelector('#ast-tool-terminal').checked

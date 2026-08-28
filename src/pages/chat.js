@@ -3857,8 +3857,8 @@ async function callHostedAI(messages, onChunk) {
   try {
     const raw = localStorage.getItem('clawpanel-assistant')
     const stored = raw ? JSON.parse(raw) : {}
-    config = { baseUrl: stored.baseUrl || '', apiKey: stored.apiKey || '', model: stored.model || '', temperature: stored.temperature || 0.7, apiType: stored.apiType || 'openai-completions' }
-  } catch { config = { baseUrl: '', apiKey: '', model: '', temperature: 0.7, apiType: 'openai-completions' } }
+    config = { baseUrl: stored.baseUrl || '', apiKey: stored.apiKey || '', model: stored.model || '', temperature: stored.temperature ?? 0.7, topP: stored.topP ?? 1, topK: stored.topK || 0, apiType: stored.apiType || 'openai-completions' }
+  } catch { config = { baseUrl: '', apiKey: '', model: '', temperature: 0.7, topP: 1, topK: 0, apiType: 'openai-completions' } }
 
   if (!config.baseUrl || !config.model) throw new Error(t('chat.hostedModelNotConfigured'))
 
@@ -3877,7 +3877,9 @@ async function callHostedAI(messages, onChunk) {
       model: config.model,
       messages: deepseek ? sanitizeHostedDeepSeekMessages(messages) : messages,
       stream: true,
-      temperature: config.temperature || 0.7,
+      temperature: config.temperature ?? 0.7,
+      top_p: config.topP ?? 1,
+      top_k: config.topK > 0 ? config.topK : undefined,
     }
     if (deepseek) body.stream_options = { include_usage: true }
     const resp = await fetch(base + '/chat/completions', { method: 'POST', headers, body: JSON.stringify(body), signal })

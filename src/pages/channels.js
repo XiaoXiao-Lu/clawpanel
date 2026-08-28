@@ -1139,7 +1139,7 @@ function renderRuntimeActions(summary, accountId = '', pid = '', options = {}) {
   if (isPluginManagedRuntimeChannel(pid)) {
     return `
       <button class="btn btn-sm btn-secondary" data-runtime-action="refresh" data-account-id="${escapeAttr(accountId || '')}" title="${t('channels.runtimeRefreshTitle')}" aria-label="${t('channels.runtimeRefreshTitle')}">${icon('refresh-cw', 14)} ${t('channels.runtimeRefreshShort')}</button>
-      <button class="btn btn-sm btn-secondary" data-action="edit" aria-label="${t('channels.weixinLogin')}">${icon('qr-code', 14)} ${t('channels.weixinLogin')}</button>
+      <button class="btn btn-sm btn-secondary" data-action="weixin-login" aria-label="${t('channels.weixinLogin')}">${icon('qr-code', 14)} ${t('channels.weixinLogin')}</button>
     `
   }
   if (!summary.supported) {
@@ -1311,7 +1311,7 @@ function renderConfigured(page, state) {
               <div class="platform-card-actions">
                 ${renderRuntimeActions(runtimeSummary, '', p.id)}
                 ${supportsMulti ? `<button class="btn btn-sm btn-secondary" data-action="add-account">${icon('plus', 14)} ${t('channels.addAccount')}</button>` : ''}
-                ${reg && !isPluginManagedRuntimeChannel(p.id) ? `<button class="btn btn-sm btn-secondary" data-action="edit">${icon('edit', 14)} ${t('channels.editAccount')}</button>` : (!reg ? `<span class="form-hint" style="align-self:center">${t('channels.noGuide')}</span>` : '')}
+                ${reg ? `<button class="btn btn-sm btn-secondary" data-action="edit">${icon('edit', 14)} ${t('channels.editAccount')}</button>` : `<span class="form-hint" style="align-self:center">${t('channels.noGuide')}</span>`}
                 <button class="btn btn-sm btn-secondary" data-action="toggle">${p.enabled ? icon('pause', 14) + ' ' + t('channels.disable') : icon('play', 14) + ' ' + t('channels.enable')}</button>
                 <button class="btn btn-sm btn-danger" data-action="remove" aria-label="${escapeAttr(t('channels.removePlatformBtn'))}" title="${escapeAttr(t('channels.removePlatformBtn'))}">${icon('trash', 14)}</button>
               </div>
@@ -1533,6 +1533,7 @@ function renderConfigured(page, state) {
 
     card.querySelector('[data-action="add-account"]')?.addEventListener('click', () => openConfigDialog(pid, page, state, '', true))
     card.querySelector('[data-action="edit"]')?.addEventListener('click', () => openConfigDialog(pid, page, state))
+    card.querySelector('[data-action="weixin-login"]')?.addEventListener('click', () => openConfigDialog(pid, page, state))
     card.querySelectorAll('[data-runtime-action]').forEach(btn => {
       btn.addEventListener('click', () => {
         handleRuntimeAction(pid, btn.dataset.runtimeAction, btn.dataset.accountId || '', btn, page, state)
@@ -2357,9 +2358,35 @@ async function openConfigDialog(pid, page, state, accountId, isNewAccount = fals
         <div id="channel-action-result" style="margin-top:10px"></div>
       </div>` : ''
 
+    let actionAgents = []
+    try { actionAgents = await api.listAgents() } catch {}
+    const actionChannelKey = getChannelBindingKey(pid)
+    const actionAccountKey = accountId || ''
+    const actionExistingBindings = (state.bindings || []).filter(binding => {
+      const match = binding.match || {}
+      return match.channel === actionChannelKey &&
+        (match.accountId || '') === actionAccountKey &&
+        !match.peer
+    })
+    const actionSelectedAgentId = actionExistingBindings[0]?.agentId || ''
+    const actionAgentOptions = actionAgents.map(agent => {
+      const isSelected = actionSelectedAgentId ? agent.id === actionSelectedAgentId : agent === actionAgents[0]
+      const label = agent.identityName ? agent.identityName.split(',')[0].trim() : agent.id
+      return `<option value="${escapeAttr(agent.id)}" ${isSelected ? 'selected' : ''}>${escapeAttr(agent.id)}${agent.id !== label ? ' — ' + escapeAttr(label) : ''}</option>`
+    }).join('')
+    const actionAgentHtml = actionAgents.length ? `
+      <div style="padding:12px 14px;background:var(--bg-tertiary);border-radius:var(--radius-md);margin-bottom:var(--space-sm)">
+        <div style="font-weight:600;font-size:var(--font-size-sm);margin-bottom:8px">${t('channels.bindAgent')}</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select class="form-input" id="action-agent-id" style="flex:1">${actionAgentOptions}</select>
+          <button type="button" class="btn btn-sm btn-primary" id="btn-action-save-agent">${t('channels.save')}</button>
+        </div>
+        <div class="form-hint" style="margin-top:6px">${t('channels.bindAgentHint')}</div>
+      </div>` : ''
+
     const modal = showContentModal({
       title: `${reg.label} ${t('channels.setup')}`,
-      content: actionOnlyGuide + pluginStatusHtml + manualCommandHtml + actionOnlyBtns,
+      content: actionOnlyGuide + pluginStatusHtml + manualCommandHtml + actionAgentHtml + actionOnlyBtns,
       buttons: [
         { label: t('channels.close'), className: 'btn btn-secondary', id: 'btn-close' },
       ],
@@ -2367,6 +2394,25 @@ async function openConfigDialog(pid, page, state, accountId, isNewAccount = fals
     })
     bindManualCommandCopy(modal, manualCommandSpecs)
     modal.querySelector('#btn-close')?.addEventListener('click', () => modal.close?.() || modal.remove?.())
+    modal.querySelector('#btn-action-save-agent')?.addEventListener('click', async (event) => {
+      const btn = event.currentTarget
+      const saveAgentId = modal.querySelector('#action-agent-id')?.value?.trim() || 'main'
+      const previousAgentIds = new Set(actionExistingBindings.map(binding => binding.agentId || 'main'))
+      previousAgentIds.delete(saveAgentId)
+      btn.disabled = true
+      try {
+        await api.saveAgentBinding(saveAgentId, actionChannelKey, accountId || null, {})
+        for (const previousAgentId of previousAgentIds) {
+          await api.deleteAgentBinding(previousAgentId, actionChannelKey, accountId || null, {})
+        }
+        toast(t('channels.bindingSaved'), 'success')
+        await loadPlatforms(page, state)
+      } catch (e) {
+        toast(humanizeError(e, t('channels.saveFailed')), 'error')
+      } finally {
+        btn.disabled = false
+      }
+    })
     modal.addEventListener('click', (e) => {
       const a = e.target.closest('a[href]')
       if (!a) return
@@ -2625,12 +2671,21 @@ async function openConfigDialog(pid, page, state, accountId, isNewAccount = fals
     </div>
   ` : ''
 
+  const bindingChannelKey = getChannelBindingKey(pid)
+  const bindingAccountKey = accountId || ''
+  const existingPlatformBindings = (state.bindings || []).filter(binding => {
+    const match = binding.match || {}
+    return match.channel === bindingChannelKey &&
+      (match.accountId || '') === bindingAccountKey &&
+      !match.peer
+  })
+  const selectedAgentId = existingPlatformBindings[0]?.agentId || ''
+
   // Agent 绑定选择（一个 channel+accountId 可以绑定到多个不同 agent）
   const agentOptions = agents.map(a => {
     const label = a.identityName ? a.identityName.split(',')[0].trim() : a.id
-    // 默认预选第一个 agent，不依赖当前 binding
-    const isFirst = a === agents[0]
-    return `<option value="${escapeAttr(a.id)}" ${isFirst ? 'selected' : ''}>${a.id}${a.id !== label ? ' — ' + escapeAttr(label) : ''}</option>`
+    const isSelected = selectedAgentId ? a.id === selectedAgentId : a === agents[0]
+    return `<option value="${escapeAttr(a.id)}" ${isSelected ? 'selected' : ''}>${a.id}${a.id !== label ? ' — ' + escapeAttr(label) : ''}</option>`
   }).join('')
   const agentBindingHtml = `
     <div class="form-group">
@@ -3143,9 +3198,14 @@ async function openConfigDialog(pid, page, state, accountId, isNewAccount = fals
       const saveAgentId = modal.querySelector('select[name="__agentId"]')?.value?.trim() || 'main'
       await api.saveMessagingPlatform(pid, form, saveAccountId, null)
 
-      // 为该 channel + accountId 创建/更新 agent 绑定
+      // 为该 channel + accountId 创建/更新 agent 绑定，并清理编辑前的旧平台级绑定。
       const channelKey = getChannelBindingKey(pid)
       await api.saveAgentBinding(saveAgentId, channelKey, saveAccountId, {})
+      const previousAgentIds = new Set(existingPlatformBindings.map(binding => binding.agentId || 'main'))
+      previousAgentIds.delete(saveAgentId)
+      for (const previousAgentId of previousAgentIds) {
+        await api.deleteAgentBinding(previousAgentId, channelKey, saveAccountId, {})
+      }
 
       toast(t('channels.configSaved', { platform: reg.label }), 'success')
       modal.close?.() || modal.remove?.()

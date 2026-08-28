@@ -5553,9 +5553,8 @@ async fn reload_gateway_via_http() -> Result<String, String> {
     Err("Gateway HTTP 重载不可用".to_string())
 }
 
-/// 重载 Gateway 服务
-/// Windows/Linux: 优先尝试 HTTP 热重载（不重启进程）
-/// 如果 HTTP 重载失败，回退到 restart_service（会触发 Guardian 重启循环）
+/// 重载 Gateway 服务。
+/// Windows/Linux 直接重启已注册服务，确保运行态读取最新 bindings。
 #[allow(unused_variables)]
 async fn reload_gateway_internal(app: Option<&tauri::AppHandle>) -> Result<String, String> {
     #[cfg(target_os = "macos")]
@@ -5576,16 +5575,13 @@ async fn reload_gateway_internal(app: Option<&tauri::AppHandle>) -> Result<Strin
     }
     #[cfg(not(target_os = "macos"))]
     {
-        match reload_gateway_via_http().await {
-            Ok(msg) => Ok(msg),
-            Err(_) => crate::commands::service::restart_service(
-                app.cloned()
-                    .ok_or_else(|| "缺少 AppHandle，无法回退到 Gateway 进程重启".to_string())?,
-                "ai.openclaw.gateway".into(),
-            )
-            .await
-            .map(|_| "Gateway 已重启".to_string()),
-        }
+        crate::commands::service::restart_service(
+            app.cloned()
+                .ok_or_else(|| "缺少 AppHandle，无法重启 Gateway 服务".to_string())?,
+            "ai.openclaw.gateway".into(),
+        )
+        .await
+        .map(|_| "Gateway 已重启".to_string())
     }
 }
 
@@ -6889,10 +6885,22 @@ pub async fn list_remote_models(
             } else if let Some(data) = v.get("models").and_then(|d| d.as_array()) {
                 data.iter()
                     .filter_map(|m| {
-                        m.get("name")
-                            .and_then(|id| id.as_str())
-                            .map(|s| s.trim_start_matches("models/").to_string())
+                        // Gemini uses `name`; several OpenAI-compatible relays use `id`
+                        // or return model names as plain strings.
+                        if let Some(s) = m.as_str() {
+                            Some(s.trim_start_matches("models/").to_string())
+                        } else {
+                            m.get("name")
+                                .or_else(|| m.get("id"))
+                                .or_else(|| m.get("model"))
+                                .and_then(|id| id.as_str())
+                                .map(|s| s.trim_start_matches("models/").to_string())
+                        }
                     })
+                    .collect()
+            } else if let Some(data) = v.as_array() {
+                data.iter()
+                    .filter_map(|m| m.as_str().map(|s| s.trim_start_matches("models/").to_string()))
                     .collect()
             } else {
                 vec![]

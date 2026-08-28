@@ -169,6 +169,9 @@
   background: var(--aether-void);
 }
 
+.models-sampling-field { display:flex; align-items:center; gap:4px; font-size:12px; color:var(--text-secondary); white-space:nowrap; }
+.models-sampling-field input { width:58px; padding:5px 6px; border:1px solid var(--border-primary); border-radius:var(--radius-sm); background:var(--bg-secondary); color:var(--text-primary); }
+
 /* ── Hero 右侧：备选链 ── */
 .models-hero-fallback {
   display: flex; flex-direction: column; gap: var(--space-sm);

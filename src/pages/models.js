@@ -303,6 +303,43 @@ function ensureConfigDefaultModelConfig(config) {
   return config.agents.defaults.model
 }
 
+export function getSamplingConfig(config) {
+  const models = config?.agents?.defaults?.models || {}
+  const entries = Object.values(models).filter(v => v && typeof v === 'object')
+  const firstDefined = key => entries.find(v => v[key] !== undefined)?.[key]
+  return {
+    temperature: firstDefined('temperature'),
+    top_p: firstDefined('top_p'),
+    top_k: firstDefined('top_k'),
+  }
+}
+
+export function applySamplingConfig(config, values) {
+  if (!config.agents) config.agents = {}
+  if (!config.agents.defaults) config.agents.defaults = {}
+  if (!config.agents.defaults.models) config.agents.defaults.models = {}
+  const providers = config.models?.providers || {}
+  const modelKeys = new Set(Object.keys(config.agents.defaults.models))
+  for (const [providerKey, provider] of Object.entries(providers)) {
+    for (const model of (provider.models || [])) {
+      const id = typeof model === 'string' ? model : model.id
+      if (id) modelKeys.add(`${providerKey}/${id}`)
+    }
+  }
+  for (const key of modelKeys) {
+    const current = config.agents.defaults.models[key] && typeof config.agents.defaults.models[key] === 'object' ? config.agents.defaults.models[key] : {}
+    const next = { ...current }
+    if (values.temperature === undefined) delete next.temperature
+    else next.temperature = values.temperature
+    if (values.top_p === undefined) delete next.top_p
+    else next.top_p = values.top_p
+    if (values.top_k > 0) next.top_k = values.top_k
+    else delete next.top_k
+    if (Object.keys(next).length > 0) config.agents.defaults.models[key] = next
+    else delete config.agents.defaults.models[key]
+  }
+}
+
 function ensureDefaultModelConfig(state) {
   return ensureConfigDefaultModelConfig(state.config)
 }
@@ -479,6 +516,7 @@ function applyRoutePreset(state, mode) {
   const next = buildRoutePreset(state.config, mode)
   if (!next.primary) return false
   const modelConfig = ensureDefaultModelConfig(state)
+  const sampling = getSamplingConfig(state.config)
   modelConfig.primary = next.primary
   modelConfig.fallbacks = dedupeFallbacks(next.fallbacks, next.primary)
   normalizeDefaultModelSelection(state.config)
@@ -591,6 +629,7 @@ function renderHero(page, state) {
   if (!container) return
   const primary = getCurrentPrimary(state.config)
   const modelConfig = ensureDefaultModelConfig(state)
+  const sampling = getSamplingConfig(state.config)
   const fallbacks = modelConfig.fallbacks || []
   const entry = getModelObject(state.config, primary)
   const reasoning = !!entry?.model?.reasoning
@@ -655,6 +694,9 @@ function renderHero(page, state) {
           <button class="btn btn-sm btn-secondary" id="models-test-primary" title="${t('models.testPrimary')}">${icon('activity', 14)} ${t('models.testPrimary')}</button>
           <button class="btn btn-sm btn-secondary" id="models-locate-primary" title="${t('models.locateModel')}">${icon('map-pin', 14)} ${t('models.locateModel')}</button>
           <button class="btn btn-sm btn-primary" id="models-apply-gateway" title="${t('models.applyGatewayHint')}">${icon('refresh-cw', 14)} ${t('models.applyGateway')}</button>
+          <label class="models-sampling-field">${t('models.temperature')}<input id="models-temperature" type="number" min="0" max="2" step="0.1" value="${sampling.temperature ?? ''}" placeholder="默认"></label>
+          <label class="models-sampling-field">${t('models.topP')}<input id="models-top-p" type="number" min="0" max="1" step="0.05" value="${sampling.top_p ?? ''}" placeholder="默认"></label>
+          <label class="models-sampling-field">${t('models.topK')}<input id="models-top-k" type="number" min="0" max="1000" step="1" value="${sampling.top_k ?? ''}" placeholder="默认"></label>
         </div>
       </div>
       <div class="models-hero-fallback">
@@ -710,6 +752,13 @@ function renderHero(page, state) {
     })
     _globalPrimaryCombo.setModels(items)
     if (primary) _globalPrimaryCombo.setValue(primary)
+    const currentSampling = getSamplingConfig(state.config)
+    const tempInput = existing.querySelector('#models-temperature')
+    const topPInput = existing.querySelector('#models-top-p')
+    const topKInput = existing.querySelector('#models-top-k')
+    if (tempInput) tempInput.value = currentSampling.temperature ?? ''
+    if (topPInput) topPInput.value = currentSampling.top_p ?? ''
+    if (topKInput) topKInput.value = currentSampling.top_k ?? ''
   }
 
   // 主模型卡片点击 → 展开 Combobox
@@ -723,6 +772,24 @@ function renderHero(page, state) {
   }
 
   const testBtn = container.querySelector('#models-test-primary')
+  const samplingInputs = ['#models-temperature', '#models-top-p', '#models-top-k'].map(s => container.querySelector(s)).filter(Boolean)
+  samplingInputs.forEach(input => input.addEventListener('change', () => {
+    pushUndo(state)
+    const readOptional = (selector, min, max, parser = Number) => {
+      const raw = container.querySelector(selector)?.value?.trim() ?? ''
+      if (raw === '') return undefined
+      const parsed = parser(raw)
+      if (!Number.isFinite(parsed)) return undefined
+      return Math.min(max, Math.max(min, parsed))
+    }
+    const values = {
+      temperature: readOptional('#models-temperature', 0, 2),
+      top_p: readOptional('#models-top-p', 0, 1),
+      top_k: readOptional('#models-top-k', 0, 1000, value => Number.parseInt(value, 10)),
+    }
+    applySamplingConfig(state.config, values)
+    autoSave(state)
+  }))
   if (testBtn) {
     testBtn.onclick = () => {
       const current = getCurrentPrimary(state.config)

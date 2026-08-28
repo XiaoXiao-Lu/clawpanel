@@ -122,6 +122,9 @@ const MODEL_DEFAULTS = {
   modelBaseUrl: '',
   modelContextLength: '',
   modelMaxTokens: '',
+  modelTemperature: '',
+  modelTopP: '',
+  modelTopK: '',
 }
 
 const MODEL_CATALOG_DEFAULTS = {
@@ -1263,6 +1266,9 @@ export function render() {
               <span class="hm-field-label">${t('engine.hermesModelConfigMaxTokens')}</span>
               <input id="hm-model-max-tokens" class="hm-input" type="number" inputmode="numeric" min="1" max="10000000" step="1" value="${esc(modelValues.modelMaxTokens)}" placeholder="8192" ${disabled ? 'disabled' : ''}>
             </label>
+            <label class="hm-field"><span class="hm-field-label">${t('engine.hermesModelConfigTemperature')}</span><input id="hm-model-temperature" class="hm-input" type="number" min="0" max="2" step="0.1" value="${esc(modelValues.modelTemperature)}" placeholder="0.7" ${disabled ? 'disabled' : ''}></label>
+            <label class="hm-field"><span class="hm-field-label">${t('engine.hermesModelConfigTopP')}</span><input id="hm-model-top-p" class="hm-input" type="number" min="0" max="1" step="0.05" value="${esc(modelValues.modelTopP)}" placeholder="1" ${disabled ? 'disabled' : ''}></label>
+            <label class="hm-field"><span class="hm-field-label">${t('engine.hermesModelConfigTopK')}</span><input id="hm-model-top-k" class="hm-input" type="number" min="1" max="1000" step="1" value="${esc(modelValues.modelTopK)}" placeholder="留空" ${disabled ? 'disabled' : ''}></label>
           </div>
           <div class="hm-channel-footnote">${t('engine.hermesModelConfigFootnote')}</div>
         </div>
@@ -4192,6 +4198,9 @@ export function render() {
       modelBaseUrl: el.querySelector('#hm-model-base-url')?.value || '',
       modelContextLength: el.querySelector('#hm-model-context-length')?.value || '',
       modelMaxTokens: el.querySelector('#hm-model-max-tokens')?.value || '',
+      modelTemperature: el.querySelector('#hm-model-temperature')?.value || '',
+      modelTopP: el.querySelector('#hm-model-top-p')?.value || '',
+      modelTopK: el.querySelector('#hm-model-top-k')?.value || '',
     }
     panelStateBus.setSaving('model-config', true)
     panelStateBus.setError('model-config', null)
@@ -4333,6 +4342,9 @@ export function render() {
       modelBaseUrl: el.querySelector('#hm-model-base-url')?.value || '',
       modelContextLength: el.querySelector('#hm-model-context-length')?.value || '',
       modelMaxTokens: el.querySelector('#hm-model-max-tokens')?.value || '',
+      modelTemperature: el.querySelector('#hm-model-temperature')?.value || '',
+      modelTopP: el.querySelector('#hm-model-top-p')?.value || '',
+      modelTopK: el.querySelector('#hm-model-top-k')?.value || '',
     }
     const modelCatalogForm = {
       modelCatalogEnabled: !!el.querySelector('#hm-model-catalog-enabled')?.checked,

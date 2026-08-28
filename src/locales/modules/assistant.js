@@ -276,6 +276,8 @@ export default {
   apiType: _('接口类型', 'API Type', '介面類型', 'API タイプ', 'API 유형'),
   model: _('模型', 'Model', '', 'モデル', '모델', 'Mô hình', 'Modelo', 'Modelo', 'Модель', 'Modèle', 'Modell'),
   temperature: _('温度', 'Temperature', '溫度', '温度', '온도', 'Nhiệt độ', 'Temperatura', 'Temperatura', 'Температура', 'Température', 'Temperatur'),
+  topP: _('Top-p', 'Top-p', 'Top-p', 'Top-p', 'Top-p', 'Top-p', 'Top-p', 'Top-p', 'Top-p', 'Top-p', 'Top-p'),
+  topK: _('Top-k', 'Top-k', 'Top-k', 'Top-k', 'Top-k', 'Top-k', 'Top-k', 'Top-k', 'Top-k', 'Top-k', 'Top-k'),
   quickSelect: _('快捷选择', 'Quick Select', '快捷選擇', 'クイック選択', '빠른 선택'),
   visitSite: _('访问官网', 'Visit Website', '訪問官網', 'サイトを訪問', '사이트 방문'),
   notConfigured: _('未配置', 'Not configured', '未設定', '未設定', '미설정'),

@@ -3866,10 +3866,8 @@ pub async fn save_messaging_platform(
     super::config::save_openclaw_json(&cfg)?;
 
     // Gateway 重载在后台进行，不阻塞 UI 响应
-    let app2 = app.clone();
-    tauri::async_runtime::spawn(async move {
-        let _ = super::config::do_reload_gateway(&app2).await;
-    });
+    // Wait until Gateway has loaded the new route before reporting success.
+    super::config::do_reload_gateway(&app).await?;
 
     Ok(json!({ "ok": true }))
 }
@@ -4014,10 +4012,7 @@ pub async fn remove_messaging_platform(
     {
         return Err("配置写入后校验失败，请重试".into());
     }
-    let app2 = app.clone();
-    tauri::async_runtime::spawn(async move {
-        let _ = super::config::do_reload_gateway(&app2).await;
-    });
+    super::config::do_reload_gateway(&app).await?;
 
     Ok(json!({
         "ok": true,
